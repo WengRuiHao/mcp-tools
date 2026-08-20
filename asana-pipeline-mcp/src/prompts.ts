@@ -43,10 +43,12 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 **清單裡如果某張票標記 \`contentChanged: true\`，代表這張票之前已經驗證 PASS 過，但 Asana 上的內容後來又被改過**——不能因為它「之前是 PASS」就跳過，一樣要走一次步驟 2（下一步 \`get_ticket_snapshot\` 會確認內容是不是真的變了、需不需要重新分析）。
 
 **硬性規定：回傳裡的 \`awaitingSelfConfirmation\`/\`awaitingTesterConfirmation\` 一定要主動列給使用者看，不能因為這次是來處理別的新票就略過不提**。一張票結案前有兩關人類確認，兩關都要走完才算真正結案：
-- **第一關 \`awaitingSelfConfirmation\`**：AI 驗證師判過 PASS，但『使用者自己』還沒實際測過＋審視過程式碼品質。使用者對某張票明確回覆「我測過了、code 也看過沒問題」或「有問題，如下」之後，呼叫 \`record_self_confirmation({ taskGid, confirmed, note? })\` 記錄下來——這張票會從 \`awaitingSelfConfirmation\` 移到 \`awaitingTesterConfirmation\`，等第二關。
-- **第二關（最終關）\`awaitingTesterConfirmation\`**：第一關已經過了，但『另一位獨立測試員』的情境測試還沒表態。使用者轉述測試員的結果之後，呼叫 \`record_tester_confirmation({ taskGid, confirmed, note? })\` 記錄下來——**只有這關也 confirmed: true，票單才算真正結案**，從清單消失。
+- **第一關 \`awaitingSelfConfirmation\`**：AI 驗證師判過 PASS，但『使用者自己』還沒實際測過＋審視過程式碼品質。使用者對某張票明確回覆「我測過了、code 也看過沒問題」或「有問題，如下」之後，呼叫 \`record_self_confirmation({ taskGid, confirmed, note? })\` 記錄下來——\`confirmed: true\` 這張票會從 \`awaitingSelfConfirmation\` 移到 \`awaitingTesterConfirmation\`，等第二關；\`confirmed: false\` 這張票不會進第二關，而是重新丟回 \`tickets\`（標記 \`humanRejected: true\`），交給 AI 用跟自己判 FAIL 一樣的方式處理（見下方「\`humanRejected\`」說明）。
+- **第二關（最終關）\`awaitingTesterConfirmation\`**：第一關已經過了，但『另一位獨立測試員』的情境測試還沒表態。使用者轉述測試員的結果之後，呼叫 \`record_tester_confirmation({ taskGid, confirmed, note? })\` 記錄下來——**只有這關也 confirmed: true，票單才算真正結案**，從清單消失；\`confirmed: false\` 一樣重新丟回 \`tickets\`（標記 \`humanRejected: true\`）。
 
 **AI 自己判 PASS 只代表可以交給人測了，不是真正結案**，不去主動提醒的話，使用者永遠不會知道有哪些票卡在哪一關等他處理。就算這次呼叫 \`list_pending_tickets\` 的目的是要處理全新的票、這兩份清單完全是舊的存量，也一律要在這一步先原封不動地列出來（票名 + \`taskGid\`，如果對應的 \`selfConfirmation\`/\`testerConfirmation\` 不是 \`null\` 且 \`confirmed: false\`，也要把 \`note\` 裡回報的問題一併列出來），問使用者要不要順便處理幾張。使用者當下沒空處理的票，就先跳過，下次執行仍然會照樣被列出來，不會遺漏。**不能為了省事把兩關合併成一次問使用者**——第二關是另一位獨立測試員的職責，使用者自己確認過不代表可以直接呼叫 \`record_tester_confirmation\`（工具本身也會拒絕：沒過第一關就不能記錄第二關）。
+
+**清單裡（\`tickets\`）如果某張票標記 \`humanRejected: true\`，代表它不是一張全新沒驗證過的票，而是使用者或測試員事後測出問題、被重新丟回來的票**——這種票不用從頭走過下面步驟 2 之 1-5，直接呼叫 \`get_ticket_status({ taskGid })\` 讀 \`self_confirmation\`/\`tester_confirmation\` 裡的 \`note\`，把回報的問題當作新證據，直接跳到步驟 2 之 6 以「驗證師」角色重新檢視（除非你判斷根因確實在分析或實作階段，才回頭走對應步驟），呼叫 \`advance_ticket_stage\` 記錄新的 \`verdict\`/\`rootCause\`——讓這張票套用跟 AI 驗證師自己判 FAIL 完全一樣的根因分流機制（見步驟 2 之 6 結尾），不要自己另外發明一套「人工打回」流程。
 
 ## 換 session／換 AI 接手時：怎麼低成本接上進度，不會 token 爆掉
 
@@ -63,7 +65,7 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
    - **子任務會自動偵測、不需要你自己判斷或傳遞任何參數**：工具內部會讀 Asana 這張任務自己的 \`parent\` 欄位，如果偵測到有父票單，會自動先確保父票單（以及它自己的父票單……往上一路到頂層）都已經建好追蹤目錄，再把這張票巢狀掛在正確的父票單底下（\`.../<父票號>/<子票號>/\`），層數不限。**不要自己假設某張票是不是頂層——就算它是從 \`list_pending_tickets\`／看板資料裡拿到的，也可能其實是別張票的子任務，一律呼叫 \`get_ticket_snapshot\` 讓工具自己去 Asana 查證，不要憑經驗或票號長得像不像來猜。**
    - **回傳 \`unchanged: true\`** 代表這張票的內容跟上次抓的一樣（沒有附全文），直接沿用本機既有的 \`01-analysis.md\`/\`02-implementation.md\` 等追蹤檔案繼續處理即可，不用重新分析。
    - **回傳 \`needsReanalysis: true\`**（一定伴隨 \`unchanged: false\`）代表 Asana 上的內容真的變了、而且這張票之前已經有分析/實作/驗證的進度——**不管 \`get_ticket_status\` 顯示的 \`stage\` 是什麼、\`verdict\` 之前是不是 PASS，都要當作這張票還沒處理過，從下面的第 4 步（分析師）重新開始**，不能沿用舊的 \`01-analysis.md\` 摘要。
-   - 呼叫 \`advance_ticket_stage({ taskGid: T, stage: "project_dir_confirmed", patch: { project_dir: projectDir } })\` 把這張票的 \`project_dir\` 記錄進追蹤狀態。
+   - 呼叫 \`advance_ticket_stage({ taskGid: T, stage: "project_dir_confirmed", project_dir: projectDir })\` 把這張票的 \`project_dir\` 記錄進追蹤狀態。
 
 2. **確認 SA/SD 規格（強制，不可跳過；但每個 Asana 專案通常只需要問一次）**：
 
@@ -109,8 +111,11 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
    取得「工程師」角色說明：呼叫 \`get_role_prompt({ role: "engineer" })\`（**如果你有能力派子任務執行，見上面「選用建議」那段，改派子任務扮演這個角色，不要自己做**），依照裡面的說明直接用 \`write_project_file\` 修改需要的檔案來解決問題，需要的話用 \`run_project_shell\` 檢查或記錄變更（**禁止 git push / 強制覆蓋類指令，git 指令也一定要先登記過步驟 3 的 git 版控根目錄，這個工具本身會拒絕執行不符的指令**）。完成後呼叫 \`write_ticket_artifact({ taskGid: T, filename: "02-implementation.md", content: <修改摘要全文>, summary: <2-4 條重點精簡摘要>, syncNote: <這次有沒有推翻/補充分析師的結論？有就寫這裡，沒有就填 "NO_SYNC_NEEDED"，這個參數是必填的> })\`，再呼叫 \`advance_ticket_stage({ taskGid: T, stage: "implemented" })\`。
 
 6. **開始前**：呼叫 \`get_ticket_status({ taskGid: T })\` 看 \`summaries.analysis\`/\`summaries.implementation\`，同樣只有摘要不夠用時才另外呼叫 \`read_ticket_artifact\` 讀 \`01-analysis.md\`/\`02-implementation.md\` 全文。
-   取得「驗證師」角色說明：呼叫 \`get_role_prompt({ role: "verifier" })\`（**如果你有能力派子任務執行，見上面「選用建議」那段，改派子任務扮演這個角色，不要自己做**），依照裡面的說明檢查工程師的修改是否真的解決了票單描述的問題，可以跑編譯/測試指令輔助判斷。得出 \`PASS\` 或 \`FAIL\` 結論，寫入 \`write_ticket_artifact({ taskGid: T, filename: "03-verification.md", content: <結論+理由全文>, summary: <2-4 條重點精簡摘要>, syncNote: <驗證過程有沒有發現工程師的修改跟 02-implementation.md 記錄的不一致？有就寫這裡，沒有就填 "NO_SYNC_NEEDED"，這個參數是必填的> })\`，呼叫 \`advance_ticket_stage({ taskGid: T, stage: "verified", patch: { verdict: "PASS"|"FAIL" } })\`。
-   - 若 FAIL，不要自動重跑工程師階段，記錄下來即可，留給人工事後審閱。
+   取得「驗證師」角色說明：呼叫 \`get_role_prompt({ role: "verifier" })\`（**如果你有能力派子任務執行，見上面「選用建議」那段，改派子任務扮演這個角色，不要自己做**），依照裡面的說明檢查工程師的修改是否真的解決了票單描述的問題，可以跑編譯/測試指令輔助判斷。得出 \`PASS\` 或 \`FAIL\` 結論，寫入 \`write_ticket_artifact({ taskGid: T, filename: "03-verification.md", content: <結論+理由全文>, summary: <2-4 條重點精簡摘要>, syncNote: <驗證過程有沒有發現工程師的修改跟 02-implementation.md 記錄的不一致？有就寫這裡，沒有就填 "NO_SYNC_NEEDED"，這個參數是必填的> })\`，呼叫 \`advance_ticket_stage({ taskGid: T, stage: "verified", verdict: "PASS"|"FAIL", rootCause: <只有 FAIL 時必填，"analysis"|"implementation"，判斷這次問題根因是分析方向本身錯了還是單純實作沒做到位> })\`。
+   - **若 FAIL，先呼叫 \`get_ticket_status({ taskGid: T })\` 看 \`needs_human_review\`**：
+     - **\`false\`**（\`consecutive_fail_count\` 還沒到 3）→ 依 \`03-verification.md\` 的 FAIL 理由跟這次帶的 \`rootCause\`，**自動決定回哪個角色，不需要停下來問使用者**：\`rootCause\` 是 \`"implementation"\` → 直接回到步驟 5（工程師角色），依 FAIL 理由修正後重新走一次驗證；\`rootCause\` 是 \`"analysis"\` → 直接回到步驟 4（分析師角色），重新分析後依序把工程師、驗證師都重跑一次。
+     - **\`true\`**（同一張票已經連續 FAIL 3 次）→ **不要再自動重跑**，依最上面「不清楚就要問」的原則，把這幾輪的 FAIL 理由整理給使用者，問清楚方向再繼續。
+     - 不管 \`needs_human_review\` 是什麼，只要你自己也判斷不出根因屬於哪一種、或 FAIL 理由牽涉到需求/規格層級的重大認知落差（例如懷疑票單描述本身就有問題），一樣依「不清楚就要問」的原則提前停下來問，不用等到累積滿 3 次。
 
 ## 步驟 3：彙整報告
 所有票單處理完後，整理一個表格（票單／專案目錄／SD 模式／結果／備註）呈現給使用者。並提醒：程式碼異動是否已經 commit 由工程師/驗證師階段自行決定，但不管有沒有 commit，都還沒有 push，需要人工自行決定要不要推上去。
