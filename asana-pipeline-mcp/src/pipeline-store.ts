@@ -668,6 +668,8 @@ export interface PendingActionsReportInput {
   awaitingTesterConfirmation: { taskGid: string; name: string }[];
   needsHumanReview: { taskGid: string; name: string; consecutiveFailCount: number }[];
   manualActions: { taskGid: string; name: string; actions: string[] }[];
+  /** 每個已登記 git 版控根目錄目前 `git status --porcelain` 的結果——用 git 自己的真實狀態當答案，不是重建/彙整各票單 02-implementation.md 裡寫的「改了哪些檔案」（那些是文字描述，可能漏記或過期）。`registered: false` 代表這個 projectDir 還沒呼叫過 register_git_roots。 */
+  uncommittedChanges: { registered: boolean; roots: { label: string; path: string; changedFiles: string[] }[] };
 }
 
 /**
@@ -677,6 +679,20 @@ export interface PendingActionsReportInput {
  * 檔案位置跟每張票自己的追蹤目錄同一層（<projectDir>/.asana-pipeline/<projectName>/），不是散落在各票單
  * 資料夾裡，方便使用者一次打開就看到這個 Asana 專案底下全部待處理項目。
  */
+/** 把 git status 結果排成「## Git 尚未 commit 的變更」這個區塊——沒登記過 git 根目錄、或有根目錄但目前乾淨，都各自給一句清楚的說明，不要讓使用者猜「是沒登記還是真的沒異動」。 */
+function renderUncommittedSection(uncommitted: PendingActionsReportInput["uncommittedChanges"]): string {
+  const title = "Git 尚未 commit 的變更";
+  if (!uncommitted.registered) {
+    return `## ${title}\n\n（這個專案還沒登記 git 版控根目錄，呼叫 register_git_roots 之後才能檢查）\n`;
+  }
+  const lines = uncommitted.roots.map((r) => {
+    if (r.changedFiles.length === 0) return `${r.label}（${r.path}）— 乾淨，沒有未 commit 的變更`;
+    const fileList = r.changedFiles.map((f) => `  - ${f}`).join("\n");
+    return `${r.label}（${r.path}）— ${r.changedFiles.length} 個檔案有異動未 commit\n${fileList}`;
+  });
+  return `## ${title}\n\n${lines.length > 0 ? lines.map((l) => `- [ ] ${l}`).join("\n") : "（無）"}\n`;
+}
+
 export async function writePendingActionsReport(
   projectDir: string,
   projectName: string,
@@ -711,6 +727,7 @@ export async function writePendingActionsReport(
       "需要你手動處理的事項（例如 SQL 只能由你到 Database 工具執行）",
       input.manualActions.flatMap((t) => t.actions.map((a) => `${t.name}（\`${t.taskGid}\`）— ${a}`))
     ),
+    renderUncommittedSection(input.uncommittedChanges),
   ].join("\n");
 
   await writeFile(filePath, content, "utf-8");

@@ -76,6 +76,32 @@ server.tool(
 // Asana ticket access (bridged to asana-mcp)
 // ---------------------------------------------------------------------------
 
+/**
+ * 對每個已登記的 git 版控根目錄跑一次 git status --porcelain，回傳實際未 commit 的檔案清單。
+ * 刻意用 git 自己的真實狀態當答案，不去重建/彙整各票單 02-implementation.md 裡「改了哪些檔案」的文字描述——
+ * 那些是 AI 寫的摘要，可能漏記或過期，git status 才是不會說謊的真相來源。
+ */
+async function getUncommittedChangesSummary(
+  projectDir: string
+): Promise<{ registered: boolean; roots: { label: string; path: string; changedFiles: string[] }[] }> {
+  const gitRoots = await resolveGitRoots(projectDir);
+  if (!gitRoots || gitRoots.length === 0) return { registered: false, roots: [] };
+
+  const roots = await Promise.all(
+    gitRoots.map(async (root) => {
+      const result = await runShell(root.path, "git status --porcelain", [root]);
+      const changedFiles = result.ok
+        ? result.stdout
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+        : [`（git status 執行失敗：${result.message || result.stderr || "未知錯誤"}）`];
+      return { label: root.label, path: root.path, changedFiles };
+    })
+  );
+  return { registered: true, roots };
+}
+
 server.tool(
   "list_pending_tickets",
   "列出指定 Asana 專案裡尚未完成、且尚未驗證通過（PASS）的票單清單。透過 asana-mcp 取得看板資料，並依本地追蹤紀錄過濾掉已經處理完成的票。" +
@@ -85,7 +111,8 @@ server.tool(
     "**awaitingTesterConfirmation（第二關／最終關）**：第一關已經 confirmed:true，但『另一位獨立測試員』的情境測試還沒表態的票單——只有這關也 confirmed:true，票單才算真正結案。" +
     "AI 自己判定 PASS 不等於這張票真的結案，呼叫端每次執行這個工具都必須把這兩份清單完整秀給使用者看（不能因為這次是來處理別的新票就略過），直到每一張都依序走完 record_self_confirmation 再 record_tester_confirmation 為止，才會從清單消失。" +
     "**`tickets`（一般待處理清單）裡如果某張票標記 `humanRejected: true`，代表這不是一張全新沒驗證過的票，而是使用者或測試員事後回報有問題、被重新丟回來的票**（`record_self_confirmation`/`record_tester_confirmation` 帶 `confirmed:false` 時會把這張票的 verdict 重設回 null，讓它重新出現在這裡）——處理這種票要當作跟 AI 驗證師自己判 FAIL 完全一樣的情況，套用同一套根因分流機制（見 get_role_prompt({role:\"verifier\"})/advance_ticket_stage 的 rootCause 說明），不要另外發明一套「人工打回」流程。" +
-    "**帶 `projectName` 時，這次算出來的四類「需要人工處理」項目（待你確認／待測試員確認／卡住需要介入／需要你手動處理的事項）會整份覆寫進一份持久化的 `PENDING_HUMAN_ACTIONS.md`**（放在 `<projectDir>/.asana-pipeline/<projectName>/` 底下，跟每張票自己的追蹤目錄同一層）——這是為了取代「只在聊天視窗提醒一次，換個 session 就找不到」的做法，不需要任何人記得手動維護。強烈建議每次呼叫都帶上 `projectName`（跟步驟 0 拿到的 Asana 專案全名稱一致）。",
+    "**帶 `projectName` 時，這次算出來的五類「需要人工處理」項目（待你確認／待測試員確認／卡住需要介入／需要你手動處理的事項／Git 尚未 commit 的變更）會整份覆寫進一份持久化的 `PENDING_HUMAN_ACTIONS.md`**（放在 `<projectDir>/.asana-pipeline/<projectName>/` 底下，跟每張票自己的追蹤目錄同一層）——這是為了取代「只在聊天視窗提醒一次，換個 session 就找不到」的做法，不需要任何人記得手動維護。強烈建議每次呼叫都帶上 `projectName`（跟步驟 0 拿到的 Asana 專案全名稱一致）。" +
+    "**`uncommittedChanges` 是對每個已登記的 git 版控根目錄實際跑 `git status --porcelain` 的結果，不是重建/彙整各票單文件裡「改了哪些檔案」的文字描述**——那些是 AI 寫的摘要，可能漏記或過期，git 自己的狀態才是真相。`registered: false` 代表這個專案還沒呼叫過 `register_git_roots`。",
   {
     projectGid: z.string().describe("Asana 專案 gid"),
     sectionFilter: z.string().nullable().optional().describe("只取這個 section 名稱底下的任務，不指定就取全部"),
@@ -167,14 +194,17 @@ server.tool(
     }
 
     let pendingActionsReportPath: string | null = null;
+    let uncommittedChanges: { registered: boolean; roots: { label: string; path: string; changedFiles: string[] }[] } | null = null;
     if (projectName) {
       const projectDir = await resolveProjectDir(projectGid);
       if (projectDir) {
+        uncommittedChanges = await getUncommittedChangesSummary(projectDir);
         pendingActionsReportPath = await writePendingActionsReport(projectDir, projectName, {
           awaitingSelfConfirmation,
           awaitingTesterConfirmation,
           needsHumanReview: needsHumanReviewList,
           manualActions: manualActionsList,
+          uncommittedChanges,
         });
       }
     }
@@ -192,6 +222,7 @@ server.tool(
       needsHumanReview: needsHumanReviewList,
       manualActionsCount: manualActionsList.length,
       manualActions: manualActionsList,
+      ...(uncommittedChanges ? { uncommittedChanges } : {}),
       ...(pendingActionsReportPath ? { pendingActionsReportPath } : {}),
     });
   }
