@@ -37,6 +37,24 @@ npm run build
 
 </details>
 
+### 建議：在你自己的全域 CLAUDE.md 加一條規則
+
+`.asana-pipeline/` 底下的追蹤檔案有機會被使用者或另一個沒有走這條 pipeline 的 AI 直接用一般 Edit/Write 手動改到——這種情況這個 MCP 完全不知情（見下方「外部修改偵測」），而且**只有在有人明確呼叫 `get_ticket_status`/`read_ticket_artifact` 時才會被抓到，不會主動通知**。
+
+比較可靠的做法是把提醒放進**你自己的全域 CLAUDE.md**（例如 `~/.claude/CLAUDE.md`），因為那份檔案不管在哪個專案目錄開新 session 都會被自動讀到，涵蓋範圍比只寫在這個 MCP 的 prompt 裡（只有真的呼叫 `get_pipeline_overview`/`get_role_prompt` 才讀得到）廣很多。建議加一段類似：
+
+```markdown
+## Asana Pipeline 追蹤檔案同步規則
+
+任何專案目錄下只要有 .asana-pipeline/ 資料夾，一律適用：
+- 直接用 Edit/Write 改了裡面的 01/02/03-*.md（沒透過 write_ticket_artifact）之後，
+  接著呼叫 resync_ticket_artifact({ taskGid, filename }) 同步雜湊記錄。
+- 不確定追蹤狀態是不是最新的，先呼叫 get_ticket_status 看 external_changes，
+  任一個 _externally_modified 是 true 就重新讀全文，不要只信快取摘要。
+```
+
+這終究是提醒 AI 自己記得做，不是工具層級的強制——真正的安全網是「外部修改偵測」那組機制本身（見下方），這段只是提高被看到、被處理的機率。
+
 ### 一次性設定（每個 Asana 專案通常只問一次）
 
 | 工具 | 設定什麼 |
