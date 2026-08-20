@@ -58,6 +58,7 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 2. 只有當摘要看不出關鍵細節（例如工程師需要知道分析師具體點名哪幾個檔案、驗證師需要核對分析師原始判斷的完整推理）時，才呼叫 \`read_ticket_artifact({ taskGid, filename })\` 讀對應那一份的全文——**按需讀取，不要每次接手都把三份全文一次讀完**。
 3. 如果 \`needs_reanalysis: true\`，不管 \`stage\` 顯示到哪、\`verdict\` 之前是不是 PASS，都要當作這張票的分析/實作結論已經過期，重新從「分析師」角色開始走。
 4. **如果 \`sync_flags.analysis_stale\` 或 \`sync_flags.implementation_stale\` 是 true，代表上一輪有同步債務沒還**——例如工程師階段推翻了分析師的結論，但沒有回頭同步 \`01-analysis.md\`。這不是「票單內容變了」（那是 \`needs_reanalysis\` 管的），純粹是「追蹤系統內部三份文件彼此沒對齊」。處理這張票之前，先呼叫 \`read_ticket_artifact\` 讀有問題的那一份（或前後兩份）對照，確認落差在哪，再決定要不要補一段同步說明——不要當作沒看到就繼續往下走，這是這條 pipeline 過去實際發生過的問題（同一個發現反覆修正十幾輪，分析文件完全沒跟上，全靠使用者事後肉眼發現）。
+5. **如果 \`external_changes\` 裡任一個 \`_externally_modified\` 是 true，代表對應那份 01/02/03 文件在這個 MCP 不知情的狀況下被改過**（使用者直接編輯、或別的沒走這條 pipeline 的 AI 動過）——跟第 4 點的「內部三份文件彼此沒對齊」是不同軸向，這個是「這個 MCP 記的內容跟磁碟上現在真正的內容對不上」。這種情況下 \`summaries.*\` 快取摘要跟 \`sync_flags\` 的判斷都可能已經過期，**一律重新用 \`read_ticket_artifact\` 讀該份全文，不要只信摘要**；確認過內容沒問題、想把雜湊記錄同步回目前內容，呼叫 \`resync_ticket_artifact({ taskGid, filename })\`（不需要 syncNote、不用走任何角色階段）。
 
 ## 步驟 2：對每一張票單 T 執行
 

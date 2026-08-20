@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 320" role="img" aria-label="外部修改偵測：get_ticket_status 每次呼叫都會重新讀取 01/02/03-*.md 現在磁碟上的實際內容、重新算雜湊，跟 status.json 記錄的 sync.*_hash 比對——不是拿兩個舊記錄互相比。一樣的話 external_changes 對應欄位是 false，代表可以信任摘要與同步旗標；不一樣的話是 true，代表這份檔案在 MCP 不知情的狀況下被改過，摘要與同步旗標可能已經過期，應該重新用 read_ticket_artifact 讀全文，確認沒問題後可以呼叫 resync_ticket_artifact 把雜湊記錄同步回目前內容">
+  <defs>
+    <marker id="arrowDetect" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
+    </marker>
+    <marker id="arrowDetectGood" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4c7a52"/>
+    </marker>
+    <marker id="arrowDetectStale" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#a84b36"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1040" height="320" fill="#f5f2ea"/>
+
+  <g font-family="'IBM Plex Mono','Noto Sans TC',sans-serif">
+    <rect x="20" y="110" width="150" height="60" rx="9" fill="none" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="95" y="135" text-anchor="middle" font-size="12.5" fill="#2a2620">get_ticket_status</text>
+    <text x="95" y="153" text-anchor="middle" font-size="11" fill="#6b6558">({ taskGid })</text>
+
+    <rect x="210" y="105" width="230" height="70" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="325" y="128" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12" fill="#2a2620">讀取磁碟上現在的內容</text>
+    <text x="325" y="146" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#6b6558">01/02/03-*.md，重新算雜湊</text>
+
+    <polygon points="580,95 655,140 580,185 505,140" fill="#dbe9ea" stroke="#2b6777" stroke-width="1.4"/>
+    <text x="580" y="134" text-anchor="middle" font-size="11" font-weight="700" fill="#17414c">跟 sync.*_hash</text>
+    <text x="580" y="150" text-anchor="middle" font-size="11" font-weight="700" fill="#17414c">一樣嗎？</text>
+
+    <rect x="740" y="105" width="210" height="70" rx="9" fill="#dfe9dd" stroke="#4c7a52"/>
+    <text x="845" y="128" text-anchor="middle" font-size="10.5" fill="#4c7a52" opacity="0.8">external_changes.xxx</text>
+    <text x="845" y="148" text-anchor="middle" font-size="12.5" font-weight="700" fill="#4c7a52">= false（資料可信）</text>
+
+    <rect x="360" y="225" width="440" height="80" rx="9" fill="#f2dbd2" stroke="#a84b36"/>
+    <text x="580" y="248" text-anchor="middle" font-size="12.5" font-weight="700" fill="#a84b36">external_changes.xxx = true</text>
+    <text x="580" y="266" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#a84b36">summaries／sync_flags 可能過期，改讀 read_ticket_artifact 全文</text>
+    <text x="580" y="284" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#a84b36">確認內容沒問題、想同步雜湊記錄 → 呼叫 resync_ticket_artifact</text>
+  </g>
+
+  <line x1="170" y1="140" x2="206" y2="140" stroke="#2a2620" stroke-width="1.6" marker-end="url(#arrowDetect)"/>
+  <line x1="440" y1="140" x2="501" y2="140" stroke="#2a2620" stroke-width="1.6" marker-end="url(#arrowDetect)"/>
+  <line x1="655" y1="140" x2="736" y2="140" stroke="#4c7a52" stroke-width="1.6" marker-end="url(#arrowDetectGood)"/>
+  <text x="695" y="128" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#4c7a52">一樣</text>
+  <line x1="580" y1="185" x2="580" y2="221" stroke="#a84b36" stroke-width="1.6" marker-end="url(#arrowDetectStale)"/>
+  <text x="612" y="207" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#a84b36">不一樣</text>
+</svg>

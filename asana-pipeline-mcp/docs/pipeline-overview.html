@@ -333,7 +333,7 @@
   <header class="hero">
     <p class="eyebrow">操作手冊 · asana-pipeline-mcp</p>
     <h1>Asana Pipeline 全景圖</h1>
-    <p class="lede">從「今天有哪些票該處理」到分析師 → 工程師 → 驗證師三階段自動跑完，再到換 session／換 AI 接手、票單內容被改過怎麼被抓出來——這五張圖對照目前這個 MCP 實際在跑的完整流程。</p>
+    <p class="lede">從「今天有哪些票該處理」到分析師 → 工程師 → 驗證師三階段自動跑完，再到換 session／換 AI 接手、票單內容被改過怎麼被抓出來、追蹤檔案被繞過 MCP 直接改過又怎麼被抓出來——這六張圖對照目前這個 MCP 實際在跑的完整流程。</p>
   </header>
 
   <section class="block">
@@ -732,6 +732,62 @@
       </svg>
       </div>
       <figcaption>寫 <code class="mono">02-implementation.md</code>/<code class="mono">03-verification.md</code> 時 <code class="mono">syncNote</code> 是必填參數，不能省略——工具層級的強制檢查，不管是哪個 AI/host 在呼叫都一樣有效，不依賴對方自己記得或遵守 prompt 建議。</figcaption>
+    </figure>
+  </section>
+
+  <section class="block">
+    <div class="block-head">
+      <span class="block-num">6</span>
+      <h2>外部修改偵測</h2>
+    </div>
+    <p class="block-note">跟上面「01/02/03 互相同步」是不同軸向的比對：那張比的是「兩份都是這個 MCP 自己以前記錄的雜湊」彼此對不對得起來；這張比的是「這個 MCP 記錄的舊雜湊」跟「磁碟上現在真正的內容」對不對得起來——只有這組比對抓得到使用者或沒走這條 pipeline 的 AI 直接手動編輯追蹤檔案的情況。</p>
+    <figure class="diagram">
+      <div class="diagram-scroll">
+      <svg viewBox="0 0 1040 320" role="img" aria-label="外部修改偵測：get_ticket_status 每次呼叫都會重新讀取 01/02/03-*.md 現在磁碟上的實際內容、重新算雜湊，跟 status.json 記錄的 sync.*_hash 比對——不是拿兩個舊記錄互相比。一樣的話 external_changes 對應欄位是 false，代表可以信任摘要與同步旗標；不一樣的話是 true，代表這份檔案在 MCP 不知情的狀況下被改過，摘要與同步旗標可能已經過期，應該重新用 read_ticket_artifact 讀全文，確認沒問題後可以呼叫 resync_ticket_artifact 把雜湊記錄同步回目前內容">
+        <defs>
+          <marker id="arrowDetect" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+          </marker>
+          <marker id="arrowDetectGood" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--good)"/>
+          </marker>
+          <marker id="arrowDetectStale" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--stale)"/>
+          </marker>
+        </defs>
+
+        <g font-size="12.5">
+          <rect x="20" y="110" width="150" height="60" rx="9" fill="none" stroke="currentColor" opacity="0.85"/>
+          <text x="95" y="135" text-anchor="middle" class="mono-label">get_ticket_status</text>
+          <text x="95" y="153" text-anchor="middle" font-size="11" opacity="0.7">({ taskGid })</text>
+
+          <rect x="210" y="105" width="230" height="70" rx="9" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
+          <text x="325" y="128" text-anchor="middle" font-size="12">讀取磁碟上現在的內容</text>
+          <text x="325" y="146" text-anchor="middle" font-size="11" opacity="0.7">01/02/03-*.md，重新算雜湊</text>
+
+          <polygon points="580,95 655,140 580,185 505,140" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"/>
+          <text x="580" y="134" text-anchor="middle" font-size="11" font-weight="700" fill="var(--accent-ink)">跟 sync.*_hash</text>
+          <text x="580" y="150" text-anchor="middle" font-size="11" font-weight="700" fill="var(--accent-ink)">一樣嗎？</text>
+
+          <rect x="740" y="105" width="210" height="70" rx="9" fill="var(--good-soft)" stroke="var(--good)"/>
+          <text x="845" y="128" text-anchor="middle" font-size="10.5" fill="var(--good)" opacity="0.8">external_changes.xxx</text>
+          <text x="845" y="148" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--good)">= false（資料可信）</text>
+
+          <rect x="360" y="225" width="440" height="80" rx="9" fill="var(--stale-soft)" stroke="var(--stale)"/>
+          <text x="580" y="248" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--stale)">external_changes.xxx = true</text>
+          <text x="580" y="266" text-anchor="middle" font-size="11" fill="var(--stale)">summaries／sync_flags 可能過期，改讀 read_ticket_artifact 全文</text>
+          <text x="580" y="284" text-anchor="middle" font-size="11" fill="var(--stale)">確認內容沒問題、想同步雜湊記錄 → 呼叫 resync_ticket_artifact</text>
+        </g>
+
+        <line x1="170" y1="140" x2="206" y2="140" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrowDetect)"/>
+        <line x1="440" y1="140" x2="501" y2="140" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrowDetect)"/>
+        <line x1="655" y1="140" x2="736" y2="140" stroke="var(--good)" stroke-width="1.6" marker-end="url(#arrowDetectGood)"/>
+        <text x="695" y="128" text-anchor="middle" font-size="11" fill="var(--good)">一樣</text>
+        <line x1="580" y1="185" x2="580" y2="221" stroke="var(--stale)" stroke-width="1.6" marker-end="url(#arrowDetectStale)"/>
+        <text x="612" y="207" text-anchor="middle" font-size="11" fill="var(--stale)">不一樣</text>
+      </svg>
+      </div>
+      <figcaption><code class="mono">sync_flags</code> 用的兩個雜湊都只在呼叫 <code class="mono">write_ticket_artifact</code> 時才會更新，繞過它就不會被更新到，拿兩個「一樣沒被更新過」的舊值互相比，永遠看起來一致；<code class="mono">external_changes</code> 每次都當場重讀磁碟現算雜湊，才抓得到這種繞過。這個工具不會自動修正，只負責誠實回報，不需要任何人記得做什麼——純粹被動偵測，不像「叫 AI 記得同步」那樣不可靠。</figcaption>
     </figure>
   </section>
 

@@ -429,6 +429,35 @@ export function computeSyncFlags(status: TicketStatus): SyncFlags {
   };
 }
 
+/** true 代表對應那份檔案，跟 status.json 記錄的雜湊對不上——內容在這個 MCP 不知情的狀況下被改過（直接手動編輯、別的 AI 繞過 write_ticket_artifact）。跟 computeSyncFlags 是不同軸向：那組比的是「兩個都是舊記錄」彼此對不對得起來，這組比的是「舊記錄」跟「磁碟上現在真正的內容」對不對得起來，才抓得到繞過 MCP 的修改。 */
+export interface ExternalChangeFlags {
+  analysis_externally_modified: boolean;
+  implementation_externally_modified: boolean;
+  verification_externally_modified: boolean;
+}
+
+/**
+ * 讀一次 01/02/03-*.md 現在磁碟上的實際內容、重新算雜湊，跟 status.json 裡 sync.*_hash 記錄的值比對。
+ * 只有在「記錄過雜湊、也讀得到檔案」的情況下才可能判定為 true——檔案還沒被 write_ticket_artifact 寫過（sync.xxx_hash
+ * 還是 null）或根本不存在（尚未走到那個階段）都不算「被外部改過」，只是還沒開始。
+ * 呼叫端（get_ticket_status）發現任一個是 true，代表對應的 summaries.* 快取摘要跟 sync_flags 都可能已經過期，
+ * 應該提醒使用者重新讀全文，不要只信快取——不需要也不應該自動做任何修正，那是 resync_ticket_artifact 的責任。
+ */
+export async function detectExternalChanges(ticketGid: string, status: TicketStatus): Promise<ExternalChangeFlags> {
+  const [analysis, implementation, verification] = await Promise.all([
+    readArtifact(ticketGid, "01-analysis.md"),
+    readArtifact(ticketGid, "02-implementation.md"),
+    readArtifact(ticketGid, "03-verification.md"),
+  ]);
+  const isModified = (content: string | null, recordedHash: string | null) =>
+    recordedHash !== null && content !== null && hashTicketContent(content) !== recordedHash;
+  return {
+    analysis_externally_modified: isModified(analysis, status.sync.analysis_hash),
+    implementation_externally_modified: isModified(implementation, status.sync.implementation_hash),
+    verification_externally_modified: isModified(verification, status.sync.verification_hash),
+  };
+}
+
 const ARTIFACT_HASH_KEY: Record<string, keyof TicketSyncState> = {
   "01-analysis.md": "analysis_hash",
   "02-implementation.md": "implementation_hash",

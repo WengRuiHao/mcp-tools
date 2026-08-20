@@ -24,6 +24,7 @@ import {
   recordArtifactHash,
   recordStageSync,
   computeSyncFlags,
+  detectExternalChanges,
   recordSelfConfirmation,
   recordTesterConfirmation,
   needsHumanReview,
@@ -760,11 +761,18 @@ server.tool(
     "**verdict 是 AI 驗證師自己判定的 PASS/FAIL，self_confirmation（第一關：使用者自己實測＋審視程式碼品質）跟 tester_confirmation（第二關／最終關：另一位獨立測試員的情境測試）才是真正結案要看的兩關人類確認——三者是不同軸向，verdict PASS 不代表任何一關也是 true**。self_confirmation 是 null 代表使用者還沒表態；tester_confirmation 是 null 代表還沒輪到或還沒表態，兩關都要 confirmed:true 才能當作這張票已經結案。" +
     "**verdict 是 \"FAIL\" 時，verifier_root_cause（\"analysis\"|\"implementation\"）是上次判斷的根因，回傳額外算出的 needs_human_review（consecutive_fail_count >= 3）是連續 FAIL 的安全閥旗標**——處理一張 FAIL 的票之前，先看 needs_human_review：false 才能依 verifier_root_cause 自動決定回工程師還是分析師，true 就不該再自動重跑，要停下來問使用者。" +
     "回傳裡額外附上 sync_flags（analysis_stale / implementation_stale）：任一個是 true，代表 01/02/03 這三份追蹤文件彼此之間有同步債務沒還——" +
-    "例如工程師階段推翻了分析師的結論，但沒有回頭同步 01-analysis.md。**換 session/AI 接手一張票之前，一定要先看這個欄位**，是 true 就先把債務還清（把新發現同步回上一階段文件）再繼續往下走，不要當作沒看到。",
+    "例如工程師階段推翻了分析師的結論，但沒有回頭同步 01-analysis.md。**換 session/AI 接手一張票之前，一定要先看這個欄位**，是 true 就先把債務還清（把新發現同步回上一階段文件）再繼續往下走，不要當作沒看到。" +
+    "**回傳裡也附上 external_changes（analysis_externally_modified / implementation_externally_modified / verification_externally_modified）**：這是每次呼叫都當場重新讀一次磁碟上 01/02/03-*.md 的實際內容、重新算雜湊比對出來的，不是快取值——任一個是 true，代表那份檔案在這個 MCP 不知情的狀況下被改過（使用者直接編輯、別的沒走這條 pipeline 的 AI 動過），對應的 summaries.* 快取摘要跟 sync_flags 判斷都可能已經過期，**要重新用 read_ticket_artifact 讀全文，不要只信快取**。這個工具本身不會自動修正，只負責告知；確認過內容沒問題、想把雜湊記錄同步回目前內容，呼叫 resync_ticket_artifact。",
   { taskGid: z.string().describe("Asana 任務 gid") },
   async ({ taskGid }) => {
     const status = await readStatus(taskGid);
-    return textResult({ ...status, sync_flags: computeSyncFlags(status), needs_human_review: needsHumanReview(status) });
+    const externalChanges = await detectExternalChanges(taskGid, status);
+    return textResult({
+      ...status,
+      sync_flags: computeSyncFlags(status),
+      needs_human_review: needsHumanReview(status),
+      external_changes: externalChanges,
+    });
   }
 );
 
