@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 760" role="img" aria-label="asana-pipeline-mcp 主流程每一步實際呼叫哪個 MCP：取得流程／角色說明是本機文字，不呼叫任何 MCP；一次性設定（專案/目錄/SA-SD/git roots）全部是它自己本機的登記表，不跨行程；列出待處理票單與抓票單內容橋接 asana-mcp；SA/SD 規格讀取橋接 svn-mcp；分析師/工程師/驗證師的實際判斷由呼叫端 AI 自己的模型執行，這個 MCP 完全不參與思考（分析師視需要會另外呼叫 spec-pipeline-mcp 的 get_recent_commits 抓 commit 記錄）；修改程式碼與跑指令直接操作使用者的專案目錄，不經過任何其他 MCP；寫入追蹤檔案與查詢狀態是這個 MCP 自己本機管理的檔案">
+  <defs>
+    <marker id="flowArrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="760" fill="#f5f2ea"/>
+
+  <g font-family="'Noto Sans TC',sans-serif">
+    <!-- Step 1 -->
+    <rect x="40" y="20" width="430" height="64" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="255" y="46" text-anchor="middle" font-size="12" font-weight="700" fill="#2a2620">get_pipeline_overview／get_role_prompt</text>
+    <text x="255" y="64" text-anchor="middle" font-size="11" fill="#6b6558">取得流程／角色說明文字</text>
+
+    <rect x="500" y="32" width="360" height="40" rx="20" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.6"/>
+    <text x="680" y="57" text-anchor="middle" font-size="11" fill="#2a2620">本機純文字，不呼叫任何 MCP</text>
+
+    <!-- Step 2 -->
+    <rect x="40" y="120" width="430" height="64" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="255" y="146" text-anchor="middle" font-size="12" font-weight="700" fill="#2a2620">一次性設定：專案／目錄／git roots</text>
+    <text x="255" y="164" text-anchor="middle" font-size="11" fill="#6b6558">resolve/register_project_dir、git_roots…</text>
+
+    <rect x="500" y="132" width="360" height="40" rx="20" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.6"/>
+    <text x="680" y="157" text-anchor="middle" font-size="11" fill="#2a2620">本機登記表，不跨行程</text>
+
+    <!-- Step 3 -->
+    <rect x="40" y="220" width="430" height="64" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="255" y="246" text-anchor="middle" font-size="12" font-weight="700" fill="#2a2620">list_pending_tickets／get_ticket_snapshot</text>
+    <text x="255" y="264" text-anchor="middle" font-size="11" fill="#6b6558">列出待處理票單、抓票單內容＋留言串</text>
+
+    <rect x="500" y="232" width="360" height="40" rx="20" fill="#dbe9ea" stroke="#2b6777"/>
+    <text x="680" y="257" text-anchor="middle" font-size="11" font-weight="600" fill="#17414c">橋接 asana-mcp</text>
+
+    <!-- Step 4 -->
+    <rect x="40" y="320" width="430" height="64" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="255" y="346" text-anchor="middle" font-size="12" font-weight="700" fill="#2a2620">SA/SD 規格讀取（external／self 模式）</text>
+    <text x="255" y="364" text-anchor="middle" font-size="11" fill="#6b6558">svn_browse／svn_cat／svn_doc_images</text>
+
+    <rect x="500" y="332" width="360" height="40" rx="20" fill="#f1e2c8" stroke="#b9782e"/>
+    <text x="680" y="357" text-anchor="middle" font-size="11" font-weight="600" fill="#8a5a1f">橋接 svn-mcp</text>
+
+    <!-- Step 5 (highlighted: this is where thinking happens) -->
+    <rect x="40" y="420" width="430" height="64" rx="9" fill="#dfe9dd" stroke="#4c7a52" stroke-width="1.6"/>
+    <text x="255" y="446" text-anchor="middle" font-size="12" font-weight="700" fill="#365f3b">分析師／工程師／驗證師的實際判斷</text>
+    <text x="255" y="464" text-anchor="middle" font-size="11" fill="#365f3b" opacity="0.9">問題根因、怎麼改、PASS／FAIL</text>
+
+    <rect x="500" y="428" width="360" height="48" rx="20" fill="#dfe9dd" stroke="#4c7a52" stroke-width="1.6"/>
+    <text x="680" y="449" text-anchor="middle" font-size="11" font-weight="700" fill="#365f3b">呼叫端 AI 自己的模型執行</text>
+    <text x="680" y="465" text-anchor="middle" font-size="9.5" fill="#365f3b" opacity="0.85">分析師視需要另呼叫 spec-pipeline-mcp 的 get_recent_commits</text>
+
+    <!-- Step 6 -->
+    <rect x="40" y="520" width="430" height="64" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="255" y="546" text-anchor="middle" font-size="12" font-weight="700" fill="#2a2620">write_project_file／run_project_shell</text>
+    <text x="255" y="564" text-anchor="middle" font-size="11" fill="#6b6558">實際修改程式碼、跑編譯／測試</text>
+
+    <rect x="500" y="532" width="360" height="40" rx="20" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.6"/>
+    <text x="680" y="557" text-anchor="middle" font-size="11" fill="#2a2620">直接讀寫 projectDir，不經過其他 MCP</text>
+
+    <!-- Step 7 -->
+    <rect x="40" y="620" width="430" height="64" rx="9" fill="#dfe9dd" stroke="#4c7a52"/>
+    <text x="255" y="646" text-anchor="middle" font-size="12" font-weight="700" fill="#365f3b">write_ticket_artifact／get_ticket_status</text>
+    <text x="255" y="664" text-anchor="middle" font-size="11" fill="#365f3b" opacity="0.9">寫入 01/02/03、查詢 stage／sync_flags</text>
+
+    <rect x="500" y="632" width="360" height="40" rx="20" fill="#dfe9dd" stroke="#4c7a52" stroke-opacity="0.7"/>
+    <text x="680" y="657" text-anchor="middle" font-size="11" fill="#365f3b">本機：asana-pipeline-mcp 自己的追蹤檔案</text>
+
+    <!-- connecting arrows down the main column -->
+    <g stroke="#2a2620">
+      <line x1="255" y1="84" x2="255" y2="116" marker-end="url(#flowArrow)"/>
+      <line x1="255" y1="184" x2="255" y2="216" marker-end="url(#flowArrow)"/>
+      <line x1="255" y1="284" x2="255" y2="316" marker-end="url(#flowArrow)"/>
+      <line x1="255" y1="384" x2="255" y2="416" marker-end="url(#flowArrow)"/>
+      <line x1="255" y1="484" x2="255" y2="516" marker-end="url(#flowArrow)"/>
+      <line x1="255" y1="584" x2="255" y2="616" marker-end="url(#flowArrow)"/>
+    </g>
+
+    <!-- pill connector ticks -->
+    <g stroke="#2a2620" stroke-opacity="0.4">
+      <line x1="470" y1="52" x2="500" y2="52"/>
+      <line x1="470" y1="152" x2="500" y2="152"/>
+      <line x1="470" y1="252" x2="500" y2="252"/>
+      <line x1="470" y1="352" x2="500" y2="352"/>
+      <line x1="470" y1="452" x2="500" y2="452"/>
+      <line x1="470" y1="552" x2="500" y2="552"/>
+      <line x1="470" y1="652" x2="500" y2="652"/>
+    </g>
+  </g>
+</svg>

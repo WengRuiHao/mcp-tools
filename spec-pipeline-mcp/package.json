@@ -1,0 +1,23 @@
+{
+  "name": "spec-pipeline-mcp",
+  "version": "0.1.0",
+  "description": "MCP server providing spec-ingestion, git-tracking resolution, and commit-lookup tools for a spec -> analyst -> engineer pipeline",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "spec-pipeline-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsc -p tsconfig.json --watch"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  }
+}

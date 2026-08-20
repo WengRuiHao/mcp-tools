@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 260" role="img" aria-label="跨 session 接手示意：追蹤目錄裡的 status.json 摘要透過 get_ticket_status 用低成本的粗實線送到接手的新 session 或新 AI，作為預設輸入；只有摘要不夠用時，才用較高成本的虛線 read_ticket_artifact 去讀 01-analysis.md 等全文檔案">
+  <defs>
+    <marker id="arrowCheap" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b6777"/>
+    </marker>
+    <marker id="arrowCostly" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b9782e"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="980" height="260" fill="#f5f2ea"/>
+
+  <rect x="24" y="30" width="300" height="200" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.8"/>
+  <text x="174" y="54" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-weight="700" font-size="13" fill="#2a2620">追蹤目錄（磁碟，非對話記憶）</text>
+
+  <rect x="44" y="70" width="260" height="46" rx="8" fill="#dbe9ea" stroke="#2b6777"/>
+  <text x="174" y="90" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="11.5" fill="#17414c">status.json → summaries</text>
+  <text x="174" y="105" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#17414c" opacity="0.85">2–4 條重點摘要，體積小</text>
+
+  <rect x="44" y="126" width="260" height="86" rx="8" fill="#f1e2c8" stroke="#b9782e"/>
+  <text x="174" y="146" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="11.5" fill="#b9782e">01/02/03-*.md</text>
+  <text x="174" y="162" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#b9782e" opacity="0.9">分析／實作／驗證全文</text>
+  <text x="174" y="178" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="10.5" fill="#b9782e" opacity="0.8">ticket.md（含留言串）</text>
+  <text x="174" y="200" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#b9782e" opacity="0.75">篇幅較大，按需讀取</text>
+
+  <rect x="620" y="70" width="336" height="120" rx="12" fill="none" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="788" y="98" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-weight="700" font-size="13" fill="#2a2620">接手的 session／AI</text>
+  <text x="788" y="118" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#6b6558">不管是不是原來那個 session，</text>
+  <text x="788" y="134" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#6b6558">一律先假設要重新確認進度</text>
+
+  <line x1="304" y1="93" x2="614" y2="105" stroke="#2b6777" stroke-width="2" marker-end="url(#arrowCheap)"/>
+  <text x="460" y="80" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#17414c" font-weight="500">① get_ticket_status（預設，低成本）</text>
+
+  <line x1="304" y1="168" x2="614" y2="150" stroke="#b9782e" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#arrowCostly)"/>
+  <text x="460" y="238" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#b9782e" font-weight="500">② read_ticket_artifact（摘要不夠時才讀，成本較高）</text>
+</svg>

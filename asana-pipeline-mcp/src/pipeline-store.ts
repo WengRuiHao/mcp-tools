@@ -1,0 +1,527 @@
+import path from "node:path";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { getTicketsIndexFile } from "./config-store.js";
+import { readJsonFile, updateJsonFile, withFileLock, writeJsonFileAtomic } from "./atomic-store.js";
+
+export interface TicketSummaries {
+  analysis: string | null;
+  implementation: string | null;
+  verification: string | null;
+}
+
+/**
+ * 一次「人類確認」紀錄——共用形狀，實際語意由 TicketStatus 上掛的欄位名稱決定（self_confirmation／tester_confirmation）。
+ * 跟 verdict（AI 驗證師自己判定的 PASS/FAIL）是不同軸向的東西，不能混為一談。
+ */
+export interface ConfirmationRecord {
+  /** true：這一關通過。false：這一關發現問題，需要人工決定下一步（是否重開工程師階段）。 */
+  confirmed: boolean;
+  confirmedAt: string;
+  note: string | null;
+}
+
+export interface TicketSyncState {
+  /** 01-analysis.md 目前內容的雜湊。每次 write_ticket_artifact 寫 01 時更新。 */
+  analysis_hash: string | null;
+  /** 02-implementation.md 目前內容的雜湊。每次 write_ticket_artifact 寫 02 時更新。 */
+  implementation_hash: string | null;
+  /** 03-verification.md 目前內容的雜湊。每次 write_ticket_artifact 寫 03 時更新。 */
+  verification_hash: string | null;
+  /** 上次寫 02 時，01 的雜湊是多少（快照）——跟 analysis_hash 不一致代表 01 在那之後又被獨立改過，02 還沒對照過最新的 01。 */
+  analysis_hash_at_impl_write: string | null;
+  /** 上次寫 03 時，02 的雜湊是多少（快照）——跟 implementation_hash 不一致代表 02 在那之後又被獨立改過，03 還沒對照過最新的 02。 */
+  implementation_hash_at_verify_write: string | null;
+}
+
+export interface TicketStatus {
+  stage: "new" | "snapshot" | "project_dir_confirmed" | "analyzed" | "implemented" | "verified";
+  project_dir: string | null;
+  verdict: "PASS" | "FAIL" | null;
+  sasd_checked: boolean;
+  sasd_info: string | null;
+  history: { stage: string; at: string }[];
+  /** 上次寫入 ticket.md 時，票單「描述+留言」內容的雜湊值。用來判斷 Asana 上的票單內容是否真的變了（跟 modified_at 不同，modified_at 連指派人、到期日變動都會跳，不夠精準）。 */
+  content_hash: string | null;
+  /** 上次寫入 ticket.md 時 Asana 回傳的 task.modified_at，給 list_pending_tickets 做便宜的初篩用（不用整份重抓比對 hash）。 */
+  last_seen_modified_at: string | null;
+  /** true 代表這張票已經有 analyzed/implemented/verified 之類的既有進度，但 Asana 上的內容後來又變了，需要重新走一次分析——即使 verdict 曾經是 PASS 也一樣。分析師重新寫入 01-analysis.md 後會自動清掉。 */
+  needs_reanalysis: boolean;
+  /** 分析師/工程師/驗證師各自產出的精簡摘要（2-4 條重點，非全文），供接手的 session/AI 用 get_ticket_status 就能低成本掌握進度，不必每次都整份讀 01/02/03 全文。 */
+  summaries: TicketSummaries;
+  /** 結案流程第一關：使用者自己的實測＋程式碼品質審視結果。null = 尚未確認。只有這關 confirmed:true，第二關（tester_confirmation）才能被記錄。見 recordSelfConfirmation。 */
+  self_confirmation: ConfirmationRecord | null;
+  /** 結案流程第二關（最終關）：另一位獨立測試員「只測情境」的實測結果。null = 尚未確認（不管 verdict 是不是 PASS，都還不算真正結案）。見 recordTesterConfirmation。 */
+  tester_confirmation: ConfirmationRecord | null;
+  /** 01/02/03 三份文件彼此之間是否同步（跟 content_hash/needs_reanalysis 是不同軸向：那組管「票單原文 vs 追蹤系統」，這組管「追蹤系統內部三份文件互相」）。 */
+  sync: TicketSyncState;
+}
+
+/** Formats the current local time as "yyyy-MM-dd HH:mm:ss" (24-hour), used for history timestamps. */
+function nowIso(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+const STAGE_ORDER: TicketStatus["stage"][] = ["new", "snapshot", "project_dir_confirmed", "analyzed", "implemented", "verified"];
+
+function sanitizeSegment(raw: string): string {
+  const cleaned = raw
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, " ")
+    .replace(/\s+/g, "_")
+    .slice(0, 60);
+  return cleaned || "unknown";
+}
+
+const CLAUDE_MD_MARKER_START = "<!-- asana-pipeline-mcp:tracking-note:start -->";
+const CLAUDE_MD_MARKER_END = "<!-- asana-pipeline-mcp:tracking-note:end -->";
+
+const CLAUDE_MD_NOTE = `${CLAUDE_MD_MARKER_START}
+## Asana pipeline 追蹤紀錄
+
+這個專案底下的 \`.asana-pipeline/\` 目錄，是 asana-pipeline-mcp 自動處理 Asana 票單時建立的追蹤紀錄，跟這個專案本身的程式碼無關，純粹是紀錄檔案。
+
+結構：\`.asana-pipeline/<Asana 專案全名稱>/<票號>/\`（子任務會巢狀掛在父票號底下，層數不限）。每張票的目錄裡有：
+- \`ticket.md\` — 從 Asana 抓下來的票單原文（描述 + 留言）
+- \`01-analysis.md\` / \`02-implementation.md\` / \`03-verification.md\` — 分析師/工程師/驗證師三個階段各自的產出
+- \`status.json\` — 這張票目前處理到哪個階段、驗證結果、SA/SD 規格確認狀態等
+
+如果你是要接手維護這個專案的 AI 或工程師，想知道「某個功能之前是不是被 AI 處理過、當初怎麼分析跟修改的」，可以直接來這裡查，不用重新問使用者一次。
+${CLAUDE_MD_MARKER_END}
+`;
+
+/** Ensures <projectDir>/CLAUDE.md documents what the .asana-pipeline/ folder is, so any future AI/engineer opening this project understands it at a glance. Idempotent — won't duplicate the note on repeated calls. */
+async function ensureClaudeMdNote(projectDir: string): Promise<void> {
+  const claudeMdPath = path.join(projectDir, "CLAUDE.md");
+  let existing = "";
+  try {
+    existing = await readFile(claudeMdPath, "utf-8");
+  } catch {
+    existing = "";
+  }
+  if (existing.includes(CLAUDE_MD_MARKER_START)) return;
+  const updated = existing.trim().length > 0 ? `${existing.trimEnd()}\n\n${CLAUDE_MD_NOTE}` : CLAUDE_MD_NOTE;
+  await writeFile(claudeMdPath, updated, "utf-8");
+}
+
+/** Returns this ticket's already-assigned tracking directory, or null if get_ticket_snapshot hasn't run for it yet. Lets callers check before deciding whether an ancestor needs to be snapshotted first. */
+export async function getAssignedDir(taskGid: string): Promise<string | null> {
+  const index = await readJsonFile<Record<string, string>>(getTicketsIndexFile(), {});
+  return index[taskGid] ?? null;
+}
+
+/**
+ * Assigns (or reuses) a human-readable tracking directory for a ticket, laid
+ * out INSIDE the target code project's own directory (not this MCP's install
+ * folder) as `<projectDir>/.asana-pipeline/<AsanaProjectFullName>/<ticketNumber>/`,
+ * or nested under its parent's directory (`.../<parentTicketNumber>/<ticketNumber>/`)
+ * when `parentTaskGid` is given — mirrors Asana's own task/subtask hierarchy, to
+ * arbitrary depth. Callers are responsible for ensuring the parent's own directory
+ * already exists first (see get_ticket_snapshot's ancestor-chain walk in index.ts).
+ *
+ * The read-check-mutate-write against tickets-index.json happens as one locked
+ * transaction (via updateJsonFile) so two tickets being snapshotted back-to-back
+ * can't race and drop one another's index entry.
+ *
+ * Ticket *content* (descriptions, analysis, code-change notes) lives entirely
+ * inside the project — so sharing this MCP's own codebase/install with someone
+ * else never leaks any client's ticket history. Only a lightweight lookup index
+ * (taskGid -> absolute folder path) stays in this MCP's own data dir; delete
+ * `data/tickets-index.json` too if you want zero trace before sharing the tool.
+ */
+export async function assignTicketDir(
+  projectDir: string,
+  taskGid: string,
+  projectName: string,
+  ticketNumber?: string | null,
+  parentTaskGid?: string | null
+): Promise<string> {
+  let resultDir = "";
+  await updateJsonFile<Record<string, string>>(getTicketsIndexFile(), {}, (index) => {
+    const existing = index[taskGid];
+    if (existing) {
+      resultDir = existing;
+      return index;
+    }
+
+    const leafName = sanitizeSegment(ticketNumber || taskGid);
+    let dir: string;
+    if (parentTaskGid) {
+      const parentDir = index[parentTaskGid];
+      if (!parentDir) {
+        throw new Error(
+          `找不到父票單 ${parentTaskGid} 的追蹤目錄——請先對父票單呼叫過 get_ticket_snapshot（建立好它的目錄），子任務才能掛在它底下。`
+        );
+      }
+      dir = path.join(parentDir, leafName);
+    } else {
+      const projectRoot = path.join(projectDir, ".asana-pipeline");
+      dir = path.join(projectRoot, sanitizeSegment(projectName), leafName);
+    }
+
+    resultDir = dir;
+    return { ...index, [taskGid]: dir };
+  });
+
+  await mkdir(resultDir, { recursive: true });
+  await ensureClaudeMdNote(projectDir);
+  return resultDir;
+}
+
+/** Resolves a ticket's tracking directory via the index. Throws a clear error if this ticket hasn't gone through assignTicketDir yet (get_ticket_snapshot must always be called first). */
+async function resolveTicketDir(taskGid: string): Promise<string> {
+  const index = await readJsonFile<Record<string, string>>(getTicketsIndexFile(), {});
+  const dir = index[taskGid];
+  if (!dir) {
+    throw new Error(`找不到票單 ${taskGid} 的追蹤目錄，請先呼叫 get_ticket_snapshot 建立。`);
+  }
+  await mkdir(dir, { recursive: true });
+  return dir;
+}
+
+const NEW_STATUS: TicketStatus = {
+  stage: "new",
+  project_dir: null,
+  verdict: null,
+  sasd_checked: false,
+  sasd_info: null,
+  history: [],
+  content_hash: null,
+  last_seen_modified_at: null,
+  needs_reanalysis: false,
+  summaries: { analysis: null, implementation: null, verification: null },
+  self_confirmation: null,
+  tester_confirmation: null,
+  sync: {
+    analysis_hash: null,
+    implementation_hash: null,
+    verification_hash: null,
+    analysis_hash_at_impl_write: null,
+    implementation_hash_at_verify_write: null,
+  },
+};
+
+/** 短雜湊（前 16 碼 sha256 hex），只用來比對票單內容有沒有真的變過，不需要密碼學強度。 */
+export function hashTicketContent(content: string): string {
+  return createHash("sha256").update(content, "utf-8").digest("hex").slice(0, 16);
+}
+
+/** 舊版 status.json（改版前寫入的）可能沒有 content_hash/summaries/sync 等新欄位，讀回來時補上預設值，避免下游對 undefined 欄位動作出錯。 */
+function withDefaults(parsed: Partial<TicketStatus>): TicketStatus {
+  return {
+    ...NEW_STATUS,
+    ...parsed,
+    summaries: { ...NEW_STATUS.summaries, ...parsed.summaries },
+    sync: { ...NEW_STATUS.sync, ...parsed.sync },
+  };
+}
+
+/**
+ * Reads status.json at `filePath`, returning a fresh NEW_STATUS if it doesn't exist yet (a brand-new
+ * ticket — this is the normal, expected case). If the file DOES exist but fails to parse as JSON (e.g.
+ * the process was killed mid-write before atomic writes were introduced, or the disk/filesystem
+ * corrupted it), this throws instead of silently treating it as a new ticket — a corrupted tracking
+ * file must never be mistaken for "no progress yet", or a ticket's real analysis/implementation/
+ * verification history can vanish with no warning.
+ */
+async function readStatusFileRaw(filePath: string): Promise<TicketStatus> {
+  let raw: string;
+  try {
+    raw = await readFile(filePath, "utf-8");
+  } catch (err: any) {
+    if (err.code === "ENOENT") return { ...NEW_STATUS };
+    throw new Error(`讀取票單追蹤狀態失敗（${filePath}）：${err.message}`);
+  }
+  try {
+    return withDefaults(JSON.parse(raw));
+  } catch (err: any) {
+    throw new Error(
+      `票單追蹤檔案損毀，無法解析為 JSON：${filePath} —— 不會當作新票單處理，請人工檢查這個檔案（可能是寫入中途被中斷），必要時從備份或 git 歷史還原。原始錯誤：${err.message}`
+    );
+  }
+}
+
+export async function readStatus(ticketGid: string): Promise<TicketStatus> {
+  const dir = await resolveTicketDir(ticketGid);
+  return readStatusFileRaw(path.join(dir, "status.json"));
+}
+
+/**
+ * Like readStatus, but never throws/creates a tracking directory for tickets that haven't been
+ * snapshotted yet — returns the "new" default instead. Use this for read-only scans over many tickets
+ * (e.g. list_pending_tickets) where most tickets won't have a directory yet.
+ *
+ * Unlike readStatus, a corrupted status.json here does NOT throw — one bad ticket shouldn't break
+ * listing every other ticket in the project. It's logged to stderr instead so the corruption is at
+ * least visible, and the ticket falls back to looking "new" for this listing (the real error still
+ * surfaces the moment something calls readStatus/get_ticket_status on that specific ticket).
+ */
+export async function peekStatus(ticketGid: string): Promise<TicketStatus> {
+  const index = await readJsonFile<Record<string, string>>(getTicketsIndexFile(), {});
+  const dir = index[ticketGid];
+  if (!dir) return { ...NEW_STATUS };
+  const filePath = path.join(dir, "status.json");
+  try {
+    return await readStatusFileRaw(filePath);
+  } catch (err: any) {
+    console.error(`[asana-pipeline-mcp] peekStatus: ${err.message}`);
+    return { ...NEW_STATUS };
+  }
+}
+
+/** Applies a forward-only stage transition to `status`: if `stage` isn't further along than the current one, only `patch` is applied (stage/history untouched); otherwise stage advances and a history entry is appended. Pure — used inside locked read-modify-write transactions below. */
+function applyStageIfForward(status: TicketStatus, stage: TicketStatus["stage"], patch: Partial<TicketStatus>): TicketStatus {
+  if (STAGE_ORDER.indexOf(stage) <= STAGE_ORDER.indexOf(status.stage)) {
+    return { ...status, ...patch };
+  }
+  return { ...status, ...patch, stage, history: [...status.history, { stage, at: nowIso() }] };
+}
+
+/**
+ * Reads, mutates, and atomically writes back a ticket's status.json as one locked transaction (keyed by
+ * that ticket's status.json path), so two nearly-simultaneous updates to the same ticket (e.g. a stray
+ * duplicate tool call) can't race and silently drop one side's change. `mutator` must be pure — do not
+ * call updateStatus/readStatus/peekStatus for the SAME ticketGid from inside it, that would deadlock
+ * against the lock this function is already holding.
+ */
+async function updateStatus(
+  ticketGid: string,
+  mutator: (status: TicketStatus) => TicketStatus | Promise<TicketStatus>
+): Promise<TicketStatus> {
+  const dir = await resolveTicketDir(ticketGid);
+  const filePath = path.join(dir, "status.json");
+  return withFileLock(filePath, async () => {
+    const current = await readStatusFileRaw(filePath);
+    const updated = await mutator(current);
+    await writeJsonFileAtomic(filePath, updated);
+    return updated;
+  });
+}
+
+export async function advanceStage(ticketGid: string, stage: TicketStatus["stage"], patch: Partial<TicketStatus> = {}): Promise<TicketStatus> {
+  return updateStatus(ticketGid, (status) => ({
+    ...status,
+    ...patch,
+    stage,
+    history: [...status.history, { stage, at: nowIso() }],
+  }));
+}
+
+/**
+ * Like advanceStage, but never lets `stage` regress in STAGE_ORDER (any `patch` fields
+ * still apply either way). Use this for stage transitions that can legitimately be
+ * re-triggered on an already-further-along ticket (e.g. re-snapshotting a ticket just to
+ * refresh ticket.md) — a plain advanceStage there would wipe out "verified"/PASS and make
+ * the ticket look pending forever in list_pending_tickets.
+ */
+export async function advanceStageIfForward(ticketGid: string, stage: TicketStatus["stage"], patch: Partial<TicketStatus> = {}): Promise<TicketStatus> {
+  return updateStatus(ticketGid, (status) => applyStageIfForward(status, stage, patch));
+}
+
+export interface SnapshotContentResult {
+  changed: boolean;
+  needsReanalysis: boolean;
+  status: TicketStatus;
+}
+
+/**
+ * 每次 get_ticket_snapshot 抓到票單內容時呼叫。用內容雜湊（而非 Asana 的 modified_at——那個連指派人/到期日變動都會跳，不夠精準）判斷「描述+留言」是否真的變了。
+ * - 內容沒變：只更新 last_seen_modified_at（跟 list_pending_tickets 的便宜初篩同步），不動 stage/verdict/needs_reanalysis，呼叫端可以省下重寫 ticket.md、把全文塞回對話的成本。
+ * - 內容變了、且這張票先前已經有 analyzed/implemented/verified 的進度：標記 needs_reanalysis=true、verdict 清空——即使原本是 PASS，也要當作還沒驗證過，逼下一次處理重新從分析師走一遍。stage 本身不變（history/舊 artifact 仍保留，方便對照修改前後差異）。
+ * 整個判斷 + 寫入是單一鎖定的交易（見 updateStatus），避免跟同一張票的其他更新交錯。
+ */
+export async function recordSnapshotContent(
+  ticketGid: string,
+  content: string,
+  modifiedAt: string | null
+): Promise<SnapshotContentResult> {
+  let changed = false;
+  const updated = await updateStatus(ticketGid, (status) => {
+    const newHash = hashTicketContent(content);
+
+    if (status.content_hash === newHash) {
+      changed = false;
+      return applyStageIfForward(status, "snapshot", { last_seen_modified_at: modifiedAt });
+    }
+
+    changed = true;
+    const hadPriorProgress = STAGE_ORDER.indexOf(status.stage) > STAGE_ORDER.indexOf("snapshot");
+    return applyStageIfForward(status, "snapshot", {
+      content_hash: newHash,
+      last_seen_modified_at: modifiedAt,
+      needs_reanalysis: hadPriorProgress ? true : status.needs_reanalysis,
+      verdict: hadPriorProgress ? null : status.verdict,
+      // 票單內容真的變了、且之前有進度：舊的兩關人類確認（自己測+測試員）都一併作廢，不能讓「測過的是舊版內容」被誤認成這一版也測過。
+      self_confirmation: hadPriorProgress ? null : status.self_confirmation,
+      tester_confirmation: hadPriorProgress ? null : status.tester_confirmation,
+    });
+  });
+  return { changed, needsReanalysis: updated.needs_reanalysis, status: updated };
+}
+
+const ARTIFACT_SUMMARY_KEY: Record<string, keyof TicketSummaries> = {
+  "01-analysis.md": "analysis",
+  "02-implementation.md": "implementation",
+  "03-verification.md": "verification",
+};
+
+/** write_ticket_artifact 寫入 01/02/03 全文時，順便把精簡摘要存進 status.summaries，讓之後接手的 session/AI 用 get_ticket_status 就能低成本掌握進度，不必每次都整份讀全文。寫入 01-analysis.md 時會自動清掉 needs_reanalysis（代表分析師已經針對變更後的內容重新分析過了）。 */
+export async function recordArtifactSummary(ticketGid: string, filename: string, summary: string | null | undefined): Promise<void> {
+  const key = ARTIFACT_SUMMARY_KEY[filename];
+  if (!key || !summary) return;
+  await updateStatus(ticketGid, (status) => {
+    const patch: Partial<TicketStatus> = { summaries: { ...status.summaries, [key]: summary } };
+    if (filename === "01-analysis.md") patch.needs_reanalysis = false;
+    return { ...status, ...patch };
+  });
+}
+
+/** write_ticket_artifact 寫 02/03 時，syncNote 帶這個 sentinel 代表「明確判斷過這次不需要同步回上一階段文件」——不是省略不填，而是主動選了「沒有」這個答案。 */
+export const NO_SYNC_NEEDED = "NO_SYNC_NEEDED";
+
+export interface SyncFlags {
+  /** true 代表 01-analysis.md 在上次寫 02 之後又被獨立改過，02 目前的內容還沒對照過最新的 01——換 session/AI 接手前該檢查這個。 */
+  analysis_stale: boolean;
+  /** true 代表 02-implementation.md 在上次寫 03 之後又被獨立改過，03 目前的結論還沒對照過最新的 02。 */
+  implementation_stale: boolean;
+}
+
+/** 只在下游階段已經至少寫過一次（有快照可比對）時才可能是 true——下游階段還沒開始寫之前，上游文件不管怎麼變都談不上「不同步」。 */
+export function computeSyncFlags(status: TicketStatus): SyncFlags {
+  const s = status.sync;
+  return {
+    analysis_stale: s.analysis_hash_at_impl_write !== null && s.analysis_hash_at_impl_write !== s.analysis_hash,
+    implementation_stale:
+      s.implementation_hash_at_verify_write !== null && s.implementation_hash_at_verify_write !== s.implementation_hash,
+  };
+}
+
+const ARTIFACT_HASH_KEY: Record<string, keyof TicketSyncState> = {
+  "01-analysis.md": "analysis_hash",
+  "02-implementation.md": "implementation_hash",
+  "03-verification.md": "verification_hash",
+};
+
+/** write_ticket_artifact 每次寫 01/02/03 之後呼叫，把「這份文件現在長怎樣」的雜湊記下來，供 computeSyncFlags 比對用。 */
+export async function recordArtifactHash(ticketGid: string, filename: string, content: string): Promise<void> {
+  const key = ARTIFACT_HASH_KEY[filename];
+  if (!key) return;
+  await updateStatus(ticketGid, (status) => ({ ...status, sync: { ...status.sync, [key]: hashTicketContent(content) } }));
+}
+
+/** 每次 appendSyncNote 寫完都會在檔案尾端留這一行不可見的 sentinel，當作「今天/這個階段是否已經同步過」的判斷依據——
+ * 用固定格式的字串比對（trimmed.endsWith(cursor)），不解析 markdown 結構，不會被 syncNote 本文裡的 `#` 開頭行、
+ * 巢狀子標題（### ...）或程式碼片段（shebang／#define／註解）誤判。HTML 註解在大多數 markdown 渲染器裡不會顯示，
+ * 不會干擾人類閱讀時的體感。 */
+function buildSyncCursor(dateStr: string, stageLabel: string): string {
+  return `<!-- sync-cursor: ${dateStr} ${stageLabel} -->`;
+}
+
+/**
+ * 把 syncNote 附加到上一階段的文件尾端，回傳附加後的完整內容（呼叫端要用這個重新算雜湊，不要用原本的 content 變數）。
+ * 同一天、同一階段（例如同一輪反覆修正 02 好幾次）的多次呼叫，會合併進同一個標題底下、用 `---` 分隔線隔開，
+ * 不會每次都開一個新標題——不然像某次實測情況（一天內對 02 寫入十幾次），01-analysis.md 尾端會疊出
+ * 十幾個標題幾乎相同的區塊，等於把「忘記同步」換成「同步了但零碎、難讀」，沒有真正解決問題。
+ * 用分隔線而不是條列符號 `- `：syncNote 常常是多段落甚至帶子項目的長文字，硬塞進單行條列符號會破壞 markdown 排版。
+ * 「是不是同一個區塊」用檔尾的 sync-cursor sentinel 判斷（見 buildSyncCursor），不是掃描內容裡有沒有 `#` 開頭的行——
+ * 後者會被 syncNote 本文的子標題/程式碼片段誤判，見 DESIGN-sync.md 的複查記錄。
+ */
+async function appendSyncNote(ticketGid: string, targetFilename: string, note: string, stageLabel: string): Promise<string> {
+  const existing = (await readArtifact(ticketGid, targetFilename)) ?? "";
+  const trimmed = existing.trimEnd();
+  const today = nowIso().slice(0, 10);
+  const heading = `## ${today} 同步更新（${stageLabel}自動追加）`;
+  const cursor = buildSyncCursor(today, stageLabel);
+
+  const isContinuation = trimmed.endsWith(cursor);
+
+  const updated = isContinuation
+    ? `${trimmed.slice(0, trimmed.length - cursor.length).trimEnd()}\n\n---\n\n${note}\n\n${cursor}\n`
+    : `${trimmed}\n\n${heading}\n\n${note}\n\n${cursor}\n`;
+
+  await writeArtifact(ticketGid, targetFilename, updated);
+  return updated;
+}
+
+/**
+ * 強制二選一同步機制：write_ticket_artifact 寫 02-implementation.md／03-verification.md 時，呼叫端這兩個檔名一定要帶 syncNote（見 index.ts 的必填檢查），這個函式處理實際的同步動作。
+ * - syncNote === NO_SYNC_NEEDED：代表呼叫端已經明確判斷「這次沒有東西需要同步」，不會動上一階段文件的內容，只把它現在的雜湊記下來當作「已核對過」的快照。
+ * - 其他任何文字：當成真正的同步內容，附加到上一階段文件尾端，並用附加後的新內容重新算雜湊。
+ * 兩種情況都會讓 computeSyncFlags 對應的欄位變回 false——因為兩種情況都代表「這個時間點，下游已經跟上游核對過了」，差別只在核對的結果是「有更新」還是「確認無需更新」。
+ */
+export async function recordStageSync(
+  ticketGid: string,
+  target: "02-implementation.md" | "03-verification.md",
+  syncNote: string
+): Promise<void> {
+  const upstream = target === "02-implementation.md" ? "01-analysis.md" : "02-implementation.md";
+  const stageLabel = target === "02-implementation.md" ? "工程階段" : "驗證階段";
+  const hashKey: keyof TicketSyncState = target === "02-implementation.md" ? "analysis_hash" : "implementation_hash";
+  const snapshotKey: keyof TicketSyncState =
+    target === "02-implementation.md" ? "analysis_hash_at_impl_write" : "implementation_hash_at_verify_write";
+
+  let upstreamHash: string;
+  if (syncNote === NO_SYNC_NEEDED) {
+    const current = (await readArtifact(ticketGid, upstream)) ?? "";
+    upstreamHash = hashTicketContent(current);
+  } else {
+    const updated = await appendSyncNote(ticketGid, upstream, syncNote, stageLabel);
+    upstreamHash = hashTicketContent(updated);
+  }
+
+  await updateStatus(ticketGid, (status) => ({
+    ...status,
+    sync: { ...status.sync, [hashKey]: upstreamHash, [snapshotKey]: upstreamHash },
+  }));
+}
+
+/**
+ * 記錄結案流程「第一關」——使用者自己的實測＋程式碼品質審視結果。跟 advanceStage 的 verdict（AI 驗證師自己判定的
+ * PASS/FAIL）是完全不同的欄位，呼叫端（index.ts 的 record_self_confirmation 工具）自行決定要不要限制只能在
+ * stage === "verified" 時呼叫。confirmed: false 時仍然會記錄下 note，但不會自動觸發任何重跑邏輯——要不要重新走
+ * 工程師階段是人工判斷後的下一步，不是這個函式的責任。
+ */
+export async function recordSelfConfirmation(
+  ticketGid: string,
+  confirmed: boolean,
+  note?: string | null
+): Promise<TicketStatus> {
+  return updateStatus(ticketGid, (status) => ({
+    ...status,
+    self_confirmation: { confirmed, confirmedAt: nowIso(), note: note ?? null },
+  }));
+}
+
+/**
+ * 記錄結案流程「第二關（最終關）」——另一位獨立測試員「只測情境」的實測結果。跟 advanceStage 的 verdict（AI 驗證師
+ * 自己判定的 PASS/FAIL）、以及 recordSelfConfirmation（第一關）都是完全不同的欄位。呼叫端（index.ts 的
+ * record_tester_confirmation 工具）自行決定要不要限制只能在 stage === "verified" 且第一關已經 confirmed:true
+ * 之後才能呼叫。confirmed: false 時仍然會記錄下 note，方便追蹤「測試員回報有問題」，但不會自動觸發任何重跑邏輯——
+ * 要不要重新走工程師階段是人工判斷後的下一步，不是這個函式的責任。
+ */
+export async function recordTesterConfirmation(
+  ticketGid: string,
+  confirmed: boolean,
+  note?: string | null
+): Promise<TicketStatus> {
+  return updateStatus(ticketGid, (status) => ({
+    ...status,
+    tester_confirmation: { confirmed, confirmedAt: nowIso(), note: note ?? null },
+  }));
+}
+
+export async function writeArtifact(ticketGid: string, filename: string, content: string): Promise<void> {
+  const dir = await resolveTicketDir(ticketGid);
+  await writeFile(path.join(dir, filename), content, "utf-8");
+}
+
+export async function readArtifact(ticketGid: string, filename: string): Promise<string | null> {
+  const dir = await resolveTicketDir(ticketGid);
+  try {
+    return await readFile(path.join(dir, filename), "utf-8");
+  } catch {
+    return null;
+  }
+}

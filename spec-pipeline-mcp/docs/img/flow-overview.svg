@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 210" role="img" aria-label="spec-pipeline-mcp 整體流程：規格輸入分流（呼叫 load_spec / get_recent_commits / register_git_dir 等工具）之後，依序進入分析師、工程師、驗證師三個階段；這三個階段都是呼叫端 AI 自己扮演，各自只是呼叫 get_role_prompt(role) 拿到同一份任務說明，MCP 本身不參與判斷；驗證師階段結束會產出 PASS 或 FAIL 結論">
+  <defs>
+    <marker id="arrowFlow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="920" height="210" fill="#f5f2ea"/>
+
+  <g font-family="'Noto Sans TC',sans-serif">
+    <rect x="252" y="42" width="648" height="140" rx="12" fill="none" stroke="#2b6777" stroke-opacity="0.6" stroke-dasharray="6 5"/>
+    <text x="576" y="30" text-anchor="middle" font-size="12" fill="#17414c">呼叫端 AI 自己扮演這三個角色——都是呼叫 get_role_prompt(role) 拿到同一份任務說明，MCP 本身不參與判斷</text>
+  </g>
+
+  <g font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="13.5" text-anchor="middle">
+    <rect x="20" y="72" width="200" height="80" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="120" y="106" fill="#2a2620">規格輸入分流</text>
+    <text x="120" y="126" font-size="10.5" font-family="'IBM Plex Mono',monospace" fill="#6b6558">load_spec /</text>
+    <text x="120" y="140" font-size="10.5" font-family="'IBM Plex Mono',monospace" fill="#6b6558">get_recent_commits</text>
+
+    <rect x="280" y="72" width="170" height="80" rx="10" fill="#dbe9ea" stroke="#2b6777"/>
+    <text x="365" y="106" fill="#17414c" font-weight="700">分析師</text>
+    <text x="365" y="128" font-size="10.5" font-family="'IBM Plex Mono',monospace" fill="#17414c" opacity="0.85">role: analyst</text>
+
+    <rect x="490" y="72" width="170" height="80" rx="10" fill="#dbe9ea" stroke="#2b6777"/>
+    <text x="575" y="106" fill="#17414c" font-weight="700">工程師</text>
+    <text x="575" y="128" font-size="10.5" font-family="'IBM Plex Mono',monospace" fill="#17414c" opacity="0.85">role: engineer</text>
+
+    <rect x="700" y="72" width="170" height="80" rx="10" fill="#dfe9dd" stroke="#4c7a52"/>
+    <text x="785" y="106" fill="#2f5b35" font-weight="700">驗證師</text>
+    <text x="785" y="128" font-size="10.5" font-family="'IBM Plex Mono',monospace" fill="#2f5b35" opacity="0.9">role: verifier</text>
+    <text x="785" y="144" font-size="10.5" fill="#2f5b35">→ PASS / FAIL</text>
+  </g>
+
+  <g stroke="#2a2620">
+    <line x1="220" y1="112" x2="276" y2="112" marker-end="url(#arrowFlow)"/>
+    <line x1="450" y1="112" x2="486" y2="112" marker-end="url(#arrowFlow)"/>
+    <line x1="660" y1="112" x2="696" y2="112" marker-end="url(#arrowFlow)"/>
+  </g>
+
+  <text x="120" y="196" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#6b6558">唯一真的呼叫 MCP 工具的階段</text>
+</svg>

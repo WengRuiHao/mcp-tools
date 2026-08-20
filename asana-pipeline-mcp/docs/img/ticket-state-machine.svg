@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 620" role="img" aria-label="票單狀態機：new 到 snapshot 到 project_dir_confirmed 到 analyzed 到 implemented 到 verified 依序推進，只會往前走；verified 且 PASS 之後，如果偵測到票單內容雜湊改變，會在 verified 節點觸發一個警示標記：needs_reanalysis 設為 true、verdict、self_confirmation、tester_confirmation 一併清空，逼下一輪重新從分析師開始，但 stage 欄位本身仍是 verified，不會倒退回任何較早的節點；verified 且 PASS、內容也沒再變的情況下，會先落入待第一關（使用者自己實測＋審視程式碼品質）確認的狀態，使用者呼叫 record_self_confirmation 帶 confirmed:true 之後，才會落入待第二關（另一位獨立測試員的情境測試）確認的狀態，直到測試員呼叫 record_tester_confirmation 帶 confirmed:true，才會真正進入已結案狀態；任一關 confirmed:false 都會留在對應狀態並附上 note，交由人工判斷後續">
+  <defs>
+    <marker id="arrowStage" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
+    </marker>
+    <marker id="arrowStale" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#a84b36"/>
+    </marker>
+    <marker id="arrowMuted" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a2620" fill-opacity="0.55"/>
+    </marker>
+    <marker id="arrowWarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b9782e"/>
+    </marker>
+    <marker id="arrowGood" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4c7a52"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1080" height="620" fill="#f5f2ea"/>
+
+  <g font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="12.5" text-anchor="middle">
+    <rect x="20" y="150" width="120" height="56" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="80" y="183" fill="#2a2620">new</text>
+
+    <rect x="182" y="150" width="120" height="56" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="242" y="183" fill="#2a2620">snapshot</text>
+
+    <rect x="344" y="150" width="146" height="56" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="417" y="177" font-family="'Noto Sans TC',sans-serif" fill="#2a2620">目錄確認</text>
+    <text x="417" y="193" font-size="10.5" fill="#2a2620" opacity="0.75">project_dir_confirmed</text>
+
+    <rect x="532" y="150" width="120" height="56" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="592" y="183" fill="#2a2620">analyzed</text>
+
+    <rect x="694" y="150" width="126" height="56" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="757" y="183" fill="#2a2620">implemented</text>
+
+    <rect x="862" y="150" width="102" height="56" rx="9" fill="#dfe9dd" stroke="#4c7a52"/>
+    <text x="913" y="177" font-weight="700" fill="#4c7a52">verified</text>
+    <text x="913" y="193" font-size="10.5" fill="#4c7a52">PASS / FAIL</text>
+  </g>
+
+  <g stroke="#2a2620">
+    <line x1="140" y1="178" x2="178" y2="178" marker-end="url(#arrowStage)"/>
+    <line x1="302" y1="178" x2="340" y2="178" marker-end="url(#arrowStage)"/>
+    <line x1="490" y1="178" x2="528" y2="178" marker-end="url(#arrowStage)"/>
+    <line x1="652" y1="178" x2="690" y2="178" marker-end="url(#arrowStage)"/>
+    <line x1="820" y1="178" x2="858" y2="178" marker-end="url(#arrowStage)"/>
+  </g>
+
+  <path d="M 242 206 C 200 236, 284 236, 242 210" fill="none" stroke="#2a2620" stroke-opacity="0.55" stroke-width="1.3" marker-end="url(#arrowMuted)"/>
+  <text x="242" y="256" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#6b6558">內容 hash 相同 → unchanged:true</text>
+  <text x="242" y="270" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#6b6558">不重寫檔案、不回傳全文</text>
+
+  <line x1="913" y1="150" x2="900" y2="134" stroke="#a84b36" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#arrowStale)"/>
+  <rect x="640" y="14" width="330" height="128" rx="9" fill="#f2dbd2" stroke="#a84b36"/>
+  <text x="805" y="35" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" font-weight="500" fill="#a84b36">⚠ Asana 內容 hash 變了 → needs_reanalysis = true</text>
+  <text x="805" y="53" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#a84b36">verdict 清空；stage 欄位仍是 verified，不會倒退</text>
+  <text x="805" y="71" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#a84b36">self_confirmation／tester_confirmation 一併清空</text>
+  <text x="805" y="89" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#a84b36">（兩關人類確認都作廢，不能沿用舊版內容的確認）</text>
+  <text x="805" y="107" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#a84b36">下一輪要當作還沒驗證過，重新從分析師開始</text>
+
+  <!-- verified + PASS + 內容沒變 → 進入待第一關（使用者自測）確認 -->
+  <line x1="913" y1="206" x2="913" y2="246" stroke="#b9782e" stroke-width="1.6" marker-end="url(#arrowWarn)"/>
+  <rect x="773" y="250" width="280" height="100" rx="9" fill="#f1e2c8" stroke="#b9782e"/>
+  <text x="913" y="272" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12.5" font-weight="700" fill="#b9782e">待第一關：使用者自測＋審視 code</text>
+  <text x="913" y="288" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10.5" fill="#b9782e" opacity="0.8">awaitingSelfConfirmation</text>
+  <text x="913" y="304" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10.5" fill="#b9782e">self_confirmation ≠ true</text>
+  <text x="913" y="322" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#b9782e" opacity="0.9">confirmed:false → 人工判斷（不自動重跑）</text>
+  <text x="913" y="338" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10" fill="#b9782e" opacity="0.75">record_self_confirmation</text>
+
+  <!-- record_self_confirmation(confirmed:true) → 待第二關（測試員情境測試）確認 -->
+  <line x1="913" y1="350" x2="913" y2="386" stroke="#b9782e" stroke-width="1.6" marker-end="url(#arrowWarn)"/>
+  <rect x="773" y="390" width="280" height="100" rx="9" fill="#f1e2c8" stroke="#b9782e"/>
+  <text x="913" y="412" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12.5" font-weight="700" fill="#b9782e">待第二關：獨立測試員情境測試</text>
+  <text x="913" y="428" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10.5" fill="#b9782e" opacity="0.8">awaitingTesterConfirmation</text>
+  <text x="913" y="444" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10.5" fill="#b9782e">tester_confirmation ≠ true</text>
+  <text x="913" y="462" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#b9782e" opacity="0.9">confirmed:false → 人工判斷（不自動重跑）</text>
+  <text x="913" y="478" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10" fill="#b9782e" opacity="0.75">record_tester_confirmation（需第一關已 confirmed:true）</text>
+
+  <!-- record_tester_confirmation(confirmed:true) → 已結案 -->
+  <line x1="913" y1="490" x2="913" y2="524" stroke="#4c7a52" stroke-width="1.6" marker-end="url(#arrowGood)"/>
+  <rect x="828" y="528" width="170" height="60" rx="9" fill="#dfe9dd" stroke="#4c7a52"/>
+  <text x="913" y="551" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12.5" font-weight="700" fill="#4c7a52">已結案</text>
+  <text x="913" y="568" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10.5" fill="#4c7a52">兩關皆 confirmed: true</text>
+</svg>

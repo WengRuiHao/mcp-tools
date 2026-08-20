@@ -1,0 +1,24 @@
+{
+  "name": "asana-pipeline-mcp",
+  "version": "0.1.0",
+  "description": "Standalone MCP server that runs the Asana ticket pipeline (analyst -> engineer -> verifier) without depending on Claude Code's Agent/AskUserQuestion tools. Calls the Anthropic API directly for the reasoning stages.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "asana-pipeline-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsc -p tsconfig.json --watch"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.68.0",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  }
+}

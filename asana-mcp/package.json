@@ -1,0 +1,23 @@
+{
+  "name": "asana-mcp",
+  "version": "0.1.0",
+  "description": "Read-only MCP server for Asana (shared account token) — workspaces, projects, board, task detail, task comments",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "asana-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsc -p tsconfig.json --watch"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  }
+}

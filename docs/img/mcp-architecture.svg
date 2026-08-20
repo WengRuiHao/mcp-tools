@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 480" role="img" aria-label="五個 MCP 的連線架構：AI host（例如 Claude Code）對 asana-mcp、svn-mcp、spec-pipeline-mcp、asana-pipeline-mcp、github-mcp 各自建立獨立的 MCP stdio 連線。其中 asana-pipeline-mcp 另外自己啟動了 asana-mcp、spec-pipeline-mcp、svn-mcp 三個子行程，是完全獨立於 host 那三條連線的第二份實體；github-mcp 沒有被任何其他 MCP 橋接，只有 host 直接呼叫">
+  <defs>
+    <marker id="archArrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
+    </marker>
+    <marker id="archArrowMuted" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a2620" fill-opacity="0.55"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1120" height="480" fill="#f5f2ea"/>
+
+  <g font-family="'Noto Sans TC',sans-serif">
+    <!-- Host -->
+    <rect x="400" y="20" width="320" height="50" rx="10" fill="none" stroke="#2a2620" stroke-width="1.4"/>
+    <text x="560" y="50" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">AI Host（Claude Code／其他 MCP client）</text>
+
+    <!-- 5 top-level MCP boxes -->
+    <rect x="20" y="140" width="190" height="58" rx="9" fill="#dbe9ea" stroke="#2b6777"/>
+    <text x="115" y="164" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="12.5" font-weight="700" fill="#17414c">asana-mcp</text>
+    <text x="115" y="182" text-anchor="middle" font-size="10.5" fill="#17414c" opacity="0.85">唯讀 Asana 存取</text>
+
+    <rect x="228" y="140" width="190" height="58" rx="9" fill="#f1e2c8" stroke="#b9782e"/>
+    <text x="323" y="164" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="12.5" font-weight="700" fill="#8a5a1f">svn-mcp</text>
+    <text x="323" y="182" text-anchor="middle" font-size="10.5" fill="#8a5a1f" opacity="0.85">唯讀 SVN／自主 CLI</text>
+
+    <rect x="436" y="140" width="210" height="58" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="541" y="164" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="12.5" font-weight="700" fill="#2a2620">spec-pipeline-mcp</text>
+    <text x="541" y="182" text-anchor="middle" font-size="10.5" fill="#2a2620" opacity="0.7">目錄登記／commit 記錄</text>
+
+    <rect x="664" y="140" width="210" height="58" rx="9" fill="#dfe9dd" stroke="#4c7a52" stroke-width="1.6"/>
+    <text x="769" y="164" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="12.5" font-weight="700" fill="#365f3b">asana-pipeline-mcp</text>
+    <text x="769" y="182" text-anchor="middle" font-size="10.5" fill="#365f3b" opacity="0.9">橋接＋票單三階段流程</text>
+
+    <rect x="900" y="140" width="190" height="58" rx="9" fill="#f2dbd2" stroke="#a84b36"/>
+    <text x="995" y="164" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="12.5" font-weight="700" fill="#7d3a29">github-mcp</text>
+    <text x="995" y="182" text-anchor="middle" font-size="10.5" fill="#7d3a29" opacity="0.85">GitHub repo/issue/PR</text>
+
+    <!-- host fan-out arrows -->
+    <g stroke="#2a2620">
+      <line x1="480" y1="70" x2="120" y2="136" marker-end="url(#archArrow)"/>
+      <line x1="510" y1="70" x2="325" y2="136" marker-end="url(#archArrow)"/>
+      <line x1="545" y1="70" x2="541" y2="136" marker-end="url(#archArrow)"/>
+      <line x1="590" y1="70" x2="760" y2="136" marker-end="url(#archArrow)"/>
+      <line x1="640" y1="70" x2="985" y2="136" marker-end="url(#archArrow)"/>
+    </g>
+    <text x="560" y="112" text-anchor="middle" font-size="11" fill="#6b6558">五條都是各自獨立的 MCP 連線（stdio／JSON-RPC），host 分別啟動</text>
+
+    <!-- github-mcp note -->
+    <text x="995" y="222" text-anchor="middle" font-size="11" fill="#6b6558">沒有被其他 MCP 橋接，</text>
+    <text x="995" y="236" text-anchor="middle" font-size="11" fill="#6b6558">host 直接用</text>
+
+    <!-- bridging container label -->
+    <text x="660" y="222" text-anchor="middle" font-size="11.5" font-weight="500" fill="#365f3b">asana-pipeline-mcp 內部另外啟動的 3 個子行程</text>
+    <text x="660" y="236" text-anchor="middle" font-size="11" fill="#365f3b" opacity="0.85">（獨立 process，不是共用上面 host 的連線）</text>
+
+    <!-- bridging container -->
+    <rect x="460" y="248" width="400" height="150" rx="10" fill="none" stroke="#4c7a52" stroke-opacity="0.5" stroke-dasharray="5 4"/>
+
+    <rect x="475" y="286" width="115" height="54" rx="8" fill="#dbe9ea" stroke="#2b6777"/>
+    <text x="532" y="308" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c">asana-mcp</text>
+    <text x="532" y="322" text-anchor="middle" font-size="10" fill="#17414c" opacity="0.8">（子行程）</text>
+
+    <rect x="602" y="286" width="140" height="54" rx="8" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="672" y="308" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="10.5" fill="#2a2620">spec-pipeline-mcp</text>
+    <text x="672" y="322" text-anchor="middle" font-size="10" fill="#2a2620" opacity="0.7">（子行程）</text>
+
+    <rect x="754" y="286" width="100" height="54" rx="8" fill="#f1e2c8" stroke="#b9782e"/>
+    <text x="804" y="308" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="10.5" fill="#8a5a1f">svn-mcp</text>
+    <text x="804" y="322" text-anchor="middle" font-size="10" fill="#8a5a1f" opacity="0.8">（子行程）</text>
+
+    <!-- bridging arrows from asana-pipeline-mcp -->
+    <g stroke="#4c7a52">
+      <line x1="740" y1="198" x2="545" y2="282" marker-end="url(#archArrow)"/>
+      <line x1="769" y1="198" x2="675" y2="282" marker-end="url(#archArrow)"/>
+      <line x1="800" y1="198" x2="800" y2="282" marker-end="url(#archArrow)"/>
+    </g>
+
+    <!-- external systems note -->
+    <rect x="20" y="420" width="1080" height="46" rx="8" fill="#e3dcc9" fill-opacity="0.5" stroke="#2a2620" stroke-opacity="0.35"/>
+    <text x="560" y="440" text-anchor="middle" font-size="11" fill="#6b6558">各自最終還連到：asana-mcp／子行程 → Asana API　·　svn-mcp／子行程 → 本機 svn CLI（svn-mcp 另有獨立 HTTP bridge 給 claudeweb 用）</text>
+    <text x="560" y="456" text-anchor="middle" font-size="11" fill="#6b6558">spec-pipeline-mcp／子行程 → 本機 git 指令與共用登記檔　·　asana-pipeline-mcp → 使用者的專案目錄（projectDir）　·　github-mcp → GitHub API</text>
+  </g>
+</svg>

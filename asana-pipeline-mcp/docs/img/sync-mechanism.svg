@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 470" role="img" aria-label="01-analysis.md、02-implementation.md、03-verification.md 三份文件的強制同步機制：寫 02 時 syncNote 必填，帶入 NO_SYNC_NEEDED 代表確認不需要同步、只快照 01 目前雜湊；帶入實際內容則附加到 01 尾端並更新雜湊，兩種情況都會讓 sync_flags.analysis_stale 暫時變回 false；但如果 01 之後又被獨立改寫，sync_flags.analysis_stale 會變回 true，直到下次寫 02 時再重新核對。寫 03 時對 02 套用同樣的機制">
+  <defs>
+    <marker id="arrowNeutral2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
+    </marker>
+    <marker id="arrowAccent2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b6777"/>
+    </marker>
+    <marker id="arrowStale2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#a84b36"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1000" height="470" fill="#f5f2ea"/>
+
+  <g font-family="'Noto Sans TC',sans-serif">
+    <!-- row 1: three documents -->
+    <rect x="20" y="20" width="180" height="54" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="110" y="52" text-anchor="middle" font-size="12.5" fill="#2a2620">01-analysis.md</text>
+
+    <rect x="390" y="20" width="220" height="54" rx="9" fill="#dbe9ea" stroke="#2b6777"/>
+    <text x="500" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#17414c">02-implementation.md</text>
+
+    <rect x="800" y="20" width="180" height="54" rx="9" fill="none" stroke="#2a2620" stroke-opacity="0.45" stroke-dasharray="4 4"/>
+    <text x="890" y="52" text-anchor="middle" font-size="12.5" fill="#2a2620" opacity="0.55">03-verification.md</text>
+
+    <line x1="610" y1="47" x2="794" y2="47" stroke="#2a2620" stroke-opacity="0.45" stroke-dasharray="4 4" marker-end="url(#arrowNeutral2)"/>
+    <text x="702" y="34" text-anchor="middle" font-size="11" fill="#6b6558">寫 03 時，02→03 套用同樣機制</text>
+
+    <line x1="500" y1="74" x2="500" y2="97" stroke="#2a2620" marker-end="url(#arrowNeutral2)"/>
+
+    <!-- decision diamond -->
+    <polygon points="500,97 583,145 500,193 417,145" fill="#dbe9ea" stroke="#2b6777" stroke-width="1.4"/>
+    <text x="500" y="140" text-anchor="middle" font-size="12" font-weight="700" fill="#17414c">syncNote</text>
+    <text x="500" y="156" text-anchor="middle" font-size="12" font-weight="700" fill="#17414c">帶了什麼？</text>
+
+    <line x1="417" y1="145" x2="284" y2="221" stroke="#2a2620" marker-end="url(#arrowNeutral2)"/>
+    <line x1="583" y1="145" x2="716" y2="221" stroke="#2b6777" marker-end="url(#arrowAccent2)"/>
+
+    <!-- branch A: NO_SYNC_NEEDED -->
+    <rect x="140" y="225" width="260" height="78" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="270" y="250" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="12" fill="#2a2620">"NO_SYNC_NEEDED"</text>
+    <text x="270" y="268" text-anchor="middle" font-size="11.5" fill="#6b6558">快照目前 01 雜湊</text>
+    <text x="270" y="284" text-anchor="middle" font-size="11.5" fill="#6b6558">01 內容不變</text>
+
+    <!-- branch B: real note -->
+    <rect x="560" y="225" width="300" height="78" rx="9" fill="#dbe9ea" stroke="#2b6777"/>
+    <text x="710" y="250" text-anchor="middle" font-size="12" font-weight="700" fill="#17414c">syncNote 有實際內容</text>
+    <text x="710" y="268" text-anchor="middle" font-size="11.5" fill="#17414c" opacity="0.9">附加到 01-analysis.md 尾端</text>
+    <text x="710" y="284" text-anchor="middle" font-size="11" fill="#17414c" opacity="0.8">新增「同步更新」段落並更新雜湊</text>
+
+    <!-- convergence -->
+    <line x1="290" y1="303" x2="400" y2="343" stroke="#2a2620" marker-end="url(#arrowNeutral2)"/>
+    <line x1="700" y1="303" x2="600" y2="343" stroke="#2a2620" marker-end="url(#arrowNeutral2)"/>
+
+    <rect x="310" y="345" width="380" height="50" rx="9" fill="none" stroke="#2a2620" stroke-opacity="0.8"/>
+    <text x="500" y="366" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="11" fill="#2a2620">analysis_hash_at_impl_write ← 01 現在雜湊</text>
+    <text x="500" y="384" text-anchor="middle" font-size="11.5" font-weight="500" fill="#4c7a52">→ sync_flags.analysis_stale 暫時變回 false</text>
+
+    <!-- drift / stale scenario -->
+    <path d="M 110 74 C 55 210, 55 340, 110 405" fill="none" stroke="#a84b36" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#arrowStale2)"/>
+
+    <rect x="20" y="410" width="320" height="50" rx="9" fill="#f2dbd2" stroke="#a84b36"/>
+    <text x="180" y="430" text-anchor="middle" font-size="11.5" fill="#a84b36">若之後 01 又被獨立改寫（例如重新分析）</text>
+    <text x="180" y="448" text-anchor="middle" font-size="11.5" font-weight="500" fill="#a84b36">→ sync_flags.analysis_stale 變回 true</text>
+  </g>
+</svg>

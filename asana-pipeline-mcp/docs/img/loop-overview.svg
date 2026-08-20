@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 330" role="img" aria-label="每次執行的主迴圈：一次性設定之後，呼叫 list_pending_tickets 取得待處理票單清單，同時也會拿到 awaitingSelfConfirmation（AI 已驗證 PASS、但使用者自己還沒實測＋審視程式碼品質的舊票）跟 awaitingTesterConfirmation（第一關已過、但另一位獨立測試員的情境測試還沒表態的舊票），必須主動列給使用者看並依序等待 record_self_confirmation、record_tester_confirmation；接著逐張新票走過三階段處理，處理完一張換下一張，全部跑完後彙整報告">
+  <defs>
+    <marker id="arrowMain" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
+    </marker>
+    <marker id="arrowMainAccent" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b6777"/>
+    </marker>
+    <marker id="arrowWarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b9782e"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1000" height="330" fill="#f5f2ea"/>
+
+  <g font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="14">
+    <rect x="16" y="78" width="176" height="74" rx="10" fill="none" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="104" y="109" text-anchor="middle" fill="#2a2620">一次性設定</text>
+    <text x="104" y="130" text-anchor="middle" font-size="11" fill="#6b6558">見「一次性設定」表</text>
+
+    <rect x="248" y="78" width="196" height="74" rx="10" fill="none" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="346" y="104" text-anchor="middle" font-size="12.5" fill="#2a2620">list_pending_tickets</text>
+    <text x="346" y="126" text-anchor="middle" font-size="12.5" fill="#2a2620">取得待處理票單清單</text>
+
+    <rect x="500" y="66" width="260" height="98" rx="10" fill="#dbe9ea" stroke="#2b6777"/>
+    <text x="630" y="98" text-anchor="middle" font-weight="700" fill="#17414c">單張票 T 的三階段</text>
+    <text x="630" y="120" text-anchor="middle" font-size="12.5" fill="#17414c">分析師 → 工程師 → 驗證師</text>
+    <text x="630" y="140" text-anchor="middle" font-size="11.5" fill="#17414c" opacity="0.85">（見「票單狀態機」圖）</text>
+
+    <rect x="812" y="78" width="172" height="74" rx="10" fill="none" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="898" y="109" text-anchor="middle" fill="#2a2620">彙整報告</text>
+    <text x="898" y="130" text-anchor="middle" font-size="11.5" fill="#6b6558">還沒 push，交人工決定</text>
+  </g>
+
+  <line x1="192" y1="115" x2="242" y2="115" stroke="#2a2620" marker-end="url(#arrowMain)"/>
+  <line x1="444" y1="115" x2="494" y2="115" stroke="#2a2620" marker-end="url(#arrowMain)"/>
+  <line x1="760" y1="115" x2="806" y2="115" stroke="#2a2620" marker-end="url(#arrowMain)"/>
+
+  <path d="M 700 66 C 700 24, 560 24, 560 66" fill="none" stroke="#2b6777" stroke-width="1.6" marker-end="url(#arrowMainAccent)"/>
+  <text x="630" y="30" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12" fill="#17414c">清單裡還有票 → 換下一張 T</text>
+
+  <!-- awaitingSelfConfirmation / awaitingTesterConfirmation branch: surfaced alongside list_pending_tickets, not part of the per-ticket loop -->
+  <line x1="346" y1="152" x2="346" y2="184" stroke="#b9782e" stroke-width="1.6" marker-end="url(#arrowWarn)"/>
+  <rect x="196" y="188" width="300" height="118" rx="10" fill="#f1e2c8" stroke="#b9782e"/>
+  <text x="346" y="208" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12.5" font-weight="700" fill="#b9782e">＋ 兩關待確認的舊票</text>
+  <text x="346" y="226" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10" fill="#b9782e" opacity="0.85">awaitingSelfConfirmation</text>
+  <text x="346" y="241" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#b9782e">第一關：使用者自測＋審視 code</text>
+  <text x="346" y="260" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10" fill="#b9782e" opacity="0.85">awaitingTesterConfirmation</text>
+  <text x="346" y="275" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#b9782e">第二關：獨立測試員情境測試</text>
+  <text x="346" y="296" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#b9782e" opacity="0.9">主動列出，等待人工依序回覆</text>
+</svg>
