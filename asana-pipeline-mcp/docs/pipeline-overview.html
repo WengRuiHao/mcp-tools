@@ -333,7 +333,7 @@
   <header class="hero">
     <p class="eyebrow">操作手冊 · asana-pipeline-mcp</p>
     <h1>Asana Pipeline 全景圖</h1>
-    <p class="lede">從「今天有哪些票該處理」到分析師 → 工程師 → 驗證師三階段自動跑完，再到換 session／換 AI 接手、票單內容被改過怎麼被抓出來、追蹤檔案被繞過 MCP 直接改過又怎麼被抓出來——這六張圖對照目前這個 MCP 實際在跑的完整流程。</p>
+    <p class="lede">從「今天有哪些票該處理」到分析師 → 工程師 → 驗證師三階段自動跑完，再到換 session／換 AI 接手、票單內容被改過怎麼被抓出來、追蹤檔案被繞過 MCP 直接改過又怎麼被抓出來、跑完之後需要人工處理的事項怎麼持久化——這七張圖對照目前這個 MCP 實際在跑的完整流程。</p>
   </header>
 
   <section class="block">
@@ -788,6 +788,61 @@
       </svg>
       </div>
       <figcaption><code class="mono">sync_flags</code> 用的兩個雜湊都只在呼叫 <code class="mono">write_ticket_artifact</code> 時才會更新，繞過它就不會被更新到，拿兩個「一樣沒被更新過」的舊值互相比，永遠看起來一致；<code class="mono">external_changes</code> 每次都當場重讀磁碟現算雜湊，才抓得到這種繞過。這個工具不會自動修正，只負責誠實回報，不需要任何人記得做什麼——純粹被動偵測，不像「叫 AI 記得同步」那樣不可靠。</figcaption>
+    </figure>
+  </section>
+
+  <section class="block">
+    <div class="block-head">
+      <span class="block-num">7</span>
+      <h2>待人工處理清單持久化</h2>
+    </div>
+    <p class="block-note">過去「這張票需要你確認」「這個 SQL 只能你手動執行」這類提醒只在聊天回覆裡講一次，換個 session、關掉對話視窗就找不到了。現在整份寫進磁碟上的一份 Markdown 檔案，不靠聊天記錄留存。</p>
+    <figure class="diagram">
+      <div class="diagram-scroll">
+      <svg viewBox="0 0 1080 220" role="img" aria-label="待人工處理清單持久化機制：呼叫 list_pending_tickets 並帶上 projectName 時，會掃描這個 Asana 專案所有票單、彙整待你確認／待測試員確認／卡住需要介入／需要你手動處理的事項四類項目，整份覆寫進 PENDING_HUMAN_ACTIONS.md；這份檔案落在磁碟上，任何 session、甚至不開 AI 都能直接打開看，不會因為聊天記錄被清掉或壓縮就遺失">
+        <defs>
+          <marker id="arrowReport" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+          </marker>
+          <marker id="arrowReportWarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--warn)"/>
+          </marker>
+          <marker id="arrowReportGood" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--good)"/>
+          </marker>
+        </defs>
+
+        <g font-size="12">
+          <rect x="20" y="80" width="190" height="70" rx="9" fill="none" stroke="currentColor" opacity="0.85"/>
+          <text x="115" y="108" text-anchor="middle" class="mono-label" font-size="12">list_pending_tickets</text>
+          <text x="115" y="126" text-anchor="middle" class="mono-label" font-size="10.5" opacity="0.7">({ projectGid, projectName })</text>
+
+          <rect x="248" y="70" width="230" height="90" rx="9" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
+          <text x="363" y="94" text-anchor="middle" font-size="12">掃描專案所有票單</text>
+          <text x="363" y="112" text-anchor="middle" font-size="11" opacity="0.7">彙整四類人工待辦：</text>
+          <text x="363" y="128" text-anchor="middle" font-size="10.5" opacity="0.7">待你確認／待測試員確認／</text>
+          <text x="363" y="144" text-anchor="middle" font-size="10.5" opacity="0.7">卡住需要介入／待手動處理</text>
+
+          <rect x="548" y="70" width="230" height="90" rx="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
+          <text x="663" y="98" text-anchor="middle" font-size="12" font-weight="700" fill="var(--warn)">PENDING_HUMAN_ACTIONS.md</text>
+          <text x="663" y="118" text-anchor="middle" font-size="10.5" fill="var(--warn)">整份覆寫，不是累加</text>
+          <text x="663" y="134" text-anchor="middle" font-size="10.5" fill="var(--warn)">落在磁碟，不是聊天記錄</text>
+
+          <rect x="838" y="70" width="220" height="90" rx="9" fill="var(--good-soft)" stroke="var(--good)"/>
+          <text x="948" y="98" text-anchor="middle" font-size="12" font-weight="700" fill="var(--good)">你直接打開檔案看</text>
+          <text x="948" y="118" text-anchor="middle" font-size="10.5" fill="var(--good)">不需要開 AI、不需要問</text>
+          <text x="948" y="134" text-anchor="middle" font-size="10.5" fill="var(--good)">不會因對話結束/壓縮而消失</text>
+        </g>
+
+        <line x1="210" y1="115" x2="244" y2="115" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrowReport)"/>
+        <line x1="478" y1="115" x2="544" y2="115" stroke="var(--warn)" stroke-width="1.6" marker-end="url(#arrowReportWarn)"/>
+        <line x1="778" y1="115" x2="834" y2="115" stroke="var(--good)" stroke-width="1.6" marker-end="url(#arrowReportGood)"/>
+
+        <text x="363" y="185" text-anchor="middle" font-size="11" opacity="0.7">這條 pipeline 每次執行本來就一定會呼叫這個工具（步驟 1）——</text>
+        <text x="363" y="201" text-anchor="middle" font-size="11" opacity="0.7">寫檔案是它的副作用，不是一個容易被忘記呼叫的額外步驟</text>
+      </svg>
+      </div>
+      <figcaption><code class="mono">manualActions</code>（<code class="mono">write_ticket_artifact</code> 寫 02/03 時必填，可以是空陣列）逼工程師/驗證師把「這個 SQL 只能你手動執行」這類事項明確宣告出來，不能只埋在全文內容裡指望使用者重讀才發現；四類項目彙整後整份覆寫進磁碟上的 Markdown 檔案，不依賴聊天記錄留存。</figcaption>
     </figure>
   </section>
 

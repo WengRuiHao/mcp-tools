@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 220" role="img" aria-label="待人工處理清單持久化機制：呼叫 list_pending_tickets 並帶上 projectName 時，會掃描這個 Asana 專案所有票單、彙整待你確認／待測試員確認／卡住需要介入／需要你手動處理的事項四類項目，整份覆寫進 PENDING_HUMAN_ACTIONS.md；這份檔案落在磁碟上，任何 session、甚至不開 AI 都能直接打開看，不會因為聊天記錄被清掉或壓縮就遺失">
+  <defs>
+    <marker id="arrowReport" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
+    </marker>
+    <marker id="arrowReportWarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b9782e"/>
+    </marker>
+    <marker id="arrowReportGood" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4c7a52"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1080" height="220" fill="#f5f2ea"/>
+
+  <g font-family="'IBM Plex Mono','Noto Sans TC',sans-serif">
+    <rect x="20" y="80" width="190" height="70" rx="9" fill="none" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="115" y="108" text-anchor="middle" font-size="12" fill="#2a2620">list_pending_tickets</text>
+    <text x="115" y="126" text-anchor="middle" font-size="10.5" fill="#6b6558">({ projectGid, projectName })</text>
+
+    <rect x="248" y="70" width="230" height="90" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="363" y="94" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12" fill="#2a2620">掃描專案所有票單</text>
+    <text x="363" y="112" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#6b6558">彙整四類人工待辦：</text>
+    <text x="363" y="128" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#6b6558">待你確認／待測試員確認／</text>
+    <text x="363" y="144" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#6b6558">卡住需要介入／待手動處理</text>
+
+    <rect x="548" y="70" width="230" height="90" rx="9" fill="#f1e2c8" stroke="#b9782e"/>
+    <text x="663" y="98" text-anchor="middle" font-size="12" font-weight="700" fill="#b9782e">PENDING_HUMAN_ACTIONS.md</text>
+    <text x="663" y="118" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#b9782e">整份覆寫，不是累加</text>
+    <text x="663" y="134" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#b9782e">落在磁碟，不是聊天記錄</text>
+
+    <rect x="838" y="70" width="220" height="90" rx="9" fill="#dfe9dd" stroke="#4c7a52"/>
+    <text x="948" y="98" text-anchor="middle" font-size="12" font-weight="700" fill="#4c7a52">你直接打開檔案看</text>
+    <text x="948" y="118" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#4c7a52">不需要開 AI、不需要問</text>
+    <text x="948" y="134" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#4c7a52">不會因對話結束/壓縮而消失</text>
+  </g>
+
+  <line x1="210" y1="115" x2="244" y2="115" stroke="#2a2620" stroke-width="1.6" marker-end="url(#arrowReport)"/>
+  <line x1="478" y1="115" x2="544" y2="115" stroke="#2a2620" stroke-width="1.6" marker-end="url(#arrowReportWarn)"/>
+  <line x1="778" y1="115" x2="834" y2="115" stroke="#4c7a52" stroke-width="1.6" marker-end="url(#arrowReportGood)"/>
+
+  <text x="363" y="185" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#6b6558">這條 pipeline 每次執行本來就一定會呼叫這個工具（步驟 1）——</text>
+  <text x="363" y="201" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#6b6558">寫檔案是它的副作用，不是一個容易被忘記呼叫的額外步驟</text>
+</svg>

@@ -107,6 +107,8 @@ npm run build
 
 ### 待人工處理清單（`PENDING_HUMAN_ACTIONS.md`）
 
+![待人工處理清單持久化機制：呼叫 list_pending_tickets 並帶上 projectName 時，會掃描這個 Asana 專案所有票單、彙整待你確認／待測試員確認／卡住需要介入／需要你手動處理的事項四類項目，整份覆寫進 PENDING_HUMAN_ACTIONS.md；這份檔案落在磁碟上，任何 session、甚至不開 AI 都能直接打開看，不會因為聊天記錄被清掉或壓縮就遺失](docs/img/pending-actions-report.svg)
+
 過去「這張票需要你確認」「這個 SQL 只能你手動執行」這類提醒，只會在當次聊天回覆裡講一次——換個 session、關掉對話視窗，這份清單就沒了，只能重新問 AI 才會再看到一次。
 
 現在 `list_pending_tickets({ projectGid, projectName, sectionFilter? })` **只要帶 `projectName`**，每次呼叫都會把當下算出來的四類「需要人工處理」項目整份覆寫進 `<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.md`：
