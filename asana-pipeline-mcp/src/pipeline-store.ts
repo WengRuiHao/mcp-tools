@@ -57,6 +57,10 @@ export interface TicketStatus {
   verifier_root_cause: "analysis" | "implementation" | null;
   /** 連續 FAIL 次數的機械式安全閥——不是給 AI 自己心算的東西，由 advanceStage 在 verdict 有值時自動維護：FAIL +1，PASS 歸零。達到門檻（見 needsHumanReview）時不該再自動重跑，要停下來問使用者。 */
   consecutive_fail_count: number;
+  /** 工程師階段宣告的「需要使用者手動處理」事項（例如產出的 SQL 只能交由使用者到 Database 工具手動執行、後台程式代號/選單需自行設定）。write_ticket_artifact 寫 02-implementation.md 時必填（可以是空陣列，代表明確確認這次沒有）——不能讓這種一次性提醒被埋在自由文字裡、換個 session 就找不到。 */
+  implementation_manual_actions: string[];
+  /** 驗證師階段宣告/補充的「需要使用者手動處理」事項，語意同上，write_ticket_artifact 寫 03-verification.md 時必填。跟 implementation_manual_actions 是分開累積、不互相覆蓋——工程師交代的事項不會因為驗證師沒有重複提到就消失。 */
+  verification_manual_actions: string[];
   /** 01/02/03 三份文件彼此之間是否同步（跟 content_hash/needs_reanalysis 是不同軸向：那組管「票單原文 vs 追蹤系統」，這組管「追蹤系統內部三份文件互相」）。 */
   sync: TicketSyncState;
 }
@@ -200,6 +204,8 @@ const NEW_STATUS: TicketStatus = {
   tester_confirmation: null,
   verifier_root_cause: null,
   consecutive_fail_count: 0,
+  implementation_manual_actions: [],
+  verification_manual_actions: [],
   sync: {
     analysis_hash: null,
     implementation_hash: null,
@@ -383,6 +389,9 @@ export async function recordSnapshotContent(
       // 根因標記/安全閥計數也是針對「上一版內容」算出來的，內容真的變了就沒有意義，一併歸零，不能讓舊版的連續 FAIL 次數影響新內容的判斷。
       verifier_root_cause: hadPriorProgress ? null : status.verifier_root_cause,
       consecutive_fail_count: hadPriorProgress ? 0 : status.consecutive_fail_count,
+      // 舊的人工待辦事項是針對「上一版程式碼」宣告的，內容真的變了、要重新走一次實作，舊的宣告一併清空，等新一輪工程師/驗證師重新宣告。
+      implementation_manual_actions: hadPriorProgress ? [] : status.implementation_manual_actions,
+      verification_manual_actions: hadPriorProgress ? [] : status.verification_manual_actions,
     });
   });
   return { changed, needsReanalysis: updated.needs_reanalysis, status: updated };
@@ -404,9 +413,32 @@ export async function recordArtifactSummary(ticketGid: string, filename: string,
       patch.needs_reanalysis = false;
       // 分析師已經針對最新情況重新分析過，上一輪驗證師判斷的根因標記（如果有）已經處理掉了，不用再帶著跑。
       patch.verifier_root_cause = null;
+      // 工程師/驗證師都要重跑一輪，上一輪宣告的人工待辦事項一併清空，等新一輪重新宣告，不留舊版的殘留提醒。
+      patch.implementation_manual_actions = [];
+      patch.verification_manual_actions = [];
     }
     return { ...status, ...patch };
   });
+}
+
+const MANUAL_ACTIONS_KEY: Record<string, keyof Pick<TicketStatus, "implementation_manual_actions" | "verification_manual_actions">> = {
+  "02-implementation.md": "implementation_manual_actions",
+  "03-verification.md": "verification_manual_actions",
+};
+
+/**
+ * write_ticket_artifact 寫 02/03 時必填的「需要使用者手動處理」事項清單（可以是空陣列，代表明確確認這次沒有）。
+ * 兩份文件各自獨立累積、互相不覆蓋——工程師交代的事項不會因為驗證師這次沒有重複提到就消失，兩邊都要看才算完整。
+ * 這是刻意做成機械式必填欄位，不是選填提醒：這類一次性的人工待辦（典型例子是「已產出 SQL，僅能由使用者到
+ * Database 工具手動執行」）過去只寫在 02/03 全文或聊天視窗裡，換個 session、或使用者沒仔細重讀全文就會被漏掉。
+ */
+export async function recordManualActions(
+  ticketGid: string,
+  filename: "02-implementation.md" | "03-verification.md",
+  actions: string[]
+): Promise<void> {
+  const key = MANUAL_ACTIONS_KEY[filename];
+  await updateStatus(ticketGid, (status) => ({ ...status, [key]: actions }));
 }
 
 /** write_ticket_artifact 寫 02/03 時，syncNote 帶這個 sentinel 代表「明確判斷過這次不需要同步回上一階段文件」——不是省略不填，而是主動選了「沒有」這個答案。 */
@@ -596,4 +628,58 @@ export async function readArtifact(ticketGid: string, filename: string): Promise
   } catch {
     return null;
   }
+}
+
+export interface PendingActionsReportInput {
+  awaitingSelfConfirmation: { taskGid: string; name: string }[];
+  awaitingTesterConfirmation: { taskGid: string; name: string }[];
+  needsHumanReview: { taskGid: string; name: string; consecutiveFailCount: number }[];
+  manualActions: { taskGid: string; name: string; actions: string[] }[];
+}
+
+/**
+ * 把「這條 pipeline 跑完之後需要人工處理」的四類項目寫成一份持久化的 Markdown 檔案，取代原本只在聊天視窗
+ * 提醒一次、換個 session 就找不到的做法。呼叫端（index.ts 的 list_pending_tickets）每次執行都會用當下
+ * 重新算出來的資料整份覆寫這個檔案，不需要任何人記得手動維護，也不會因為聊天記錄被清掉/壓縮就遺失。
+ * 檔案位置跟每張票自己的追蹤目錄同一層（<projectDir>/.asana-pipeline/<projectName>/），不是散落在各票單
+ * 資料夾裡，方便使用者一次打開就看到這個 Asana 專案底下全部待處理項目。
+ */
+export async function writePendingActionsReport(
+  projectDir: string,
+  projectName: string,
+  input: PendingActionsReportInput
+): Promise<string> {
+  const dir = path.join(projectDir, ".asana-pipeline", sanitizeSegment(projectName));
+  await mkdir(dir, { recursive: true });
+  const filePath = path.join(dir, "PENDING_HUMAN_ACTIONS.md");
+
+  const section = (title: string, lines: string[]): string =>
+    `## ${title}\n\n${lines.length > 0 ? lines.map((l) => `- [ ] ${l}`).join("\n") : "（無）"}\n`;
+
+  const content = [
+    `# 待人工處理清單 — ${projectName}`,
+    "",
+    `> 由 \`asana-pipeline-mcp\` 的 \`list_pending_tickets\` 自動產生/覆寫，最後更新：${nowIso()}`,
+    `> 每次執行 pipeline 都會用當下最新狀態整份重寫這個檔案——不要手動編輯，改動不會被保留。`,
+    "",
+    section(
+      "待你確認（AI 驗證師判 PASS，等你自己實測＋審視程式碼品質）",
+      input.awaitingSelfConfirmation.map((t) => `${t.name}（\`${t.taskGid}\`）`)
+    ),
+    section(
+      "待測試員確認（你已確認，等另一位獨立測試員情境測試）",
+      input.awaitingTesterConfirmation.map((t) => `${t.name}（\`${t.taskGid}\`）`)
+    ),
+    section(
+      "卡住需要你介入（連續 FAIL 已達門檻，AI 不會再自動重跑）",
+      input.needsHumanReview.map((t) => `${t.name}（\`${t.taskGid}\`，已連續 FAIL ${t.consecutiveFailCount} 次）`)
+    ),
+    section(
+      "需要你手動處理的事項（例如 SQL 只能由你到 Database 工具執行）",
+      input.manualActions.flatMap((t) => t.actions.map((a) => `${t.name}（\`${t.taskGid}\`）— ${a}`))
+    ),
+  ].join("\n");
+
+  await writeFile(filePath, content, "utf-8");
+  return filePath;
 }

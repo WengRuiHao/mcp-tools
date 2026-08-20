@@ -38,7 +38,7 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 **這一步要在列票單之前先做**，因為每張票的追蹤目錄都會建在這個 \`projectDir\` 底下（見步驟 2）。
 
 ## 步驟 1：找出待處理票單
-呼叫 \`list_pending_tickets({ projectGid, sectionFilter? })\`，取得這個 Asana 專案裡尚未完成、且尚未驗證通過（PASS）的票單清單。一張一張處理，不需要平行處理。
+呼叫 \`list_pending_tickets({ projectGid, sectionFilter?, projectName: <這個 Asana 專案的「全名稱」，步驟 0 拿到的> })\` **一定要帶 \`projectName\`**，取得這個 Asana 專案裡尚未完成、且尚未驗證通過（PASS）的票單清單。一張一張處理，不需要平行處理。帶了 \`projectName\` 之後，這次算出來的「待你確認／待測試員確認／卡住需要介入／需要你手動處理的事項」四類項目會自動整份寫進 \`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.md\`——這是持久化檔案，不是只在這次聊天回覆裡講一遍就消失，換 session、關掉對話都還在，步驟 3 的彙整報告不用再自己重複整理一次，直接告訴使用者這份檔案存在、位置在哪即可。
 
 **清單裡如果某張票標記 \`contentChanged: true\`，代表這張票之前已經驗證 PASS 過，但 Asana 上的內容後來又被改過**——不能因為它「之前是 PASS」就跳過，一樣要走一次步驟 2（下一步 \`get_ticket_snapshot\` 會確認內容是不是真的變了、需不需要重新分析）。
 
@@ -109,10 +109,10 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 4. 取得「分析師」角色說明：呼叫 \`get_role_prompt({ role: "analyst" })\`（**如果你有能力派子任務執行，見上面「選用建議」那段，改派子任務扮演這個角色，不要自己做**），依照裡面的說明自己進行分析（可以用 \`read_project_file\`/\`list_project_dir\`/\`search_project_text\` 唯讀工具探索程式碼，也可以先呼叫 \`get_recent_commits({ gitDir: projectDir })\` 拿最近的異動脈絡；如果上一步確認有 SA/SD 規格，一定要把規格內容納入分析依據，不能只看票單描述跟程式碼）。完成後呼叫 \`write_ticket_artifact({ taskGid: T, filename: "01-analysis.md", content: <你的分析全文>, summary: <2-4 條重點精簡摘要> })\`，再呼叫 \`advance_ticket_stage({ taskGid: T, stage: "analyzed" })\`。
 
 5. **開始前**：呼叫 \`get_ticket_status({ taskGid: T })\` 看 \`summaries.analysis\`——不管你是不是分析師那一步的同一個 session/AI，都用這個當作接手的基本依據，成本比重讀全文低很多。只有當摘要不足以判斷該改哪些檔案、或需要分析師原文的精確措辭時，才另外呼叫 \`read_ticket_artifact({ taskGid: T, filename: "01-analysis.md" })\` 讀全文。
-   取得「工程師」角色說明：呼叫 \`get_role_prompt({ role: "engineer" })\`（**如果你有能力派子任務執行，見上面「選用建議」那段，改派子任務扮演這個角色，不要自己做**），依照裡面的說明直接用 \`write_project_file\` 修改需要的檔案來解決問題，需要的話用 \`run_project_shell\` 檢查或記錄變更（**禁止 git push / 強制覆蓋類指令，git 指令也一定要先登記過步驟 3 的 git 版控根目錄，這個工具本身會拒絕執行不符的指令**）。完成後呼叫 \`write_ticket_artifact({ taskGid: T, filename: "02-implementation.md", content: <修改摘要全文>, summary: <2-4 條重點精簡摘要>, syncNote: <這次有沒有推翻/補充分析師的結論？有就寫這裡，沒有就填 "NO_SYNC_NEEDED"，這個參數是必填的> })\`，再呼叫 \`advance_ticket_stage({ taskGid: T, stage: "implemented" })\`。
+   取得「工程師」角色說明：呼叫 \`get_role_prompt({ role: "engineer" })\`（**如果你有能力派子任務執行，見上面「選用建議」那段，改派子任務扮演這個角色，不要自己做**），依照裡面的說明直接用 \`write_project_file\` 修改需要的檔案來解決問題，需要的話用 \`run_project_shell\` 檢查或記錄變更（**禁止 git push / 強制覆蓋類指令，git 指令也一定要先登記過步驟 3 的 git 版控根目錄，這個工具本身會拒絕執行不符的指令**）。完成後呼叫 \`write_ticket_artifact({ taskGid: T, filename: "02-implementation.md", content: <修改摘要全文>, summary: <2-4 條重點精簡摘要>, syncNote: <這次有沒有推翻/補充分析師的結論？有就寫這裡，沒有就填 "NO_SYNC_NEEDED"，這個參數是必填的>, manualActions: <這次有沒有事項需要使用者手動處理？例如產出的 SQL 只能交由使用者到 Database 工具執行、後台程式代號/選單/I18N 需自行設定——有就列成陣列，沒有就帶空陣列 []，這個參數是必填的> })\`，再呼叫 \`advance_ticket_stage({ taskGid: T, stage: "implemented" })\`。
 
 6. **開始前**：呼叫 \`get_ticket_status({ taskGid: T })\` 看 \`summaries.analysis\`/\`summaries.implementation\`，同樣只有摘要不夠用時才另外呼叫 \`read_ticket_artifact\` 讀 \`01-analysis.md\`/\`02-implementation.md\` 全文。
-   取得「驗證師」角色說明：呼叫 \`get_role_prompt({ role: "verifier" })\`（**如果你有能力派子任務執行，見上面「選用建議」那段，改派子任務扮演這個角色，不要自己做**），依照裡面的說明檢查工程師的修改是否真的解決了票單描述的問題，可以跑編譯/測試指令輔助判斷。得出 \`PASS\` 或 \`FAIL\` 結論，寫入 \`write_ticket_artifact({ taskGid: T, filename: "03-verification.md", content: <結論+理由全文>, summary: <2-4 條重點精簡摘要>, syncNote: <驗證過程有沒有發現工程師的修改跟 02-implementation.md 記錄的不一致？有就寫這裡，沒有就填 "NO_SYNC_NEEDED"，這個參數是必填的> })\`，呼叫 \`advance_ticket_stage({ taskGid: T, stage: "verified", verdict: "PASS"|"FAIL", rootCause: <只有 FAIL 時必填，"analysis"|"implementation"，判斷這次問題根因是分析方向本身錯了還是單純實作沒做到位> })\`。
+   取得「驗證師」角色說明：呼叫 \`get_role_prompt({ role: "verifier" })\`（**如果你有能力派子任務執行，見上面「選用建議」那段，改派子任務扮演這個角色，不要自己做**），依照裡面的說明檢查工程師的修改是否真的解決了票單描述的問題，可以跑編譯/測試指令輔助判斷。得出 \`PASS\` 或 \`FAIL\` 結論，寫入 \`write_ticket_artifact({ taskGid: T, filename: "03-verification.md", content: <結論+理由全文>, summary: <2-4 條重點精簡摘要>, syncNote: <驗證過程有沒有發現工程師的修改跟 02-implementation.md 記錄的不一致？有就寫這裡，沒有就填 "NO_SYNC_NEEDED"，這個參數是必填的>, manualActions: <這次驗證有沒有補充/發現新的使用者手動待辦事項？沒有的話帶空陣列 []，這個參數是必填的——不是把工程師階段的 manualActions 重抄一次，是這一階段自己有沒有新的要補充> })\`，呼叫 \`advance_ticket_stage({ taskGid: T, stage: "verified", verdict: "PASS"|"FAIL", rootCause: <只有 FAIL 時必填，"analysis"|"implementation"，判斷這次問題根因是分析方向本身錯了還是單純實作沒做到位> })\`。
    - **若 FAIL，先呼叫 \`get_ticket_status({ taskGid: T })\` 看 \`needs_human_review\`**：
      - **\`false\`**（\`consecutive_fail_count\` 還沒到 3）→ 依 \`03-verification.md\` 的 FAIL 理由跟這次帶的 \`rootCause\`，**自動決定回哪個角色，不需要停下來問使用者**：\`rootCause\` 是 \`"implementation"\` → 直接回到步驟 5（工程師角色），依 FAIL 理由修正後重新走一次驗證；\`rootCause\` 是 \`"analysis"\` → 直接回到步驟 4（分析師角色），重新分析後依序把工程師、驗證師都重跑一次。
      - **\`true\`**（同一張票已經連續 FAIL 3 次）→ **不要再自動重跑**，依最上面「不清楚就要問」的原則，把這幾輪的 FAIL 理由整理給使用者，問清楚方向再繼續。
@@ -121,7 +121,7 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 ## 步驟 3：彙整報告
 所有票單處理完後，整理一個表格（票單／專案目錄／SD 模式／結果／備註）呈現給使用者。並提醒：程式碼異動是否已經 commit 由工程師/驗證師階段自行決定，但不管有沒有 commit，都還沒有 push，需要人工自行決定要不要推上去。
 
-**這次新驗證 PASS 的票，一定要在報告裡明確列出「待你確認」清單**（票名 + \`taskGid\`），提醒使用者：這只是 AI 驗證師自己判定的結論，不等於真正結案，接下來還要走兩關人類確認——先是使用者自己實測＋審視程式碼品質（\`record_self_confirmation\`），通過後再交給另一位獨立測試員做情境測試（\`record_tester_confirmation\`），兩關都過才算真正結案。
+**「需要人工處理」的四類項目不用在這裡重新彙整一次**——只要步驟 1 有帶 \`projectName\`，這些項目已經整份寫進 \`PENDING_HUMAN_ACTIONS.md\` 這份持久化檔案裡了。這裡只需要告訴使用者這份檔案存在、位置在哪（\`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.md\`），提醒他之後不管開哪個 session、要不要問 AI，都可以直接打開這個檔案看目前所有待處理項目，不會因為聊天記錄被清掉/壓縮就找不到。**這次新驗證 PASS 的票，還是要在這次的聊天回覆裡口頭提一下**（票名 + \`taskGid\`），但細節（兩關人類確認怎麼走、卡住需要介入的票、需要手動處理的 SQL 等等）都以那份檔案為準，不用在聊天裡逐條重複列。
 
 **Asana 上的票單狀態/留言不會被這條 pipeline 自動更新**（\`asana-mcp\` 刻意設計成唯讀，避免共用帳號被誤操作）——如果這張票應該要在 Asana 上標記「待測試」「已完成」之類的狀態，或留言通知其他人，那是使用者自己到 Asana 網頁上手動做的事，這個報告只負責提醒「有哪些票該去標記」，不會也不應該嘗試代為執行。
 

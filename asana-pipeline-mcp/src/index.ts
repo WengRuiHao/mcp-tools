@@ -28,6 +28,8 @@ import {
   recordSelfConfirmation,
   recordTesterConfirmation,
   needsHumanReview,
+  recordManualActions,
+  writePendingActionsReport,
   NO_SYNC_NEEDED,
   type TicketStatus,
 } from "./pipeline-store.js";
@@ -81,12 +83,18 @@ server.tool(
     "**awaitingSelfConfirmation（第一關）**：AI 驗證師判過 PASS、Asana 內容也沒再變過，但『使用者自己』還沒實際測過＋審視過程式碼品質的票單。" +
     "**awaitingTesterConfirmation（第二關／最終關）**：第一關已經 confirmed:true，但『另一位獨立測試員』的情境測試還沒表態的票單——只有這關也 confirmed:true，票單才算真正結案。" +
     "AI 自己判定 PASS 不等於這張票真的結案，呼叫端每次執行這個工具都必須把這兩份清單完整秀給使用者看（不能因為這次是來處理別的新票就略過），直到每一張都依序走完 record_self_confirmation 再 record_tester_confirmation 為止，才會從清單消失。" +
-    "**`tickets`（一般待處理清單）裡如果某張票標記 `humanRejected: true`，代表這不是一張全新沒驗證過的票，而是使用者或測試員事後回報有問題、被重新丟回來的票**（`record_self_confirmation`/`record_tester_confirmation` 帶 `confirmed:false` 時會把這張票的 verdict 重設回 null，讓它重新出現在這裡）——處理這種票要當作跟 AI 驗證師自己判 FAIL 完全一樣的情況，套用同一套根因分流機制（見 get_role_prompt({role:\"verifier\"})/advance_ticket_stage 的 rootCause 說明），不要另外發明一套「人工打回」流程。",
+    "**`tickets`（一般待處理清單）裡如果某張票標記 `humanRejected: true`，代表這不是一張全新沒驗證過的票，而是使用者或測試員事後回報有問題、被重新丟回來的票**（`record_self_confirmation`/`record_tester_confirmation` 帶 `confirmed:false` 時會把這張票的 verdict 重設回 null，讓它重新出現在這裡）——處理這種票要當作跟 AI 驗證師自己判 FAIL 完全一樣的情況，套用同一套根因分流機制（見 get_role_prompt({role:\"verifier\"})/advance_ticket_stage 的 rootCause 說明），不要另外發明一套「人工打回」流程。" +
+    "**帶 `projectName` 時，這次算出來的四類「需要人工處理」項目（待你確認／待測試員確認／卡住需要介入／需要你手動處理的事項）會整份覆寫進一份持久化的 `PENDING_HUMAN_ACTIONS.md`**（放在 `<projectDir>/.asana-pipeline/<projectName>/` 底下，跟每張票自己的追蹤目錄同一層）——這是為了取代「只在聊天視窗提醒一次，換個 session 就找不到」的做法，不需要任何人記得手動維護。強烈建議每次呼叫都帶上 `projectName`（跟步驟 0 拿到的 Asana 專案全名稱一致）。",
   {
     projectGid: z.string().describe("Asana 專案 gid"),
     sectionFilter: z.string().nullable().optional().describe("只取這個 section 名稱底下的任務，不指定就取全部"),
+    projectName: z
+      .string()
+      .nullable()
+      .optional()
+      .describe("這個 Asana 專案的「全名稱」。有帶的話會把這次算出的待處理項目寫進 PENDING_HUMAN_ACTIONS.md；不帶就只回傳 JSON，不寫檔案。"),
   },
-  async ({ projectGid, sectionFilter }) => {
+  async ({ projectGid, sectionFilter, projectName }) => {
     const board = await callAsanaTool("asana_board", { projectGid, refresh: true });
     if (!board?.success) return textResult(board, true);
 
@@ -94,6 +102,8 @@ server.tool(
     const pending = [];
     const awaitingSelfConfirmation = [];
     const awaitingTesterConfirmation = [];
+    const needsHumanReviewList = [];
+    const manualActionsList = [];
     for (const task of tasks) {
       if (task.completed === true) continue;
       if (sectionFilter) {
@@ -101,6 +111,16 @@ server.tool(
         if (!sectionNames.includes(sectionFilter)) continue;
       }
       const status = await peekStatus(task.gid);
+
+      // 人工手動待辦跟連續 FAIL 安全閥，不管這張票目前卡在哪個分流，都要獨立檢查一次——不能只在某個分支裡順便處理。
+      const manualActions = [...status.implementation_manual_actions, ...status.verification_manual_actions];
+      if (manualActions.length > 0) {
+        manualActionsList.push({ taskGid: task.gid, name: task.name, actions: manualActions });
+      }
+      if (status.stage === "verified" && status.verdict === "FAIL" && needsHumanReview(status)) {
+        needsHumanReviewList.push({ taskGid: task.gid, name: task.name, consecutiveFailCount: status.consecutive_fail_count });
+      }
+
       const isVerifiedPass = status.stage === "verified" && status.verdict === "PASS";
       const boardModifiedAt: string | null = task.modified_at ?? null;
       const contentChanged =
@@ -144,6 +164,20 @@ server.tool(
           : {}),
       });
     }
+
+    let pendingActionsReportPath: string | null = null;
+    if (projectName) {
+      const projectDir = await resolveProjectDir(projectGid);
+      if (projectDir) {
+        pendingActionsReportPath = await writePendingActionsReport(projectDir, projectName, {
+          awaitingSelfConfirmation,
+          awaitingTesterConfirmation,
+          needsHumanReview: needsHumanReviewList,
+          manualActions: manualActionsList,
+        });
+      }
+    }
+
     return textResult({
       success: true,
       projectGid,
@@ -153,6 +187,11 @@ server.tool(
       awaitingSelfConfirmation,
       awaitingTesterConfirmationCount: awaitingTesterConfirmation.length,
       awaitingTesterConfirmation,
+      needsHumanReviewCount: needsHumanReviewList.length,
+      needsHumanReview: needsHumanReviewList,
+      manualActionsCount: manualActionsList.length,
+      manualActions: manualActionsList,
+      ...(pendingActionsReportPath ? { pendingActionsReportPath } : {}),
     });
   }
 );
@@ -862,7 +901,8 @@ server.tool(
   "把內容寫入某張票單的追蹤目錄底下的一個檔案（例如 01-analysis.md / 02-implementation.md / 03-verification.md）。" +
     "寫入 01-analysis.md 之前，這張票必須已經呼叫過 record_sasd_check，否則會被拒絕。" +
     "**filename 是 01-analysis.md / 02-implementation.md / 03-verification.md 之一時，一定要附上 summary**（2-4 條重點，控制在幾百字內，不是全文）——這段摘要會存進這張票的追蹤狀態，之後不管是同一個 session 還是換一個 session/AI 接手下一階段，都可以先用 get_ticket_status 用低成本讀到摘要，決定要不要再花額外的 tool call 讀 read_ticket_artifact 的全文。寫入 01-analysis.md 時，也會自動清掉這張票的 needs_reanalysis 標記（代表已經針對最新票單內容重新分析過）。" +
-    `**filename 是 02-implementation.md 或 03-verification.md 時，syncNote 是必填、不能省略**：這次修改/驗證有沒有推翻或補充了上一階段（02 對應 01，03 對應 02）的結論？有的話把內容寫進 syncNote，會自動附加到上一階段文件尾端；真的沒有，也要明確帶入字串 "${NO_SYNC_NEEDED}"，不能什麼都不填直接跳過——這一步是強制的，逼你對「要不要同步」做一次明確判斷，不能船過水無痕，只是答案可以是「不需要」。沒帶這個參數會直接被拒絕寫入。`,
+    `**filename 是 02-implementation.md 或 03-verification.md 時，syncNote 是必填、不能省略**：這次修改/驗證有沒有推翻或補充了上一階段（02 對應 01，03 對應 02）的結論？有的話把內容寫進 syncNote，會自動附加到上一階段文件尾端；真的沒有，也要明確帶入字串 "${NO_SYNC_NEEDED}"，不能什麼都不填直接跳過——這一步是強制的，逼你對「要不要同步」做一次明確判斷，不能船過水無痕，只是答案可以是「不需要」。沒帶這個參數會直接被拒絕寫入。` +
+    "**filename 是 02-implementation.md 或 03-verification.md 時，manualActions 也是必填**（陣列，可以是空陣列）：這次有沒有任何事項是使用者必須自己手動處理的（例如產出的 SQL 只能交由使用者到 Database 工具執行、後台程式代號/選單/I18N 需自行設定）？有就列成一條條簡短字串；真的沒有就帶空陣列 []，不能省略——這些項目會被整理進持久化的 PENDING_HUMAN_ACTIONS.md，不能只寫在全文內容裡指望使用者自己重讀全文才發現。",
   {
     taskGid: z.string().describe("Asana 任務 gid"),
     filename: z.string().describe("檔名，例如 01-analysis.md"),
@@ -880,8 +920,16 @@ server.tool(
         `filename 是 02-implementation.md／03-verification.md 時必填。有新發現/結論變動就寫進這裡（會自動附加到上一階段文件）；` +
           `確認這次不需要同步，就帶入字串 "${NO_SYNC_NEEDED}"。留空／不帶會被拒絕寫入。`
       ),
+    manualActions: z
+      .array(z.string())
+      .nullable()
+      .optional()
+      .describe(
+        "filename 是 02-implementation.md／03-verification.md 時必填（陣列）。列出這次需要使用者手動處理的事項（例如「已產出 SQL，見內文，需自行到 Database 工具執行」）；" +
+          "確認這次沒有，帶空陣列 []。留空／不帶會被拒絕寫入。"
+      ),
   },
-  async ({ taskGid, filename, content, summary, syncNote }) => {
+  async ({ taskGid, filename, content, summary, syncNote, manualActions }) => {
     if (filename === "01-analysis.md") {
       const status = await readStatus(taskGid);
       if (!status.sasd_checked) {
@@ -909,9 +957,19 @@ server.tool(
         true
       );
     }
+    if (needsSyncNote && !manualActions) {
+      return textResult(
+        {
+          success: false,
+          message: `寫入 ${filename} 必須帶 manualActions（陣列）：這次有沒有需要使用者手動處理的事項？有就列出來，真的沒有就帶空陣列 []，不能省略這個參數。`,
+        },
+        true
+      );
+    }
 
     if (needsSyncNote) {
       await recordStageSync(taskGid, filename as "02-implementation.md" | "03-verification.md", syncNote!.trim());
+      await recordManualActions(taskGid, filename as "02-implementation.md" | "03-verification.md", manualActions!);
     }
 
     await writeArtifact(taskGid, filename, content);

@@ -105,6 +105,19 @@ npm run build
 
 `get_ticket_status` 每次呼叫都會當場重新讀一次 01/02/03 現在的內容、重新算雜湊，回傳裡的 `external_changes.{analysis,implementation,verification}_externally_modified` 任一個是 `true`，就代表對應那份文件被外部改過——這個工具不會自動修正，只負責誠實回報；確認過修改沒問題、想把雜湊記錄同步回目前內容，另外呼叫 `resync_ticket_artifact`。這個機制不需要任何人記得做什麼，純粹是被動的、每次查詢都會自己重算的偵測，不像「叫 AI 記得同步」那樣不可靠。
 
+### 待人工處理清單（`PENDING_HUMAN_ACTIONS.md`）
+
+過去「這張票需要你確認」「這個 SQL 只能你手動執行」這類提醒，只會在當次聊天回覆裡講一次——換個 session、關掉對話視窗，這份清單就沒了，只能重新問 AI 才會再看到一次。
+
+現在 `list_pending_tickets({ projectGid, projectName, sectionFilter? })` **只要帶 `projectName`**，每次呼叫都會把當下算出來的四類「需要人工處理」項目整份覆寫進 `<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.md`：
+
+1. **待你確認**——AI 驗證師判 PASS，等你自己實測＋審視程式碼品質。
+2. **待測試員確認**——你已經確認過，等另一位獨立測試員的情境測試。
+3. **卡住需要你介入**——連續 `FAIL` 已經達到門檻（`needs_human_review`），AI 不會再自動重跑。
+4. **需要你手動處理的事項**——來自 `write_ticket_artifact` 寫 02/03 時**必填**的 `manualActions` 參數（可以是空陣列，代表明確確認這次沒有）。典型例子是「已產出 SQL，只能由你到 Database 工具手動執行」——這類一次性提醒過去只寫在 02/03 全文或聊天視窗裡，換個 session、或沒仔細重讀全文就會被漏掉，現在強制工程師/驗證師每次都要明確宣告一次，不能只埋在自由文字裡。
+
+這份檔案不需要任何人記得手動維護——它是 `list_pending_tickets` 每次呼叫的**副作用**，跟這條 pipeline 每次執行都一定會呼叫這個工具的既有規則綁在一起，不是一個容易被忘記呼叫的額外步驟。檔案本身會被整份覆寫，不要手動編輯。
+
 ### 換 session／換 AI 接手
 
 ![跨 session 接手示意：status.json 裡的摘要透過 get_ticket_status 用低成本的路徑送到接手的新 session 或新 AI 當作預設輸入；只有摘要不夠用時，才用成本較高的 read_ticket_artifact 去讀 01-analysis.md 等全文檔案](docs/img/cross-session-resume.svg)
@@ -137,7 +150,7 @@ npm run build
 | `get_pipeline_overview` | 取得整條流程說明（第一步一定先呼叫） |
 | `get_role_prompt` | 取得分析師／工程師／驗證師其中一個角色的職責說明 |
 | `resolve_default_project` / `register_default_project` | 查詢/登記「今天的問題單」預設 Asana 專案 |
-| `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；附上 `awaitingSelfConfirmation`/`awaitingTesterConfirmation`（AI 已 PASS、還卡在兩關人類確認的舊票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票） |
+| `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；附上 `awaitingSelfConfirmation`/`awaitingTesterConfirmation`（AI 已 PASS、還卡在兩關人類確認的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）。**帶 `projectName` 會把這四類整份寫進 `PENDING_HUMAN_ACTIONS.md`**（見下方說明） |
 | `get_ticket_snapshot` | 抓票單內容＋留言，寫入追蹤檔案；子任務自動偵測（讀 Asana `parent` 欄位） |
 | `resolve_project_dir` / `register_project_dir` | 查詢/登記 Asana 專案 → 程式碼目錄 |
 | `resolve_sasd_config` / `register_sasd_config` | 查詢/登記 SA/SD 規格設定；`external`/`self` 會真的驗證 SVN 連線才登記成功 |
@@ -150,7 +163,7 @@ npm run build
 | `resolve_git_roots` / `register_git_roots` | 查詢/登記專案目錄實際的 git 版控根目錄（可前後端分開） |
 | `run_project_shell` | 跑 shell 指令；git 指令會驗證版控根目錄，見下方安全限制 |
 | `get_ticket_status` / `advance_ticket_stage` | 讀取/更新票單追蹤狀態，附 `sync_flags`/`needs_human_review`/`external_changes`（當場重新讀磁碟比對，抓繞過 MCP 的手動修改）；`verdict`（AI 驗證師結論）、`self_confirmation`（第一關：使用者自測＋審視 code）、`tester_confirmation`（第二關：獨立測試員情境測試）、`verifier_root_cause`（FAIL 根因，供自動路由）是分開的欄位。`verdict: "FAIL"` 時 `rootCause` 必填（`"analysis"`/`"implementation"`），並會機械式維護 `consecutive_fail_count`（FAIL 累加/PASS 歸零）、清空兩關人類確認 |
-| `write_ticket_artifact` / `read_ticket_artifact` | 讀寫追蹤目錄下的分析/實作/驗證檔案；寫 02/03 時 `syncNote` 必填 |
+| `write_ticket_artifact` / `read_ticket_artifact` | 讀寫追蹤目錄下的分析/實作/驗證檔案；寫 02/03 時 `syncNote`/`manualActions` 都必填（`manualActions` 可以是空陣列） |
 | `resync_ticket_artifact` | 把 01/02/03 其中一份檔案「現在磁碟上的實際內容」重新雜湊、寫回 `sync.*_hash`——給直接手動改過追蹤檔案（沒走 `write_ticket_artifact`）之後，用最低成本同步雜湊記錄，不用跑完整流程 |
 | `record_sasd_check` | 記錄這張票有沒有對應 SA/SD；沒呼叫過會擋下 `01-analysis.md` 的寫入 |
 | `record_self_confirmation` | 記錄結案第一關——使用者自己的實測＋程式碼品質審視結果（`confirmed`/`note`），只能在 `verified` 階段之後呼叫；`confirmed: true` 才會讓票單從 `awaitingSelfConfirmation` 移到 `awaitingTesterConfirmation` |
