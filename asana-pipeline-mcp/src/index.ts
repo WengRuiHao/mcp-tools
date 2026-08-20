@@ -924,6 +924,38 @@ server.tool(
 );
 
 server.tool(
+  "resync_ticket_artifact",
+  "把 01-analysis.md／02-implementation.md／03-verification.md 其中一份檔案，現在磁碟上的實際內容重新雜湊、寫回 status.json 對應的 sync.*_hash 欄位。" +
+    "**用在：這份檔案剛才是被直接用一般編輯工具（不是透過 write_ticket_artifact）手動改過的**——例如使用者跟另一個沒有走完整分析師/工程師/驗證師流程的 AI 直接對話改了內容。" +
+    "呼叫這個工具不需要 syncNote、不會觸發任何角色階段、不會限制 stage，純粹只是「讓追蹤系統知道這份文件現在長這樣」，成本很低，不用為了同步一次手動修改去跑一整套正式流程。" +
+    "**這個工具只更新雜湊記錄本身，不會幫你判斷這次手動修改在邏輯上對不對、跟其他階段兜不兜得起來**——呼叫它代表你自己已經確認過這次修改沒問題。" +
+    "summary 是選填：這次手動修改如果多到連快取摘要都該換，可以順帶更新；不帶就只同步雜湊，摘要維持原樣。",
+  {
+    taskGid: z.string().describe("Asana 任務 gid"),
+    filename: z
+      .enum(["01-analysis.md", "02-implementation.md", "03-verification.md"])
+      .describe("要重新同步雜湊的檔名"),
+    summary: z
+      .string()
+      .nullable()
+      .optional()
+      .describe("這次手動修改內容多到連快取摘要都該更新時才帶；不帶就只更新雜湊，摘要維持原樣"),
+  },
+  async ({ taskGid, filename, summary }) => {
+    const content = await readArtifact(taskGid, filename);
+    if (content === null) {
+      return textResult(
+        { success: false, message: `找不到 ${filename}，這張票可能還沒走到會產生這份檔案的階段。` },
+        true
+      );
+    }
+    await recordArtifactHash(taskGid, filename, content);
+    if (summary) await recordArtifactSummary(taskGid, filename, summary);
+    return textResult({ success: true, taskGid, filename, message: "雜湊已同步為目前磁碟上的實際內容。" });
+  }
+);
+
+server.tool(
   "advance_ticket_stage",
   "更新某張票單的追蹤狀態，記錄目前進行到哪個階段，並可以一併更新 project_dir / verdict。" +
     "**verdict 設成 \"FAIL\" 時，rootCause 是必填參數**（\"analysis\" 或 \"implementation\"）——判斷這次 FAIL 的根因在分析階段還是實作階段，供下一輪處理這張票時決定要自動跳回分析師還是工程師，不能省略。verdict 不是 \"FAIL\"（PASS，或這次沒有更新 verdict）時，不需要也不應該帶 rootCause，帶了會被拒絕。" +

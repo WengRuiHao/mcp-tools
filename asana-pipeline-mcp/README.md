@@ -104,14 +104,14 @@ npm run build
 ## 提供的工具
 
 <details>
-<summary>展開完整工具清單（22 個）</summary>
+<summary>展開完整工具清單（23 個）</summary>
 
 | 工具 | 用途 |
 |---|---|
 | `get_pipeline_overview` | 取得整條流程說明（第一步一定先呼叫） |
 | `get_role_prompt` | 取得分析師／工程師／驗證師其中一個角色的職責說明 |
 | `resolve_default_project` / `register_default_project` | 查詢/登記「今天的問題單」預設 Asana 專案 |
-| `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單，並附上 `awaitingSelfConfirmation`/`awaitingTesterConfirmation`（AI 已 PASS、還卡在第一關使用者自測或第二關獨立測試員的舊票） |
+| `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；附上 `awaitingSelfConfirmation`/`awaitingTesterConfirmation`（AI 已 PASS、還卡在兩關人類確認的舊票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票） |
 | `get_ticket_snapshot` | 抓票單內容＋留言，寫入追蹤檔案；子任務自動偵測（讀 Asana `parent` 欄位） |
 | `resolve_project_dir` / `register_project_dir` | 查詢/登記 Asana 專案 → 程式碼目錄 |
 | `resolve_sasd_config` / `register_sasd_config` | 查詢/登記 SA/SD 規格設定；`external`/`self` 會真的驗證 SVN 連線才登記成功 |
@@ -123,8 +123,9 @@ npm run build
 | `read_project_file` / `write_project_file` / `list_project_dir` / `search_project_text` | 讀寫/搜尋專案檔案（限 `projectDir` 範圍內）；偵測外部修改，見下方安全限制 |
 | `resolve_git_roots` / `register_git_roots` | 查詢/登記專案目錄實際的 git 版控根目錄（可前後端分開） |
 | `run_project_shell` | 跑 shell 指令；git 指令會驗證版控根目錄，見下方安全限制 |
-| `get_ticket_status` / `advance_ticket_stage` | 讀取/更新票單追蹤狀態，附 `sync_flags`；`verdict`（AI 驗證師結論）、`self_confirmation`（第一關：使用者自測＋審視 code）、`tester_confirmation`（第二關：獨立測試員情境測試）是三個分開的欄位 |
+| `get_ticket_status` / `advance_ticket_stage` | 讀取/更新票單追蹤狀態，附 `sync_flags`/`needs_human_review`；`verdict`（AI 驗證師結論）、`self_confirmation`（第一關：使用者自測＋審視 code）、`tester_confirmation`（第二關：獨立測試員情境測試）、`verifier_root_cause`（FAIL 根因，供自動路由）是分開的欄位。`verdict: "FAIL"` 時 `rootCause` 必填（`"analysis"`/`"implementation"`），並會機械式維護 `consecutive_fail_count`（FAIL 累加/PASS 歸零）、清空兩關人類確認 |
 | `write_ticket_artifact` / `read_ticket_artifact` | 讀寫追蹤目錄下的分析/實作/驗證檔案；寫 02/03 時 `syncNote` 必填 |
+| `resync_ticket_artifact` | 把 01/02/03 其中一份檔案「現在磁碟上的實際內容」重新雜湊、寫回 `sync.*_hash`——給直接手動改過追蹤檔案（沒走 `write_ticket_artifact`）之後，用最低成本同步雜湊記錄，不用跑完整流程 |
 | `record_sasd_check` | 記錄這張票有沒有對應 SA/SD；沒呼叫過會擋下 `01-analysis.md` 的寫入 |
 | `record_self_confirmation` | 記錄結案第一關——使用者自己的實測＋程式碼品質審視結果（`confirmed`/`note`），只能在 `verified` 階段之後呼叫；`confirmed: true` 才會讓票單從 `awaitingSelfConfirmation` 移到 `awaitingTesterConfirmation` |
 | `record_tester_confirmation` | 記錄結案第二關（最終關）——另一位獨立測試員的情境測試結果（`confirmed`/`note`），只能在第一關 `self_confirmation` 已經 `confirmed: true` 之後才能呼叫；`confirmed: true` 才會讓票單真正離開待確認清單、算結案 |
