@@ -107,17 +107,18 @@ npm run build
 
 ### 待人工處理清單（`PENDING_HUMAN_ACTIONS.md`）
 
-![待人工處理清單持久化機制：呼叫 list_pending_tickets 並帶上 projectName 時，會掃描這個 Asana 專案所有票單、彙整待你確認／待測試員確認／卡住需要介入／需要你手動處理的事項／Git 尚未 commit 的變更五類項目，整份覆寫進 PENDING_HUMAN_ACTIONS.md；這份檔案落在磁碟上，任何 session、甚至不開 AI 都能直接打開看，不會因為聊天記錄被清掉或壓縮就遺失](docs/img/pending-actions-report.svg)
+![待人工處理清單持久化機制：呼叫 list_pending_tickets 並帶上 projectName 時，會掃描這個 Asana 專案所有票單、彙整待你確認／待測試員確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更六類項目，整份覆寫進 PENDING_HUMAN_ACTIONS.md；這份檔案落在磁碟上，任何 session、甚至不開 AI 都能直接打開看，不會因為聊天記錄被清掉或壓縮就遺失](docs/img/pending-actions-report.svg)
 
 過去「這張票需要你確認」「這個 SQL 只能你手動執行」這類提醒，只會在當次聊天回覆裡講一次——換個 session、關掉對話視窗，這份清單就沒了，只能重新問 AI 才會再看到一次。
 
-現在 `list_pending_tickets({ projectGid, projectName, sectionFilter? })` **只要帶 `projectName`**，每次呼叫都會把當下算出來的五類「需要人工處理」項目整份覆寫進 `<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.md`：
+現在 `list_pending_tickets({ projectGid, projectName, sectionFilter? })` **只要帶 `projectName`**，每次呼叫都會把當下算出來的六類「需要人工處理」項目整份覆寫進 `<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.md`：
 
 1. **待你確認**——AI 驗證師判 PASS，等你自己實測＋審視程式碼品質。
 2. **待測試員確認**——你已經確認過，等另一位獨立測試員的情境測試。
 3. **卡住需要你介入**——連續 `FAIL` 已經達到門檻（`needs_human_review`），AI 不會再自動重跑。
-4. **需要你手動處理的事項**——來自 `write_ticket_artifact` 寫 02/03 時**必填**的 `manualActions` 參數（可以是空陣列，代表明確確認這次沒有）。典型例子是「已產出 SQL，只能由你到 Database 工具手動執行」——這類一次性提醒過去只寫在 02/03 全文或聊天視窗裡，換個 session、或沒仔細重讀全文就會被漏掉，現在強制工程師/驗證師每次都要明確宣告一次，不能只埋在自由文字裡。確認做完某一項，呼叫 `resolve_manual_action({ taskGid, filename, action })` 精準移除那一項就好，不用整份重新宣告。
-5. **Git 尚未 commit 的變更**——對每個已登記的 git 版控根目錄實際跑一次 `git status --porcelain`，不是重建/彙整各票單文件裡「改了哪些檔案」的文字描述（那些是 AI 寫的摘要，可能漏記或過期）。還沒呼叫過 `register_git_roots` 的專案，這一項會顯示「還沒登記」。
+4. **Asana 內容已被異動，待重新確認**——先前已經處理過（甚至已經 PASS）的票單，Asana 上的內容後來又被改過（用 `modified_at`／`needs_reanalysis` 判斷），不能因為之前處理過就跳過，需要重新看內容決定要不要重新分析。
+5. **需要你手動處理的事項**——來自 `write_ticket_artifact` 寫 02/03 時**必填**的 `manualActions` 參數（可以是空陣列，代表明確確認這次沒有）。典型例子是「已產出 SQL，只能由你到 Database 工具手動執行」——這類一次性提醒過去只寫在 02/03 全文或聊天視窗裡，換個 session、或沒仔細重讀全文就會被漏掉，現在強制工程師/驗證師每次都要明確宣告一次，不能只埋在自由文字裡。確認做完某一項，呼叫 `resolve_manual_action({ taskGid, filename, action })` 精準移除那一項就好，不用整份重新宣告。
+6. **Git 尚未 commit 的變更**——對每個已登記的 git 版控根目錄實際跑一次 `git status --porcelain`，不是重建/彙整各票單文件裡「改了哪些檔案」的文字描述（那些是 AI 寫的摘要，可能漏記或過期）。還沒呼叫過 `register_git_roots` 的專案，這一項會顯示「還沒登記」。
 
 這份檔案不需要任何人記得手動維護——它是 `list_pending_tickets` 每次呼叫的**副作用**，跟這條 pipeline 每次執行都一定會呼叫這個工具的既有規則綁在一起，不是一個容易被忘記呼叫的額外步驟。檔案本身會被整份覆寫，不要手動編輯。
 
@@ -153,7 +154,7 @@ npm run build
 | `get_pipeline_overview` | 取得整條流程說明（第一步一定先呼叫） |
 | `get_role_prompt` | 取得分析師／工程師／驗證師其中一個角色的職責說明 |
 | `resolve_default_project` / `register_default_project` | 查詢/登記「今天的問題單」預設 Asana 專案 |
-| `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；附上 `awaitingSelfConfirmation`/`awaitingTesterConfirmation`（AI 已 PASS、還卡在兩關人類確認的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）。**帶 `projectName` 會把這四類整份寫進 `PENDING_HUMAN_ACTIONS.md`**（見下方說明） |
+| `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；附上 `awaitingSelfConfirmation`/`awaitingTesterConfirmation`（AI 已 PASS、還卡在兩關人類確認的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）。**帶 `projectName` 會把這六類整份寫進 `PENDING_HUMAN_ACTIONS.md`**（見下方說明） |
 | `get_ticket_snapshot` | 抓票單內容＋留言，寫入追蹤檔案；子任務自動偵測（讀 Asana `parent` 欄位） |
 | `resolve_project_dir` / `register_project_dir` | 查詢/登記 Asana 專案 → 程式碼目錄 |
 | `resolve_sasd_config` / `register_sasd_config` | 查詢/登記 SA/SD 規格設定；`external`/`self` 會真的驗證 SVN 連線才登記成功 |

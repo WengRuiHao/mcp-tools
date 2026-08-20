@@ -413,9 +413,12 @@ export async function recordArtifactSummary(ticketGid: string, filename: string,
       patch.needs_reanalysis = false;
       // 分析師已經針對最新情況重新分析過，上一輪驗證師判斷的根因標記（如果有）已經處理掉了，不用再帶著跑。
       patch.verifier_root_cause = null;
-      // 工程師/驗證師都要重跑一輪，上一輪宣告的人工待辦事項一併清空，等新一輪重新宣告，不留舊版的殘留提醒。
-      patch.implementation_manual_actions = [];
-      patch.verification_manual_actions = [];
+      // 刻意不在這裡清空 implementation_manual_actions/verification_manual_actions：
+      // 曾經清空過（假設 01 改完engineer/verifier 一定會緊接著重跑、屆時 write_ticket_artifact 寫 02/03 的必填 manualActions
+      // 會自然覆蓋掉舊清單），但實際上 01 被重寫、stage 卻還停在 verified（例如只是針對 needs_reanalysis 誤觸發做複查、
+      // 沒有真的重跑工程師/驗證師）的情況很常見——那樣清空只會讓真正還沒處理完的手動待辦（SQL/I18N之類）從
+      // PENDING_HUMAN_ACTIONS.md 憑空消失、沒有任何機制會補回來。02/03 各自的 manualActions 本來就是各自獨立累積、
+      // 下次真的重寫 02/03 時必填欄位自然會整份覆蓋成最新版，不需要靠這裡預先清空。
     }
     return { ...status, ...patch };
   });
@@ -667,6 +670,8 @@ export interface PendingActionsReportInput {
   awaitingSelfConfirmation: { taskGid: string; name: string }[];
   awaitingTesterConfirmation: { taskGid: string; name: string }[];
   needsHumanReview: { taskGid: string; name: string; consecutiveFailCount: number }[];
+  /** 已經判過 PASS（或先前分析過）的票單，Asana 上的內容後來又被改過——不能因為之前處理過就跳過，需要重新看內容決定要不要重新分析。 */
+  contentChanged: { taskGid: string; name: string; stage: string }[];
   manualActions: { taskGid: string; name: string; actions: string[] }[];
   /** 每個已登記 git 版控根目錄目前 `git status --porcelain` 的結果——用 git 自己的真實狀態當答案，不是重建/彙整各票單 02-implementation.md 裡寫的「改了哪些檔案」（那些是文字描述，可能漏記或過期）。`registered: false` 代表這個 projectDir 還沒呼叫過 register_git_roots。 */
   uncommittedChanges: { registered: boolean; roots: { label: string; path: string; changedFiles: string[] }[] };
@@ -722,6 +727,10 @@ export async function writePendingActionsReport(
     section(
       "卡住需要你介入（連續 FAIL 已達門檻，AI 不會再自動重跑）",
       input.needsHumanReview.map((t) => `${t.name}（\`${t.taskGid}\`，已連續 FAIL ${t.consecutiveFailCount} 次）`)
+    ),
+    section(
+      "Asana 內容已被異動，待重新確認（先前已處理過，但票單內容後來又被改了）",
+      input.contentChanged.map((t) => `${t.name}（\`${t.taskGid}\`，目前階段：${t.stage}）`)
     ),
     section(
       "需要你手動處理的事項（例如 SQL 只能由你到 Database 工具執行）",

@@ -111,7 +111,7 @@ server.tool(
     "**awaitingTesterConfirmation（第二關／最終關）**：第一關已經 confirmed:true，但『另一位獨立測試員』的情境測試還沒表態的票單——只有這關也 confirmed:true，票單才算真正結案。" +
     "AI 自己判定 PASS 不等於這張票真的結案，呼叫端每次執行這個工具都必須把這兩份清單完整秀給使用者看（不能因為這次是來處理別的新票就略過），直到每一張都依序走完 record_self_confirmation 再 record_tester_confirmation 為止，才會從清單消失。" +
     "**`tickets`（一般待處理清單）裡如果某張票標記 `humanRejected: true`，代表這不是一張全新沒驗證過的票，而是使用者或測試員事後回報有問題、被重新丟回來的票**（`record_self_confirmation`/`record_tester_confirmation` 帶 `confirmed:false` 時會把這張票的 verdict 重設回 null，讓它重新出現在這裡）——處理這種票要當作跟 AI 驗證師自己判 FAIL 完全一樣的情況，套用同一套根因分流機制（見 get_role_prompt({role:\"verifier\"})/advance_ticket_stage 的 rootCause 說明），不要另外發明一套「人工打回」流程。" +
-    "**帶 `projectName` 時，這次算出來的五類「需要人工處理」項目（待你確認／待測試員確認／卡住需要介入／需要你手動處理的事項／Git 尚未 commit 的變更）會整份覆寫進一份持久化的 `PENDING_HUMAN_ACTIONS.md`**（放在 `<projectDir>/.asana-pipeline/<projectName>/` 底下，跟每張票自己的追蹤目錄同一層）——這是為了取代「只在聊天視窗提醒一次，換個 session 就找不到」的做法，不需要任何人記得手動維護。強烈建議每次呼叫都帶上 `projectName`（跟步驟 0 拿到的 Asana 專案全名稱一致）。" +
+    "**帶 `projectName` 時，這次算出來的六類「需要人工處理」項目（待你確認／待測試員確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更）會整份覆寫進一份持久化的 `PENDING_HUMAN_ACTIONS.md`**（放在 `<projectDir>/.asana-pipeline/<projectName>/` 底下，跟每張票自己的追蹤目錄同一層）——這是為了取代「只在聊天視窗提醒一次，換個 session 就找不到」的做法，不需要任何人記得手動維護。強烈建議每次呼叫都帶上 `projectName`（跟步驟 0 拿到的 Asana 專案全名稱一致）。" +
     "**`uncommittedChanges` 是對每個已登記的 git 版控根目錄實際跑 `git status --porcelain` 的結果，不是重建/彙整各票單文件裡「改了哪些檔案」的文字描述**——那些是 AI 寫的摘要，可能漏記或過期，git 自己的狀態才是真相。`registered: false` 代表這個專案還沒呼叫過 `register_git_roots`。",
   {
     projectGid: z.string().describe("Asana 專案 gid"),
@@ -132,6 +132,7 @@ server.tool(
     const awaitingTesterConfirmation = [];
     const needsHumanReviewList = [];
     const manualActionsList = [];
+    const contentChangedList = [];
     for (const task of tasks) {
       if (task.completed === true) continue;
       if (sectionFilter) {
@@ -181,16 +182,20 @@ server.tool(
         continue;
       }
 
+      const isContentChanged = contentChanged || status.needs_reanalysis;
       pending.push({
         taskGid: task.gid,
         name: task.name,
         dueOn: task.due_on,
         stage: status.stage,
-        ...(contentChanged || status.needs_reanalysis ? { contentChanged: true } : {}),
+        ...(isContentChanged ? { contentChanged: true } : {}),
         ...(status.self_confirmation?.confirmed === false || status.tester_confirmation?.confirmed === false
           ? { humanRejected: true }
           : {}),
       });
+      if (isContentChanged) {
+        contentChangedList.push({ taskGid: task.gid, name: task.name, stage: status.stage });
+      }
     }
 
     let pendingActionsReportPath: string | null = null;
@@ -203,6 +208,7 @@ server.tool(
           awaitingSelfConfirmation,
           awaitingTesterConfirmation,
           needsHumanReview: needsHumanReviewList,
+          contentChanged: contentChangedList,
           manualActions: manualActionsList,
           uncommittedChanges,
         });
@@ -220,6 +226,8 @@ server.tool(
       awaitingTesterConfirmation,
       needsHumanReviewCount: needsHumanReviewList.length,
       needsHumanReview: needsHumanReviewList,
+      contentChangedCount: contentChangedList.length,
+      contentChangedList,
       manualActionsCount: manualActionsList.length,
       manualActions: manualActionsList,
       ...(uncommittedChanges ? { uncommittedChanges } : {}),
@@ -360,7 +368,9 @@ server.tool(
         ticketNumber: result.ticketNumber,
         unchanged: true,
         needsReanalysis: result.needsReanalysis,
-        message: "票單內容跟上次抓的一樣，未變更——沿用本機既有的追蹤檔案繼續處理即可，不用重新分析。",
+        message: result.needsReanalysis
+          ? "這次抓取跟上次比沒有再變——但這張票先前已經偵測到 Asana 內容變過、needs_reanalysis 還沒清掉（要等分析師重新寫過 01-analysis.md 才會清），代表分析仍然是舊版本的，不能沿用舊結論，要重新走一次分析師角色。"
+          : "票單內容跟上次抓的一樣，未變更——沿用本機既有的追蹤檔案繼續處理即可，不用重新分析。",
       });
     }
 
