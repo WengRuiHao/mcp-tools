@@ -67,11 +67,11 @@ npm run build
 
 ### 單張票的狀態機
 
-![票單狀態機：new 到 snapshot 到 project_dir_confirmed 到 analyzed 到 implemented 到 verified 依序推進，只會往前走；verified 且 PASS 之後若偵測到內容雜湊改變，會觸發警示標記 needs_reanalysis，verdict、self_confirmation、tester_confirmation 一併清空，逼下一輪重新從分析師開始；內容沒再變的話則落入待第一關使用者確認狀態，通過後再落入待第二關測試員確認狀態，直到 record_tester_confirmation 帶 confirmed:true 才進入已結案](docs/img/ticket-state-machine.svg)
+![票單狀態機：new 到 snapshot 到 project_dir_confirmed 到 analyzed 到 implemented 到 verified 依序推進，只會往前走；verified 且 PASS 之後若偵測到內容雜湊改變，會觸發警示標記 needs_reanalysis，verdict、self_confirmation、tester_confirmation 一併清空，逼下一輪重新從分析師開始；verified 且 FAIL 時依 rootCause 自動路由回分析師或工程師重跑，達到 consecutive_fail_count 門檻才停下來問使用者；內容沒再變的話則落入待第一關使用者確認狀態，通過後再落入待第二關測試員確認狀態，任一關 confirmed:false 都會導向跟 FAIL 一樣的根因分流，直到 record_tester_confirmation 帶 confirmed:true 才進入已結案](docs/img/ticket-state-machine.svg)
 
-六格 `stage`（灰）只會往前走，不會跳過也不會倒退；`snapshot` 下的灰圈是省 token 捷徑（內容雜湊沒變就不重寫、不回全文）。紅卡是內容變動的例外：`verified` 且 `PASS` 之後若偵測到 Asana 內容真的變了，會亮起 `needs_reanalysis` 旗標逼下一輪重新分析、`verdict`、`self_confirmation`、`tester_confirmation` 一併清空——但 **`stage` 本身不會倒退**，仍顯示 `verified`。
+六格 `stage`（灰）只會往前走，不會跳過也不會倒退；`snapshot` 下的灰圈是省 token 捷徑（內容雜湊沒變就不重寫、不回全文）。紅卡有兩張：右上角是內容變動的例外——`verified` 且 `PASS` 之後若偵測到 Asana 內容真的變了，會亮起 `needs_reanalysis` 旗標逼下一輪重新分析、`verdict`、`self_confirmation`、`tester_confirmation` 一併清空，但 **`stage` 本身不會倒退**，仍顯示 `verified`；下方較寬那張是 **`verdict: FAIL` 的根因分流**——`advance_ticket_stage` 設 `FAIL` 時必填 `rootCause`（`"analysis"`/`"implementation"`），AI 依此自動跳回分析師或工程師重跑，不用停下來問使用者，`consecutive_fail_count` 由工具機械式維護（FAIL 累加、PASS 歸零），達到門檻（`needs_human_review`，預設連續 3 次）才停下來問。
 
-黃卡是另一個獨立軸向、而且分兩關：`verified` 且 `PASS`、內容也沒再變的情況下，票單會先落入「待第一關（使用者自己）確認」——**`verdict` 是 AI 驗證師自己判的結論，不等於真正結案**。使用者呼叫 `record_self_confirmation({ taskGid, confirmed: true })` 之後，才會進到「待第二關（另一位獨立測試員）確認」；測試員呼叫 `record_tester_confirmation({ taskGid, confirmed: true })`，才會真正進入綠卡「已結案」。任一關 `confirmed: false`（回報有問題）都會留在對應的黃卡狀態、附上 `note`，交由人工判斷後續，不會自動觸發任何重跑；第二關的工具本身也會擋下「第一關還沒過就想記錄第二關」的呼叫。這整段狀態轉換只落在本地追蹤檔案裡，**不會回寫到 Asana 本身**——`asana-mcp` 刻意設計成唯讀，Asana 上要不要標記完成一律交由使用者自己手動處理。
+黃卡是另一個獨立軸向、而且分兩關：`verified` 且 `PASS`、內容也沒再變的情況下，票單會先落入「待第一關（使用者自己）確認」——**`verdict` 是 AI 驗證師自己判的結論，不等於真正結案**。使用者呼叫 `record_self_confirmation({ taskGid, confirmed: true })` 之後，才會進到「待第二關（另一位獨立測試員）確認」；測試員呼叫 `record_tester_confirmation({ taskGid, confirmed: true })`，才會真正進入綠卡「已結案」。**任一關 `confirmed: false`（回報有問題）都會把 `verdict` 重設回 `null`、標記 `humanRejected: true`，重新套用跟上面 `FAIL` 完全一樣的根因分流機制**，不是留給人工事後自己判斷、也不是另開一條獨立流程；第二關的工具本身也會擋下「第一關還沒過就想記錄第二關」的呼叫。這整段狀態轉換只落在本地追蹤檔案裡，**不會回寫到 Asana 本身**——`asana-mcp` 刻意設計成唯讀，Asana 上要不要標記完成一律交由使用者自己手動處理。
 
 ### 01/02/03 互相同步
 
