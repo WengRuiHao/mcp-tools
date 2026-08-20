@@ -441,6 +441,39 @@ export async function recordManualActions(
   await updateStatus(ticketGid, (status) => ({ ...status, [key]: actions }));
 }
 
+export interface ResolveManualActionResult {
+  removed: boolean;
+  remaining: string[];
+}
+
+/**
+ * 把 implementation_manual_actions／verification_manual_actions 裡「使用者確認已經處理完」的一項移除，
+ * 其餘保留——這樣使用者只要用一句話講出哪一項做完了，呼叫端就能精準拿掉那一項，不用整份陣列重新宣告一次。
+ * 用文字精確比對（前後空白會忽略），找不到完全對應的項目就不動任何東西、回傳目前完整清單，讓呼叫端核對
+ * 正確文字後再試一次，不要在對不上的情況下憑印象猜測要刪哪一項。
+ */
+export async function resolveManualAction(
+  ticketGid: string,
+  filename: "02-implementation.md" | "03-verification.md",
+  action: string
+): Promise<ResolveManualActionResult> {
+  const key = MANUAL_ACTIONS_KEY[filename];
+  let removed = false;
+  let remaining: string[] = [];
+  await updateStatus(ticketGid, (status) => {
+    const current = status[key];
+    const idx = current.findIndex((a) => a.trim() === action.trim());
+    if (idx === -1) {
+      remaining = current;
+      return status;
+    }
+    removed = true;
+    remaining = [...current.slice(0, idx), ...current.slice(idx + 1)];
+    return { ...status, [key]: remaining };
+  });
+  return { removed, remaining };
+}
+
 /** write_ticket_artifact 寫 02/03 時，syncNote 帶這個 sentinel 代表「明確判斷過這次不需要同步回上一階段文件」——不是省略不填，而是主動選了「沒有」這個答案。 */
 export const NO_SYNC_NEEDED = "NO_SYNC_NEEDED";
 

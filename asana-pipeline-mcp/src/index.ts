@@ -29,6 +29,7 @@ import {
   recordTesterConfirmation,
   needsHumanReview,
   recordManualActions,
+  resolveManualAction,
   writePendingActionsReport,
   NO_SYNC_NEEDED,
   type TicketStatus,
@@ -1027,6 +1028,35 @@ server.tool(
       await recordManualActions(taskGid, filename, manualActions);
     }
     return textResult({ success: true, taskGid, filename, message: "雜湊已同步為目前磁碟上的實際內容。" });
+  }
+);
+
+server.tool(
+  "resolve_manual_action",
+  "把 `implementation_manual_actions`／`verification_manual_actions` 裡『使用者確認已經處理完』的一項移除，其餘保留，讓它不再出現在 `PENDING_HUMAN_ACTIONS.md`。" +
+    "**用在：使用者跟你說某個票單的某項手動待辦（例如某段 SQL、某份多國語系匯入）已經做完了**——不用整份陣列重新宣告一次，只要指出這一項，其餘事項會原封不動保留。" +
+    "**`action` 用完整文字精確比對**（前後空白會自動忽略）——文字必須跟 `get_ticket_status`/`list_pending_tickets` 回傳的 `manualActions` 內容一字不差，找不到完全對應的項目時，會回傳 `success: false` 跟這份文件目前的完整清單，讓你核對正確文字後再重試，不要憑印象猜測。" +
+    "移除之後，下次呼叫 `list_pending_tickets` 帶 `projectName`，`PENDING_HUMAN_ACTIONS.md` 就會反映最新狀態（這個工具本身不會自動重寫報告檔案）。",
+  {
+    taskGid: z.string().describe("Asana 任務 gid"),
+    filename: z
+      .enum(["02-implementation.md", "03-verification.md"])
+      .describe("這項待辦事項是哪一份文件宣告的（工程師階段用 02，驗證師階段用 03）"),
+    action: z.string().describe("要移除的事項，完整文字（可以從 get_ticket_status 或上次 list_pending_tickets 的 manualActions 裡複製）"),
+  },
+  async ({ taskGid, filename, action }) => {
+    const result = await resolveManualAction(taskGid, filename, action);
+    if (!result.removed) {
+      return textResult(
+        {
+          success: false,
+          message: "找不到完全符合的事項，沒有任何變動。以下是這份文件目前宣告的完整清單，請核對文字後再試一次：",
+          currentActions: result.remaining,
+        },
+        true
+      );
+    }
+    return textResult({ success: true, taskGid, filename, remaining: result.remaining });
   }
 );
 

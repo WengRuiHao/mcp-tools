@@ -145,7 +145,7 @@ npm run build
 ## 提供的工具
 
 <details>
-<summary>展開完整工具清單（23 個）</summary>
+<summary>展開完整工具清單（24 個）</summary>
 
 | 工具 | 用途 |
 |---|---|
@@ -166,7 +166,8 @@ npm run build
 | `run_project_shell` | 跑 shell 指令；git 指令會驗證版控根目錄，見下方安全限制 |
 | `get_ticket_status` / `advance_ticket_stage` | 讀取/更新票單追蹤狀態，附 `sync_flags`/`needs_human_review`/`external_changes`（當場重新讀磁碟比對，抓繞過 MCP 的手動修改）；`verdict`（AI 驗證師結論）、`self_confirmation`（第一關：使用者自測＋審視 code）、`tester_confirmation`（第二關：獨立測試員情境測試）、`verifier_root_cause`（FAIL 根因，供自動路由）是分開的欄位。`verdict: "FAIL"` 時 `rootCause` 必填（`"analysis"`/`"implementation"`），並會機械式維護 `consecutive_fail_count`（FAIL 累加/PASS 歸零）、清空兩關人類確認 |
 | `write_ticket_artifact` / `read_ticket_artifact` | 讀寫追蹤目錄下的分析/實作/驗證檔案；寫 02/03 時 `syncNote`/`manualActions` 都必填（`manualActions` 可以是空陣列） |
-| `resync_ticket_artifact` | 把 01/02/03 其中一份檔案「現在磁碟上的實際內容」重新雜湊、寫回 `sync.*_hash`——給直接手動改過追蹤檔案（沒走 `write_ticket_artifact`）之後，用最低成本同步雜湊記錄，不用跑完整流程 |
+| `resync_ticket_artifact` | 把 01/02/03 其中一份檔案「現在磁碟上的實際內容」重新雜湊、寫回 `sync.*_hash`——給直接手動改過追蹤檔案（沒走 `write_ticket_artifact`）之後，用最低成本同步雜湊記錄，不用跑完整流程；也能順便回填舊票的 `manualActions` |
+| `resolve_manual_action` | 把某張票單 `manualActions` 裡「使用者確認已經處理完」的一項移除（文字精確比對），不用整份陣列重新宣告一次 |
 | `record_sasd_check` | 記錄這張票有沒有對應 SA/SD；沒呼叫過會擋下 `01-analysis.md` 的寫入 |
 | `record_self_confirmation` | 記錄結案第一關——使用者自己的實測＋程式碼品質審視結果（`confirmed`/`note`），只能在 `verified` 階段之後呼叫；`confirmed: true` 才會讓票單從 `awaitingSelfConfirmation` 移到 `awaitingTesterConfirmation` |
 | `record_tester_confirmation` | 記錄結案第二關（最終關）——另一位獨立測試員的情境測試結果（`confirmed`/`note`），只能在第一關 `self_confirmation` 已經 `confirmed: true` 之後才能呼叫；`confirmed: true` 才會讓票單真正離開待確認清單、算結案 |
