@@ -995,7 +995,8 @@ server.tool(
     "**用在：這份檔案剛才是被直接用一般編輯工具（不是透過 write_ticket_artifact）手動改過的**——例如使用者跟另一個沒有走完整分析師/工程師/驗證師流程的 AI 直接對話改了內容。" +
     "呼叫這個工具不需要 syncNote、不會觸發任何角色階段、不會限制 stage，純粹只是「讓追蹤系統知道這份文件現在長這樣」，成本很低，不用為了同步一次手動修改去跑一整套正式流程。" +
     "**這個工具只更新雜湊記錄本身，不會幫你判斷這次手動修改在邏輯上對不對、跟其他階段兜不兜得起來**——呼叫它代表你自己已經確認過這次修改沒問題。" +
-    "summary 是選填：這次手動修改如果多到連快取摘要都該換，可以順帶更新；不帶就只同步雜湊，摘要維持原樣。",
+    "summary 是選填：這次手動修改如果多到連快取摘要都該換，可以順帶更新；不帶就只同步雜湊，摘要維持原樣。" +
+    "**manualActions 也是選填（陣列）**：用在 `manualActions` 這個必填機制上線之前就已經寫過的舊 02/03 檔案——那些檔案裡可能藏著『SQL 待手動執行』『多國語系 I18N 需自行匯入』這類事項，但當時沒有結構化欄位可以宣告，全部散落在自由文字裡，`PENDING_HUMAN_ACTIONS.md` 抓不到。帶這個參數可以回填，讓舊票也正確出現在報告裡；只有 filename 是 02-implementation.md／03-verification.md 時才有意義（01 不支援）。",
   {
     taskGid: z.string().describe("Asana 任務 gid"),
     filename: z
@@ -1006,8 +1007,13 @@ server.tool(
       .nullable()
       .optional()
       .describe("這次手動修改內容多到連快取摘要都該更新時才帶；不帶就只更新雜湊，摘要維持原樣"),
+    manualActions: z
+      .array(z.string())
+      .nullable()
+      .optional()
+      .describe("回填這份文件裡藏著的人工待辦事項（只對 02-implementation.md／03-verification.md 有意義）；不帶就不動這個欄位，維持原樣"),
   },
-  async ({ taskGid, filename, summary }) => {
+  async ({ taskGid, filename, summary, manualActions }) => {
     const content = await readArtifact(taskGid, filename);
     if (content === null) {
       return textResult(
@@ -1017,6 +1023,9 @@ server.tool(
     }
     await recordArtifactHash(taskGid, filename, content);
     if (summary) await recordArtifactSummary(taskGid, filename, summary);
+    if (manualActions && (filename === "02-implementation.md" || filename === "03-verification.md")) {
+      await recordManualActions(taskGid, filename, manualActions);
+    }
     return textResult({ success: true, taskGid, filename, message: "雜湊已同步為目前磁碟上的實際內容。" });
   }
 );
