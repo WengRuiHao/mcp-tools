@@ -29,6 +29,7 @@ import {
   recordTesterConfirmation,
   needsHumanReview,
   recordManualActions,
+  detectSensitiveManualActions,
   resolveManualAction,
   writePendingActionsReport,
   NO_SYNC_NEEDED,
@@ -1070,6 +1071,22 @@ server.tool(
         true
       );
     }
+    if (needsSyncNote && manualActions && manualActions.length > 0) {
+      const hits = detectSensitiveManualActions(manualActions);
+      if (hits.length > 0) {
+        return textResult(
+          {
+            success: false,
+            message:
+              "manualActions 裡有項目疑似夾帶完整 SQL 語句全文或憑證/連線字串（" +
+              hits.map((h) => `「${h.action}」：${h.reasons.join("、")}`).join("；") +
+              "）。這裡只該留技術性描述（例如「已產出 INSERT SQL，新增 3 語系選項資料，待手動執行」），" +
+              "完整內容留在內文全文裡就好，不要重複複製進 manualActions。請改寫後再重新呼叫 write_ticket_artifact。",
+          },
+          true
+        );
+      }
+    }
 
     if (needsSyncNote) {
       await recordStageSync(taskGid, filename as "02-implementation.md" | "03-verification.md", syncNote!.trim());
@@ -1125,6 +1142,22 @@ server.tool(
         true
       );
     }
+    if (manualActions && manualActions.length > 0) {
+      const hits = detectSensitiveManualActions(manualActions);
+      if (hits.length > 0) {
+        return textResult(
+          {
+            success: false,
+            message:
+              "manualActions 裡有項目疑似夾帶完整 SQL 語句全文或憑證/連線字串（" +
+              hits.map((h) => `「${h.action}」：${h.reasons.join("、")}`).join("；") +
+              "）。這裡只該留技術性描述，完整內容留在內文全文裡就好，不要重複複製進 manualActions。請改寫後再重新呼叫。",
+          },
+          true
+        );
+      }
+    }
+
     await recordArtifactHash(taskGid, filename, content);
     if (summary) await recordArtifactSummary(taskGid, filename, summary);
     if (manualActions && (filename === "02-implementation.md" || filename === "03-verification.md")) {

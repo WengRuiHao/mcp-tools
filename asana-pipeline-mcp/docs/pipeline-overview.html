@@ -843,7 +843,7 @@
         <text x="363" y="218" text-anchor="middle" font-size="11" opacity="0.7">寫檔案是它的副作用，不是一個容易被忘記呼叫的額外步驟</text>
       </svg>
       </div>
-      <figcaption><code class="mono">manualActions</code>（<code class="mono">write_ticket_artifact</code> 寫 02/03 時必填，可以是空陣列）逼工程師/驗證師把「這個 SQL 只能你手動執行」這類事項明確宣告出來，不能只埋在全文內容裡指望使用者重讀才發現；六類項目彙整後整份覆寫進磁碟上的 Markdown 檔案，不依賴聊天記錄留存。</figcaption>
+      <figcaption><code class="mono">manualActions</code>（<code class="mono">write_ticket_artifact</code> 寫 02/03 時必填，可以是空陣列）逼工程師/驗證師把「這個 SQL 只能你手動執行」這類事項明確宣告出來，不能只埋在全文內容裡指望使用者重讀才發現；六類項目彙整後整份覆寫進磁碟上的 Markdown 檔案，不依賴聊天記錄留存。寫入前會自動掃描是否夾帶完整 SQL 全文或憑證/連線字串，抓到直接拒絕寫入——只能留技術性描述。</figcaption>
     </figure>
   </section>
 

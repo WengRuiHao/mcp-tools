@@ -429,6 +429,35 @@ const MANUAL_ACTIONS_KEY: Record<string, keyof Pick<TicketStatus, "implementatio
   "03-verification.md": "verification_manual_actions",
 };
 
+export interface SensitiveManualActionHit {
+  action: string;
+  reasons: string[];
+}
+
+/**
+ * 掃 manualActions 陣列裡有沒有夾帶完整 SQL 語句全文、憑證/連線字串——這些追蹤摘要（會被整理進
+ * PENDING_HUMAN_ACTIONS.md 這種「給人快速掃過」的地方）只該留技術性描述，例如「已產出 INSERT SQL，
+ * 新增 3 語系 OPTIONS_SOURCE 選項資料，待手動執行」，不該把真正的 SQL 全文、真實資料值、密碼/連線字串
+ * 整段複製進去（即使這些追蹤檔案只存在本機、沒進任何 git repo，涉及銀行等客戶的人資/薪資資料還是要比照
+ * 敏感資料處理原則）。只負責擋在寫入之前提醒改寫，不負責判斷「技術性描述夠不夠精簡」這種主觀問題——
+ * 這是 settings.json 的 hook 管不到的地方（hook 只認得 Bash/PowerShell/Edit/Write，MCP 工具呼叫本身
+ * 不會觸發任何 hook），所以直接做在寫入路徑裡，不管呼叫端是不是走 write_ticket_artifact 都躲不掉。
+ */
+export function detectSensitiveManualActions(actions: string[]): SensitiveManualActionHit[] {
+  const sqlPattern =
+    /\b(INSERT\s+INTO|UPDATE\s+\S+\s+SET|DELETE\s+FROM|SELECT\s+[\s\S]*?\bFROM\b)\b[\s\S]*?(\bVALUES\s*\(|\bSET\b|\bWHERE\b)/i;
+  const credentialPattern =
+    /(jdbc:|mongodb:\/\/|postgres(?:ql)?:\/\/|mysql:\/\/|password\s*=\s*\S+|pwd\s*=\s*\S+|api[_-]?key\s*[=:]\s*\S+|secret\s*[=:]\s*\S+|Server\s*=[^;]*;\s*.*Password\s*=)/i;
+  const hits: SensitiveManualActionHit[] = [];
+  for (const action of actions) {
+    const reasons: string[] = [];
+    if (sqlPattern.test(action)) reasons.push("看起來包含完整 SQL 語句全文");
+    if (credentialPattern.test(action)) reasons.push("看起來包含憑證/連線字串");
+    if (reasons.length > 0) hits.push({ action, reasons });
+  }
+  return hits;
+}
+
 /**
  * write_ticket_artifact 寫 02/03 時必填的「需要使用者手動處理」事項清單（可以是空陣列，代表明確確認這次沒有）。
  * 兩份文件各自獨立累積、互相不覆蓋——工程師交代的事項不會因為驗證師這次沒有重複提到就消失，兩邊都要看才算完整。

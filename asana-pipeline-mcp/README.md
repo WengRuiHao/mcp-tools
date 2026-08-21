@@ -117,7 +117,7 @@ npm run build
 2. **待測試員確認**——你已經確認過，等另一位獨立測試員的情境測試。
 3. **卡住需要你介入**——連續 `FAIL` 已經達到門檻（`needs_human_review`），AI 不會再自動重跑。
 4. **Asana 內容已被異動，待重新確認**——先前已經處理過（甚至已經 PASS）的票單，Asana 上的內容後來又被改過（用 `modified_at`／`needs_reanalysis` 判斷），不能因為之前處理過就跳過，需要重新看內容決定要不要重新分析。
-5. **需要你手動處理的事項**——來自 `write_ticket_artifact` 寫 02/03 時**必填**的 `manualActions` 參數（可以是空陣列，代表明確確認這次沒有）。典型例子是「已產出 SQL，只能由你到 Database 工具手動執行」——這類一次性提醒過去只寫在 02/03 全文或聊天視窗裡，換個 session、或沒仔細重讀全文就會被漏掉，現在強制工程師/驗證師每次都要明確宣告一次，不能只埋在自由文字裡。確認做完某一項，呼叫 `resolve_manual_action({ taskGid, filename, action })` 精準移除那一項就好，不用整份重新宣告。
+5. **需要你手動處理的事項**——來自 `write_ticket_artifact` 寫 02/03 時**必填**的 `manualActions` 參數（可以是空陣列，代表明確確認這次沒有）。典型例子是「已產出 SQL，只能由你到 Database 工具手動執行」——這類一次性提醒過去只寫在 02/03 全文或聊天視窗裡，換個 session、或沒仔細重讀全文就會被漏掉，現在強制工程師/驗證師每次都要明確宣告一次，不能只埋在自由文字裡。確認做完某一項，呼叫 `resolve_manual_action({ taskGid, filename, action })` 精準移除那一項就好，不用整份重新宣告。**`manualActions` 只能寫技術性描述，寫入前會自動掃描是否夾帶完整 SQL 語句全文或憑證/連線字串，抓到會直接拒絕寫入**（見 `detectSensitiveManualActions`）——這些客戶專案的追蹤摘要即使只存在本機、沒進任何 git repo，涉及人資/薪資這類資料還是要比照敏感資料處理原則，不能整段複製真實 SQL/資料值/密碼進去；完整內容留在 02/03 全文裡就好。這條檢查刻意做在 `write_ticket_artifact`/`resync_ticket_artifact` 的寫入路徑裡，不是 settings.json 的 hook——hook 只認得 Bash/PowerShell/Edit/Write，MCP 工具呼叫本身不會觸發任何 hook。
 6. **Git 尚未 commit 的變更**——對每個已登記的 git 版控根目錄實際跑一次 `git status --porcelain`，再用每張票 `manualActions` 裡點名「尚未 commit」的檔名去篩選、依票單分組，只列出「git 真的還沒 commit、又有票單認領」的檔案；跟這次 pipeline 無關的其他未 commit 檔案整份省略（要查全部異動請自己跑 `git status`）。還沒呼叫過 `register_git_roots` 的專案，這一項會顯示「還沒登記」。
 
 這份檔案不需要任何人記得手動維護——它是 `list_pending_tickets` 每次呼叫的**副作用**，跟這條 pipeline 每次執行都一定會呼叫這個工具的既有規則綁在一起，不是一個容易被忘記呼叫的額外步驟。檔案本身會被整份覆寫，不要手動編輯。
