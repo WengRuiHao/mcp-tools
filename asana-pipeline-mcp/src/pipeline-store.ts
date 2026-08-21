@@ -673,8 +673,21 @@ export interface PendingActionsReportInput {
   /** 已經判過 PASS（或先前分析過）的票單，Asana 上的內容後來又被改過——不能因為之前處理過就跳過，需要重新看內容決定要不要重新分析。 */
   contentChanged: { taskGid: string; name: string; stage: string }[];
   manualActions: { taskGid: string; name: string; actions: string[] }[];
-  /** 每個已登記 git 版控根目錄目前 `git status --porcelain` 的結果——用 git 自己的真實狀態當答案，不是重建/彙整各票單 02-implementation.md 裡寫的「改了哪些檔案」（那些是文字描述，可能漏記或過期）。`registered: false` 代表這個 projectDir 還沒呼叫過 register_git_roots。 */
-  uncommittedChanges: { registered: boolean; roots: { label: string; path: string; changedFiles: string[] }[] };
+  /**
+   * 每個已登記 git 版控根目錄的未 commit 檔案，已依票單分組、且只保留「git status 真的還沒 commit、
+   * 又有某張票的 manualActions 點名說是它改的」檔案——跟這次 pipeline 無關的其他未 commit 檔案整份省略，
+   * 不在這份報告的職責範圍內（要查全部異動請自己跑 git status）。`registered: false` 代表這個 projectDir
+   * 還沒呼叫過 register_git_roots。
+   */
+  uncommittedChanges: {
+    registered: boolean;
+    roots: {
+      label: string;
+      path: string;
+      error?: string;
+      ticketGroups: { taskGid: string; name: string; files: string[] }[];
+    }[];
+  };
 }
 
 /**
@@ -684,16 +697,23 @@ export interface PendingActionsReportInput {
  * 檔案位置跟每張票自己的追蹤目錄同一層（<projectDir>/.asana-pipeline/<projectName>/），不是散落在各票單
  * 資料夾裡，方便使用者一次打開就看到這個 Asana 專案底下全部待處理項目。
  */
-/** 把 git status 結果排成「## Git 尚未 commit 的變更」這個區塊——沒登記過 git 根目錄、或有根目錄但目前乾淨，都各自給一句清楚的說明，不要讓使用者猜「是沒登記還是真的沒異動」。 */
+/**
+ * 把「跟票單有關的未 commit 檔案」排成「## Git 尚未 commit 的變更」這個區塊，依票單分組——沒登記過 git
+ * 根目錄、git status 執行失敗、或有根目錄但沒有任何票單點名的檔案還沒 commit，都各自給一句清楚的說明，
+ * 不要讓使用者猜「是沒登記、真的沒異動、還是只是沒票單認領」。
+ */
 function renderUncommittedSection(uncommitted: PendingActionsReportInput["uncommittedChanges"]): string {
   const title = "Git 尚未 commit 的變更";
   if (!uncommitted.registered) {
     return `## ${title}\n\n（這個專案還沒登記 git 版控根目錄，呼叫 register_git_roots 之後才能檢查）\n`;
   }
-  const lines = uncommitted.roots.map((r) => {
-    if (r.changedFiles.length === 0) return `${r.label}（${r.path}）— 乾淨，沒有未 commit 的變更`;
-    const fileList = r.changedFiles.map((f) => `  - ${f}`).join("\n");
-    return `${r.label}（${r.path}）— ${r.changedFiles.length} 個檔案有異動未 commit\n${fileList}`;
+  const lines = uncommitted.roots.flatMap((r) => {
+    if (r.error) return [`${r.label}（${r.path}）— git status 執行失敗：${r.error}`];
+    if (r.ticketGroups.length === 0) return [`${r.label}（${r.path}）— 沒有票單點名的檔案還沒 commit`];
+    return r.ticketGroups.map((g) => {
+      const fileList = g.files.map((f) => `  - ${f}`).join("\n");
+      return `${r.label}（${r.path}）— ${g.name}（\`${g.taskGid}\`）${g.files.length} 個檔案有異動未 commit\n${fileList}`;
+    });
   });
   return `## ${title}\n\n${lines.length > 0 ? lines.map((l) => `- [ ] ${l}`).join("\n") : "（無）"}\n`;
 }
