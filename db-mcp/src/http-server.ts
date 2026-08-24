@@ -2,9 +2,13 @@
 /**
  * 常駐的 HTTP bridge，給 claudeweb（人用的 Web UI）依賴，比照 svn-mcp 的 http-server.ts 模式。
  *
- * 跟 stdio 那邊給 AI 用的工具不一樣：這裡**不套用 readonly-gate**。人在 claudeweb 網頁的
+ * `/query` 跟 stdio 那邊給 AI 用的工具不一樣：**不套用 readonly-gate**。人在 claudeweb 網頁的
  * Database 工具手動點「執行」，本來就應該能跑 INSERT/UPDATE——這正是使用者全域規則裡
  * 「寫入語句交給使用者手動執行」的那個手動執行管道本身。
+ *
+ * `/query-readonly` 則是給另一種呼叫者用的：AI 驅動、但不是走 stdio MCP 協定（例如 claudeweb
+ * 自己的 McpToolExecutor 把 claudeweb 當 MCP server 曝露給其他 host）。這個端點套用跟 stdio
+ * db_query 工具同一套 readonly-gate，不是另外寫一份較弱的檢查。
  *
  * body 只需要帶 connectionId，密碼由這裡自己查 info/db-connections.json，不會出現在
  * claudeweb 跟這裡之間的請求內容裡。
@@ -23,6 +27,7 @@ import {
 } from "./config-store.js";
 import { getDriver } from "./db-client.js";
 import { openSchemaDb, replaceSchemaSnapshot, readCachedSchema } from "./schema-cache.js";
+import { checkReadOnly } from "./readonly-gate.js";
 
 const PORT = Number(process.env.DB_MCP_HTTP_PORT) || 8096;
 const HOST = process.env.DB_MCP_BRIDGE_HOST || "127.0.0.1";
@@ -167,6 +172,22 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       if (!conn) return sendJson(res, 404, { error: "找不到連線" });
       if (typeof body?.sql !== "string" || !body.sql.trim()) return sendJson(res, 400, { error: "缺少 sql" });
       // 刻意不套用 readonly-gate——這是人手動執行的管道，見檔案最上面的說明。
+      const result = await getDriver(conn.type).runQuery(conn, body.sql, body.params, MAX_ROWS, QUERY_TIMEOUT_MS);
+      return sendJson(res, 200, result);
+    }
+
+    if (method === "POST" && path === "/query-readonly") {
+      // 給「AI 呼叫、但不是走 stdio MCP 協定」的整合用（例如 claudeweb 自己的 McpToolExecutor
+      // 把 claudeweb 當 MCP server 曝露給其他 host）——跟 stdio 的 db_query 工具套用同一套
+      // fail-closed 唯讀把關（readonly-gate.ts），不是重寫一份較弱的檢查。
+      const body = await readJsonBody(req);
+      const conn = findConnection(body?.connectionId);
+      if (!conn) return sendJson(res, 404, { error: "找不到連線" });
+      if (typeof body?.sql !== "string" || !body.sql.trim()) return sendJson(res, 400, { error: "缺少 sql" });
+
+      const gate = checkReadOnly(body.sql);
+      if (!gate.ok) return sendJson(res, 403, { error: gate.reason ?? "非唯讀語句", blocked: true });
+
       const result = await getDriver(conn.type).runQuery(conn, body.sql, body.params, MAX_ROWS, QUERY_TIMEOUT_MS);
       return sendJson(res, 200, result);
     }
