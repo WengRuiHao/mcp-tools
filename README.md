@@ -12,6 +12,7 @@
 | `asana-pipeline-mcp` | 「Asana 票單 → 分析師 → 工程師 → 驗證師」全自動流程，橋接上面三個 MCP；專案↔目錄的登記是自己本機維護的，只有分析師抓 commit 才會呼叫 spec-pipeline-mcp |
 | `github-mcp` | 個人 GitHub（Personal Access Token）——repo/issue/PR 管理 |
 | `office-docs-mcp` | Word（.docx）／Excel（.xlsx）／PDF／CSV 的讀取／寫入／建立／刪除——包一層 Node/TS 呼叫 `scripts/` 底下的 python 腳本（python-docx／openpyxl／pypdf／reportlab／內建 csv 模組），不橋接也不被任何其他 MCP 橋接 |
+| `db-mcp` | 從 claudeweb 抽出來的資料庫存取——顯式的專案分組（Project → Connection → SQLite schema 快取），PK/FK/索引內省、AI 表格筆記、寫死在程式碼裡的唯讀查詢把關（AI 只能 SELECT，寫入語句一律拒絕並請使用者自行手動執行）。之後也會像 `svn-mcp` 一樣提供一個 HTTP bridge 讓 claudeweb 依賴，屆時 claudeweb 不再自己維護連線設定或 JDBC 邏輯 |
 
 ## 架構圖解
 
@@ -44,6 +45,7 @@ cd ../spec-pipeline-mcp && npm install && npm run build
 cd ../asana-pipeline-mcp && npm install && npm run build
 cd ../github-mcp && npm install && npm run build
 cd ../office-docs-mcp && npm install && npm run build
+cd ../db-mcp && npm install && npm run build
 ```
 
 `office-docs-mcp` 額外需要本機 Python 環境裝好 `python-docx`／`openpyxl`／`pypdf`／`reportlab`（`pip install python-docx openpyxl pypdf reportlab`），Node 端只是包一層呼叫 `scripts/*.py`。

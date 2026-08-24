@@ -1,0 +1,25 @@
+{
+  "name": "db-mcp",
+  "version": "0.1.0",
+  "description": "獨立的資料庫存取 MCP——顯式的專案分組管理連線（PostgreSQL/MySQL/MSSQL/Oracle），用 SQLite 快取每個專案的 schema（表/欄位/FK/索引/AI 筆記），並提供給 AI 用的唯讀查詢執行（硬性把關，不靠 prompt 記得）。之後會補一個 HTTP bridge 給 claudeweb 依賴。",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "db-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsc -p tsconfig.json --watch"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "pg": "^8.13.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.0",
+    "typescript": "^5.5.0"
+  }
+}
