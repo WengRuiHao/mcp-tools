@@ -23,6 +23,7 @@ export function registerTicketArtifactTools(server: McpServer): void {
       "**filename 是 01-analysis.md / 02-implementation.md / 03-verification.md 之一時，一定要附上 summary**（2-4 條重點，控制在幾百字內，不是全文）——這段摘要會存進這張票的追蹤狀態，之後不管是同一個 session 還是換一個 session/AI 接手下一階段，都可以先用 get_ticket_status 用低成本讀到摘要，決定要不要再花額外的 tool call 讀 read_ticket_artifact 的全文。寫入 01-analysis.md 時，也會自動清掉這張票的 needs_reanalysis 標記（代表已經針對最新票單內容重新分析過）。" +
       `**filename 是 02-implementation.md 或 03-verification.md 時，syncNote 是必填、不能省略**：這次修改/驗證有沒有推翻或補充了上一階段（02 對應 01，03 對應 02）的結論？有的話把內容寫進 syncNote，會自動附加到上一階段文件尾端；真的沒有，也要明確帶入字串 "${NO_SYNC_NEEDED}"，不能什麼都不填直接跳過——這一步是強制的，逼你對「要不要同步」做一次明確判斷，不能船過水無痕，只是答案可以是「不需要」。沒帶這個參數會直接被拒絕寫入。` +
       "**filename 是 02-implementation.md 或 03-verification.md 時，manualActions 也是必填**（陣列，可以是空陣列）：這次有沒有任何事項是使用者必須自己手動處理的（例如產出的 SQL 只能交由使用者到 Database 工具執行、後台程式代號/選單/I18N 需自行設定）？有就列成一條條簡短字串；真的沒有就帶空陣列 []，不能省略——這些項目會被整理進持久化的 PENDING_HUMAN_ACTIONS.md，不能只寫在全文內容裡指望使用者自己重讀全文才發現。" +
+      "**如果這次改動的檔案還沒 commit（沒有跑 git commit，或使用者/前一輪明確決定先不 commit），額外用固定格式列一條**：「已完成但尚未commit：檔名A、檔名B」（一定要包含「commit」這個字，冒號後面用頓號/逗號分隔實際檔名，檔名要以副檔名結尾，例如 .java／.jrxml）——這是 PENDING_HUMAN_ACTIONS.md 裡「Git 尚未 commit 的變更」這個自動化板塊唯一認得的格式（會另外拿真實 git status 核對過才顯示，不是照抄這裡的文字），只描述「還要重新編譯」「需要人工核對」這類措辭、沒提到「commit」兩個字跟具體檔名的話，這個板塊會顯示空白，使用者只能自己跑 git status 才會發現這些檔案還沒進版控。" +
       "**寫入完成後會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.md`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
@@ -47,7 +48,8 @@ export function registerTicketArtifactTools(server: McpServer): void {
         .optional()
         .describe(
           "filename 是 02-implementation.md／03-verification.md 時必填（陣列）。列出這次需要使用者手動處理的事項（例如「已產出 SQL，見內文，需自行到 Database 工具執行」）；" +
-            "確認這次沒有，帶空陣列 []。留空／不帶會被拒絕寫入。"
+            "確認這次沒有，帶空陣列 []。留空／不帶會被拒絕寫入。" +
+            "有檔案還沒 commit 的話，額外用固定格式列一條「已完成但尚未commit：檔名A、檔名B」（含「commit」二字＋冒號後頓號/逗號分隔的檔名清單），這是報告裡 Git 板塊唯一認得的格式，見上方工具說明。"
         ),
     },
     async ({ taskGid, filename, content, summary, syncNote, manualActions }) => {
