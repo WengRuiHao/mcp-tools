@@ -171,10 +171,15 @@ async function runQuery(
     }
     const res = await client.query(finalSql, values);
     const columns = (res.fields ?? []).map((f) => f.name);
+    // 有欄位描述（含 INSERT/UPDATE ... RETURNING）才算「查詢」；純 DML/DDL 沒有欄位，回傳影響筆數。
+    if (columns.length === 0) {
+      const ms = Date.now() - start;
+      return { type: "update", columns: [], rows: [], rowCount: 0, affectedRows: res.rowCount ?? 0, truncated: false, executionTimeMs: ms };
+    }
     const allRows = res.rows.map((row) => columns.map((c) => normalizeValue(row[c])));
     const truncated = allRows.length > maxRows;
     const rows = truncated ? allRows.slice(0, maxRows) : allRows;
-    return { columns, rows, rowCount: rows.length, truncated, executionTimeMs: Date.now() - start };
+    return { type: "query", columns, rows, rowCount: rows.length, truncated, executionTimeMs: Date.now() - start };
   } finally {
     await client.end().catch(() => {});
   }

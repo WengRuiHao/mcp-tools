@@ -49,9 +49,11 @@ export interface SchemaIntrospection {
 }
 
 export interface QueryResult {
+  type: "query" | "update";
   columns: string[];
   rows: unknown[][];
   rowCount: number;
+  affectedRows?: number;
   truncated: boolean;
   executionTimeMs: number;
 }

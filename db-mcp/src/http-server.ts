@@ -109,6 +109,28 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       return sendJson(res, 200, { success: true });
     }
 
+    if (method === "POST" && path === "/test-connection") {
+      // 存檔前先測（表單填一填、還沒按儲存就想按「測試連線」的場景）——不需要 id，直接拿 body 裡的
+      // host/port/type/... 湊一個假的 DbConnection 丟給 driver，driver.testConnection 本來就只讀這幾個欄位。
+      const body = await readJsonBody(req);
+      const fakeConn = {
+        id: "",
+        projectId: "",
+        name: body?.name ?? "",
+        env: "dev",
+        createdAt: "",
+        type: body?.type,
+        host: body?.host,
+        port: body?.port,
+        database: body?.database,
+        username: body?.username,
+        password: body?.password,
+      } as any;
+      if (!fakeConn.type) return sendJson(res, 400, { error: "缺少 type" });
+      const result = await getDriver(fakeConn.type).testConnection(fakeConn);
+      return sendJson(res, 200, result);
+    }
+
     const testMatch = path.match(/^\/connections\/([^/]+)\/test$/);
     if (testMatch && method === "POST") {
       const conn = findConnection(testMatch[1]);

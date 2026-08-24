@@ -147,12 +147,17 @@ async function runQuery(
       finalSql = prepared;
       values = paramOrder.map((name) => params[name] ?? null);
     }
-    const [rows, fields] = await connection.query<mysql.RowDataPacket[]>(finalSql, values);
-    const columns = (fields ?? []).map((f) => f.name);
-    const allRows = rows.map((row) => columns.map((c) => normalizeValue(row[c])));
+    const [rows, fields] = await connection.query<any>(finalSql, values);
+    // SELECT 回傳 row 陣列；純 DML（INSERT/UPDATE/DELETE）回傳的是 ResultSetHeader 物件，不是陣列。
+    if (!Array.isArray(rows)) {
+      const ms = Date.now() - start;
+      return { type: "update", columns: [], rows: [], rowCount: 0, affectedRows: rows?.affectedRows ?? 0, truncated: false, executionTimeMs: ms };
+    }
+    const columns = (fields ?? []).map((f: any) => f.name);
+    const allRows = rows.map((row: any) => columns.map((c: string) => normalizeValue(row[c])));
     const truncated = allRows.length > maxRows;
     const limited = truncated ? allRows.slice(0, maxRows) : allRows;
-    return { columns, rows: limited, rowCount: limited.length, truncated, executionTimeMs: Date.now() - start };
+    return { type: "query", columns, rows: limited, rowCount: limited.length, truncated, executionTimeMs: Date.now() - start };
   } finally {
     await connection.end().catch(() => {});
   }

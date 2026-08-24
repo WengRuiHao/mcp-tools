@@ -149,12 +149,19 @@ async function runQuery(
   });
   try {
     connection.callTimeout = timeoutMs;
-    const result = await connection.execute<any>(sql, params ?? {}, { maxRows: maxRows + 1 });
-    const columns = (result.metaData ?? []).map((m) => m.name);
+    // autoCommit: true——DML 沒有這個會停在未提交狀態（oracledb 預設 autoCommit:false），
+    // 這條路徑（bridge 給人用）本來就要讓 INSERT/UPDATE 真的生效，不是只給 AI 的唯讀查詢。
+    const result = await connection.execute<any>(sql, params ?? {}, { maxRows: maxRows + 1, autoCommit: true });
+    // 有 metaData（含欄位描述）才算「查詢」；純 DML 沒有 metaData，回傳影響筆數。
+    if (!result.metaData) {
+      const ms = Date.now() - start;
+      return { type: "update", columns: [], rows: [], rowCount: 0, affectedRows: result.rowsAffected ?? 0, truncated: false, executionTimeMs: ms };
+    }
+    const columns = result.metaData.map((m) => m.name);
     const allRows = (result.rows ?? []).map((row) => columns.map((c) => normalizeValue(row[c])));
     const truncated = allRows.length > maxRows;
     const rows = truncated ? allRows.slice(0, maxRows) : allRows;
-    return { columns, rows, rowCount: rows.length, truncated, executionTimeMs: Date.now() - start };
+    return { type: "query", columns, rows, rowCount: rows.length, truncated, executionTimeMs: Date.now() - start };
   } finally {
     await connection.close().catch(() => {});
   }

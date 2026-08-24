@@ -166,12 +166,18 @@ async function runQuery(
       for (const name of paramNames) request.input(name, params[name] ?? null);
     }
     const result = await request.query(finalSql);
-    const rowsRaw = result.recordset ?? [];
-    const columns = rowsRaw.columns ? Object.keys(rowsRaw.columns) : rowsRaw.length > 0 ? Object.keys(rowsRaw[0]) : [];
+    // 純 DML（沒有 OUTPUT 子句）不會有 recordset；有 recordset 才當「查詢」處理。
+    if (!result.recordset) {
+      const ms = Date.now() - start;
+      const affectedRows = (result.rowsAffected ?? []).reduce((a: number, b: number) => a + b, 0);
+      return { type: "update", columns: [], rows: [], rowCount: 0, affectedRows, truncated: false, executionTimeMs: ms };
+    }
+    const rowsRaw = result.recordset;
+    const columns = Object.keys(rowsRaw.columns ?? rowsRaw[0] ?? {});
     const allRows = rowsRaw.map((row: any) => columns.map((c) => normalizeValue(row[c])));
     const truncated = allRows.length > maxRows;
     const limited = truncated ? allRows.slice(0, maxRows) : allRows;
-    return { columns, rows: limited, rowCount: limited.length, truncated, executionTimeMs: Date.now() - start };
+    return { type: "query", columns, rows: limited, rowCount: limited.length, truncated, executionTimeMs: Date.now() - start };
   } finally {
     await pool.close().catch(() => {});
   }
