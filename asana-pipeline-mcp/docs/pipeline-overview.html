@@ -374,7 +374,7 @@
     <p class="block-note">設定只做一次，但這張圖是每次「處理今天的問題單」都會重跑一遍的主迴圈。</p>
     <figure class="diagram">
       <div class="diagram-scroll">
-      <svg viewBox="0 0 1000 330" role="img" aria-label="每次執行的主迴圈：一次性設定之後，呼叫 list_pending_tickets 取得待處理票單清單，同時也會拿到 awaitingSelfConfirmation（AI 已驗證 PASS、但使用者自己還沒實測＋審視程式碼品質的舊票）跟 awaitingTesterConfirmation（第一關已過、但另一位獨立測試員的情境測試還沒表態的舊票），必須主動列給使用者看並依序等待 record_self_confirmation、record_tester_confirmation；接著逐張新票走過三階段處理，處理完一張換下一張，全部跑完後彙整報告">
+      <svg viewBox="0 0 1000 330" role="img" aria-label="每次執行的主迴圈：一次性設定之後，呼叫 list_pending_tickets 取得待處理票單清單，同時也會拿到 awaitingConfirmation（AI 已驗證 PASS、但使用者自己還沒實測＋審視程式碼品質的舊票），必須主動列給使用者看並等待 record_confirmation；接著逐張新票走過三階段處理，處理完一張換下一張，全部跑完後彙整報告">
         <defs>
           <marker id="arrowMain" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
@@ -413,18 +413,16 @@
         <path d="M 700 66 C 700 24, 560 24, 560 66" fill="none" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#arrowMain)"/>
         <text x="630" y="30" text-anchor="middle" font-size="12" fill="var(--accent-ink)">清單裡還有票 → 換下一張 T</text>
 
-        <!-- awaitingSelfConfirmation / awaitingTesterConfirmation branch: surfaced alongside list_pending_tickets, not part of the per-ticket loop -->
+        <!-- awaitingConfirmation branch: surfaced alongside list_pending_tickets, not part of the per-ticket loop -->
         <line x1="346" y1="152" x2="346" y2="184" stroke="var(--warn)" stroke-width="1.6" marker-end="url(#arrowWarn)"/>
-        <rect x="196" y="188" width="300" height="118" rx="10" fill="var(--warn-soft)" stroke="var(--warn)"/>
-        <text x="346" y="208" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--warn)">＋ 兩關待確認的舊票</text>
-        <text x="346" y="226" text-anchor="middle" class="mono-label" font-size="10" fill="var(--warn)" opacity="0.85">awaitingSelfConfirmation</text>
-        <text x="346" y="241" text-anchor="middle" font-size="10.5" fill="var(--warn)">第一關：使用者自測＋審視 code</text>
-        <text x="346" y="260" text-anchor="middle" class="mono-label" font-size="10" fill="var(--warn)" opacity="0.85">awaitingTesterConfirmation</text>
-        <text x="346" y="275" text-anchor="middle" font-size="10.5" fill="var(--warn)">第二關：獨立測試員情境測試</text>
-        <text x="346" y="296" text-anchor="middle" font-size="10.5" fill="var(--warn)" opacity="0.9">主動列出，等待人工依序回覆</text>
+        <rect x="196" y="188" width="300" height="88" rx="10" fill="var(--warn-soft)" stroke="var(--warn)"/>
+        <text x="346" y="208" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--warn)">＋ 待確認的舊票</text>
+        <text x="346" y="226" text-anchor="middle" class="mono-label" font-size="10" fill="var(--warn)" opacity="0.85">awaitingConfirmation</text>
+        <text x="346" y="244" text-anchor="middle" font-size="10.5" fill="var(--warn)">使用者自測＋審視 code 還沒表態</text>
+        <text x="346" y="264" text-anchor="middle" font-size="10.5" fill="var(--warn)" opacity="0.9">主動列出，等待人工回覆</text>
       </svg>
       </div>
-      <figcaption>清單裡每張新票依序走一遍三階段（不平行處理），全部處理完才彙整成一份報告給使用者；同一次呼叫也會帶出還沒走完兩關人類確認的舊票（awaitingSelfConfirmation／awaitingTesterConfirmation），不管這次有沒有新票要處理都要主動提出來，不能悄悄略過。</figcaption>
+      <figcaption>清單裡每張新票依序走一遍三階段（不平行處理），全部處理完才彙整成一份報告給使用者；同一次呼叫也會帶出還沒走完人類確認的舊票（awaitingConfirmation），不管這次有沒有新票要處理都要主動提出來，不能悄悄略過。</figcaption>
     </figure>
   </section>
 
@@ -433,10 +431,10 @@
       <span class="block-num">2</span>
       <h2>單張票的狀態機</h2>
     </div>
-    <p class="block-note">這是這次改版新增的重點：<strong>已經 PASS 的票，如果 Asana 內容後來被改過，會被強制打回重新分析</strong>；內容沒再變的話，則會依序落入<strong>待第一關（使用者自測＋審視 code）</strong>、<strong>待第二關（獨立測試員情境測試）</strong>兩個確認狀態，AI 判的 PASS 不等於真正結案，任何一關都不會悄悄消失在清單外。<strong>verdict 是 FAIL 時，會依 rootCause 自動路由回分析師或工程師重跑，不用停下來問使用者</strong>——兩關人類確認 confirmed:false 時也會套用同一套機制，不是另開一條人工流程。</p>
+    <p class="block-note">這是這次改版新增的重點：<strong>已經 PASS 的票，如果 Asana 內容後來被改過，會被強制打回重新分析</strong>；內容沒再變的話，則會落入<strong>待使用者確認（自測＋審視 code）</strong>狀態，AI 判的 PASS 不等於真正結案，不會悄悄消失在清單外。<strong>verdict 是 FAIL 時，會依 rootCause 自動路由回分析師或工程師重跑，不用停下來問使用者</strong>——使用者確認 confirmed:false 時也會套用同一套機制，不是另開一條人工流程。</p>
     <figure class="diagram">
       <div class="diagram-scroll">
-      <svg viewBox="0 0 1080 620" role="img" aria-label="票單狀態機：new 到 snapshot 到 project_dir_confirmed 到 analyzed 到 implemented 到 verified 依序推進，只會往前走；verified 且 PASS 之後，如果偵測到票單內容雜湊改變，會在 verified 節點觸發一個警示標記：needs_reanalysis 設為 true、verdict、self_confirmation、tester_confirmation 一併清空，逼下一輪重新從分析師開始，但 stage 欄位本身仍是 verified，不會倒退回任何較早的節點；verified 且 FAIL 時，advance_ticket_stage 必填 rootCause，依 analysis 或 implementation 自動路由回分析師或工程師重跑，並機械式維護 consecutive_fail_count，達到門檻（needs_human_review）就停下來問使用者，不再自動重跑；verified 且 PASS、內容也沒再變的情況下，會先落入待第一關（使用者自己實測＋審視程式碼品質）確認的狀態，使用者呼叫 record_self_confirmation 帶 confirmed:true 之後，才會落入待第二關（另一位獨立測試員的情境測試）確認的狀態，直到測試員呼叫 record_tester_confirmation 帶 confirmed:true，才會真正進入已結案狀態；任一關 confirmed:false 都會把 verdict 重設回 null、標記 humanRejected:true，重新套用跟驗證師判 FAIL 完全一樣的根因分流機制，不是交由人工事後自行判斷">
+      <svg viewBox="0 0 1080 480" role="img" aria-label="票單狀態機：new 到 snapshot 到 project_dir_confirmed 到 analyzed 到 implemented 到 verified 依序推進，只會往前走；verified 且 PASS 之後，如果偵測到票單內容雜湊改變，會在 verified 節點觸發一個警示標記：needs_reanalysis 設為 true、verdict、confirmation 一併清空，逼下一輪重新從分析師開始，但 stage 欄位本身仍是 verified，不會倒退回任何較早的節點；verified 且 FAIL 時，advance_ticket_stage 必填 rootCause，依 analysis 或 implementation 自動路由回分析師或工程師重跑，並機械式維護 consecutive_fail_count，達到門檻（needs_human_review）就停下來問使用者，不再自動重跑；verified 且 PASS、內容也沒再變的情況下，會先落入待使用者自己實測＋審視程式碼品質確認的狀態，使用者呼叫 record_confirmation 帶 confirmed:true，才會真正進入已結案狀態；confirmed:false 會把 verdict 重設回 null、標記 humanRejected:true，重新套用跟驗證師判 FAIL 完全一樣的根因分流機制，不是交由人工事後自行判斷">
         <defs>
           <marker id="arrowStage" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
@@ -500,8 +498,8 @@
         <rect x="640" y="14" width="330" height="128" rx="9" fill="var(--stale-soft)" stroke="var(--stale)"/>
         <text x="805" y="35" text-anchor="middle" font-size="11.5" fill="var(--stale)" font-weight="500">⚠ Asana 內容 hash 變了 → needs_reanalysis = true</text>
         <text x="805" y="53" text-anchor="middle" font-size="11.5" fill="var(--stale)">verdict 清空；stage 欄位仍是 verified，不會倒退</text>
-        <text x="805" y="71" text-anchor="middle" font-size="11.5" fill="var(--stale)">self_confirmation／tester_confirmation 一併清空</text>
-        <text x="805" y="89" text-anchor="middle" font-size="11.5" fill="var(--stale)">（兩關人類確認都作廢，不能沿用舊版內容的確認）</text>
+        <text x="805" y="71" text-anchor="middle" font-size="11.5" fill="var(--stale)">confirmation 一併清空</text>
+        <text x="805" y="89" text-anchor="middle" font-size="11.5" fill="var(--stale)">（人類確認作廢，不能沿用舊版內容的確認）</text>
         <text x="805" y="107" text-anchor="middle" font-size="11.5" fill="var(--stale)">下一輪要當作還沒驗證過，重新從分析師開始</text>
 
         <!-- verified + FAIL → rootCause 分流（也是 humanRejected 重新進來的同一個入口） -->
@@ -522,34 +520,25 @@
         <text x="450" y="346" text-anchor="middle" font-size="10.5" fill="var(--stale)">"analysis" → 回分析師重跑；"implementation" → 回工程師重跑（不停下來問）</text>
         <text x="450" y="364" text-anchor="middle" font-size="10.5" fill="var(--stale)">consecutive_fail_count 機械式累加（verdict 變 PASS 才歸零）</text>
         <text x="450" y="382" text-anchor="middle" font-size="10.5" font-weight="500" fill="var(--stale)">needs_human_review（≥ 3 次）→ 停下來問使用者，不再自動重跑</text>
-        <text x="450" y="400" text-anchor="middle" font-size="10.5" fill="var(--stale)" opacity="0.9">下方兩關人類確認 confirmed:false 時，也會導向這裡（humanRejected:true）</text>
+        <text x="450" y="400" text-anchor="middle" font-size="10.5" fill="var(--stale)" opacity="0.9">下方使用者確認 confirmed:false 時，也會導向這裡（humanRejected:true）</text>
 
-        <!-- verified + PASS + 內容沒變 → 進入待第一關（使用者自測）確認 -->
+        <!-- verified + PASS + 內容沒變 → 進入待使用者確認 -->
         <line x1="913" y1="206" x2="913" y2="246" stroke="var(--warn)" stroke-width="1.6" marker-end="url(#arrowWarn)"/>
         <rect x="773" y="250" width="280" height="100" rx="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
-        <text x="913" y="272" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--warn)">待第一關：使用者自測＋審視 code</text>
-        <text x="913" y="288" text-anchor="middle" class="mono-label" font-size="10.5" fill="var(--warn)" opacity="0.8">awaitingSelfConfirmation</text>
-        <text x="913" y="304" text-anchor="middle" class="mono-label" font-size="10.5" fill="var(--warn)">self_confirmation ≠ true</text>
+        <text x="913" y="272" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--warn)">待使用者自測＋審視 code</text>
+        <text x="913" y="288" text-anchor="middle" class="mono-label" font-size="10.5" fill="var(--warn)" opacity="0.8">awaitingConfirmation</text>
+        <text x="913" y="304" text-anchor="middle" class="mono-label" font-size="10.5" fill="var(--warn)">confirmation ≠ true</text>
         <text x="913" y="322" text-anchor="middle" font-size="10.5" fill="var(--warn)" opacity="0.9">confirmed:false → verdict 清空、humanRejected:true</text>
-        <text x="913" y="338" text-anchor="middle" class="mono-label" font-size="10" fill="var(--warn)" opacity="0.75">record_self_confirmation（見左側 FAIL 分流方塊）</text>
+        <text x="913" y="338" text-anchor="middle" class="mono-label" font-size="10" fill="var(--warn)" opacity="0.75">record_confirmation（見左側 FAIL 分流方塊）</text>
 
-        <!-- record_self_confirmation(confirmed:true) → 待第二關（測試員情境測試）確認 -->
-        <line x1="913" y1="350" x2="913" y2="386" stroke="var(--warn)" stroke-width="1.6" marker-end="url(#arrowWarn)"/>
-        <rect x="773" y="390" width="280" height="100" rx="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
-        <text x="913" y="412" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--warn)">待第二關：獨立測試員情境測試</text>
-        <text x="913" y="428" text-anchor="middle" class="mono-label" font-size="10.5" fill="var(--warn)" opacity="0.8">awaitingTesterConfirmation</text>
-        <text x="913" y="444" text-anchor="middle" class="mono-label" font-size="10.5" fill="var(--warn)">tester_confirmation ≠ true</text>
-        <text x="913" y="462" text-anchor="middle" font-size="10.5" fill="var(--warn)" opacity="0.9">confirmed:false → verdict 清空、humanRejected:true</text>
-        <text x="913" y="478" text-anchor="middle" class="mono-label" font-size="10" fill="var(--warn)" opacity="0.75">record_tester_confirmation（見左側 FAIL 分流方塊）</text>
-
-        <!-- record_tester_confirmation(confirmed:true) → 已結案 -->
-        <line x1="913" y1="490" x2="913" y2="524" stroke="var(--good)" stroke-width="1.6" marker-end="url(#arrowGood)"/>
-        <rect x="828" y="528" width="170" height="60" rx="9" fill="var(--good-soft)" stroke="var(--good)"/>
-        <text x="913" y="551" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--good)">已結案</text>
-        <text x="913" y="568" text-anchor="middle" class="mono-label" font-size="10.5" fill="var(--good)">兩關皆 confirmed: true</text>
+        <!-- record_confirmation(confirmed:true) → 已結案 -->
+        <line x1="913" y1="350" x2="913" y2="384" stroke="var(--good)" stroke-width="1.6" marker-end="url(#arrowGood)"/>
+        <rect x="828" y="388" width="170" height="60" rx="9" fill="var(--good-soft)" stroke="var(--good)"/>
+        <text x="913" y="411" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--good)">已結案</text>
+        <text x="913" y="428" text-anchor="middle" class="mono-label" font-size="10.5" fill="var(--good)">confirmed: true</text>
       </svg>
       </div>
-      <figcaption>get_ticket_snapshot 每次都會比對票單內容的雜湊值：沒變就走上面那條「unchanged」捷徑省 token；真的變了、而且這張票已經有進度，就在 verified 節點亮起右上角的警示（不是狀態倒退），逼下一輪重新從分析師開始。verified+FAIL 時，advance_ticket_stage 必填 rootCause，依「分析方向錯」還是「實作沒做到位」自動路由回分析師或工程師重跑，不用停下來問使用者，直到連續 FAIL 達到門檻（needs_human_review）才停下來問。內容沒再變、verdict 是 PASS 的話，會先落入「待第一關：使用者自測＋審視 code」——這是 AI 自己判的結論，不是真正結案；使用者呼叫 record_self_confirmation 帶 confirmed:true 之後，才會落入「待第二關：獨立測試員情境測試」；只有這一關也呼叫 record_tester_confirmation 帶 confirmed:true，才會進入已結案狀態。這兩關任一關 confirmed:false，都會套用跟左邊 FAIL 分流完全一樣的機制（verdict 重設回 null、humanRejected:true），不是另開一條人工流程。這整段狀態轉換完全落在本地追蹤檔案裡，不會回寫到 Asana 本身——asana-mcp 刻意設計成唯讀，避免共用帳號被誤操作，Asana 上要不要標記完成一律交由使用者自己手動處理。</figcaption>
+      <figcaption>get_ticket_snapshot 每次都會比對票單內容的雜湊值：沒變就走上面那條「unchanged」捷徑省 token；真的變了、而且這張票已經有進度，就在 verified 節點亮起右上角的警示（不是狀態倒退），逼下一輪重新從分析師開始。verified+FAIL 時，advance_ticket_stage 必填 rootCause，依「分析方向錯」還是「實作沒做到位」自動路由回分析師或工程師重跑，不用停下來問使用者，直到連續 FAIL 達到門檻（needs_human_review）才停下來問。內容沒再變、verdict 是 PASS 的話，會先落入「待使用者：自測＋審視 code」——這是 AI 自己判的結論，不是真正結案；只有使用者呼叫 record_confirmation 帶 confirmed:true，才會進入已結案狀態。confirmed:false 會套用跟左邊 FAIL 分流完全一樣的機制（verdict 重設回 null、humanRejected:true），不是另開一條人工流程。這整段狀態轉換完全落在本地追蹤檔案裡，不會回寫到 Asana 本身——asana-mcp 刻意設計成唯讀，避免共用帳號被誤操作，Asana 上要不要標記完成一律交由使用者自己手動處理。</figcaption>
     </figure>
     <ul class="walkthrough">
       <li>上排六個灰色方框是這張票在 <code class="mono">status.json</code> 裡的 <code class="mono">stage</code> 欄位，依序代表：
@@ -564,9 +553,9 @@
         灰色箭頭只往右走：這六格永遠照這個順序推進，不會跳過、也不會倒退。
       </li>
       <li><code class="mono">snapshot</code> 框下面那個灰色小圈圈：每次重新呼叫 <code class="mono">get_ticket_snapshot</code> 抓這張票，如果內容雜湊值跟上次一樣，工具不會重寫 <code class="mono">ticket.md</code>、也不會把全文塞回這次回應，只回傳簡短的 <code class="mono">unchanged: true</code>——單純是省 token 的捷徑，跟 <code class="mono">stage</code> 有沒有推進無關。</li>
-      <li><code class="mono">verified</code> 框右上角那張紅色卡片：只有這張票已經走到 <code class="mono">verified</code>、之後 <code class="mono">get_ticket_snapshot</code> 又偵測到內容雜湊真的變了，才會出現。它代表 <code class="mono">status.json</code> 裡另外幾個<strong>獨立</strong>欄位被改動：<code class="mono">needs_reanalysis</code> 變成 <code class="mono">true</code>、<code class="mono">verdict</code> 清空成 <code class="mono">null</code>、<code class="mono">self_confirmation</code>／<code class="mono">tester_confirmation</code> 兩關人類確認也一併清空成 <code class="mono">null</code>（不能讓「測過的是舊版內容」被誤認成這一版也測過）。這張卡片刻意畫成只掛在 <code class="mono">verified</code> 框旁邊、沒有箭頭連回任何更早的框——因為 <code class="mono">stage</code> 欄位本身完全沒有變動，這張票的 <code class="mono">stage</code> 永遠還是顯示 <code class="mono">verified</code>；真正改變的是「這張票該不該被當作已經處理完」，不是它處理到哪一步。</li>
-      <li>紅框下方那張較寬的「<code class="mono">verdict: FAIL → rootCause 根因分流</code>」卡片：驗證師判 <code class="mono">FAIL</code> 時，呼叫 <code class="mono">advance_ticket_stage</code> 必須帶 <code class="mono">rootCause</code>（<code class="mono">"analysis"</code> 或 <code class="mono">"implementation"</code>），AI 依這個判斷自動跳回分析師或工程師重跑，不用停下來問使用者；<code class="mono">consecutive_fail_count</code> 由工具機械式維護（<code class="mono">FAIL</code> 累加、<code class="mono">PASS</code> 歸零），達到門檻（<code class="mono">needs_human_review</code>，預設連續 3 次）就不再自動重跑，要停下來問使用者。這個入口不只給 AI 自己判 <code class="mono">FAIL</code> 用——下面兩關人類確認任一關 <code class="mono">confirmed: false</code>，也會導向同一套機制。</li>
-      <li>綠框下面依序是兩張黃色「待確認」卡片：<code class="mono">verified</code> 且 <code class="mono">PASS</code>、內容也沒再變的情況下，票單會先落入<strong>第一關</strong>——使用者自己實測＋審視程式碼品質；呼叫 <code class="mono">record_self_confirmation({ confirmed: true })</code> 之後才會進到<strong>第二關</strong>——另一位獨立測試員的情境測試。兩關都要 <code class="mono">confirmed: true</code>，票單才會進入最下面的綠色「已結案」；<strong>任一關 <code class="mono">confirmed: false</code> 會把 <code class="mono">verdict</code> 重設回 <code class="mono">null</code>、標記 <code class="mono">humanRejected: true</code>，重新落入上面那套 <code class="mono">FAIL</code> 根因分流機制</strong>，不是留著等人工事後自己判斷、也不是另開一條獨立流程。第二關的工具本身也會擋下「第一關還沒過就想記錄第二關」的呼叫。</li>
+      <li><code class="mono">verified</code> 框右上角那張紅色卡片：只有這張票已經走到 <code class="mono">verified</code>、之後 <code class="mono">get_ticket_snapshot</code> 又偵測到內容雜湊真的變了，才會出現。它代表 <code class="mono">status.json</code> 裡另外幾個<strong>獨立</strong>欄位被改動：<code class="mono">needs_reanalysis</code> 變成 <code class="mono">true</code>、<code class="mono">verdict</code> 清空成 <code class="mono">null</code>、<code class="mono">confirmation</code> 這關人類確認也一併清空成 <code class="mono">null</code>（不能讓「測過的是舊版內容」被誤認成這一版也測過）。這張卡片刻意畫成只掛在 <code class="mono">verified</code> 框旁邊、沒有箭頭連回任何更早的框——因為 <code class="mono">stage</code> 欄位本身完全沒有變動，這張票的 <code class="mono">stage</code> 永遠還是顯示 <code class="mono">verified</code>；真正改變的是「這張票該不該被當作已經處理完」，不是它處理到哪一步。</li>
+      <li>紅框下方那張較寬的「<code class="mono">verdict: FAIL → rootCause 根因分流</code>」卡片：驗證師判 <code class="mono">FAIL</code> 時，呼叫 <code class="mono">advance_ticket_stage</code> 必須帶 <code class="mono">rootCause</code>（<code class="mono">"analysis"</code> 或 <code class="mono">"implementation"</code>），AI 依這個判斷自動跳回分析師或工程師重跑，不用停下來問使用者；<code class="mono">consecutive_fail_count</code> 由工具機械式維護（<code class="mono">FAIL</code> 累加、<code class="mono">PASS</code> 歸零），達到門檻（<code class="mono">needs_human_review</code>，預設連續 3 次）就不再自動重跑，要停下來問使用者。這個入口不只給 AI 自己判 <code class="mono">FAIL</code> 用——下面使用者確認 <code class="mono">confirmed: false</code>，也會導向同一套機制。</li>
+      <li>綠框下面是一張黃色「待確認」卡片：<code class="mono">verified</code> 且 <code class="mono">PASS</code>、內容也沒再變的情況下，票單會落入待確認——使用者自己實測＋審視程式碼品質；呼叫 <code class="mono">record_confirmation({ confirmed: true })</code> 之後，票單才會進入最下面的綠色「已結案」；<strong><code class="mono">confirmed: false</code> 會把 <code class="mono">verdict</code> 重設回 <code class="mono">null</code>、標記 <code class="mono">humanRejected: true</code>，重新落入上面那套 <code class="mono">FAIL</code> 根因分流機制</strong>，不是留著等人工事後自己判斷、也不是另開一條獨立流程。</li>
     </ul>
     <div class="legend">
       <span><i style="background:var(--surface-2); border:1px solid var(--ink); height:14px; border-radius:3px;"></i>灰＝一般階段方框</span>
@@ -799,7 +788,7 @@
     <p class="block-note">過去「這張票需要你確認」「這個 SQL 只能你手動執行」這類提醒只在聊天回覆裡講一次，換個 session、關掉對話視窗就找不到了。現在整份寫進磁碟上的一份 Markdown 檔案，不靠聊天記錄留存。</p>
     <figure class="diagram">
       <div class="diagram-scroll">
-      <svg viewBox="0 0 1080 240" role="img" aria-label="待人工處理清單持久化機制：呼叫 list_pending_tickets 並帶上 projectName 時，會掃描這個 Asana 專案所有票單、彙整待你確認／待測試員確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更六類項目，整份覆寫進 PENDING_HUMAN_ACTIONS.md；這份檔案落在磁碟上，任何 session、甚至不開 AI 都能直接打開看，不會因為聊天記錄被清掉或壓縮就遺失">
+      <svg viewBox="0 0 1080 240" role="img" aria-label="待人工處理清單持久化機制：呼叫 list_pending_tickets 並帶上 projectName 時，會掃描這個 Asana 專案所有票單、彙整待你確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更五類項目，整份覆寫進 PENDING_HUMAN_ACTIONS.md；這份檔案落在磁碟上，任何 session、甚至不開 AI 都能直接打開看，不會因為聊天記錄被清掉或壓縮就遺失">
         <defs>
           <marker id="arrowReport" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
@@ -819,10 +808,10 @@
 
           <rect x="248" y="60" width="230" height="116" rx="9" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
           <text x="363" y="86" text-anchor="middle" font-size="12">掃描專案所有票單</text>
-          <text x="363" y="104" text-anchor="middle" font-size="11" opacity="0.7">彙整六類人工待辦：</text>
-          <text x="363" y="122" text-anchor="middle" font-size="10.5" opacity="0.7">待你確認／待測試員確認／</text>
-          <text x="363" y="140" text-anchor="middle" font-size="10.5" opacity="0.7">卡住需要介入／內容已變更／</text>
-          <text x="363" y="158" text-anchor="middle" font-size="10.5" opacity="0.7">待手動處理／Git未commit</text>
+          <text x="363" y="104" text-anchor="middle" font-size="11" opacity="0.7">彙整五類人工待辦：</text>
+          <text x="363" y="122" text-anchor="middle" font-size="10.5" opacity="0.7">待你確認／卡住需要介入／</text>
+          <text x="363" y="140" text-anchor="middle" font-size="10.5" opacity="0.7">內容已變更／待手動處理／</text>
+          <text x="363" y="158" text-anchor="middle" font-size="10.5" opacity="0.7">Git未commit</text>
 
           <rect x="548" y="60" width="230" height="116" rx="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
           <text x="663" y="104" text-anchor="middle" font-size="12" font-weight="700" fill="var(--warn)">PENDING_HUMAN_ACTIONS.md</text>
@@ -843,7 +832,7 @@
         <text x="363" y="218" text-anchor="middle" font-size="11" opacity="0.7">寫檔案是它的副作用，不是一個容易被忘記呼叫的額外步驟</text>
       </svg>
       </div>
-      <figcaption><code class="mono">manualActions</code>（<code class="mono">write_ticket_artifact</code> 寫 02/03 時必填，可以是空陣列）逼工程師/驗證師把「這個 SQL 只能你手動執行」這類事項明確宣告出來，不能只埋在全文內容裡指望使用者重讀才發現；六類項目彙整後整份覆寫進磁碟上的 Markdown 檔案，不依賴聊天記錄留存。寫入前會自動掃描是否夾帶完整 SQL 全文或憑證/連線字串，抓到直接拒絕寫入——只能留技術性描述。</figcaption>
+      <figcaption><code class="mono">manualActions</code>（<code class="mono">write_ticket_artifact</code> 寫 02/03 時必填，可以是空陣列）逼工程師/驗證師把「這個 SQL 只能你手動執行」這類事項明確宣告出來，不能只埋在全文內容裡指望使用者重讀才發現；五類項目彙整後整份覆寫進磁碟上的 Markdown 檔案，不依賴聊天記錄留存。寫入前會自動掃描是否夾帶完整 SQL 全文或憑證/連線字串，抓到直接拒絕寫入——只能留技術性描述。</figcaption>
     </figure>
   </section>
 

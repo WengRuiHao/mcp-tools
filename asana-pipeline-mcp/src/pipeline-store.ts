@@ -11,7 +11,7 @@ export interface TicketSummaries {
 }
 
 /**
- * 一次「人類確認」紀錄——共用形狀，實際語意由 TicketStatus 上掛的欄位名稱決定（self_confirmation／tester_confirmation）。
+ * 結案前「使用者自己」的實測＋程式碼品質審視結果紀錄。
  * 跟 verdict（AI 驗證師自己判定的 PASS/FAIL）是不同軸向的東西，不能混為一談。
  */
 export interface ConfirmationRecord {
@@ -49,10 +49,8 @@ export interface TicketStatus {
   needs_reanalysis: boolean;
   /** 分析師/工程師/驗證師各自產出的精簡摘要（2-4 條重點，非全文），供接手的 session/AI 用 get_ticket_status 就能低成本掌握進度，不必每次都整份讀 01/02/03 全文。 */
   summaries: TicketSummaries;
-  /** 結案流程第一關：使用者自己的實測＋程式碼品質審視結果。null = 尚未確認。只有這關 confirmed:true，第二關（tester_confirmation）才能被記錄。見 recordSelfConfirmation。 */
-  self_confirmation: ConfirmationRecord | null;
-  /** 結案流程第二關（最終關）：另一位獨立測試員「只測情境」的實測結果。null = 尚未確認（不管 verdict 是不是 PASS，都還不算真正結案）。見 recordTesterConfirmation。 */
-  tester_confirmation: ConfirmationRecord | null;
+  /** 結案前唯一一關人類確認：使用者自己的實測＋程式碼品質審視結果。null = 尚未確認（不管 verdict 是不是 PASS，都還不算真正結案）。見 recordConfirmation。 */
+  confirmation: ConfirmationRecord | null;
   /** 驗證師判 FAIL 時判斷的根因：分析方向本身錯了，還是單純實作沒做到位。PASS 或還沒判定時是 null。供下一輪處理這張票時決定要自動跳回工程師還是分析師（見 advanceStage 的自動維護邏輯）。 */
   verifier_root_cause: "analysis" | "implementation" | null;
   /** 連續 FAIL 次數的機械式安全閥——不是給 AI 自己心算的東西，由 advanceStage 在 verdict 有值時自動維護：FAIL +1，PASS 歸零。達到門檻（見 needsHumanReview）時不該再自動重跑，要停下來問使用者。 */
@@ -200,8 +198,7 @@ const NEW_STATUS: TicketStatus = {
   last_seen_modified_at: null,
   needs_reanalysis: false,
   summaries: { analysis: null, implementation: null, verification: null },
-  self_confirmation: null,
-  tester_confirmation: null,
+  confirmation: null,
   verifier_root_cause: null,
   consecutive_fail_count: 0,
   implementation_manual_actions: [],
@@ -316,8 +313,8 @@ async function updateStatus(
  * 呼叫端（index.ts 的 advance_ticket_stage 工具）每次帶 verdict 更新時，這裡機械式維護兩件跟 verdict 綁在一起的事：
  * - `consecutive_fail_count`：FAIL 累加、PASS（或其他非 FAIL 值）歸零——這是安全閥，不依賴 AI 自己心算連續 FAIL 了幾輪，
  *   即使换一个完全没有上下文记忆的新 session，`needsHumanReview` 也能拿到正確答案。
- * - 清空 `self_confirmation`/`tester_confirmation`：這兩個人類確認是針對「上一輪程式碼/結論」表態的，新 verdict 出爐
- *   代表程式碼或結論已經更新，舊確認不能被誤認成也適用於這一輪，必須作廢逼使用者/測試員重新表態。
+ * - 清空 `confirmation`：這個人類確認是針對「上一輪程式碼/結論」表態的，新 verdict 出爐代表程式碼或結論已經
+ *   更新，舊確認不能被誤認成也適用於這一輪，必須作廢逼使用者重新表態。
  * `verifier_root_cause` 本身的值仍然完全來自呼叫端傳入的 `patch`（這裡不生成，只在 verdict 不是 FAIL 時強制清空，
  * 避免殘留上一輪 FAIL 的根因標記）。
  */
@@ -325,8 +322,7 @@ export async function advanceStage(ticketGid: string, stage: TicketStatus["stage
   return updateStatus(ticketGid, (status) => {
     const finalPatch: Partial<TicketStatus> = { ...patch };
     if (patch.verdict !== undefined) {
-      finalPatch.self_confirmation = null;
-      finalPatch.tester_confirmation = null;
+      finalPatch.confirmation = null;
       finalPatch.consecutive_fail_count = patch.verdict === "FAIL" ? status.consecutive_fail_count + 1 : 0;
       if (patch.verdict !== "FAIL") finalPatch.verifier_root_cause = null;
     }
@@ -383,9 +379,8 @@ export async function recordSnapshotContent(
       last_seen_modified_at: modifiedAt,
       needs_reanalysis: hadPriorProgress ? true : status.needs_reanalysis,
       verdict: hadPriorProgress ? null : status.verdict,
-      // 票單內容真的變了、且之前有進度：舊的兩關人類確認（自己測+測試員）都一併作廢，不能讓「測過的是舊版內容」被誤認成這一版也測過。
-      self_confirmation: hadPriorProgress ? null : status.self_confirmation,
-      tester_confirmation: hadPriorProgress ? null : status.tester_confirmation,
+      // 票單內容真的變了、且之前有進度：舊的人類確認一併作廢，不能讓「測過的是舊版內容」被誤認成這一版也測過。
+      confirmation: hadPriorProgress ? null : status.confirmation,
       // 根因標記/安全閥計數也是針對「上一版內容」算出來的，內容真的變了就沒有意義，一併歸零，不能讓舊版的連續 FAIL 次數影響新內容的判斷。
       verifier_root_cause: hadPriorProgress ? null : status.verifier_root_cause,
       consecutive_fail_count: hadPriorProgress ? 0 : status.consecutive_fail_count,
@@ -635,43 +630,22 @@ export async function recordStageSync(
 }
 
 /**
- * 記錄結案流程「第一關」——使用者自己的實測＋程式碼品質審視結果。跟 advanceStage 的 verdict（AI 驗證師自己判定的
- * PASS/FAIL）是完全不同的欄位，呼叫端（index.ts 的 record_self_confirmation 工具）自行決定要不要限制只能在
+ * 記錄結案前唯一一關人類確認——使用者自己的實測＋程式碼品質審視結果。跟 advanceStage 的 verdict（AI 驗證師自己
+ * 判定的 PASS/FAIL）是完全不同的欄位，呼叫端（index.ts 的 record_confirmation 工具）自行決定要不要限制只能在
  * stage === "verified" 時呼叫。
  * confirmed: false 時，除了記錄 note，也會把 verdict 重設回 null——讓這張票重新落入 list_pending_tickets 的
  * `pending`（標記 humanRejected: true），套用跟 AI 驗證師自己判 FAIL 完全一樣的根因分流機制去處理，而不是
  * 另外發明一條「人工打回」的獨立流程。注意這裡刻意不呼叫 advanceStage／不清空這個 confirmation 本身——
- * 那個函式會把 self_confirmation/tester_confirmation 一起清空，會連這則剛寫入的 note 都一起抹掉。
+ * 那個函式會把 confirmation 一起清空，會連這則剛寫入的 note 都一起抹掉。
  */
-export async function recordSelfConfirmation(
+export async function recordConfirmation(
   ticketGid: string,
   confirmed: boolean,
   note?: string | null
 ): Promise<TicketStatus> {
   return updateStatus(ticketGid, (status) => ({
     ...status,
-    self_confirmation: { confirmed, confirmedAt: nowIso(), note: note ?? null },
-    ...(confirmed === false ? { verdict: null } : {}),
-  }));
-}
-
-/**
- * 記錄結案流程「第二關（最終關）」——另一位獨立測試員「只測情境」的實測結果。跟 advanceStage 的 verdict（AI 驗證師
- * 自己判定的 PASS/FAIL）、以及 recordSelfConfirmation（第一關）都是完全不同的欄位。呼叫端（index.ts 的
- * record_tester_confirmation 工具）自行決定要不要限制只能在 stage === "verified" 且第一關已經 confirmed:true
- * 之後才能呼叫。
- * confirmed: false 時，跟 recordSelfConfirmation 一樣把 verdict 重設回 null，讓這張票重新落入
- * list_pending_tickets 的 `pending`（標記 humanRejected: true），套用跟 AI 驗證師自己判 FAIL 完全一樣的根因
- * 分流機制。
- */
-export async function recordTesterConfirmation(
-  ticketGid: string,
-  confirmed: boolean,
-  note?: string | null
-): Promise<TicketStatus> {
-  return updateStatus(ticketGid, (status) => ({
-    ...status,
-    tester_confirmation: { confirmed, confirmedAt: nowIso(), note: note ?? null },
+    confirmation: { confirmed, confirmedAt: nowIso(), note: note ?? null },
     ...(confirmed === false ? { verdict: null } : {}),
   }));
 }
@@ -696,8 +670,7 @@ export async function readArtifact(ticketGid: string, filename: string): Promise
 }
 
 export interface PendingActionsReportInput {
-  awaitingSelfConfirmation: { taskGid: string; name: string }[];
-  awaitingTesterConfirmation: { taskGid: string; name: string }[];
+  awaitingConfirmation: { taskGid: string; name: string }[];
   needsHumanReview: { taskGid: string; name: string; consecutiveFailCount: number }[];
   /** 已經判過 PASS（或先前分析過）的票單，Asana 上的內容後來又被改過——不能因為之前處理過就跳過，需要重新看內容決定要不要重新分析。 */
   contentChanged: { taskGid: string; name: string; stage: string }[];
@@ -767,11 +740,7 @@ export async function writePendingActionsReport(
     "",
     section(
       "待你確認（AI 驗證師判 PASS，等你自己實測＋審視程式碼品質）",
-      input.awaitingSelfConfirmation.map((t) => `${t.name}（\`${t.taskGid}\`）`)
-    ),
-    section(
-      "待測試員確認（你已確認，等另一位獨立測試員情境測試）",
-      input.awaitingTesterConfirmation.map((t) => `${t.name}（\`${t.taskGid}\`）`)
+      input.awaitingConfirmation.map((t) => `${t.name}（\`${t.taskGid}\`）`)
     ),
     section(
       "卡住需要你介入（連續 FAIL 已達門檻，AI 不會再自動重跑）",

@@ -79,17 +79,17 @@ npm run build
 
 ### 每次執行的迴圈
 
-![每次執行的主迴圈：一次性設定之後，取得待處理票單清單，同時帶出 awaitingSelfConfirmation 與 awaitingTesterConfirmation（AI 已 PASS、還卡在第一關使用者自測或第二關獨立測試員的舊票）主動列給使用者，逐張新票走三階段處理，處理完換下一張，全部跑完彙整報告](docs/img/loop-overview.svg)
+![每次執行的主迴圈：一次性設定之後，取得待處理票單清單，同時帶出 awaitingConfirmation（AI 已 PASS、還卡在使用者自測這關的舊票）主動列給使用者，逐張新票走三階段處理，處理完換下一張，全部跑完彙整報告](docs/img/loop-overview.svg)
 
-`list_pending_tickets` 每次呼叫都會多回傳兩份清單：`awaitingSelfConfirmation`（AI 驗證師判過 `PASS`、Asana 內容也沒再變過，但**使用者自己還沒實際測過＋審視程式碼品質**的票）跟 `awaitingTesterConfirmation`（第一關已經過了，但**另一位獨立測試員的情境測試還沒表態**的票）。這兩份清單每次都要主動列給使用者看（不因為這次是來處理別的新票就略過），直到每一張都依序呼叫 `record_self_confirmation` 再 `record_tester_confirmation` 表態，才會從清單消失。
+`list_pending_tickets` 每次呼叫都會多回傳一份清單：`awaitingConfirmation`（AI 驗證師判過 `PASS`、Asana 內容也沒再變過，但**使用者自己還沒實際測過＋審視程式碼品質**的票）。這份清單每次都要主動列給使用者看（不因為這次是來處理別的新票就略過），直到每一張都呼叫 `record_confirmation` 表態，才會從清單消失。
 
 ### 單張票的狀態機
 
-![票單狀態機：new 到 snapshot 到 project_dir_confirmed 到 analyzed 到 implemented 到 verified 依序推進，只會往前走；verified 且 PASS 之後若偵測到內容雜湊改變，會觸發警示標記 needs_reanalysis，verdict、self_confirmation、tester_confirmation 一併清空，逼下一輪重新從分析師開始；verified 且 FAIL 時依 rootCause 自動路由回分析師或工程師重跑，達到 consecutive_fail_count 門檻才停下來問使用者；內容沒再變的話則落入待第一關使用者確認狀態，通過後再落入待第二關測試員確認狀態，任一關 confirmed:false 都會導向跟 FAIL 一樣的根因分流，直到 record_tester_confirmation 帶 confirmed:true 才進入已結案](docs/img/ticket-state-machine.svg)
+![票單狀態機：new 到 snapshot 到 project_dir_confirmed 到 analyzed 到 implemented 到 verified 依序推進，只會往前走；verified 且 PASS 之後若偵測到內容雜湊改變，會觸發警示標記 needs_reanalysis，verdict、confirmation 一併清空，逼下一輪重新從分析師開始；verified 且 FAIL 時依 rootCause 自動路由回分析師或工程師重跑，達到 consecutive_fail_count 門檻才停下來問使用者；內容沒再變的話則落入待使用者確認狀態，confirmed:false 會導向跟 FAIL 一樣的根因分流，直到 record_confirmation 帶 confirmed:true 才進入已結案](docs/img/ticket-state-machine.svg)
 
-六格 `stage`（灰）只會往前走，不會跳過也不會倒退；`snapshot` 下的灰圈是省 token 捷徑（內容雜湊沒變就不重寫、不回全文）。紅卡有兩張：右上角是內容變動的例外——`verified` 且 `PASS` 之後若偵測到 Asana 內容真的變了，會亮起 `needs_reanalysis` 旗標逼下一輪重新分析、`verdict`、`self_confirmation`、`tester_confirmation` 一併清空，但 **`stage` 本身不會倒退**，仍顯示 `verified`；下方較寬那張是 **`verdict: FAIL` 的根因分流**——`advance_ticket_stage` 設 `FAIL` 時必填 `rootCause`（`"analysis"`/`"implementation"`），AI 依此自動跳回分析師或工程師重跑，不用停下來問使用者，`consecutive_fail_count` 由工具機械式維護（FAIL 累加、PASS 歸零），達到門檻（`needs_human_review`，預設連續 3 次）才停下來問。
+六格 `stage`（灰）只會往前走，不會跳過也不會倒退；`snapshot` 下的灰圈是省 token 捷徑（內容雜湊沒變就不重寫、不回全文）。紅卡有兩張：右上角是內容變動的例外——`verified` 且 `PASS` 之後若偵測到 Asana 內容真的變了，會亮起 `needs_reanalysis` 旗標逼下一輪重新分析、`verdict`、`confirmation` 一併清空，但 **`stage` 本身不會倒退**，仍顯示 `verified`；下方較寬那張是 **`verdict: FAIL` 的根因分流**——`advance_ticket_stage` 設 `FAIL` 時必填 `rootCause`（`"analysis"`/`"implementation"`），AI 依此自動跳回分析師或工程師重跑，不用停下來問使用者，`consecutive_fail_count` 由工具機械式維護（FAIL 累加、PASS 歸零），達到門檻（`needs_human_review`，預設連續 3 次）才停下來問。
 
-黃卡是另一個獨立軸向、而且分兩關：`verified` 且 `PASS`、內容也沒再變的情況下，票單會先落入「待第一關（使用者自己）確認」——**`verdict` 是 AI 驗證師自己判的結論，不等於真正結案**。使用者呼叫 `record_self_confirmation({ taskGid, confirmed: true })` 之後，才會進到「待第二關（另一位獨立測試員）確認」；測試員呼叫 `record_tester_confirmation({ taskGid, confirmed: true })`，才會真正進入綠卡「已結案」。**任一關 `confirmed: false`（回報有問題）都會把 `verdict` 重設回 `null`、標記 `humanRejected: true`，重新套用跟上面 `FAIL` 完全一樣的根因分流機制**，不是留給人工事後自己判斷、也不是另開一條獨立流程；第二關的工具本身也會擋下「第一關還沒過就想記錄第二關」的呼叫。這整段狀態轉換只落在本地追蹤檔案裡，**不會回寫到 Asana 本身**——`asana-mcp` 刻意設計成唯讀，Asana 上要不要標記完成一律交由使用者自己手動處理。
+黃卡是另一個獨立軸向：`verified` 且 `PASS`、內容也沒再變的情況下，票單會先落入「待使用者確認」——**`verdict` 是 AI 驗證師自己判的結論，不等於真正結案**。使用者呼叫 `record_confirmation({ taskGid, confirmed: true })` 之後，才會真正進入綠卡「已結案」。**`confirmed: false`（回報有問題）會把 `verdict` 重設回 `null`、標記 `humanRejected: true`，重新套用跟上面 `FAIL` 完全一樣的根因分流機制**，不是留給人工事後自己判斷、也不是另開一條獨立流程。這整段狀態轉換只落在本地追蹤檔案裡，**不會回寫到 Asana 本身**——`asana-mcp` 刻意設計成唯讀，Asana 上要不要標記完成一律交由使用者自己手動處理。
 
 ### 01/02/03 互相同步
 
@@ -107,18 +107,17 @@ npm run build
 
 ### 待人工處理清單（`PENDING_HUMAN_ACTIONS.md`）
 
-![待人工處理清單持久化機制：呼叫 list_pending_tickets 並帶上 projectName 時，會掃描這個 Asana 專案所有票單、彙整待你確認／待測試員確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更六類項目，整份覆寫進 PENDING_HUMAN_ACTIONS.md；這份檔案落在磁碟上，任何 session、甚至不開 AI 都能直接打開看，不會因為聊天記錄被清掉或壓縮就遺失](docs/img/pending-actions-report.svg)
+![待人工處理清單持久化機制：呼叫 list_pending_tickets 並帶上 projectName 時，會掃描這個 Asana 專案所有票單、彙整待你確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更五類項目，整份覆寫進 PENDING_HUMAN_ACTIONS.md；這份檔案落在磁碟上，任何 session、甚至不開 AI 都能直接打開看，不會因為聊天記錄被清掉或壓縮就遺失](docs/img/pending-actions-report.svg)
 
 過去「這張票需要你確認」「這個 SQL 只能你手動執行」這類提醒，只會在當次聊天回覆裡講一次——換個 session、關掉對話視窗，這份清單就沒了，只能重新問 AI 才會再看到一次。
 
-現在 `list_pending_tickets({ projectGid, projectName, sectionFilter? })` **只要帶 `projectName`**，每次呼叫都會把當下算出來的六類「需要人工處理」項目整份覆寫進 `<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.md`：
+現在 `list_pending_tickets({ projectGid, projectName, sectionFilter? })` **只要帶 `projectName`**，每次呼叫都會把當下算出來的五類「需要人工處理」項目整份覆寫進 `<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.md`：
 
 1. **待你確認**——AI 驗證師判 PASS，等你自己實測＋審視程式碼品質。
-2. **待測試員確認**——你已經確認過，等另一位獨立測試員的情境測試。
-3. **卡住需要你介入**——連續 `FAIL` 已經達到門檻（`needs_human_review`），AI 不會再自動重跑。
-4. **Asana 內容已被異動，待重新確認**——先前已經處理過（甚至已經 PASS）的票單，Asana 上的內容後來又被改過（用 `modified_at`／`needs_reanalysis` 判斷），不能因為之前處理過就跳過，需要重新看內容決定要不要重新分析。
-5. **需要你手動處理的事項**——來自 `write_ticket_artifact` 寫 02/03 時**必填**的 `manualActions` 參數（可以是空陣列，代表明確確認這次沒有）。典型例子是「已產出 SQL，只能由你到 Database 工具手動執行」——這類一次性提醒過去只寫在 02/03 全文或聊天視窗裡，換個 session、或沒仔細重讀全文就會被漏掉，現在強制工程師/驗證師每次都要明確宣告一次，不能只埋在自由文字裡。確認做完某一項，呼叫 `resolve_manual_action({ taskGid, filename, action })` 精準移除那一項就好，不用整份重新宣告。**`manualActions` 只能寫技術性描述，寫入前會自動掃描是否夾帶完整 SQL 語句全文或憑證/連線字串，抓到會直接拒絕寫入**（見 `detectSensitiveManualActions`）——這些客戶專案的追蹤摘要即使只存在本機、沒進任何 git repo，涉及人資/薪資這類資料還是要比照敏感資料處理原則，不能整段複製真實 SQL/資料值/密碼進去；完整內容留在 02/03 全文裡就好。這條檢查刻意做在 `write_ticket_artifact`/`resync_ticket_artifact` 的寫入路徑裡，不是 settings.json 的 hook——hook 只認得 Bash/PowerShell/Edit/Write，MCP 工具呼叫本身不會觸發任何 hook。
-6. **Git 尚未 commit 的變更**——對每個已登記的 git 版控根目錄實際跑一次 `git status --porcelain`，再用每張票 `manualActions` 裡點名「尚未 commit」的檔名去篩選、依票單分組，只列出「git 真的還沒 commit、又有票單認領」的檔案；跟這次 pipeline 無關的其他未 commit 檔案整份省略（要查全部異動請自己跑 `git status`）。還沒呼叫過 `register_git_roots` 的專案，這一項會顯示「還沒登記」。
+2. **卡住需要你介入**——連續 `FAIL` 已經達到門檻（`needs_human_review`），AI 不會再自動重跑。
+3. **Asana 內容已被異動，待重新確認**——先前已經處理過（甚至已經 PASS）的票單，Asana 上的內容後來又被改過（用 `modified_at`／`needs_reanalysis` 判斷），不能因為之前處理過就跳過，需要重新看內容決定要不要重新分析。
+4. **需要你手動處理的事項**——來自 `write_ticket_artifact` 寫 02/03 時**必填**的 `manualActions` 參數（可以是空陣列，代表明確確認這次沒有）。典型例子是「已產出 SQL，只能由你到 Database 工具手動執行」——這類一次性提醒過去只寫在 02/03 全文或聊天視窗裡，換個 session、或沒仔細重讀全文就會被漏掉，現在強制工程師/驗證師每次都要明確宣告一次，不能只埋在自由文字裡。確認做完某一項，呼叫 `resolve_manual_action({ taskGid, filename, action })` 精準移除那一項就好，不用整份重新宣告。**`manualActions` 只能寫技術性描述，寫入前會自動掃描是否夾帶完整 SQL 語句全文或憑證/連線字串，抓到會直接拒絕寫入**（見 `detectSensitiveManualActions`）——這些客戶專案的追蹤摘要即使只存在本機、沒進任何 git repo，涉及人資/薪資這類資料還是要比照敏感資料處理原則，不能整段複製真實 SQL/資料值/密碼進去；完整內容留在 02/03 全文裡就好。這條檢查刻意做在 `write_ticket_artifact`/`resync_ticket_artifact` 的寫入路徑裡，不是 settings.json 的 hook——hook 只認得 Bash/PowerShell/Edit/Write，MCP 工具呼叫本身不會觸發任何 hook。
+5. **Git 尚未 commit 的變更**——對每個已登記的 git 版控根目錄實際跑一次 `git status --porcelain`，再用每張票 `manualActions` 裡點名「尚未 commit」的檔名去篩選、依票單分組，只列出「git 真的還沒 commit、又有票單認領」的檔案；跟這次 pipeline 無關的其他未 commit 檔案整份省略（要查全部異動請自己跑 `git status`）。還沒呼叫過 `register_git_roots` 的專案，這一項會顯示「還沒登記」。
 
 這份檔案不需要任何人記得手動維護——它是 `list_pending_tickets` 每次呼叫的**副作用**，跟這條 pipeline 每次執行都一定會呼叫這個工具的既有規則綁在一起，不是一個容易被忘記呼叫的額外步驟。檔案本身會被整份覆寫，不要手動編輯。
 
@@ -147,14 +146,14 @@ npm run build
 ## 提供的工具
 
 <details>
-<summary>展開完整工具清單（24 個）</summary>
+<summary>展開完整工具清單（23 個）</summary>
 
 | 工具 | 用途 |
 |---|---|
 | `get_pipeline_overview` | 取得整條流程說明（第一步一定先呼叫） |
 | `get_role_prompt` | 取得分析師／工程師／驗證師其中一個角色的職責說明 |
 | `resolve_default_project` / `register_default_project` | 查詢/登記「今天的問題單」預設 Asana 專案 |
-| `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；附上 `awaitingSelfConfirmation`/`awaitingTesterConfirmation`（AI 已 PASS、還卡在兩關人類確認的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）。**帶 `projectName` 會把這六類整份寫進 `PENDING_HUMAN_ACTIONS.md`**（見下方說明） |
+| `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；附上 `awaitingConfirmation`（AI 已 PASS、還卡在使用者自測這關的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）。**帶 `projectName` 會把這五類整份寫進 `PENDING_HUMAN_ACTIONS.md`**（見下方說明） |
 | `get_ticket_snapshot` | 抓票單內容＋留言，寫入追蹤檔案；子任務自動偵測（讀 Asana `parent` 欄位） |
 | `resolve_project_dir` / `register_project_dir` | 查詢/登記 Asana 專案 → 程式碼目錄 |
 | `resolve_sasd_config` / `register_sasd_config` | 查詢/登記 SA/SD 規格設定；`external`/`self` 會真的驗證 SVN 連線才登記成功 |
@@ -166,13 +165,12 @@ npm run build
 | `read_project_file` / `write_project_file` / `list_project_dir` / `search_project_text` | 讀寫/搜尋專案檔案（限 `projectDir` 範圍內）；偵測外部修改，見下方安全限制 |
 | `resolve_git_roots` / `register_git_roots` | 查詢/登記專案目錄實際的 git 版控根目錄（可前後端分開） |
 | `run_project_shell` | 跑 shell 指令；git 指令會驗證版控根目錄，見下方安全限制 |
-| `get_ticket_status` / `advance_ticket_stage` | 讀取/更新票單追蹤狀態，附 `sync_flags`/`needs_human_review`/`external_changes`（當場重新讀磁碟比對，抓繞過 MCP 的手動修改）；`verdict`（AI 驗證師結論）、`self_confirmation`（第一關：使用者自測＋審視 code）、`tester_confirmation`（第二關：獨立測試員情境測試）、`verifier_root_cause`（FAIL 根因，供自動路由）是分開的欄位。`verdict: "FAIL"` 時 `rootCause` 必填（`"analysis"`/`"implementation"`），並會機械式維護 `consecutive_fail_count`（FAIL 累加/PASS 歸零）、清空兩關人類確認 |
+| `get_ticket_status` / `advance_ticket_stage` | 讀取/更新票單追蹤狀態，附 `sync_flags`/`needs_human_review`/`external_changes`（當場重新讀磁碟比對，抓繞過 MCP 的手動修改）；`verdict`（AI 驗證師結論）、`confirmation`（使用者自測＋審視 code）、`verifier_root_cause`（FAIL 根因，供自動路由）是分開的欄位。`verdict: "FAIL"` 時 `rootCause` 必填（`"analysis"`/`"implementation"`），並會機械式維護 `consecutive_fail_count`（FAIL 累加/PASS 歸零）、清空人類確認 |
 | `write_ticket_artifact` / `read_ticket_artifact` | 讀寫追蹤目錄下的分析/實作/驗證檔案；寫 02/03 時 `syncNote`/`manualActions` 都必填（`manualActions` 可以是空陣列） |
 | `resync_ticket_artifact` | 把 01/02/03 其中一份檔案「現在磁碟上的實際內容」重新雜湊、寫回 `sync.*_hash`——給直接手動改過追蹤檔案（沒走 `write_ticket_artifact`）之後，用最低成本同步雜湊記錄，不用跑完整流程；也能順便回填舊票的 `manualActions` |
 | `resolve_manual_action` | 把某張票單 `manualActions` 裡「使用者確認已經處理完」的一項移除（文字精確比對），不用整份陣列重新宣告一次 |
 | `record_sasd_check` | 記錄這張票有沒有對應 SA/SD；沒呼叫過會擋下 `01-analysis.md` 的寫入 |
-| `record_self_confirmation` | 記錄結案第一關——使用者自己的實測＋程式碼品質審視結果（`confirmed`/`note`），只能在 `verified` 階段之後呼叫；`confirmed: true` 才會讓票單從 `awaitingSelfConfirmation` 移到 `awaitingTesterConfirmation` |
-| `record_tester_confirmation` | 記錄結案第二關（最終關）——另一位獨立測試員的情境測試結果（`confirmed`/`note`），只能在第一關 `self_confirmation` 已經 `confirmed: true` 之後才能呼叫；`confirmed: true` 才會讓票單真正離開待確認清單、算結案 |
+| `record_confirmation` | 記錄結案前唯一一關人類確認——使用者自己的實測＋程式碼品質審視結果（`confirmed`/`note`），只能在 `verified` 階段之後呼叫；`confirmed: true` 才會讓票單真正離開 `awaitingConfirmation`、算結案 |
 
 </details>
 

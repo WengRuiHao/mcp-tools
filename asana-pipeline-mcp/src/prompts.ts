@@ -42,13 +42,11 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 
 **清單裡如果某張票標記 \`contentChanged: true\`，代表這張票之前已經驗證 PASS 過，但 Asana 上的內容後來又被改過**——不能因為它「之前是 PASS」就跳過，一樣要走一次步驟 2（下一步 \`get_ticket_snapshot\` 會確認內容是不是真的變了、需不需要重新分析）。
 
-**硬性規定：回傳裡的 \`awaitingSelfConfirmation\`/\`awaitingTesterConfirmation\` 一定要主動列給使用者看，不能因為這次是來處理別的新票就略過不提**。一張票結案前有兩關人類確認，兩關都要走完才算真正結案：
-- **第一關 \`awaitingSelfConfirmation\`**：AI 驗證師判過 PASS，但『使用者自己』還沒實際測過＋審視過程式碼品質。使用者對某張票明確回覆「我測過了、code 也看過沒問題」或「有問題，如下」之後，呼叫 \`record_self_confirmation({ taskGid, confirmed, note? })\` 記錄下來——\`confirmed: true\` 這張票會從 \`awaitingSelfConfirmation\` 移到 \`awaitingTesterConfirmation\`，等第二關；\`confirmed: false\` 這張票不會進第二關，而是重新丟回 \`tickets\`（標記 \`humanRejected: true\`），交給 AI 用跟自己判 FAIL 一樣的方式處理（見下方「\`humanRejected\`」說明）。
-- **第二關（最終關）\`awaitingTesterConfirmation\`**：第一關已經過了，但『另一位獨立測試員』的情境測試還沒表態。使用者轉述測試員的結果之後，呼叫 \`record_tester_confirmation({ taskGid, confirmed, note? })\` 記錄下來——**只有這關也 confirmed: true，票單才算真正結案**，從清單消失；\`confirmed: false\` 一樣重新丟回 \`tickets\`（標記 \`humanRejected: true\`）。
+**硬性規定：回傳裡的 \`awaitingConfirmation\` 一定要主動列給使用者看，不能因為這次是來處理別的新票就略過不提**。一張票結案前有一關人類確認，走完才算真正結案：AI 驗證師判過 PASS，但『使用者自己』還沒實際測過＋審視過程式碼品質。使用者對某張票明確回覆「我測過了、code 也看過沒問題」或「有問題，如下」之後，呼叫 \`record_confirmation({ taskGid, confirmed, note? })\` 記錄下來——**\`confirmed: true\`，票單才算真正結案**，從清單消失；\`confirmed: false\` 重新丟回 \`tickets\`（標記 \`humanRejected: true\`），交給 AI 用跟自己判 FAIL 一樣的方式處理（見下方「\`humanRejected\`」說明）。
 
-**AI 自己判 PASS 只代表可以交給人測了，不是真正結案**，不去主動提醒的話，使用者永遠不會知道有哪些票卡在哪一關等他處理。就算這次呼叫 \`list_pending_tickets\` 的目的是要處理全新的票、這兩份清單完全是舊的存量，也一律要在這一步先原封不動地列出來（票名 + \`taskGid\`，如果對應的 \`selfConfirmation\`/\`testerConfirmation\` 不是 \`null\` 且 \`confirmed: false\`，也要把 \`note\` 裡回報的問題一併列出來），問使用者要不要順便處理幾張。使用者當下沒空處理的票，就先跳過，下次執行仍然會照樣被列出來，不會遺漏。**不能為了省事把兩關合併成一次問使用者**——第二關是另一位獨立測試員的職責，使用者自己確認過不代表可以直接呼叫 \`record_tester_confirmation\`（工具本身也會拒絕：沒過第一關就不能記錄第二關）。
+**AI 自己判 PASS 只代表可以交給人測了，不是真正結案**，不去主動提醒的話，使用者永遠不會知道有哪些票卡在等他處理。就算這次呼叫 \`list_pending_tickets\` 的目的是要處理全新的票、這份清單完全是舊的存量，也一律要在這一步先原封不動地列出來（票名 + \`taskGid\`，如果對應的 \`confirmation\` 不是 \`null\` 且 \`confirmed: false\`，也要把 \`note\` 裡回報的問題一併列出來），問使用者要不要順便處理幾張。使用者當下沒空處理的票，就先跳過，下次執行仍然會照樣被列出來，不會遺漏。
 
-**清單裡（\`tickets\`）如果某張票標記 \`humanRejected: true\`，代表它不是一張全新沒驗證過的票，而是使用者或測試員事後測出問題、被重新丟回來的票**——這種票不用從頭走過下面步驟 2 之 1-5，直接呼叫 \`get_ticket_status({ taskGid })\` 讀 \`self_confirmation\`/\`tester_confirmation\` 裡的 \`note\`，把回報的問題當作新證據，直接跳到步驟 2 之 6 以「驗證師」角色重新檢視（除非你判斷根因確實在分析或實作階段，才回頭走對應步驟），呼叫 \`advance_ticket_stage\` 記錄新的 \`verdict\`/\`rootCause\`——讓這張票套用跟 AI 驗證師自己判 FAIL 完全一樣的根因分流機制（見步驟 2 之 6 結尾），不要自己另外發明一套「人工打回」流程。
+**清單裡（\`tickets\`）如果某張票標記 \`humanRejected: true\`，代表它不是一張全新沒驗證過的票，而是使用者事後測出問題、被重新丟回來的票**——這種票不用從頭走過下面步驟 2 之 1-5，直接呼叫 \`get_ticket_status({ taskGid })\` 讀 \`confirmation\` 裡的 \`note\`，把回報的問題當作新證據，直接跳到步驟 2 之 6 以「驗證師」角色重新檢視（除非你判斷根因確實在分析或實作階段，才回頭走對應步驟），呼叫 \`advance_ticket_stage\` 記錄新的 \`verdict\`/\`rootCause\`——讓這張票套用跟 AI 驗證師自己判 FAIL 完全一樣的根因分流機制（見步驟 2 之 6 結尾），不要自己另外發明一套「人工打回」流程。
 
 ## 換 session／換 AI 接手時：怎麼低成本接上進度，不會 token 爆掉
 
@@ -121,7 +119,7 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 ## 步驟 3：彙整報告
 所有票單處理完後，整理一個表格（票單／專案目錄／SD 模式／結果／備註）呈現給使用者。並提醒：程式碼異動是否已經 commit 由工程師/驗證師階段自行決定，但不管有沒有 commit，都還沒有 push，需要人工自行決定要不要推上去。
 
-**「需要人工處理」的四類項目不用在這裡重新彙整一次**——只要步驟 1 有帶 \`projectName\`，這些項目已經整份寫進 \`PENDING_HUMAN_ACTIONS.md\` 這份持久化檔案裡了。這裡只需要告訴使用者這份檔案存在、位置在哪（\`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.md\`），提醒他之後不管開哪個 session、要不要問 AI，都可以直接打開這個檔案看目前所有待處理項目，不會因為聊天記錄被清掉/壓縮就找不到。**這次新驗證 PASS 的票，還是要在這次的聊天回覆裡口頭提一下**（票名 + \`taskGid\`），但細節（兩關人類確認怎麼走、卡住需要介入的票、需要手動處理的 SQL 等等）都以那份檔案為準，不用在聊天裡逐條重複列。
+**「需要人工處理」的五類項目不用在這裡重新彙整一次**——只要步驟 1 有帶 \`projectName\`，這些項目已經整份寫進 \`PENDING_HUMAN_ACTIONS.md\` 這份持久化檔案裡了。這裡只需要告訴使用者這份檔案存在、位置在哪（\`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.md\`），提醒他之後不管開哪個 session、要不要問 AI，都可以直接打開這個檔案看目前所有待處理項目，不會因為聊天記錄被清掉/壓縮就找不到。**這次新驗證 PASS 的票，還是要在這次的聊天回覆裡口頭提一下**（票名 + \`taskGid\`），但細節（人類確認怎麼走、卡住需要介入的票、需要手動處理的 SQL 等等）都以那份檔案為準，不用在聊天裡逐條重複列。
 
 **Asana 上的票單狀態/留言不會被這條 pipeline 自動更新**（\`asana-mcp\` 刻意設計成唯讀，避免共用帳號被誤操作）——如果這張票應該要在 Asana 上標記「待測試」「已完成」之類的狀態，或留言通知其他人，那是使用者自己到 Asana 網頁上手動做的事，這個報告只負責提醒「有哪些票該去標記」，不會也不應該嘗試代為執行。
 
@@ -209,7 +207,7 @@ ${PROMPT_DEFENSE_BASELINE}
 - \`summary\`：一行 \`PASS\`/\`FAIL\` + 一句話理由即可，FAIL 的一句話理由也要點出具體檔案或規格段落，不能只寫「不符合需求」。
 - \`syncNote\`（**必填，不能省略**）：**如果驗證過程發現 \`02-implementation.md\` 記錄的內容跟實際程式碼改動對不上、或有遺漏沒記錄到的改動**，把落差寫進 \`syncNote\`——會自動附加到 \`02-implementation.md\` 尾端。**如果核對過都一致**，明確帶入字串 \`"NO_SYNC_NEEDED"\`，不能留空跳過。
 
-**你判定的 PASS/FAIL 只是 AI 自己的驗證結論，不等於真正結案**——這張票後續還需要走兩關人類確認才算真正完成：先是使用者自己實測＋審視程式碼品質（\`record_self_confirmation\`），通過後再交給另一位獨立測試員做情境測試（\`record_tester_confirmation\`）。這不是驗證師這個角色要做的事（驗證師只負責產出這份 \`03-verification.md\` 跟 \`verdict\`），只是提醒你不要在回覆使用者時把 PASS 講成「已經完成」，該講成「AI 驗證通過，待你實測確認」。
+**你判定的 PASS/FAIL 只是 AI 自己的驗證結論，不等於真正結案**——這張票後續還需要走一關人類確認才算真正完成：使用者自己實測＋審視程式碼品質（\`record_confirmation\`）。這不是驗證師這個角色要做的事（驗證師只負責產出這份 \`03-verification.md\` 跟 \`verdict\`），只是提醒你不要在回覆使用者時把 PASS 講成「已經完成」，該講成「AI 驗證通過，待你實測確認」。
 `;
 
 export function getRolePrompt(role: "analyst" | "engineer" | "verifier"): string {

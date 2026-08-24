@@ -25,8 +25,7 @@ import {
   recordStageSync,
   computeSyncFlags,
   detectExternalChanges,
-  recordSelfConfirmation,
-  recordTesterConfirmation,
+  recordConfirmation,
   needsHumanReview,
   recordManualActions,
   detectSensitiveManualActions,
@@ -169,12 +168,10 @@ server.tool(
   "list_pending_tickets",
   "列出指定 Asana 專案裡尚未完成、且尚未驗證通過（PASS）的票單清單。透過 asana-mcp 取得看板資料，並依本地追蹤紀錄過濾掉已經處理完成的票。" +
     "**已經 PASS 的票單如果 Asana 上的內容後來又被改過（用 modified_at 便宜初篩），一樣會重新列進 tickets，並標記 contentChanged: true**——代表這張票不能因為之前 PASS 就跳過，下一步呼叫 get_ticket_snapshot 會確認內容是否真的變了、需不需要重新分析。" +
-    "**結案前還有兩關人類確認，回傳額外附上這兩關各自待處理的清單：**" +
-    "**awaitingSelfConfirmation（第一關）**：AI 驗證師判過 PASS、Asana 內容也沒再變過，但『使用者自己』還沒實際測過＋審視過程式碼品質的票單。" +
-    "**awaitingTesterConfirmation（第二關／最終關）**：第一關已經 confirmed:true，但『另一位獨立測試員』的情境測試還沒表態的票單——只有這關也 confirmed:true，票單才算真正結案。" +
-    "AI 自己判定 PASS 不等於這張票真的結案，呼叫端每次執行這個工具都必須把這兩份清單完整秀給使用者看（不能因為這次是來處理別的新票就略過），直到每一張都依序走完 record_self_confirmation 再 record_tester_confirmation 為止，才會從清單消失。" +
-    "**`tickets`（一般待處理清單）裡如果某張票標記 `humanRejected: true`，代表這不是一張全新沒驗證過的票，而是使用者或測試員事後回報有問題、被重新丟回來的票**（`record_self_confirmation`/`record_tester_confirmation` 帶 `confirmed:false` 時會把這張票的 verdict 重設回 null，讓它重新出現在這裡）——處理這種票要當作跟 AI 驗證師自己判 FAIL 完全一樣的情況，套用同一套根因分流機制（見 get_role_prompt({role:\"verifier\"})/advance_ticket_stage 的 rootCause 說明），不要另外發明一套「人工打回」流程。" +
-    "**帶 `projectName` 時，這次算出來的六類「需要人工處理」項目（待你確認／待測試員確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更）會整份覆寫進一份持久化的 `PENDING_HUMAN_ACTIONS.md`**（放在 `<projectDir>/.asana-pipeline/<projectName>/` 底下，跟每張票自己的追蹤目錄同一層）——這是為了取代「只在聊天視窗提醒一次，換個 session 就找不到」的做法，不需要任何人記得手動維護。強烈建議每次呼叫都帶上 `projectName`（跟步驟 0 拿到的 Asana 專案全名稱一致）。" +
+    "**結案前還有一關人類確認，回傳額外附上這關待處理的清單：`awaitingConfirmation`**——AI 驗證師判過 PASS、Asana 內容也沒再變過，但『使用者自己』還沒實際測過＋審視過程式碼品質的票單。" +
+    "AI 自己判定 PASS 不等於這張票真的結案，呼叫端每次執行這個工具都必須把這份清單完整秀給使用者看（不能因為這次是來處理別的新票就略過），直到每一張都呼叫過 record_confirmation 為止，才會從清單消失。" +
+    "**`tickets`（一般待處理清單）裡如果某張票標記 `humanRejected: true`，代表這不是一張全新沒驗證過的票，而是使用者事後回報有問題、被重新丟回來的票**（`record_confirmation` 帶 `confirmed:false` 時會把這張票的 verdict 重設回 null，讓它重新出現在這裡）——處理這種票要當作跟 AI 驗證師自己判 FAIL 完全一樣的情況，套用同一套根因分流機制（見 get_role_prompt({role:\"verifier\"})/advance_ticket_stage 的 rootCause 說明），不要另外發明一套「人工打回」流程。" +
+    "**帶 `projectName` 時，這次算出來的五類「需要人工處理」項目（待你確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更）會整份覆寫進一份持久化的 `PENDING_HUMAN_ACTIONS.md`**（放在 `<projectDir>/.asana-pipeline/<projectName>/` 底下，跟每張票自己的追蹤目錄同一層）——這是為了取代「只在聊天視窗提醒一次，換個 session 就找不到」的做法，不需要任何人記得手動維護。強烈建議每次呼叫都帶上 `projectName`（跟步驟 0 拿到的 Asana 專案全名稱一致）。" +
     "**`uncommittedChanges` 依票單分組，只列出「git status 真的還沒 commit、又有某張票的 manualActions 點名說是它改的」檔案**——跟這次 pipeline 無關的其他未 commit 檔案不在清單裡（要查全部異動請自己跑 git status）。是否真的還沒 commit 仍然以 git 的真實狀態為準，manualActions 文字只用來標出「這個檔案屬於哪張票」。`registered: false` 代表這個專案還沒呼叫過 `register_git_roots`。",
   {
     projectGid: z.string().describe("Asana 專案 gid"),
@@ -191,8 +188,7 @@ server.tool(
 
     const tasks: any[] = Array.isArray(board.tasks) ? board.tasks : [];
     const pending = [];
-    const awaitingSelfConfirmation = [];
-    const awaitingTesterConfirmation = [];
+    const awaitingConfirmation = [];
     const needsHumanReviewList = [];
     const manualActionsList = [];
     const contentChangedList = [];
@@ -222,26 +218,14 @@ server.tool(
         boardModifiedAt !== status.last_seen_modified_at;
 
       if (isVerifiedPass && !contentChanged) {
-        // AI 已判 PASS 且內容沒再變——但這不等於「真正結案」，要依兩關人類確認狀態分流，不能直接略過不管。
-        if (status.tester_confirmation?.confirmed === true) continue; // 兩關都確認沒問題，才算真的結案
-        if (status.self_confirmation?.confirmed === true) {
-          // 第一關（自己測+審視 code）已過，卡在第二關（獨立測試員的情境測試）
-          awaitingTesterConfirmation.push({
-            taskGid: task.gid,
-            name: task.name,
-            dueOn: task.due_on,
-            selfConfirmation: status.self_confirmation,
-            testerConfirmation: status.tester_confirmation,
-          });
-        } else {
-          // 還沒過第一關，不能跳過去問第二關
-          awaitingSelfConfirmation.push({
-            taskGid: task.gid,
-            name: task.name,
-            dueOn: task.due_on,
-            selfConfirmation: status.self_confirmation,
-          });
-        }
+        // AI 已判 PASS 且內容沒再變——但這不等於「真正結案」，要看使用者自己這關有沒有確認過。
+        if (status.confirmation?.confirmed === true) continue; // 確認過沒問題，才算真的結案
+        awaitingConfirmation.push({
+          taskGid: task.gid,
+          name: task.name,
+          dueOn: task.due_on,
+          confirmation: status.confirmation,
+        });
         continue;
       }
 
@@ -252,9 +236,7 @@ server.tool(
         dueOn: task.due_on,
         stage: status.stage,
         ...(isContentChanged ? { contentChanged: true } : {}),
-        ...(status.self_confirmation?.confirmed === false || status.tester_confirmation?.confirmed === false
-          ? { humanRejected: true }
-          : {}),
+        ...(status.confirmation?.confirmed === false ? { humanRejected: true } : {}),
       });
       if (isContentChanged) {
         contentChangedList.push({ taskGid: task.gid, name: task.name, stage: status.stage });
@@ -268,8 +250,7 @@ server.tool(
       if (projectDir) {
         uncommittedChanges = await getUncommittedChangesSummary(projectDir, manualActionsList);
         pendingActionsReportPath = await writePendingActionsReport(projectDir, projectName, {
-          awaitingSelfConfirmation,
-          awaitingTesterConfirmation,
+          awaitingConfirmation,
           needsHumanReview: needsHumanReviewList,
           contentChanged: contentChangedList,
           manualActions: manualActionsList,
@@ -283,10 +264,8 @@ server.tool(
       projectGid,
       count: pending.length,
       tickets: pending,
-      awaitingSelfConfirmationCount: awaitingSelfConfirmation.length,
-      awaitingSelfConfirmation,
-      awaitingTesterConfirmationCount: awaitingTesterConfirmation.length,
-      awaitingTesterConfirmation,
+      awaitingConfirmationCount: awaitingConfirmation.length,
+      awaitingConfirmation,
       needsHumanReviewCount: needsHumanReviewList.length,
       needsHumanReview: needsHumanReviewList,
       contentChangedCount: contentChangedList.length,
@@ -901,8 +880,8 @@ server.tool(
 
 server.tool(
   "get_ticket_status",
-  "取得某張票單目前的追蹤狀態（stage / project_dir / verdict / history / summaries / self_confirmation / tester_confirmation / verifier_root_cause / consecutive_fail_count）。" +
-    "**verdict 是 AI 驗證師自己判定的 PASS/FAIL，self_confirmation（第一關：使用者自己實測＋審視程式碼品質）跟 tester_confirmation（第二關／最終關：另一位獨立測試員的情境測試）才是真正結案要看的兩關人類確認——三者是不同軸向，verdict PASS 不代表任何一關也是 true**。self_confirmation 是 null 代表使用者還沒表態；tester_confirmation 是 null 代表還沒輪到或還沒表態，兩關都要 confirmed:true 才能當作這張票已經結案。" +
+  "取得某張票單目前的追蹤狀態（stage / project_dir / verdict / history / summaries / confirmation / verifier_root_cause / consecutive_fail_count）。" +
+    "**verdict 是 AI 驗證師自己判定的 PASS/FAIL，confirmation（使用者自己實測＋審視程式碼品質）才是真正結案要看的人類確認——兩者是不同軸向，verdict PASS 不代表 confirmation 也是 confirmed:true**。confirmation 是 null 代表使用者還沒表態，要 confirmed:true 才能當作這張票已經結案。" +
     "**verdict 是 \"FAIL\" 時，verifier_root_cause（\"analysis\"|\"implementation\"）是上次判斷的根因，回傳額外算出的 needs_human_review（consecutive_fail_count >= 3）是連續 FAIL 的安全閥旗標**——處理一張 FAIL 的票之前，先看 needs_human_review：false 才能依 verifier_root_cause 自動決定回工程師還是分析師，true 就不該再自動重跑，要停下來問使用者。" +
     "回傳裡額外附上 sync_flags（analysis_stale / implementation_stale）：任一個是 true，代表 01/02/03 這三份追蹤文件彼此之間有同步債務沒還——" +
     "例如工程師階段推翻了分析師的結論，但沒有回頭同步 01-analysis.md。**換 session/AI 接手一張票之前，一定要先看這個欄位**，是 true 就先把債務還清（把新發現同步回上一階段文件）再繼續往下走，不要當作沒看到。" +
@@ -921,14 +900,14 @@ server.tool(
 );
 
 server.tool(
-  "record_self_confirmation",
-  "記錄結案流程『第一關』——使用者自己對這張票的實測結果＋程式碼品質審視——跟 advance_ticket_stage 的 verdict（AI 驗證師自己判定的 PASS/FAIL）是完全不同的東西，不能混用。" +
-    "AI 判 PASS 只代表「AI 自己檢查過、可以交給人測了」，不是真正結案；這一關過了（confirmed: true）之後，這張票才會從 list_pending_tickets 的 awaitingSelfConfirmation 清單移到 awaitingTesterConfirmation，等第二關（另一位獨立測試員）表態。" +
+  "record_confirmation",
+  "記錄結案前唯一一關人類確認——使用者自己對這張票的實測結果＋程式碼品質審視——跟 advance_ticket_stage 的 verdict（AI 驗證師自己判定的 PASS/FAIL）是完全不同的東西，不能混用。" +
+    "AI 判 PASS 只代表「AI 自己檢查過、可以交給人測了」，不是真正結案；只有呼叫這個工具記錄 confirmed: true，這張票才會從 list_pending_tickets 的 awaitingConfirmation 清單裡消失、真正算結案。" +
     "只能在這張票已經跑到 verified 階段之後才能呼叫（代表至少走過一次分析/實作/驗證），否則會被拒絕。" +
     "confirmed: false 代表使用者實際測過、發現有問題——會記錄下 note，並把這張票的 verdict 重設回 null，重新丟回 list_pending_tickets 的一般待處理清單（標記 humanRejected: true），讓 AI 用跟自己判 FAIL 完全一樣的根因分流機制去處理，不是丟給人工事後自己決定。",
   {
     taskGid: z.string().describe("Asana 任務 gid"),
-    confirmed: z.boolean().describe("使用者自己實測＋審視程式碼品質是否通過：true = 沒問題可以交給第二關測試員，false = 發現問題"),
+    confirmed: z.boolean().describe("使用者自己實測＋審視程式碼品質是否通過：true = 沒問題、真正結案，false = 發現問題"),
     note: z.string().nullable().optional().describe("備註，例如測了哪些情境、審視程式碼的發現、confirmed 是 false 時具體發現了什麼問題"),
   },
   async ({ taskGid, confirmed, note }) => {
@@ -942,44 +921,7 @@ server.tool(
         true
       );
     }
-    const status = await recordSelfConfirmation(taskGid, confirmed, note ?? null);
-    return textResult({ success: true, status });
-  }
-);
-
-server.tool(
-  "record_tester_confirmation",
-  "記錄結案流程『第二關（最終關）』——另一位獨立測試員對這張票的情境測試結果——跟 advance_ticket_stage 的 verdict（AI 驗證師自己判定的 PASS/FAIL）、record_self_confirmation（第一關：使用者自己實測＋審視程式碼品質）都是完全不同的東西，不能混用。" +
-    "只有呼叫這個工具記錄 confirmed: true，這張票才會從 list_pending_tickets 的 awaitingTesterConfirmation 清單裡消失、真正算結案。" +
-    "只能在這張票已經跑到 verified 階段、且第一關（self_confirmation）已經 confirmed: true 之後才能呼叫，否則會被拒絕——不能跳過第一關直接記錄第二關。" +
-    "confirmed: false 代表測試員實際測過、發現有問題——會記錄下 note，並把這張票的 verdict 重設回 null，重新丟回 list_pending_tickets 的一般待處理清單（標記 humanRejected: true），讓 AI 用跟自己判 FAIL 完全一樣的根因分流機制去處理，不是丟給人工事後自己決定。",
-  {
-    taskGid: z.string().describe("Asana 任務 gid"),
-    confirmed: z.boolean().describe("測試員情境測試是否通過：true = 沒問題可以結案，false = 發現問題"),
-    note: z.string().nullable().optional().describe("測試員的備註，例如測了哪些情境、confirmed 是 false 時具體發現了什麼問題"),
-  },
-  async ({ taskGid, confirmed, note }) => {
-    const current = await readStatus(taskGid);
-    if (current.stage !== "verified") {
-      return textResult(
-        {
-          success: false,
-          message: `這張票目前 stage 是 "${current.stage}"，還沒跑到 verified 階段（至少要完成一次分析/實作/驗證），無法記錄測試員確認。`,
-        },
-        true
-      );
-    }
-    if (current.self_confirmation?.confirmed !== true) {
-      return textResult(
-        {
-          success: false,
-          message:
-            "這張票的第一關（使用者自己實測＋審視程式碼品質，record_self_confirmation）還沒確認通過，不能跳過去記錄第二關的測試員確認。",
-        },
-        true
-      );
-    }
-    const status = await recordTesterConfirmation(taskGid, confirmed, note ?? null);
+    const status = await recordConfirmation(taskGid, confirmed, note ?? null);
     return textResult({ success: true, status });
   }
 );
@@ -1200,7 +1142,7 @@ server.tool(
   "advance_ticket_stage",
   "更新某張票單的追蹤狀態，記錄目前進行到哪個階段，並可以一併更新 project_dir / verdict。" +
     "**verdict 設成 \"FAIL\" 時，rootCause 是必填參數**（\"analysis\" 或 \"implementation\"）——判斷這次 FAIL 的根因在分析階段還是實作階段，供下一輪處理這張票時決定要自動跳回分析師還是工程師，不能省略。verdict 不是 \"FAIL\"（PASS，或這次沒有更新 verdict）時，不需要也不應該帶 rootCause，帶了會被拒絕。" +
-    "**這個呼叫只要有更新 verdict，就會自動清空 self_confirmation/tester_confirmation**（這兩個人類確認是對上一輪程式碼/結論表態的，新 verdict 出爐代表結論已經更新，舊確認一律作廢，不能沿用）、並機械式維護 consecutive_fail_count（FAIL 累加、PASS 歸零，累加到 3 之後回傳的 needs_human_review 會是 true）。",
+    "**這個呼叫只要有更新 verdict，就會自動清空 confirmation**（這個人類確認是對上一輪程式碼/結論表態的，新 verdict 出爐代表結論已經更新，舊確認一律作廢，不能沿用）、並機械式維護 consecutive_fail_count（FAIL 累加、PASS 歸零，累加到 3 之後回傳的 needs_human_review 會是 true）。",
   {
     taskGid: z.string().describe("Asana 任務 gid"),
     stage: z
