@@ -38,7 +38,7 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 **這一步要在列票單之前先做**，因為每張票的追蹤目錄都會建在這個 \`projectDir\` 底下（見步驟 2）。
 
 ## 步驟 1：找出待處理票單
-呼叫 \`list_pending_tickets({ projectGid, sectionFilter?, projectName: <這個 Asana 專案的「全名稱」，步驟 0 拿到的> })\` **一定要帶 \`projectName\`**，取得這個 Asana 專案裡尚未完成、且尚未驗證通過（PASS）的票單清單。一張一張處理，不需要平行處理。帶了 \`projectName\` 之後，這次算出來的「待你確認／待測試員確認／卡住需要介入／需要你手動處理的事項」四類項目會自動整份寫進 \`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.md\`——這是持久化檔案，不是只在這次聊天回覆裡講一遍就消失，換 session、關掉對話都還在，步驟 3 的彙整報告不用再自己重複整理一次，直接告訴使用者這份檔案存在、位置在哪即可。
+呼叫 \`list_pending_tickets({ projectGid, sectionFilter?, projectName: <這個 Asana 專案的「全名稱」，步驟 0 拿到的> })\` **一定要帶 \`projectName\`**，取得這個 Asana 專案裡尚未完成、且尚未驗證通過（PASS）的票單清單。一張一張處理，不需要平行處理。帶了 \`projectName\` 之後，這次算出來的「待你確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更」五類項目會自動整份寫進 \`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.md\`——這是持久化檔案，不是只在這次聊天回覆裡講一遍就消失，換 session、關掉對話都還在，步驟 3 的彙整報告不用再自己重複整理一次，直接告訴使用者這份檔案存在、位置在哪即可。
 
 **清單裡如果某張票標記 \`contentChanged: true\`，代表這張票之前已經驗證 PASS 過，但 Asana 上的內容後來又被改過**——不能因為它「之前是 PASS」就跳過，一樣要走一次步驟 2（下一步 \`get_ticket_snapshot\` 會確認內容是不是真的變了、需不需要重新分析）。
 
@@ -47,6 +47,15 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 **AI 自己判 PASS 只代表可以交給人測了，不是真正結案**，不去主動提醒的話，使用者永遠不會知道有哪些票卡在等他處理。就算這次呼叫 \`list_pending_tickets\` 的目的是要處理全新的票、這份清單完全是舊的存量，也一律要在這一步先原封不動地列出來（票名 + \`taskGid\`，如果對應的 \`confirmation\` 不是 \`null\` 且 \`confirmed: false\`，也要把 \`note\` 裡回報的問題一併列出來），問使用者要不要順便處理幾張。使用者當下沒空處理的票，就先跳過，下次執行仍然會照樣被列出來，不會遺漏。
 
 **清單裡（\`tickets\`）如果某張票標記 \`humanRejected: true\`，代表它不是一張全新沒驗證過的票，而是使用者事後測出問題、被重新丟回來的票**——這種票不用從頭走過下面步驟 2 之 1-5，直接呼叫 \`get_ticket_status({ taskGid })\` 讀 \`confirmation\` 裡的 \`note\`，把回報的問題當作新證據，直接跳到步驟 2 之 6 以「驗證師」角色重新檢視（除非你判斷根因確實在分析或實作階段，才回頭走對應步驟），呼叫 \`advance_ticket_stage\` 記錄新的 \`verdict\`/\`rootCause\`——讓這張票套用跟 AI 驗證師自己判 FAIL 完全一樣的根因分流機制（見步驟 2 之 6 結尾），不要自己另外發明一套「人工打回」流程。
+
+## 觸發語句：「查看測試員回報的測試狀況」
+
+使用者說出類似「查看測試員回報的測試狀況」「看一下 XX 票測試員說了什麼」這種話（不管有沒有點名票號）時，代表**使用者已經在 Asana 網頁上看到測試員把測出來的問題寫進留言**（可能還附了錯誤截圖、log 檔），要你去讀懂問題、修好程式碼——這是跟 \`record_confirmation\` 不同的另一個入口，不要混為一談：
+
+1. 使用者沒點名票號的話先問清楚是哪一張票（或哪幾張），拿到 \`taskGid\`。
+2. 呼叫 \`get_ticket_activity({ taskGid })\`，讀懂 \`items\` 裡最新幾筆 \`kind:\"comment\"\` 在說什麼問題。看到 \`kind:\"attachment\"\` 而且判斷跟問題有關（錯誤截圖、log 檔）時，帶它的 \`attachmentGid\` 呼叫 \`download_ticket_attachment\` 把內容抓下來讀，不要只憑檔名猜內容——測試員說的問題常常要配截圖才看得懂。
+3. 判斷根因（分析方向錯了，還是實作沒做到位），以對應角色（工程師或分析師）修正程式碼，過程跟步驟 2 之 5／2 之 4 一樣，需要更新 \`02-implementation.md\`/\`01-analysis.md\` 就照樣更新（\`syncNote\`/\`manualActions\` 一樣必填）。
+4. **修完之後要把這次結果正式寫回本地追蹤系統，不要只是口頭跟使用者說「修好了」就結束**：這張票這個時候通常已經是 \`verified\` 且 \`PASS\`（AI 驗證師判過、正在等 \`record_confirmation\`）——呼叫 \`record_confirmation({ taskGid, confirmed: false, note: <引用測試員回報的問題摘要，不要整段複製留言全文> })\`，讓它套用跟一般人類打回完全一樣的 \`humanRejected\`/根因分流機制，然後以驗證師角色重新走一次 \`advance_ticket_stage\` 記錄新的 \`verdict\`/\`rootCause\`（見上面「\`humanRejected\`」說明）。如果這張票還沒到 \`verified\` 階段就已經有測試員留言（少見，代表工程師階段還沒做完測試員就搶先測了），不需要呼叫 \`record_confirmation\`，直接以目前角色繼續往下走、把問題當作額外證據處理即可。
 
 ## 換 session／換 AI 接手時：怎麼低成本接上進度，不會 token 爆掉
 

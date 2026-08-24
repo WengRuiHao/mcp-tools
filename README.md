@@ -11,15 +11,16 @@
 | `spec-pipeline-mcp` | 規格文件（docx/md）→ 分析師 → 工程師 → 驗證師。角色定義（`get_role_prompt`）內建在 MCP 裡，任何 AI host 接上都拿到同一套 |
 | `asana-pipeline-mcp` | 「Asana 票單 → 分析師 → 工程師 → 驗證師」全自動流程，橋接上面三個 MCP；專案↔目錄的登記是自己本機維護的，只有分析師抓 commit 才會呼叫 spec-pipeline-mcp |
 | `github-mcp` | 個人 GitHub（Personal Access Token）——repo/issue/PR 管理 |
+| `office-docs-mcp` | Word（.docx）／Excel（.xlsx）／PDF 的讀取／寫入／建立／刪除——包一層 Node/TS 呼叫 `scripts/` 底下的 python 腳本（python-docx／openpyxl／pypdf／reportlab），不橋接也不被任何其他 MCP 橋接 |
 
 ## 架構圖解
 
 ### 怎麼呼叫、MCP 之間怎麼溝通
 
-![五個 MCP 的連線架構：AI host 對五個 MCP 各自建立獨立的 MCP stdio 連線；asana-pipeline-mcp 另外自己啟動 asana-mcp、spec-pipeline-mcp、svn-mcp 三個子行程，是完全獨立於 host 那三條連線的第二份實體；github-mcp 沒有被任何其他 MCP 橋接](docs/img/mcp-architecture.svg)
+![六個 MCP 的連線架構：AI host 對六個 MCP 各自建立獨立的 MCP stdio 連線；asana-pipeline-mcp 另外自己啟動 asana-mcp、spec-pipeline-mcp、svn-mcp 三個子行程，是完全獨立於 host 那三條連線的第二份實體；github-mcp 跟 office-docs-mcp 都沒有被任何其他 MCP 橋接](docs/img/mcp-architecture.svg)
 
-- Host 對五個 MCP 各自建立獨立連線——五個獨立 process，透過 stdio／JSON-RPC 溝通，彼此互不知道對方存在。
-- 只有 `asana-pipeline-mcp` 會再啟動一次 `asana-mcp`／`spec-pipeline-mcp`／`svn-mcp` 當子行程橋接（見 `mcp-clients.ts`），是跟 host 直連的那三個完全不同的另一份 process；`github-mcp` 沒被任何人橋接。
+- Host 對六個 MCP 各自建立獨立連線——六個獨立 process，透過 stdio／JSON-RPC 溝通，彼此互不知道對方存在。
+- 只有 `asana-pipeline-mcp` 會再啟動一次 `asana-mcp`／`spec-pipeline-mcp`／`svn-mcp` 當子行程橋接（見 `mcp-clients.ts`），是跟 host 直連的那三個完全不同的另一份 process；`github-mcp`／`office-docs-mcp` 都沒被任何人橋接。
 - `svn-mcp` 另外有個非 MCP 協定的 HTTP bridge（`dist-exe/`），是給 `claudeweb` 用的第二個介面，跟這裡講的「MCP 對 MCP」橋接是兩件事。
 
 ### asana-pipeline-mcp 主流程：每一步呼叫哪個 MCP
@@ -42,8 +43,11 @@ cd ../svn-mcp && npm install && npm run build
 cd ../spec-pipeline-mcp && npm install && npm run build
 cd ../asana-pipeline-mcp && npm install && npm run build
 cd ../github-mcp && npm install && npm run build
+cd ../office-docs-mcp && npm install && npm run build
 ```
+
+`office-docs-mcp` 額外需要本機 Python 環境裝好 `python-docx`／`openpyxl`／`pypdf`／`reportlab`（`pip install python-docx openpyxl pypdf reportlab`），Node 端只是包一層呼叫 `scripts/*.py`。
 
 ## 為什麼放在同一個 repo
 
-這五個 MCP 彼此有橋接關係（`asana-pipeline-mcp` 會把另外三個當子行程啟動），放在同一個 repo 方便一起看歷史、一起改版，不用切換好幾個 repo。各自的 `package.json`/`.gitignore` 仍然獨立，互不影響。
+這幾個 MCP 大多彼此有橋接關係（`asana-pipeline-mcp` 會把另外三個當子行程啟動），放在同一個 repo 方便一起看歷史、一起改版，不用切換好幾個 repo。各自的 `package.json`/`.gitignore` 仍然獨立，互不影響。`office-docs-mcp` 目前是獨立的一個，沒有跟其他 MCP 橋接，純粹是圖方便管理放進同一個 repo。

@@ -8,6 +8,7 @@ import {
   asanaBoard,
   asanaTask,
   asanaTaskComments,
+  asanaTaskActivity,
   asanaAttachments,
   asanaDownloadAttachment,
   asanaMe,
@@ -88,6 +89,18 @@ server.tool(
     taskGid: z.string().describe("任務 gid"),
   },
   async ({ taskGid }) => toolResult(await asanaTaskComments(taskGid))
+);
+
+server.tool(
+  "asana_task_activity",
+  "【唯讀】取得任務的完整活動時間軸——把 asana_task_comments（留言＋系統事件）跟 asana_attachments（附件清單）合併成一份依時間排序的清單，回傳在 items 欄位。" +
+    "每筆項目的 kind 是 \"comment\"（使用者留言，通常含測試員回報的問題內容）、\"system_event\"（狀態變更等系統事件）或 \"attachment\"（這個時間點上傳的附件，只有 metadata，要讀內容另外帶 attachmentGid 呼叫 asana_download_attachment）。" +
+    "要判斷「這張票最近有沒有人留言/上傳新東西」「測試員在哪個時間點回報了什麼問題、附了什麼截圖或紀錄檔」時，呼叫這個比分開呼叫 asana_task_comments + asana_attachments 再自己對時間更省事——不用自己猜哪個附件對應哪句留言。" +
+    "attachmentsTruncated: true 代表附件清單分頁中途失敗或超過安全上限，不完整。",
+  {
+    taskGid: z.string().describe("任務 gid"),
+  },
+  async ({ taskGid }) => toolResult(await asanaTaskActivity(taskGid))
 );
 
 server.tool(

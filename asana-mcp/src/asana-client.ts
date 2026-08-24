@@ -172,6 +172,68 @@ export async function asanaAttachments(taskGid: string): Promise<AsanaResult> {
   };
 }
 
+interface StoryItem {
+  gid?: string;
+  text?: string;
+  created_at?: string;
+  created_by?: { name?: string };
+  resource_subtype?: string;
+}
+interface AttachmentItem {
+  gid?: string;
+  name?: string;
+  size?: number;
+  created_at?: string;
+}
+
+/**
+ * 把任務的活動流（stories：留言＋系統事件）跟附件清單合併成一份依時間排序的時間軸，解決「留言說有附檔，
+ * 但要另外呼叫 asana_attachments 自己對時間、猜哪個附件對應哪句留言」的麻煩。
+ * 每個附件項目仍然只有 metadata（沒有內容），真要讀取內容要另外呼叫 asana_download_attachment 帶這裡回傳的
+ * attachmentGid——這裡故意不順便下載，避免一次呼叫又要打通常用不到的檔案下載流量。
+ */
+export async function asanaTaskActivity(taskGid: string): Promise<AsanaResult> {
+  const [storiesRes, attachmentsResult] = await Promise.all([
+    asanaGet(`/tasks/${taskGid}/stories?opt_fields=text,created_at,created_by.name,type,resource_subtype`),
+    asanaGetAllPages(
+      `/tasks/${taskGid}/attachments?limit=100&opt_fields=name,resource_type,host,size,created_at`
+    ),
+  ]);
+  if (!storiesRes.success) return storiesRes;
+
+  const stories = (Array.isArray(storiesRes.data) ? storiesRes.data : []) as StoryItem[];
+  const attachments = attachmentsResult.items as AttachmentItem[];
+
+  const timeline = [
+    ...stories.map((s) => ({
+      at: s.created_at ?? null,
+      kind: s.resource_subtype === "comment_added" ? ("comment" as const) : ("system_event" as const),
+      resource_subtype: s.resource_subtype ?? null,
+      author: s.created_by?.name ?? null,
+      text: s.text ?? null,
+    })),
+    ...attachments.map((a) => ({
+      at: a.created_at ?? null,
+      kind: "attachment" as const,
+      attachmentGid: a.gid ?? null,
+      name: a.name ?? null,
+      size: a.size ?? null,
+    })),
+  ].sort((x, y) => (x.at ?? "").localeCompare(y.at ?? ""));
+
+  return {
+    success: true,
+    data: {
+      items: timeline,
+      message:
+        "kind=\"comment\" 是使用者留言，\"system_event\" 是狀態變更等系統事件，\"attachment\" 是這個時間點上傳的附件（只有 metadata，要讀內容請帶 attachmentGid 呼叫 asana_download_attachment）。已依 at 時間排序，可以直接看最後幾筆判斷最新進度。",
+      ...(attachmentsResult.truncated
+        ? { attachmentsTruncated: true, attachmentsTruncationReason: attachmentsResult.truncationReason }
+        : {}),
+    },
+  };
+}
+
 export interface DownloadedAttachment {
   name: string;
   ext: string;
