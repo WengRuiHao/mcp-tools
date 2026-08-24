@@ -756,11 +756,35 @@ export interface PendingActionsReportInput {
  * 資料夾裡，方便使用者一次打開就看到這個 Asana 專案底下全部待處理項目。
  */
 /**
+ * 這張票給人看的「單號」——`assignTicketDir` 建追蹤目錄時，資料夾葉節點名稱本來就是
+ * `sanitizeSegment(ticketNumber || taskGid)`（見上方 assignTicketDir），所以不需要另外存一份
+ * ticketNumber 欄位，直接讀 tickets-index.json 記錄的目錄路徑、取最後一段當單號即可。偵測失敗
+ * （或這張票還沒建過追蹤目錄）時，資料夾名稱本來就是退回 taskGid，這裡自然也是顯示 taskGid，
+ * 跟現有行為一致，不會因為看不懂而顯示空白。
+ */
+async function resolveTicketNumberForDisplay(taskGid: string): Promise<string> {
+  const dir = await getAssignedDir(taskGid);
+  return dir ? path.basename(dir) : taskGid;
+}
+
+/** 批次把一批 taskGid 解析成單號，去重後平行查，供渲染報告時用（避免同一張票在多個區塊各自重複查一次）。 */
+async function buildTicketNumberMap(taskGids: string[]): Promise<Map<string, string>> {
+  const uniqueGids = Array.from(new Set(taskGids));
+  const entries = await Promise.all(
+    uniqueGids.map(async (gid) => [gid, await resolveTicketNumberForDisplay(gid)] as const)
+  );
+  return new Map(entries);
+}
+
+/**
  * 把「跟票單有關的未 commit 檔案」排成「## Git 尚未 commit 的變更」這個區塊，依票單分組——沒登記過 git
  * 根目錄、git status 執行失敗、或有根目錄但沒有任何票單點名的檔案還沒 commit，都各自給一句清楚的說明，
  * 不要讓使用者猜「是沒登記、真的沒異動、還是只是沒票單認領」。
  */
-function renderUncommittedSection(uncommitted: PendingActionsReportInput["uncommittedChanges"]): string {
+function renderUncommittedSection(
+  uncommitted: PendingActionsReportInput["uncommittedChanges"],
+  numberMap: Map<string, string>
+): string {
   const title = "Git 尚未 commit 的變更";
   if (!uncommitted.registered) {
     return `## ${title}\n\n（這個專案還沒登記 git 版控根目錄，呼叫 register_git_roots 之後才能檢查）\n`;
@@ -770,7 +794,8 @@ function renderUncommittedSection(uncommitted: PendingActionsReportInput["uncomm
     if (r.ticketGroups.length === 0) return [`${r.label}（${r.path}）— 沒有票單點名的檔案還沒 commit`];
     return r.ticketGroups.map((g) => {
       const fileList = g.files.map((f) => `  - ${f}`).join("\n");
-      return `${r.label}（${r.path}）— ${g.name}（\`${g.taskGid}\`）${g.files.length} 個檔案有異動未 commit\n${fileList}`;
+      const number = numberMap.get(g.taskGid) ?? g.taskGid;
+      return `${r.label}（${r.path}）— ${g.name}（\`${number}\`）${g.files.length} 個檔案有異動未 commit\n${fileList}`;
     });
   });
   return `## ${title}\n\n${lines.length > 0 ? lines.map((l) => `- [ ] ${l}`).join("\n") : "（無）"}\n`;
@@ -785,6 +810,16 @@ export async function writePendingActionsReport(
   await mkdir(dir, { recursive: true });
   const filePath = path.join(dir, "PENDING_HUMAN_ACTIONS.md");
 
+  const allGids = [
+    ...input.awaitingConfirmation.map((t) => t.taskGid),
+    ...input.needsHumanReview.map((t) => t.taskGid),
+    ...input.contentChanged.map((t) => t.taskGid),
+    ...input.manualActions.map((t) => t.taskGid),
+    ...input.uncommittedChanges.roots.flatMap((r) => r.ticketGroups.map((g) => g.taskGid)),
+  ];
+  const numberMap = await buildTicketNumberMap(allGids);
+  const number = (taskGid: string) => numberMap.get(taskGid) ?? taskGid;
+
   const section = (title: string, lines: string[]): string =>
     `## ${title}\n\n${lines.length > 0 ? lines.map((l) => `- [ ] ${l}`).join("\n") : "（無）"}\n`;
 
@@ -793,24 +828,25 @@ export async function writePendingActionsReport(
     "",
     `> 由 \`asana-pipeline-mcp\` 的 \`list_pending_tickets\` 自動產生/覆寫，最後更新：${nowIso()}`,
     `> 每次執行 pipeline 都會用當下最新狀態整份重寫這個檔案——不要手動編輯，改動不會被保留。`,
+    `> 括號裡是票號（對照 Asana 上的單號用），偵測不到票號的極少數情況會退回顯示內部 taskGid。`,
     "",
     section(
       "待你確認（AI 驗證師判 PASS，等你自己實測＋審視程式碼品質）",
-      input.awaitingConfirmation.map((t) => `${t.name}（\`${t.taskGid}\`）`)
+      input.awaitingConfirmation.map((t) => `${t.name}（\`${number(t.taskGid)}\`）`)
     ),
     section(
       "卡住需要你介入（連續 FAIL 已達門檻，AI 不會再自動重跑）",
-      input.needsHumanReview.map((t) => `${t.name}（\`${t.taskGid}\`，已連續 FAIL ${t.consecutiveFailCount} 次）`)
+      input.needsHumanReview.map((t) => `${t.name}（\`${number(t.taskGid)}\`，已連續 FAIL ${t.consecutiveFailCount} 次）`)
     ),
     section(
       "Asana 內容已被異動，待重新確認（先前已處理過，但票單內容後來又被改了）",
-      input.contentChanged.map((t) => `${t.name}（\`${t.taskGid}\`，目前階段：${t.stage}）`)
+      input.contentChanged.map((t) => `${t.name}（\`${number(t.taskGid)}\`，目前階段：${t.stage}）`)
     ),
     section(
       "需要你手動處理的事項（例如 SQL 只能由你到 Database 工具執行）",
-      input.manualActions.flatMap((t) => t.actions.map((a) => `${t.name}（\`${t.taskGid}\`）— ${a}`))
+      input.manualActions.flatMap((t) => t.actions.map((a) => `${t.name}（\`${number(t.taskGid)}\`）— ${a}`))
     ),
-    renderUncommittedSection(input.uncommittedChanges),
+    renderUncommittedSection(input.uncommittedChanges, numberMap),
   ].join("\n");
 
   await writeFile(filePath, content, "utf-8");
