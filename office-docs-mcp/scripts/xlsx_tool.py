@@ -72,12 +72,36 @@ def create_sheet(path, name, rows=None, **_):
     return {"path": path, "sheet": name}
 
 
+def extract_images(path, output_dir, **_):
+    if not os.path.exists(path):
+        raise RuntimeError(f"檔案不存在: {path}")
+    os.makedirs(output_dir, exist_ok=True)
+    wb = openpyxl.load_workbook(path)
+    images = []
+    for ws in wb.worksheets:
+        for img in getattr(ws, "_images", []):
+            anchor = getattr(img, "anchor", None)
+            cell_from = getattr(anchor, "_from", None) if anchor is not None else None
+            row = (cell_from.row + 1) if cell_from is not None else None
+            col = (cell_from.col + 1) if cell_from is not None else None
+            data = img._data()
+            src_name = getattr(img, "path", None) or getattr(img, "filename", None) or ""
+            ext = os.path.splitext(src_name)[1] or ".png"
+            seq = len(images) + 1
+            out_path = os.path.join(output_dir, f"image_{seq:03d}{ext}")
+            with open(out_path, "wb") as f:
+                f.write(data)
+            images.append({"file": out_path, "sheet": ws.title, "anchor_row": row, "anchor_col": col})
+    return {"images": images, "count": len(images)}
+
+
 ACTIONS = {
     "read": read_xlsx,
     "create": create_xlsx,
     "append_row": append_row,
     "set_cell": set_cell,
     "create_sheet": create_sheet,
+    "extract_images": extract_images,
 }
 
 

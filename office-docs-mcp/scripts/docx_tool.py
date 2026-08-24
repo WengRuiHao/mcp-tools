@@ -2,6 +2,9 @@ import sys
 import json
 import os
 from docx import Document
+from docx.oxml.ns import qn
+from docx.table import Table
+from docx.text.paragraph import Paragraph
 
 
 def read_docx(path, **_):
@@ -100,12 +103,84 @@ def insert_table(path, rows, style=None, **_):
     return {"path": path, "rows": len(rows), "cols": len(rows[0])}
 
 
+def _iter_block_items(doc):
+    """依文件實際順序（含表格內、跳過表格外）依序 yield 段落與表格物件，比分開列舉 doc.paragraphs / doc.tables 更準確反映閱讀順序，讓標題/前後文關聯正確。"""
+    for child in doc.element.body.iterchildren():
+        if child.tag == qn("w:p"):
+            yield Paragraph(child, doc)
+        elif child.tag == qn("w:tbl"):
+            yield Table(child, doc)
+
+
+def _find_blips(paragraph):
+    return paragraph._element.findall(".//" + qn("a:blip"))
+
+
+def extract_images(path, output_dir, **_):
+    if not os.path.exists(path):
+        raise RuntimeError(f"檔案不存在: {path}")
+    os.makedirs(output_dir, exist_ok=True)
+    doc = Document(path)
+
+    state = {"heading": None, "last_text": None}
+    images = []
+    pending_after = []
+
+    def save_blip(blip, extra):
+        r_embed = blip.get(qn("r:embed"))
+        if not r_embed:
+            return None
+        rel = doc.part.rels.get(r_embed)
+        if rel is None or "image" not in rel.reltype:
+            return None
+        seq = len(images) + 1
+        ext = os.path.splitext(rel.target_ref)[1] or ".png"
+        out_path = os.path.join(output_dir, f"image_{seq:03d}{ext}")
+        with open(out_path, "wb") as f:
+            f.write(rel.target_part.blob)
+        record = {
+            "file": out_path,
+            "section_heading": state["heading"],
+            "context_before": state["last_text"],
+            "context_after": None,
+            **extra,
+        }
+        images.append(record)
+        return record
+
+    def visit_paragraph(p, extra):
+        text = p.text.strip()
+        for blip in _find_blips(p):
+            record = save_blip(blip, extra)
+            if record is not None:
+                pending_after.append(record)
+        if text:
+            if p.style and p.style.name and p.style.name.startswith("Heading"):
+                state["heading"] = text
+            for record in pending_after:
+                record["context_after"] = text
+            pending_after.clear()
+            state["last_text"] = text
+
+    for block in _iter_block_items(doc):
+        if isinstance(block, Table):
+            for r, row in enumerate(block.rows):
+                for c, cell in enumerate(row.cells):
+                    for p in cell.paragraphs:
+                        visit_paragraph(p, {"in_table": True, "table_row": r, "table_col": c})
+        else:
+            visit_paragraph(block, {"in_table": False})
+
+    return {"images": images, "count": len(images)}
+
+
 ACTIONS = {
     "read": read_docx,
     "create": create_docx,
     "append_paragraph": append_paragraph,
     "replace_text": replace_text,
     "insert_table": insert_table,
+    "extract_images": extract_images,
 }
 
 

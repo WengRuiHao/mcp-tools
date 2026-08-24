@@ -83,6 +83,19 @@ server.tool(
     toolResult(runPythonTool("docx_tool.py", { action: "insert_table", path, rows, style: style ?? undefined }))
 );
 
+server.tool(
+  "extract_docx_images",
+  "【唯讀】把一份 .docx 檔案裡內嵌的圖片（流程圖、畫面截圖等）原始檔案抽取出來，存到指定目錄，回傳每張圖片的檔案路徑＋位置脈絡（最近的標題、前後鄰近的文字段落、是否在表格裡）。" +
+    "**不做圖片內容判讀（不做 OCR/視覺分析）**——抽出來的圖片檔案請改用你自己內建的讀圖能力（例如 Read 工具）逐一讀取理解內容，這個工具只負責把圖片正確定位、原封不動抽出來。" +
+    "**已知限制**：只掃描文件主體（body）段落與表格內的圖片，不含頁首/頁尾/文字方塊(text box)裡的圖片。",
+  {
+    path: z.string().describe("docx 檔案的本機絕對路徑"),
+    output_dir: z.string().describe("抽取出的圖片要存放的本機目錄（不存在會自動建立）"),
+  },
+  async ({ path, output_dir }) =>
+    toolResult(runPythonTool("docx_tool.py", { action: "extract_images", path, output_dir }))
+);
+
 // ---------------------------------------------------------------------------
 // Excel (.xlsx) — openpyxl
 // ---------------------------------------------------------------------------
@@ -150,6 +163,18 @@ server.tool(
   },
   async ({ path, name, rows }) =>
     toolResult(runPythonTool("xlsx_tool.py", { action: "create_sheet", path, name, rows }))
+);
+
+server.tool(
+  "extract_xlsx_images",
+  "【唯讀】把一份 .xlsx 檔案裡內嵌的圖片原始檔案抽取出來，存到指定目錄，回傳每張圖片的檔案路徑＋所在工作表名稱＋錨點座標(anchor_row/anchor_col，從 1 開始)。" +
+    "**不做圖片內容判讀（不做 OCR/視覺分析）**——抽出來的圖片檔案請改用你自己內建的讀圖能力（例如 Read 工具）逐一讀取理解內容，這個工具只負責把圖片正確定位、原封不動抽出來。",
+  {
+    path: z.string().describe("xlsx 檔案的本機絕對路徑"),
+    output_dir: z.string().describe("抽取出的圖片要存放的本機目錄（不存在會自動建立）"),
+  },
+  async ({ path, output_dir }) =>
+    toolResult(runPythonTool("xlsx_tool.py", { action: "extract_images", path, output_dir }))
 );
 
 // ---------------------------------------------------------------------------
