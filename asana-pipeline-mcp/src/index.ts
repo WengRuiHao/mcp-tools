@@ -216,6 +216,11 @@ async function syncPendingActionsReport(ticketGid: string): Promise<void> {
 
     for (const gid of ticketGids) {
       const s = await peekStatus(gid);
+      // 這裡看不到即時的 Asana board（純本機運算，不查 Asana），只能靠上次 get_ticket_snapshot 記錄的
+      // last_seen_completed 排除「Asana 上已經標記完成」的舊票單——否則專案裡歷年累積、早就結案的票單會
+      // 無限期在這份局部重建的報告裡復活。還沒被新版程式碼碰過的舊票單這個欄位預設 false（未知），要等
+      // 下次 get_ticket_snapshot 才會補上真實值，是這個純本機做法無法避免的暫時性落差。
+      if (s.last_seen_completed) continue;
       const name = s.name ?? gid;
 
       const manualActions = [...s.implementation_manual_actions, ...s.verification_manual_actions];
@@ -468,7 +473,14 @@ async function ensureSnapshotted(
   const dir = await assignTicketDir(projectDir, taskGid, projectName, ticketNumber, parentTaskGid);
   // 記錄 project_dir/project_name/name/指派人，讓之後這張票任何一次狀態異動都能局部重建 PENDING_HUMAN_ACTIONS.md
   // （見 syncPendingActionsReport），不用每次都額外傳 projectGid/projectName 或重新查一次 Asana。
-  await recordProjectContext(taskGid, projectDir, projectName, task.name ?? taskGid, task.assignee?.gid ?? null);
+  await recordProjectContext(
+    taskGid,
+    projectDir,
+    projectName,
+    task.name ?? taskGid,
+    task.assignee?.gid ?? null,
+    task.completed === true
+  );
   // 內容雜湊沒變就不重寫 ticket.md、也不把全文塞回這次回應——省掉留言串很長的票單重複佔用 token 的成本。
   const { changed, needsReanalysis } = await recordSnapshotContent(taskGid, content, task.modified_at ?? null);
   if (changed) {

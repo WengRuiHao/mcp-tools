@@ -43,6 +43,8 @@ export interface TicketStatus {
   name: string | null;
   /** 上次抓取時 Asana 這張票的指派人 gid（task.assignee?.gid），沒有指派人是 null。get_ticket_snapshot 時自動記錄。用途：判斷「Asana 內容已被異動，待重新確認」這個提醒該不該冒出來——只有指派人剛好是這個 pipeline 帳號本人時，才代表有人是刻意指派這張票要（重新）處理，用來過濾掉「內容雖然變了、但根本沒指派給這個帳號」這種不需要現在關注的雜訊。 */
   last_seen_assignee_gid: string | null;
+  /** 上次抓取時 Asana 這張票的 task.completed。get_ticket_snapshot 時自動記錄。用途：syncPendingActionsReport 局部重建 PENDING_HUMAN_ACTIONS.md 時，只能看本機已追蹤票單、無法像 list_pending_tickets 那樣即時查 Asana board 排除已完成的任務——這個欄位是替代方案，true 的票單會整張從局部重建結果排除，避免專案裡歷年累積、Asana 上早就標記完成的舊票單無限期在報告裡復活。預設 false（還沒被新版程式碼碰過的舊票單，要等下次 get_ticket_snapshot 才會補上真實值）。 */
+  last_seen_completed: boolean;
   verdict: "PASS" | "FAIL" | null;
   sasd_checked: boolean;
   sasd_info: string | null;
@@ -197,7 +199,8 @@ export async function recordProjectContext(
   projectDir: string,
   projectName: string,
   name: string,
-  assigneeGid: string | null
+  assigneeGid: string | null,
+  completed: boolean
 ): Promise<void> {
   await updateStatus(ticketGid, (status) => ({
     ...status,
@@ -205,6 +208,7 @@ export async function recordProjectContext(
     project_name: projectName,
     name,
     last_seen_assignee_gid: assigneeGid,
+    last_seen_completed: completed,
   }));
 }
 
@@ -241,6 +245,7 @@ const NEW_STATUS: TicketStatus = {
   project_name: null,
   name: null,
   last_seen_assignee_gid: null,
+  last_seen_completed: false,
   verdict: null,
   sasd_checked: false,
   sasd_info: null,
