@@ -1127,6 +1127,7 @@ server.tool(
 server.tool(
   "write_ticket_artifact",
   "把內容寫入某張票單的追蹤目錄底下的一個檔案（例如 01-analysis.md / 02-implementation.md / 03-verification.md）。" +
+    "**content 是整份檔案內容覆寫，不是附加**：如果這份檔案已經有既有內容，寫入前一定要先呼叫 read_ticket_artifact 讀出目前全文，把舊內容＋這一輪新內容組合成完整全文再一次送進來，絕不能只把「這一輪新增的段落」當 content 傳入，否則會把之前所有輪次的內容永久覆蓋掉且無法復原。只有確定這份檔案第一次被寫入（目前必為空）時才可以直接傳新內容。" +
     "寫入 01-analysis.md 之前，這張票必須已經呼叫過 record_sasd_check，否則會被拒絕。" +
     "**filename 是 01-analysis.md / 02-implementation.md / 03-verification.md 之一時，一定要附上 summary**（2-4 條重點，控制在幾百字內，不是全文）——這段摘要會存進這張票的追蹤狀態，之後不管是同一個 session 還是換一個 session/AI 接手下一階段，都可以先用 get_ticket_status 用低成本讀到摘要，決定要不要再花額外的 tool call 讀 read_ticket_artifact 的全文。寫入 01-analysis.md 時，也會自動清掉這張票的 needs_reanalysis 標記（代表已經針對最新票單內容重新分析過）。" +
     `**filename 是 02-implementation.md 或 03-verification.md 時，syncNote 是必填、不能省略**：這次修改/驗證有沒有推翻或補充了上一階段（02 對應 01，03 對應 02）的結論？有的話把內容寫進 syncNote，會自動附加到上一階段文件尾端；真的沒有，也要明確帶入字串 "${NO_SYNC_NEEDED}"，不能什麼都不填直接跳過——這一步是強制的，逼你對「要不要同步」做一次明確判斷，不能船過水無痕，只是答案可以是「不需要」。沒帶這個參數會直接被拒絕寫入。` +
@@ -1135,7 +1136,7 @@ server.tool(
   {
     taskGid: z.string().describe("Asana 任務 gid"),
     filename: z.string().describe("檔名，例如 01-analysis.md"),
-    content: z.string().describe("要寫入的內容（全文）"),
+    content: z.string().describe("要寫入的內容（全文，整份覆寫既有檔案——若檔案已有內容，先呼叫 read_ticket_artifact 讀出全文再組合，不要只傳這一輪新增段落）"),
     summary: z
       .string()
       .nullable()
