@@ -797,9 +797,27 @@ async function buildTicketNumberMap(taskGids: string[]): Promise<Map<string, str
 }
 
 /**
+ * 依票號做自然排序（不是字串排序）：取字串裡「最後一段數字」比較，讓 115SCSB-9 排在 115SCSB-33 前面，
+ * 而不是被純字串排序誤判成 115SCSB-33 < 115SCSB-9。取不到數字（例如退回顯示的 taskGid，或格式特殊的
+ * 票號）就退回單純字串比較，維持穩定排序，不會噴錯。
+ */
+function compareTicketNumbers(a: string, b: string): number {
+  const numA = a.match(/(\d+)(?!.*\d)/)?.[1];
+  const numB = b.match(/(\d+)(?!.*\d)/)?.[1];
+  if (numA !== undefined && numB !== undefined) {
+    const diff = parseInt(numA, 10) - parseInt(numB, 10);
+    if (diff !== 0) return diff;
+  }
+  return a.localeCompare(b);
+}
+
+/**
  * 把「跟票單有關的未 commit 檔案」排成「## Git 尚未 commit 的變更」這個區塊，依票單分組——沒登記過 git
  * 根目錄、git status 執行失敗、或有根目錄但沒有任何票單點名的檔案還沒 commit，都各自給一句清楚的說明，
- * 不要讓使用者猜「是沒登記、真的沒異動、還是只是沒票單認領」。
+ * 不要讓使用者猜「是沒登記、真的沒異動、還是只是沒票單認領」。**每一條以票號（單號）當作最前面的主要
+ * 識別字，票名放在後面**（而不是票名在前、票號縮在括號裡當附註）——使用者要在一堆行裡快速找到「這是
+ * 哪張票」，票號才是他們真正用來比對 Asana 的鍵；同時把每個 git root 底下的票單群組依票號自然排序，
+ * 不依票單被發現/處理的先後順序或票名字母順序排列。
  */
 function renderUncommittedSection(
   uncommitted: PendingActionsReportInput["uncommittedChanges"],
@@ -812,10 +830,13 @@ function renderUncommittedSection(
   const lines = uncommitted.roots.flatMap((r) => {
     if (r.error) return [`${r.label}（${r.path}）— git status 執行失敗：${r.error}`];
     if (r.ticketGroups.length === 0) return [`${r.label}（${r.path}）— 沒有票單點名的檔案還沒 commit`];
-    return r.ticketGroups.map((g) => {
+    const sortedGroups = [...r.ticketGroups].sort((a, b) =>
+      compareTicketNumbers(numberMap.get(a.taskGid) ?? a.taskGid, numberMap.get(b.taskGid) ?? b.taskGid)
+    );
+    return sortedGroups.map((g) => {
       const fileList = g.files.map((f) => `  - ${f}`).join("\n");
       const number = numberMap.get(g.taskGid) ?? g.taskGid;
-      return `${r.label}（${r.path}）— ${g.name}（\`${number}\`）${g.files.length} 個檔案有異動未 commit\n${fileList}`;
+      return `${r.label}（${r.path}）— \`${number}\`：${g.name}（${g.files.length} 個檔案有異動未 commit）\n${fileList}`;
     });
   });
   return `## ${title}\n\n${lines.length > 0 ? lines.map((l) => `- [ ] ${l}`).join("\n") : "（無）"}\n`;
