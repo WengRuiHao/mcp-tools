@@ -113,6 +113,11 @@ export async function asanaWorkspaces(): Promise<AsanaResult> {
   return asanaGet("/workspaces?opt_fields=name,gid");
 }
 
+/** 這組共用帳號 token 對應的 Asana 使用者身份（gid/name/email）。用來判斷「指派人是不是這個 pipeline 帳號本人」這類條件，不用靠使用者自己貼 gid。 */
+export async function asanaMe(): Promise<AsanaResult> {
+  return asanaGet("/users/me?opt_fields=gid,name,email");
+}
+
 export async function asanaProjects(workspaceGid: string): Promise<AsanaResult> {
   return asanaGet(
     `/workspaces/${workspaceGid}/projects?limit=100&opt_fields=name,gid,archived,created_at&archived=false`
@@ -125,7 +130,7 @@ const SUBTASK_FIELDS =
 /** 單一任務完整詳情（含描述 notes、自訂欄位、子任務清單——board 資料裡沒有這些）。 */
 export async function asanaTask(taskGid: string): Promise<AsanaResult> {
   const taskFields =
-    "name,notes,completed,assignee.name,due_on,num_subtasks,memberships.section.name,modified_at," +
+    "name,notes,completed,assignee.name,assignee.gid,due_on,num_subtasks,memberships.section.name,modified_at," +
     "custom_fields.name,custom_fields.display_value,custom_fields.type,parent.gid,parent.name";
 
   const [taskRes, subtasksResult] = await Promise.all([

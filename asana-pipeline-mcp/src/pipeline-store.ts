@@ -37,6 +37,12 @@ export interface TicketSyncState {
 export interface TicketStatus {
   stage: "new" | "snapshot" | "project_dir_confirmed" | "analyzed" | "implemented" | "verified";
   project_dir: string | null;
+  /** 這張票所屬的 Asana 專案「全名稱」（未消毒過的原始字串）。get_ticket_snapshot 時自動記錄，供任何單張票的狀態異動事後局部重建 PENDING_HUMAN_ACTIONS.md 用（見 syncPendingActionsReport/listTicketsUnderProject），不需要呼叫端每次額外傳遞或記得重新呼叫 list_pending_tickets。 */
+  project_name: string | null;
+  /** 這張票在 Asana 上的顯示名稱（task.name）。get_ticket_snapshot 時自動記錄，同上用途——讓局部重建 PENDING_HUMAN_ACTIONS.md 不需要重新查 Asana 就能顯示票名。 */
+  name: string | null;
+  /** 上次抓取時 Asana 這張票的指派人 gid（task.assignee?.gid），沒有指派人是 null。get_ticket_snapshot 時自動記錄。用途：判斷「Asana 內容已被異動，待重新確認」這個提醒該不該冒出來——只有指派人剛好是這個 pipeline 帳號本人時，才代表有人是刻意指派這張票要（重新）處理，用來過濾掉「內容雖然變了、但根本沒指派給這個帳號」這種不需要現在關注的雜訊。 */
+  last_seen_assignee_gid: string | null;
   verdict: "PASS" | "FAIL" | null;
   sasd_checked: boolean;
   sasd_info: string | null;
@@ -176,6 +182,48 @@ export async function assignTicketDir(
   return resultDir;
 }
 
+/**
+ * 記錄這張票所屬的 Asana 專案脈絡（project_dir/project_name）、顯示名稱、跟目前指派人 gid——
+ * 供之後任何單張票的狀態異動（advance_ticket_stage/write_ticket_artifact/resolve_manual_action/
+ * record_confirmation）在不知道 projectGid、不重新查 Asana 的情況下，也能局部重建這個專案的
+ * PENDING_HUMAN_ACTIONS.md（見 index.ts 的 syncPendingActionsReport），不依賴呼叫端記得在每次
+ * 異動後額外呼叫 list_pending_tickets 才能讓這份報告保持最新。
+ * get_ticket_snapshot 每次都會呼叫（即使內容沒變），讓子任務、還沒走到 project_dir_confirmed
+ * 階段的票單也能盡早補上這些欄位；project_dir 只在還沒被 advance_ticket_stage 明確設定過時才會
+ * 由這裡補上預設值，不會覆蓋掉呼叫端已經明確確認過的值。
+ */
+export async function recordProjectContext(
+  ticketGid: string,
+  projectDir: string,
+  projectName: string,
+  name: string,
+  assigneeGid: string | null
+): Promise<void> {
+  await updateStatus(ticketGid, (status) => ({
+    ...status,
+    project_dir: status.project_dir ?? projectDir,
+    project_name: projectName,
+    name,
+    last_seen_assignee_gid: assigneeGid,
+  }));
+}
+
+/**
+ * 列出某個 Asana 專案底下，目前為止已經呼叫過 get_ticket_snapshot 的所有票單 taskGid
+ * （不管是頂層票單還是巢狀子任務）。純粹比對本機 tickets-index.json 的目錄路徑前綴，不呼叫
+ * Asana——這是讓單張票狀態異動後，也能低成本局部重建 PENDING_HUMAN_ACTIONS.md 的關鍵：不需要
+ * 為了同步一份報告，就對 Asana 重新拉一次整個看板。
+ * 代價：全新、還沒被任何一次 get_ticket_snapshot 摸過的票單不會出現在這裡——這類票單的發現仍然
+ * 只能靠 list_pending_tickets 對 Asana 的完整查詢，兩者互補、不互相取代。
+ */
+export async function listTicketsUnderProject(projectDir: string, projectName: string): Promise<string[]> {
+  const index = await readJsonFile<Record<string, string>>(getTicketsIndexFile(), {});
+  const root = path.join(projectDir, ".asana-pipeline", sanitizeSegment(projectName)) + path.sep;
+  return Object.entries(index)
+    .filter(([, dir]) => (dir + path.sep).startsWith(root))
+    .map(([taskGid]) => taskGid);
+}
+
 /** Resolves a ticket's tracking directory via the index. Throws a clear error if this ticket hasn't gone through assignTicketDir yet (get_ticket_snapshot must always be called first). */
 async function resolveTicketDir(taskGid: string): Promise<string> {
   const index = await readJsonFile<Record<string, string>>(getTicketsIndexFile(), {});
@@ -190,6 +238,9 @@ async function resolveTicketDir(taskGid: string): Promise<string> {
 const NEW_STATUS: TicketStatus = {
   stage: "new",
   project_dir: null,
+  project_name: null,
+  name: null,
+  last_seen_assignee_gid: null,
   verdict: null,
   sasd_checked: false,
   sasd_info: null,

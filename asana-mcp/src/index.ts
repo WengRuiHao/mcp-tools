@@ -10,6 +10,7 @@ import {
   asanaTaskComments,
   asanaAttachments,
   asanaDownloadAttachment,
+  asanaMe,
   type AsanaResult,
 } from "./asana-client.js";
 
@@ -29,6 +30,14 @@ function toolResult(result: AsanaResult | { success: boolean; [key: string]: unk
     isError: result.success !== true,
   };
 }
+
+server.tool(
+  "asana_me",
+  "【唯讀】取得這組共用帳號 token 對應的 Asana 使用者身份（gid/name/email）。" +
+    "用來判斷「某張任務的指派人是不是這個 pipeline 帳號本人」這類條件（例如 asana-pipeline-mcp 用來過濾『內容變動但沒有指派給這個帳號』的票單），不需要使用者自己去 Asana 網頁查 gid 貼過來。",
+  {},
+  async () => toolResult(await asanaMe())
+);
 
 server.tool(
   "asana_workspaces",

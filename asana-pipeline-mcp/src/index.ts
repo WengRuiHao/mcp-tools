@@ -31,6 +31,8 @@ import {
   detectSensitiveManualActions,
   resolveManualAction,
   writePendingActionsReport,
+  recordProjectContext,
+  listTicketsUnderProject,
   NO_SYNC_NEEDED,
   type TicketStatus,
 } from "./pipeline-store.js";
@@ -164,6 +166,89 @@ async function getUncommittedChangesSummary(
   return { registered: true, roots };
 }
 
+/** 這組共用 token 對應的 Asana 使用者 gid，行程存活期間只查一次（不會變動，沒必要每次都打 API）。查詢失敗回傳 null 且不快取失敗結果，讓下次呼叫可以重試——只在真的查到值之後才快取。 */
+let cachedPipelineAsanaUserGid: string | null | undefined;
+async function getPipelineAsanaUserGid(): Promise<string | null> {
+  if (cachedPipelineAsanaUserGid !== undefined) return cachedPipelineAsanaUserGid;
+  try {
+    const me = await callAsanaTool("asana_me", {});
+    const gid = me?.success && me?.data?.gid ? String(me.data.gid) : null;
+    if (gid) cachedPipelineAsanaUserGid = gid;
+    return gid;
+  } catch (err: any) {
+    console.error(`[asana-pipeline-mcp] getPipelineAsanaUserGid failed: ${err?.message ?? err}`);
+    return null;
+  }
+}
+
+/**
+ * 任何單張票的狀態異動（advance_ticket_stage/write_ticket_artifact/resolve_manual_action/
+ * record_confirmation/resync_ticket_artifact）呼叫完之後都會呼叫這個函式，局部重建這張票所屬
+ * Asana 專案的 PENDING_HUMAN_ACTIONS.md——不依賴呼叫端記得額外呼叫 list_pending_tickets，這樣
+ * 不管誰在用這個 MCP、用什麼話術觸發 pipeline，這份報告都不會因為漏了一步而變成舊資料。
+ *
+ * 純本機運算（不查 Asana 看板），根據每張已追蹤票單本地已知的狀態欄位重建——換的是「不用為了同步
+ * 一份報告就對 Asana 重新拉一次整個看板」；代價是還沒被 get_ticket_snapshot 摸過的全新票單不會
+ * 出現在這裡，那一類的發現仍然只能靠 list_pending_tickets 對 Asana 的完整查詢，兩者互補、不互相
+ * 取代。
+ *
+ * 「Asana 內容已被異動，待重新確認」這個分類額外要求 `last_seen_assignee_gid` 剛好是這個 pipeline
+ * 帳號本人——單純內容變了但沒指派給這個帳號的票單不會冒出來打擾使用者，跟 list_pending_tickets 那邊
+ * 即時查 Asana 版本的同一個過濾條件一致（見那邊的 contentChangedList 組裝邏輯）。
+ *
+ * 失敗（例如檔案系統暫時性錯誤）只記錄到 stderr、不拋出——這是主要工具呼叫的附帶效果，不該讓它的
+ * 失敗連帶讓 advance_ticket_stage 這類主要操作本身回報失敗。
+ */
+async function syncPendingActionsReport(ticketGid: string): Promise<void> {
+  try {
+    const status = await peekStatus(ticketGid);
+    if (!status.project_dir || !status.project_name) return;
+    const projectDir = status.project_dir;
+    const projectName = status.project_name;
+
+    const pipelineUserGid = await getPipelineAsanaUserGid();
+
+    const ticketGids = await listTicketsUnderProject(projectDir, projectName);
+    const awaitingConfirmation: { taskGid: string; name: string }[] = [];
+    const needsHumanReviewList: { taskGid: string; name: string; consecutiveFailCount: number }[] = [];
+    const contentChangedList: { taskGid: string; name: string; stage: string }[] = [];
+    const manualActionsList: { taskGid: string; name: string; actions: string[] }[] = [];
+
+    for (const gid of ticketGids) {
+      const s = await peekStatus(gid);
+      const name = s.name ?? gid;
+
+      const manualActions = [...s.implementation_manual_actions, ...s.verification_manual_actions];
+      if (manualActions.length > 0) manualActionsList.push({ taskGid: gid, name, actions: manualActions });
+
+      if (s.stage === "verified" && s.verdict === "FAIL" && needsHumanReview(s)) {
+        needsHumanReviewList.push({ taskGid: gid, name, consecutiveFailCount: s.consecutive_fail_count });
+      }
+
+      const isVerifiedPass = s.stage === "verified" && s.verdict === "PASS";
+      if (isVerifiedPass && !s.needs_reanalysis) {
+        if (s.confirmation?.confirmed === true) continue;
+        awaitingConfirmation.push({ taskGid: gid, name });
+        continue;
+      }
+      if (s.needs_reanalysis && pipelineUserGid !== null && s.last_seen_assignee_gid === pipelineUserGid) {
+        contentChangedList.push({ taskGid: gid, name, stage: s.stage });
+      }
+    }
+
+    const uncommittedChanges = await getUncommittedChangesSummary(projectDir, manualActionsList);
+    await writePendingActionsReport(projectDir, projectName, {
+      awaitingConfirmation,
+      needsHumanReview: needsHumanReviewList,
+      contentChanged: contentChangedList,
+      manualActions: manualActionsList,
+      uncommittedChanges,
+    });
+  } catch (err: any) {
+    console.error(`[asana-pipeline-mcp] syncPendingActionsReport(${ticketGid}) failed: ${err?.message ?? err}`);
+  }
+}
+
 server.tool(
   "list_pending_tickets",
   "列出指定 Asana 專案裡尚未完成、且尚未驗證通過（PASS）的票單清單。透過 asana-mcp 取得看板資料，並依本地追蹤紀錄過濾掉已經處理完成的票。" +
@@ -172,6 +257,8 @@ server.tool(
     "AI 自己判定 PASS 不等於這張票真的結案，呼叫端每次執行這個工具都必須把這份清單完整秀給使用者看（不能因為這次是來處理別的新票就略過），直到每一張都呼叫過 record_confirmation 為止，才會從清單消失。" +
     "**`tickets`（一般待處理清單）裡如果某張票標記 `humanRejected: true`，代表這不是一張全新沒驗證過的票，而是使用者事後回報有問題、被重新丟回來的票**（`record_confirmation` 帶 `confirmed:false` 時會把這張票的 verdict 重設回 null，讓它重新出現在這裡）——處理這種票要當作跟 AI 驗證師自己判 FAIL 完全一樣的情況，套用同一套根因分流機制（見 get_role_prompt({role:\"verifier\"})/advance_ticket_stage 的 rootCause 說明），不要另外發明一套「人工打回」流程。" +
     "**帶 `projectName` 時，這次算出來的五類「需要人工處理」項目（待你確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更）會整份覆寫進一份持久化的 `PENDING_HUMAN_ACTIONS.md`**（放在 `<projectDir>/.asana-pipeline/<projectName>/` 底下，跟每張票自己的追蹤目錄同一層）——這是為了取代「只在聊天視窗提醒一次，換個 session 就找不到」的做法，不需要任何人記得手動維護。強烈建議每次呼叫都帶上 `projectName`（跟步驟 0 拿到的 Asana 專案全名稱一致）。" +
+    "**這份報告不再需要呼叫端手動維護同步時機**——advance_ticket_stage/write_ticket_artifact/resolve_manual_action/record_confirmation/resync_ticket_artifact 這幾個會改動票單狀態的工具，現在每次呼叫完都會自動局部重寫這份報告（純本機運算，不重查 Asana），呼叫這裡的 list_pending_tickets 主要是用來發現「全新、還沒被任何一次 get_ticket_snapshot 摸過」的票單，不是同步這份報告的唯一時機。" +
+    "**`PENDING_HUMAN_ACTIONS.md` 的「Asana 內容已被異動，待重新確認」這個分類，只有這張票目前的指派人剛好是這個 pipeline 帳號本人（透過 asana_me 取得）時才會列進去**——單純內容變了、但沒有人特地把它指派回這個帳號的票單不會出現在這裡，避免大量雜訊。這個過濾條件只影響這份報告要不要顯示，不影響 `tickets`/`contentChangedList` 這兩個回傳欄位本身（那兩個仍然只看內容有沒有變，讓呼叫端知道「這份舊分析可能過期了」）。" +
     "**`uncommittedChanges` 依票單分組，只列出「git status 真的還沒 commit、又有某張票的 manualActions 點名說是它改的」檔案**——跟這次 pipeline 無關的其他未 commit 檔案不在清單裡（要查全部異動請自己跑 git status）。是否真的還沒 commit 仍然以 git 的真實狀態為準，manualActions 文字只用來標出「這個檔案屬於哪張票」。`registered: false` 代表這個專案還沒呼叫過 `register_git_roots`。",
   {
     projectGid: z.string().describe("Asana 專案 gid"),
@@ -187,11 +274,13 @@ server.tool(
     if (!board?.success) return textResult(board, true);
 
     const tasks: any[] = Array.isArray(board.tasks) ? board.tasks : [];
+    const pipelineUserGid = await getPipelineAsanaUserGid();
     const pending = [];
     const awaitingConfirmation = [];
     const needsHumanReviewList = [];
     const manualActionsList = [];
     const contentChangedList = [];
+    const contentChangedForReport = [];
     for (const task of tasks) {
       if (task.completed === true) continue;
       if (sectionFilter) {
@@ -241,6 +330,14 @@ server.tool(
       if (isContentChanged) {
         contentChangedList.push({ taskGid: task.gid, name: task.name, stage: status.stage });
       }
+      // 「Asana 內容已被異動，待重新確認」這個持久化報告區塊，額外要求指派人剛好是這個 pipeline 帳號本人——
+      // 單純內容變了但沒指派給這個帳號的票單不冒出來打擾使用者。上面的 `contentChangedList`（回傳給呼叫端的
+      // JSON 欄位，`pending[].contentChanged` 也是）不受這條限制，用途不同（提醒 AI「這份舊分析可能已經過期，
+      // 用之前先看一眼」，跟該不該寫進報告通知人類是兩回事）。
+      const assigneeGid: string | null = task.assignee?.gid ?? null;
+      if (isContentChanged && pipelineUserGid !== null && assigneeGid === pipelineUserGid) {
+        contentChangedForReport.push({ taskGid: task.gid, name: task.name, stage: status.stage });
+      }
     }
 
     let pendingActionsReportPath: string | null = null;
@@ -252,7 +349,7 @@ server.tool(
         pendingActionsReportPath = await writePendingActionsReport(projectDir, projectName, {
           awaitingConfirmation,
           needsHumanReview: needsHumanReviewList,
-          contentChanged: contentChangedList,
+          contentChanged: contentChangedForReport,
           manualActions: manualActionsList,
           uncommittedChanges,
         });
@@ -369,6 +466,9 @@ async function ensureSnapshotted(
   }
 
   const dir = await assignTicketDir(projectDir, taskGid, projectName, ticketNumber, parentTaskGid);
+  // 記錄 project_dir/project_name/name/指派人，讓之後這張票任何一次狀態異動都能局部重建 PENDING_HUMAN_ACTIONS.md
+  // （見 syncPendingActionsReport），不用每次都額外傳 projectGid/projectName 或重新查一次 Asana。
+  await recordProjectContext(taskGid, projectDir, projectName, task.name ?? taskGid, task.assignee?.gid ?? null);
   // 內容雜湊沒變就不重寫 ticket.md、也不把全文塞回這次回應——省掉留言串很長的票單重複佔用 token 的成本。
   const { changed, needsReanalysis } = await recordSnapshotContent(taskGid, content, task.modified_at ?? null);
   if (changed) {
@@ -904,7 +1004,8 @@ server.tool(
   "記錄結案前唯一一關人類確認——使用者自己對這張票的實測結果＋程式碼品質審視——跟 advance_ticket_stage 的 verdict（AI 驗證師自己判定的 PASS/FAIL）是完全不同的東西，不能混用。" +
     "AI 判 PASS 只代表「AI 自己檢查過、可以交給人測了」，不是真正結案；只有呼叫這個工具記錄 confirmed: true，這張票才會從 list_pending_tickets 的 awaitingConfirmation 清單裡消失、真正算結案。" +
     "只能在這張票已經跑到 verified 階段之後才能呼叫（代表至少走過一次分析/實作/驗證），否則會被拒絕。" +
-    "confirmed: false 代表使用者實際測過、發現有問題——會記錄下 note，並把這張票的 verdict 重設回 null，重新丟回 list_pending_tickets 的一般待處理清單（標記 humanRejected: true），讓 AI 用跟自己判 FAIL 完全一樣的根因分流機制去處理，不是丟給人工事後自己決定。",
+    "confirmed: false 代表使用者實際測過、發現有問題——會記錄下 note，並把這張票的 verdict 重設回 null，重新丟回 list_pending_tickets 的一般待處理清單（標記 humanRejected: true），讓 AI 用跟自己判 FAIL 完全一樣的根因分流機制去處理，不是丟給人工事後自己決定。" +
+    "**呼叫完會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.md`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
   {
     taskGid: z.string().describe("Asana 任務 gid"),
     confirmed: z.boolean().describe("使用者自己實測＋審視程式碼品質是否通過：true = 沒問題、真正結案，false = 發現問題"),
@@ -922,6 +1023,7 @@ server.tool(
       );
     }
     const status = await recordConfirmation(taskGid, confirmed, note ?? null);
+    await syncPendingActionsReport(taskGid);
     return textResult({ success: true, status });
   }
 );
@@ -949,7 +1051,8 @@ server.tool(
     "寫入 01-analysis.md 之前，這張票必須已經呼叫過 record_sasd_check，否則會被拒絕。" +
     "**filename 是 01-analysis.md / 02-implementation.md / 03-verification.md 之一時，一定要附上 summary**（2-4 條重點，控制在幾百字內，不是全文）——這段摘要會存進這張票的追蹤狀態，之後不管是同一個 session 還是換一個 session/AI 接手下一階段，都可以先用 get_ticket_status 用低成本讀到摘要，決定要不要再花額外的 tool call 讀 read_ticket_artifact 的全文。寫入 01-analysis.md 時，也會自動清掉這張票的 needs_reanalysis 標記（代表已經針對最新票單內容重新分析過）。" +
     `**filename 是 02-implementation.md 或 03-verification.md 時，syncNote 是必填、不能省略**：這次修改/驗證有沒有推翻或補充了上一階段（02 對應 01，03 對應 02）的結論？有的話把內容寫進 syncNote，會自動附加到上一階段文件尾端；真的沒有，也要明確帶入字串 "${NO_SYNC_NEEDED}"，不能什麼都不填直接跳過——這一步是強制的，逼你對「要不要同步」做一次明確判斷，不能船過水無痕，只是答案可以是「不需要」。沒帶這個參數會直接被拒絕寫入。` +
-    "**filename 是 02-implementation.md 或 03-verification.md 時，manualActions 也是必填**（陣列，可以是空陣列）：這次有沒有任何事項是使用者必須自己手動處理的（例如產出的 SQL 只能交由使用者到 Database 工具執行、後台程式代號/選單/I18N 需自行設定）？有就列成一條條簡短字串；真的沒有就帶空陣列 []，不能省略——這些項目會被整理進持久化的 PENDING_HUMAN_ACTIONS.md，不能只寫在全文內容裡指望使用者自己重讀全文才發現。",
+    "**filename 是 02-implementation.md 或 03-verification.md 時，manualActions 也是必填**（陣列，可以是空陣列）：這次有沒有任何事項是使用者必須自己手動處理的（例如產出的 SQL 只能交由使用者到 Database 工具執行、後台程式代號/選單/I18N 需自行設定）？有就列成一條條簡短字串；真的沒有就帶空陣列 []，不能省略——這些項目會被整理進持久化的 PENDING_HUMAN_ACTIONS.md，不能只寫在全文內容裡指望使用者自己重讀全文才發現。" +
+    "**寫入完成後會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.md`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
   {
     taskGid: z.string().describe("Asana 任務 gid"),
     filename: z.string().describe("檔名，例如 01-analysis.md"),
@@ -1038,6 +1141,7 @@ server.tool(
     await writeArtifact(taskGid, filename, content);
     await recordArtifactHash(taskGid, filename, content);
     await recordArtifactSummary(taskGid, filename, summary);
+    await syncPendingActionsReport(taskGid);
     return textResult({ success: true, taskGid, filename });
   }
 );
@@ -1105,6 +1209,7 @@ server.tool(
     if (manualActions && (filename === "02-implementation.md" || filename === "03-verification.md")) {
       await recordManualActions(taskGid, filename, manualActions);
     }
+    await syncPendingActionsReport(taskGid);
     return textResult({ success: true, taskGid, filename, message: "雜湊已同步為目前磁碟上的實際內容。" });
   }
 );
@@ -1114,7 +1219,7 @@ server.tool(
   "把 `implementation_manual_actions`／`verification_manual_actions` 裡『使用者確認已經處理完』的一項移除，其餘保留，讓它不再出現在 `PENDING_HUMAN_ACTIONS.md`。" +
     "**用在：使用者跟你說某個票單的某項手動待辦（例如某段 SQL、某份多國語系匯入）已經做完了**——不用整份陣列重新宣告一次，只要指出這一項，其餘事項會原封不動保留。" +
     "**`action` 用完整文字精確比對**（前後空白會自動忽略）——文字必須跟 `get_ticket_status`/`list_pending_tickets` 回傳的 `manualActions` 內容一字不差，找不到完全對應的項目時，會回傳 `success: false` 跟這份文件目前的完整清單，讓你核對正確文字後再重試，不要憑印象猜測。" +
-    "移除之後，下次呼叫 `list_pending_tickets` 帶 `projectName`，`PENDING_HUMAN_ACTIONS.md` 就會反映最新狀態（這個工具本身不會自動重寫報告檔案）。",
+    "移除之後這個工具會自動局部重寫 `PENDING_HUMAN_ACTIONS.md`（純本機運算，不用等下次呼叫 `list_pending_tickets`），不需要呼叫端額外做任何事。",
   {
     taskGid: z.string().describe("Asana 任務 gid"),
     filename: z
@@ -1134,6 +1239,7 @@ server.tool(
         true
       );
     }
+    await syncPendingActionsReport(taskGid);
     return textResult({ success: true, taskGid, filename, remaining: result.remaining });
   }
 );
@@ -1142,7 +1248,8 @@ server.tool(
   "advance_ticket_stage",
   "更新某張票單的追蹤狀態，記錄目前進行到哪個階段，並可以一併更新 project_dir / verdict。" +
     "**verdict 設成 \"FAIL\" 時，rootCause 是必填參數**（\"analysis\" 或 \"implementation\"）——判斷這次 FAIL 的根因在分析階段還是實作階段，供下一輪處理這張票時決定要自動跳回分析師還是工程師，不能省略。verdict 不是 \"FAIL\"（PASS，或這次沒有更新 verdict）時，不需要也不應該帶 rootCause，帶了會被拒絕。" +
-    "**這個呼叫只要有更新 verdict，就會自動清空 confirmation**（這個人類確認是對上一輪程式碼/結論表態的，新 verdict 出爐代表結論已經更新，舊確認一律作廢，不能沿用）、並機械式維護 consecutive_fail_count（FAIL 累加、PASS 歸零，累加到 3 之後回傳的 needs_human_review 會是 true）。",
+    "**這個呼叫只要有更新 verdict，就會自動清空 confirmation**（這個人類確認是對上一輪程式碼/結論表態的，新 verdict 出爐代表結論已經更新，舊確認一律作廢，不能沿用）、並機械式維護 consecutive_fail_count（FAIL 累加、PASS 歸零，累加到 3 之後回傳的 needs_human_review 會是 true）。" +
+    "**呼叫完會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.md`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
   {
     taskGid: z.string().describe("Asana 任務 gid"),
     stage: z
@@ -1180,6 +1287,7 @@ server.tool(
     if (verdict !== undefined) patch.verdict = verdict;
     if (verdict === "FAIL") patch.verifier_root_cause = rootCause;
     const status = await advanceStage(taskGid, stage, patch);
+    await syncPendingActionsReport(taskGid);
     return textResult({ success: true, status, needs_human_review: needsHumanReview(status) });
   }
 );
