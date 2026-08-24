@@ -240,6 +240,46 @@ export function searchTables(db: DatabaseSync, keyword: string, connectionId?: s
   return { tableMatches, columnMatches };
 }
 
+// 單次回應的欄位總數超過這個門檻，db_schema 就自動只回表名+欄位數量摘要，不是整包欄位細節都塞進 AI 的 context。
+// 沒有精確科學依據，是抓一個「明顯開始不合理」的量級，之後用起來覺得太鬆/太緊可以再調。
+const MAX_COLUMNS_BEFORE_SUMMARY = 1500;
+
+export type CachedSchema = ReturnType<typeof readCachedSchema>;
+
+/**
+ * 欄位總數沒超標就原樣回傳；超標的話把每張表的 columns 陣列換成 columnCount，
+ * 並標記 truncated——AI 要看某張表的完整欄位，改用 db_schema 的 tableName 參數單獨拿那一張。
+ */
+export function summarizeIfLarge(cached: CachedSchema): CachedSchema & { truncated: boolean; truncatedMessage?: string } {
+  const totalColumns = cached.tables.reduce((sum, t: any) => sum + (t.columns?.length ?? 0), 0);
+  if (totalColumns <= MAX_COLUMNS_BEFORE_SUMMARY) {
+    return { ...cached, truncated: false };
+  }
+  const tables = cached.tables.map((t: any) => ({
+    schema: t.schema,
+    name: t.name,
+    type: t.type,
+    rowEstimate: t.rowEstimate,
+    columnCount: t.columns?.length ?? 0,
+  }));
+  return {
+    ...cached,
+    tables: tables as any,
+    truncated: true,
+    truncatedMessage: `這個連線共 ${totalColumns} 個欄位，超過單次回傳上限（${MAX_COLUMNS_BEFORE_SUMMARY}），已省略每張表的欄位細節、只留表名+欄位數量。想看特定表的完整欄位/PK/FK，對 db_schema 加 tableName 參數單獨查那一張；想先定位相關的表，用 db_search_tables 關鍵字搜。`,
+  };
+}
+
+/** 只回傳單一表的完整細節（欄位/FK/索引），不管欄位總數限制——呼叫端已經自己縮小範圍了。 */
+export function readSingleTableSchema(db: DatabaseSync, connectionId: string, schemaName: string, tableName: string) {
+  const full = readCachedSchema(db, connectionId);
+  const table = full.tables.find((t: any) => t.name === tableName && (schemaName === "" || t.schema === schemaName));
+  if (!table) return null;
+  const foreignKeys = full.foreignKeys.filter((fk) => fk.table === tableName);
+  const indexes = full.indexes.filter((idx) => idx.table === tableName);
+  return { lastSyncedAt: full.lastSyncedAt, table, foreignKeys, indexes };
+}
+
 export function tableExistsInCache(db: DatabaseSync, connectionId: string, schemaName: string, tableName: string): boolean {
   const row = db
     .prepare(`SELECT 1 FROM tables WHERE connection_id = ? AND schema_name = ? AND table_name = ?`)
@@ -258,8 +298,6 @@ export function upsertNote(db: DatabaseSync, schemaName: string, tableName: stri
 export function listNotes(db: DatabaseSync) {
   return db.prepare(`SELECT schema_name, table_name, note, author, updated_at FROM notes ORDER BY table_name`).all();
 }
-
-type CachedSchema = ReturnType<typeof readCachedSchema>;
 
 /** 比較同一個專案底下兩個連線的快取差異——只看快取，不會去連真正的資料庫。 */
 export function diffCachedSchemas(a: CachedSchema, b: CachedSchema) {

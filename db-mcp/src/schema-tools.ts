@@ -11,6 +11,8 @@ import {
   listNotes,
   diffCachedSchemas,
   exportDdlFromCache,
+  summarizeIfLarge,
+  readSingleTableSchema,
 } from "./schema-cache.js";
 import { toolResult, ok, fail, projectIdParam, connectionIdParam } from "./shared.js";
 
@@ -19,12 +21,16 @@ export function registerSchemaTools(server: McpServer): void {
     "db_schema",
     "【唯讀】取得某個連線的 schema（表/欄位/PK/FK/索引）。預設讀本地 SQLite 快取（快很多、不碰真正的資料庫）；" +
       "第一次用某個連線、或懷疑正式環境結構已經變了，才加 refresh:true 強制重新連線同步並覆蓋快取。" +
-      "快取從沒同步過的話，即使不給 refresh 也會自動同步一次。",
+      "快取從沒同步過的話，即使不給 refresh 也會自動同步一次。" +
+      "回應可能因為欄位太多被自動截斷成只有表名+欄位數量（回應裡 truncated:true 會說明）——" +
+      "這種情況要看特定表的完整欄位/PK/FK，改加 tableName 參數單獨查那一張。",
     {
       connectionId: connectionIdParam,
       refresh: z.boolean().default(false).describe("true 會實際連線重新查一次 schema 並覆蓋快取"),
+      tableName: z.string().optional().describe("只想看某一張表的完整欄位/FK/索引時指定，會忽略截斷限制"),
+      schemaName: z.string().optional().describe("搭配 tableName 用，指定 schema（不給就比對任何 schema 下同名的表）"),
     },
-    async ({ connectionId, refresh }) => {
+    async ({ connectionId, refresh, tableName, schemaName }) => {
       const conn = findConnection(connectionId);
       if (!conn) return toolResult(fail(`找不到連線 ${connectionId}`));
 
@@ -39,7 +45,14 @@ export function registerSchemaTools(server: McpServer): void {
           cached = readCachedSchema(db, connectionId);
         }
         const warning = conn.env === "prod" ? "⚠️ 這是標記為 prod 的連線，請小心操作" : undefined;
-        return toolResult(ok({ ...cached, synced: needsSync, warning }));
+
+        if (tableName) {
+          const single = readSingleTableSchema(db, connectionId, schemaName ?? "", tableName);
+          if (!single) return toolResult(fail(`快取裡找不到表 ${schemaName ? schemaName + "." : ""}${tableName}`));
+          return toolResult(ok({ ...single, synced: needsSync, warning }));
+        }
+
+        return toolResult(ok({ ...summarizeIfLarge(cached), synced: needsSync, warning }));
       } catch (e: any) {
         return toolResult(fail(`取得 schema 失敗：${e.message}`));
       } finally {
