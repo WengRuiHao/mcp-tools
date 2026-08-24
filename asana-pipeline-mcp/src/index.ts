@@ -96,6 +96,24 @@ function extractClaimedUncommittedFiles(action: string): string[] {
 }
 
 /**
+ * 把 manualActions 清單裡「純粹是提醒尚未 git commit、且點得出具體檔名」的項目濾掉，只留下報告的
+ * 「需要你手動處理的事項」區塊該顯示的其他事項——這類「尚未 commit」的提醒已經有專屬的「Git 尚未
+ * commit 的變更」區塊負責呈現（用真實 git status 核對過，比自由文字準確，且會隨著真的 commit 之後
+ * 自動消失），重複出現在這個區塊只是雜訊。判斷依據跟 getUncommittedChangesSummary 用的是同一個
+ * extractClaimedUncommittedFiles：只要抽得出具體檔名就視為「這項已經由 Git 區塊負責」而濾掉，不管
+ * 現在 git status 是否還真的有異動——已經 commit 掉的話兩邊本來就都不該再顯示，這才是預期行為。
+ * 只影響這份報告／回傳 JSON 的顯示範圍，不會動到 status.json 裡儲存的原始 manualActions 陣列，
+ * `resolve_manual_action` 比對用的仍然是完整原文。
+ */
+function filterOutGitCommitActions(
+  manualActionsList: { taskGid: string; name: string; actions: string[] }[]
+): { taskGid: string; name: string; actions: string[] }[] {
+  return manualActionsList
+    .map((t) => ({ ...t, actions: t.actions.filter((a) => extractClaimedUncommittedFiles(a).length === 0) }))
+    .filter((t) => t.actions.length > 0);
+}
+
+/**
  * 對每個已登記的 git 版控根目錄跑一次 git status --porcelain 取得真實未 commit 狀態，再用每張票
  * manualActions 裡點名「尚未 commit」的檔名去篩選、依票單分組——只留下「git 真的還沒 commit、且有票單
  * 點名說是它改的」檔案，跟這次 pipeline 無關的其他未 commit 檔案整份省略（要查全部異動使用者自己跑
@@ -266,7 +284,7 @@ async function syncPendingActionsReport(ticketGid: string): Promise<void> {
       awaitingConfirmation,
       needsHumanReview: needsHumanReviewList,
       contentChanged: contentChangedList,
-      manualActions: manualActionsList,
+      manualActions: filterOutGitCommitActions(manualActionsList),
       uncommittedChanges,
     });
   } catch (err: any) {
@@ -284,7 +302,8 @@ server.tool(
     "**帶 `projectName` 時，這次算出來的五類「需要人工處理」項目（待你確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更）會整份覆寫進一份持久化的 `PENDING_HUMAN_ACTIONS.md`**（放在 `<projectDir>/.asana-pipeline/<projectName>/` 底下，跟每張票自己的追蹤目錄同一層）——這是為了取代「只在聊天視窗提醒一次，換個 session 就找不到」的做法，不需要任何人記得手動維護。強烈建議每次呼叫都帶上 `projectName`（跟步驟 0 拿到的 Asana 專案全名稱一致）。" +
     "**這份報告不再需要呼叫端手動維護同步時機**——advance_ticket_stage/write_ticket_artifact/resolve_manual_action/record_confirmation/resync_ticket_artifact 這幾個會改動票單狀態的工具，現在每次呼叫完都會自動局部重寫這份報告（純本機運算，不重查 Asana），呼叫這裡的 list_pending_tickets 主要是用來發現「全新、還沒被任何一次 get_ticket_snapshot 摸過」的票單，不是同步這份報告的唯一時機。" +
     "**`PENDING_HUMAN_ACTIONS.md` 的「Asana 內容已被異動，待重新確認」這個分類，只有這張票目前的指派人剛好是這個 pipeline 帳號本人（透過 asana_me 取得）時才會列進去**——單純內容變了、但沒有人特地把它指派回這個帳號的票單不會出現在這裡，避免大量雜訊。這個過濾條件只影響這份報告要不要顯示，不影響 `tickets`/`contentChangedList` 這兩個回傳欄位本身（那兩個仍然只看內容有沒有變，讓呼叫端知道「這份舊分析可能過期了」）。" +
-    "**`uncommittedChanges` 依票單分組，只列出「git status 真的還沒 commit、又有某張票的 manualActions 點名說是它改的」檔案**——跟這次 pipeline 無關的其他未 commit 檔案不在清單裡（要查全部異動請自己跑 git status）。是否真的還沒 commit 仍然以 git 的真實狀態為準，manualActions 文字只用來標出「這個檔案屬於哪張票」。`registered: false` 代表這個專案還沒呼叫過 `register_git_roots`。",
+    "**`uncommittedChanges` 依票單分組，只列出「git status 真的還沒 commit、又有某張票的 manualActions 點名說是它改的」檔案**——跟這次 pipeline 無關的其他未 commit 檔案不在清單裡（要查全部異動請自己跑 git status）。是否真的還沒 commit 仍然以 git 的真實狀態為準，manualActions 文字只用來標出「這個檔案屬於哪張票」。`registered: false` 代表這個專案還沒呼叫過 `register_git_roots`。" +
+    "**`manualActions`/`manualActionsCount`（回傳 JSON 跟 `PENDING_HUMAN_ACTIONS.md` 都一樣）已經濾掉純粹是「尚未 commit」且點得出具體檔名的項目**——那類事項改由上面的 `uncommittedChanges`/「Git 尚未 commit 的變更」區塊負責呈現（跟真實 git status 核對過，比自由文字準確），不會在這裡重複出現造成雜訊。真的還沒 commit 完的檔案永遠看得到（在 Git 區塊），只是不會在這個區塊也出現一次。",
   {
     projectGid: z.string().describe("Asana 專案 gid"),
     sectionFilter: z.string().nullable().optional().describe("只取這個 section 名稱底下的任務，不指定就取全部"),
@@ -365,6 +384,8 @@ server.tool(
       }
     }
 
+    const manualActionsForReport = filterOutGitCommitActions(manualActionsList);
+
     let pendingActionsReportPath: string | null = null;
     let uncommittedChanges: Awaited<ReturnType<typeof getUncommittedChangesSummary>> | null = null;
     if (projectName) {
@@ -375,7 +396,7 @@ server.tool(
           awaitingConfirmation,
           needsHumanReview: needsHumanReviewList,
           contentChanged: contentChangedForReport,
-          manualActions: manualActionsList,
+          manualActions: manualActionsForReport,
           uncommittedChanges,
         });
       }
@@ -392,8 +413,8 @@ server.tool(
       needsHumanReview: needsHumanReviewList,
       contentChangedCount: contentChangedList.length,
       contentChangedList,
-      manualActionsCount: manualActionsList.length,
-      manualActions: manualActionsList,
+      manualActionsCount: manualActionsForReport.length,
+      manualActions: manualActionsForReport,
       ...(uncommittedChanges ? { uncommittedChanges } : {}),
       ...(pendingActionsReportPath ? { pendingActionsReportPath } : {}),
     });
