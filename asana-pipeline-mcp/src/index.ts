@@ -421,7 +421,15 @@ server.tool(
   }
 );
 
-const TICKET_NUMBER_PATTERN = /\b[A-Za-z]{1,8}-\d{1,8}\b/;
+/**
+ * 匹配業務單號，例如 "GV-5011"／"PROJ-1234"，也支援帶數字前綴的格式如 "115SCSB-48"（SCSB 專案的慣例）。
+ * 前面的 `\d{0,6}` 是刻意加的：純 `\b[A-Za-z]{1,8}-\d{1,8}\b` 對 "115SCSB-48" 這種格式會抓不到——
+ * \b 是「word 字元／非 word 字元」的交界，但數字跟英文字母都算 word 字元，"5" 跟 "S" 之間根本沒有
+ * word boundary，所以舊版正規表達式永遠比對不到緊接在數字後面的英文字母開頭。2026-08-24 因為這個 bug，
+ * SCSB 專案好幾張新票單的自訂欄位明明填了 "115SCSB-48" 這種格式，卻偵測失敗、整批退回用 taskGid 命名，
+ * 建出一堆看不懂的數字資料夾。
+ */
+const TICKET_NUMBER_PATTERN = /\b\d{0,6}[A-Za-z]{1,8}-\d{1,8}\b/;
 
 function detectTicketNumber(task: any): string | null {
   for (const field of task.custom_fields ?? []) {
