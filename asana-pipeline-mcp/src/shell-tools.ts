@@ -57,9 +57,16 @@ export function isGitCommand(command: string): boolean {
   return GIT_INVOKE.test(command) || GIT_POWERSHELL_CALL.test(command);
 }
 
+const LEADING_CD_PATTERN = /^\s*(?:cd|Set-Location|sl|pushd)\s+("[^"]+"|'[^']+'|\S+)\s*(?:&&|;)/i;
+
+/** True if the command already opens with an explicit directory-change (`cd .../Set-Location .../sl .../pushd ...` followed by `&&` or `;`) — i.e. the caller has already taken responsibility for cwd, so nothing here should second-guess or override it. */
+export function hasLeadingDirectoryChange(command: string): boolean {
+  return LEADING_CD_PATTERN.test(command);
+}
+
 /** Best-effort extraction of a leading directory-change (bash `cd`, or PowerShell `Set-Location`/`sl`/`pushd`, followed by `&&` or `;`) from a shell command, resolved against cwd. Falls back to cwd itself when the command doesn't start by changing directory — this matters because the actual shell here is PowerShell (see runShell below), not bash. */
 function resolveEffectiveDir(cwd: string, command: string): string {
-  const match = command.match(/^\s*(?:cd|Set-Location|sl|pushd)\s+("[^"]+"|'[^']+'|\S+)\s*(?:&&|;)/i);
+  const match = command.match(LEADING_CD_PATTERN);
   if (!match) return cwd;
   const raw = match[1].replace(/^["']|["']$/g, "");
   return path.resolve(cwd, raw);

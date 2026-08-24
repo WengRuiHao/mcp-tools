@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { fsReadFile, fsWriteFile, fsListDir, fsSearchText, PathEscapeError } from "./fs-tools.js";
-import { runShell } from "./shell-tools.js";
+import { runShell, isGitCommand, hasLeadingDirectoryChange } from "./shell-tools.js";
 import { resolveGitRoots } from "./git-roots-store.js";
 import { textResult } from "./shared.js";
 
@@ -109,7 +109,17 @@ export function registerProjectFsTools(server: McpServer): void {
     { projectDir: z.string().describe("專案目錄絕對路徑"), command: z.string().describe("要執行的 shell 指令") },
     async ({ projectDir, command }) => {
       const gitRoots = await resolveGitRoots(projectDir);
-      const result = await runShell(projectDir, command, gitRoots);
+      // projectDir 常常不是 git root 本身（例如前後端分開、或 git root 在更深一層子目錄）。過去唯一的
+      // 解法是要求呼叫端自己在 command 開頭寫 `cd <相對路徑>;`，一旦漏寫，git 指令會從 projectDir 往上
+      // 層層尋找 .git，很容易誤連到不相干的祖先 repo（見 verifyGitRoot 的偵測），被擋下來但很難第一次
+      //就猜到原因。只有唯一登記一個 git root、且呼叫端沒有自己下 cd/Set-Location 的情況下才能安全代勞
+      // 自動決定——多個 git root（前後端分開）時無從得知這句 git 指令該對哪一個跑，仍然交由呼叫端自己
+      // 用 cd 指定，維持原行為不變。
+      const execCwd =
+        gitRoots && gitRoots.length === 1 && isGitCommand(command) && !hasLeadingDirectoryChange(command)
+          ? gitRoots[0].path
+          : projectDir;
+      const result = await runShell(execCwd, command, gitRoots);
       return textResult(result, result.blocked === true);
     }
   );
