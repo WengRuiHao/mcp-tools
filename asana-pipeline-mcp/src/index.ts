@@ -182,6 +182,26 @@ async function getPipelineAsanaUserGid(): Promise<string | null> {
 }
 
 /**
+ * 局部重建報告時，這張票在本機的顯示名稱——`status.name` 是 2026-08-24 才新增的欄位，這個
+ * 日期之前就已經追蹤過的票單還沒被任何一次 get_ticket_snapshot 摸過，這個欄位是 null。與其讓
+ * 使用者在報告裡看到一串看不懂的 taskGid，改讀這張票追蹤目錄裡本來就存在的 `ticket.md`（任何
+ * 呼叫過 get_ticket_snapshot 的票單都一定有這份檔案，不管是新版還是舊版程式碼寫入的），取它第一行
+ * `# 票名` 當顯示名稱——純讀本機檔案，不用額外呼叫 Asana。真的連 ticket.md 都讀不到（理論上不會
+ * 發生，除非追蹤目錄被手動清過）才退回顯示 taskGid。
+ */
+async function resolveTicketDisplayName(gid: string, status: TicketStatus): Promise<string> {
+  if (status.name) return status.name;
+  try {
+    const ticketMd = await readArtifact(gid, "ticket.md");
+    const firstLine = ticketMd?.split("\n")[0]?.trim();
+    if (firstLine?.startsWith("# ") && firstLine.length > 2) return firstLine.slice(2).trim();
+  } catch (err: any) {
+    console.error(`[asana-pipeline-mcp] resolveTicketDisplayName(${gid}) failed: ${err?.message ?? err}`);
+  }
+  return gid;
+}
+
+/**
  * 任何單張票的狀態異動（advance_ticket_stage/write_ticket_artifact/resolve_manual_action/
  * record_confirmation/resync_ticket_artifact）呼叫完之後都會呼叫這個函式，局部重建這張票所屬
  * Asana 專案的 PENDING_HUMAN_ACTIONS.md——不依賴呼叫端記得額外呼叫 list_pending_tickets，這樣
@@ -221,7 +241,7 @@ async function syncPendingActionsReport(ticketGid: string): Promise<void> {
       // 無限期在這份局部重建的報告裡復活。還沒被新版程式碼碰過的舊票單這個欄位預設 false（未知），要等
       // 下次 get_ticket_snapshot 才會補上真實值，是這個純本機做法無法避免的暫時性落差。
       if (s.last_seen_completed) continue;
-      const name = s.name ?? gid;
+      const name = await resolveTicketDisplayName(gid, s);
 
       const manualActions = [...s.implementation_manual_actions, ...s.verification_manual_actions];
       if (manualActions.length > 0) manualActionsList.push({ taskGid: gid, name, actions: manualActions });
