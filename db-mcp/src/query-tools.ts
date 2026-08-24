@@ -13,10 +13,31 @@ function envWarning(env: string): string | undefined {
   return env === "prod" ? "⚠️ 這是標記為 prod 的連線，請小心操作" : undefined;
 }
 
-// v1 只有 postgres 驅動，先用雙引號規則；之後補其他資料庫類型要跟著換引號規則。
-function quoteIdentifierPostgres(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
+function quoteIdentifier(type: string, name: string): string {
+  if (type === "mysql") return `\`${name.replace(/`/g, "``")}\``;
+  if (type === "mssql") return `[${name.replace(/]/g, "]]")}]`;
+  return `"${name.replace(/"/g, '""')}"`; // postgres / oracle
 }
+
+function defaultSchemaFor(conn: { type: string; database: string; username: string }): string {
+  if (conn.type === "mysql") return conn.database;
+  if (conn.type === "mssql") return "dbo";
+  if (conn.type === "oracle") return conn.username.toUpperCase();
+  return "public";
+}
+
+/** 各資料庫的「限制筆數」語法不一樣（LIMIT / TOP / FETCH FIRST），這裡統一組出來。 */
+function buildSampleSql(type: string, schema: string, table: string, limit: number): string {
+  const qualified = `${quoteIdentifier(type, schema)}.${quoteIdentifier(type, table)}`;
+  if (type === "mssql") return `SELECT TOP ${limit} * FROM ${qualified}`;
+  if (type === "oracle") return `SELECT * FROM ${qualified} FETCH FIRST ${limit} ROWS ONLY`;
+  return `SELECT * FROM ${qualified} LIMIT ${limit}`; // postgres / mysql
+}
+
+const paramsSchema = z
+  .record(z.union([z.string(), z.number(), z.boolean(), z.null()]))
+  .optional()
+  .describe("具名參數綁定，SQL 裡用 :paramName（例如 WHERE id = :id），這裡給 { id: 123 }。避免自己把值拼進 SQL 字串。");
 
 export function registerQueryTools(server: McpServer): void {
   server.tool(
@@ -27,8 +48,9 @@ export function registerQueryTools(server: McpServer): void {
     {
       connectionId: connectionIdParam,
       sql: z.string().min(1),
+      params: paramsSchema,
     },
-    async ({ connectionId, sql }) => {
+    async ({ connectionId, sql, params }) => {
       const conn = findConnection(connectionId);
       if (!conn) return toolResult(fail(`找不到連線 ${connectionId}`));
 
@@ -37,7 +59,7 @@ export function registerQueryTools(server: McpServer): void {
 
       try {
         const driver = getDriver(conn.type);
-        const result = await driver.runQuery(conn, sql, MAX_ROWS, QUERY_TIMEOUT_MS);
+        const result = await driver.runQuery(conn, sql, params, MAX_ROWS, QUERY_TIMEOUT_MS);
         return toolResult(ok({ ...result, warning: envWarning(conn.env) }));
       } catch (e: any) {
         return toolResult(fail(`執行失敗：${e.message}`));
@@ -71,11 +93,11 @@ export function registerQueryTools(server: McpServer): void {
         );
       }
 
-      const schema = schemaName || "public";
-      const sql = `SELECT * FROM ${quoteIdentifierPostgres(schema)}.${quoteIdentifierPostgres(tableName)} LIMIT ${limit}`;
+      const schema = schemaName || defaultSchemaFor(conn);
+      const sql = buildSampleSql(conn.type, schema, tableName, limit);
       try {
         const driver = getDriver(conn.type);
-        const result = await driver.runQuery(conn, sql, limit, QUERY_TIMEOUT_MS);
+        const result = await driver.runQuery(conn, sql, undefined, limit, QUERY_TIMEOUT_MS);
         return toolResult(ok({ ...result, warning: envWarning(conn.env) }));
       } catch (e: any) {
         return toolResult(fail(`查詢失敗：${e.message}`));
@@ -88,9 +110,10 @@ export function registerQueryTools(server: McpServer): void {
     "【唯讀】對一段 SQL 跑 EXPLAIN 分析執行計畫（幫助判斷效能問題）。跟 db_query 共用同一套唯讀把關規則。",
     {
       connectionId: connectionIdParam,
-      sql: z.string().min(1).describe("要分析的 SQL（不用自己加 EXPLAIN，這個工具會自動加）"),
+      sql: z.string().min(1).describe("要分析的 SQL（不用自己加 EXPLAIN，這個工具會自動加。目前的 EXPLAIN 語法只驗證過 postgresql/mysql，mssql/oracle 的 EXPLAIN 機制不一樣，呼叫下去大概率會執行失敗）"),
+      params: paramsSchema,
     },
-    async ({ connectionId, sql }) => {
+    async ({ connectionId, sql, params }) => {
       const conn = findConnection(connectionId);
       if (!conn) return toolResult(fail(`找不到連線 ${connectionId}`));
 
@@ -100,7 +123,7 @@ export function registerQueryTools(server: McpServer): void {
 
       try {
         const driver = getDriver(conn.type);
-        const result = await driver.runQuery(conn, explainSql, MAX_ROWS, QUERY_TIMEOUT_MS);
+        const result = await driver.runQuery(conn, explainSql, params, MAX_ROWS, QUERY_TIMEOUT_MS);
         return toolResult(ok({ ...result, warning: envWarning(conn.env) }));
       } catch (e: any) {
         return toolResult(fail(`執行失敗：${e.message}`));

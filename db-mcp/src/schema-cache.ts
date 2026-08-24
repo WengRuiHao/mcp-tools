@@ -258,3 +258,63 @@ export function upsertNote(db: DatabaseSync, schemaName: string, tableName: stri
 export function listNotes(db: DatabaseSync) {
   return db.prepare(`SELECT schema_name, table_name, note, author, updated_at FROM notes ORDER BY table_name`).all();
 }
+
+type CachedSchema = ReturnType<typeof readCachedSchema>;
+
+/** 比較同一個專案底下兩個連線的快取差異——只看快取，不會去連真正的資料庫。 */
+export function diffCachedSchemas(a: CachedSchema, b: CachedSchema) {
+  const key = (t: { schema: string; name: string }) => `${t.schema}.${t.name}`;
+  const aTables = new Map(a.tables.map((t) => [key(t), t]));
+  const bTables = new Map(b.tables.map((t) => [key(t), t]));
+
+  const onlyInA = [...aTables.keys()].filter((k) => !bTables.has(k)).sort();
+  const onlyInB = [...bTables.keys()].filter((k) => !aTables.has(k)).sort();
+  const common = [...aTables.keys()].filter((k) => bTables.has(k)).sort();
+
+  const columnDifferences = [];
+  for (const tableKey of common) {
+    const ta = aTables.get(tableKey)!;
+    const tb = bTables.get(tableKey)!;
+    const colsA = new Map(ta.columns.map((c: any) => [c.name, c]));
+    const colsB = new Map(tb.columns.map((c: any) => [c.name, c]));
+
+    const addedInB = [...colsB.keys()].filter((c) => !colsA.has(c));
+    const removedInB = [...colsA.keys()].filter((c) => !colsB.has(c));
+    const typeChanged = [...colsA.keys()]
+      .filter((c) => colsB.has(c) && (colsA.get(c) as any).dataType !== (colsB.get(c) as any).dataType)
+      .map((c) => ({ column: c, a: (colsA.get(c) as any).dataType, b: (colsB.get(c) as any).dataType }));
+
+    if (addedInB.length || removedInB.length || typeChanged.length) {
+      columnDifferences.push({ table: tableKey, addedInB, removedInB, typeChanged });
+    }
+  }
+
+  return { tablesOnlyInA: onlyInA, tablesOnlyInB: onlyInB, columnDifferences };
+}
+
+/** 從快取產生 CREATE TABLE / FK 的 DDL 文字（雙引號風格，主要給人看/當文件用，不保證是來源資料庫可以直接重跑的合法語法）。 */
+export function exportDdlFromCache(cached: CachedSchema): string {
+  const statements: string[] = [];
+
+  for (const t of cached.tables) {
+    if (t.type !== "TABLE") continue;
+    const pkCols = (t.columns as any[]).filter((c) => c.isPk).map((c) => c.name);
+    const colLines = (t.columns as any[]).map((c) => {
+      let line = `  "${c.name}" ${c.dataType}`;
+      if (!c.nullable) line += " NOT NULL";
+      if (c.defaultValue) line += ` DEFAULT ${c.defaultValue}`;
+      return line;
+    });
+    if (pkCols.length) colLines.push(`  PRIMARY KEY (${pkCols.map((c: string) => `"${c}"`).join(", ")})`);
+    statements.push(`CREATE TABLE "${t.schema}"."${t.name}" (\n${colLines.join(",\n")}\n);`);
+  }
+
+  for (const fk of cached.foreignKeys) {
+    statements.push(
+      `ALTER TABLE "${fk.schema}"."${fk.table}" ADD CONSTRAINT "${fk.constraintName}" ` +
+        `FOREIGN KEY ("${fk.column}") REFERENCES "${fk.refSchema}"."${fk.refTable}" ("${fk.refColumn}");`
+    );
+  }
+
+  return statements.join("\n\n");
+}

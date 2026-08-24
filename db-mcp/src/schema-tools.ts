@@ -2,7 +2,16 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { findConnection, findProject } from "./config-store.js";
 import { getDriver } from "./db-client.js";
-import { openSchemaDb, replaceSchemaSnapshot, readCachedSchema, searchTables, upsertNote, listNotes } from "./schema-cache.js";
+import {
+  openSchemaDb,
+  replaceSchemaSnapshot,
+  readCachedSchema,
+  searchTables,
+  upsertNote,
+  listNotes,
+  diffCachedSchemas,
+  exportDdlFromCache,
+} from "./schema-cache.js";
 import { toolResult, ok, fail, projectIdParam, connectionIdParam } from "./shared.js";
 
 export function registerSchemaTools(server: McpServer): void {
@@ -75,6 +84,61 @@ export function registerSchemaTools(server: McpServer): void {
       try {
         upsertNote(db, schemaName ?? "", tableName, note, "ai");
         return toolResult(ok({ schemaName: schemaName ?? "", tableName, note }));
+      } finally {
+        db.close();
+      }
+    }
+  );
+
+  server.tool(
+    "db_diff_schema",
+    "【唯讀】比較同一個專案底下兩個連線的 schema 快取差異（哪些表只在其中一邊、共同表的欄位差在哪）——常用來對照 dev/test/prod 環境落差，或翻修前後的結構變化。純粹比對快取，不會連線，所以兩個連線都要先跑過 db_schema（refresh:true）同步過才有得比。",
+    {
+      projectId: projectIdParam,
+      connectionIdA: connectionIdParam,
+      connectionIdB: connectionIdParam,
+    },
+    async ({ projectId, connectionIdA, connectionIdB }) => {
+      const project = findProject(projectId);
+      if (!project) return toolResult(fail(`找不到專案 ${projectId}`));
+      const connA = findConnection(connectionIdA);
+      const connB = findConnection(connectionIdB);
+      if (!connA || !connB) return toolResult(fail("找不到其中一個連線"));
+      if (connA.projectId !== projectId || connB.projectId !== projectId) {
+        return toolResult(fail("兩個連線都要屬於這個專案才能比較"));
+      }
+
+      const db = openSchemaDb(projectId);
+      try {
+        const cachedA = readCachedSchema(db, connectionIdA);
+        const cachedB = readCachedSchema(db, connectionIdB);
+        if (!cachedA.lastSyncedAt) return toolResult(fail(`連線「${connA.name}」還沒同步過 schema，先呼叫 db_schema（refresh:true）`));
+        if (!cachedB.lastSyncedAt) return toolResult(fail(`連線「${connB.name}」還沒同步過 schema，先呼叫 db_schema（refresh:true）`));
+        return toolResult(
+          ok({
+            connectionA: { id: connA.id, name: connA.name, env: connA.env, lastSyncedAt: cachedA.lastSyncedAt },
+            connectionB: { id: connB.id, name: connB.name, env: connB.env, lastSyncedAt: cachedB.lastSyncedAt },
+            ...diffCachedSchemas(cachedA, cachedB),
+          })
+        );
+      } finally {
+        db.close();
+      }
+    }
+  );
+
+  server.tool(
+    "db_export_ddl",
+    "【唯讀】把某個連線的快取 schema 匯出成 CREATE TABLE / FK 的 DDL 文字，給建置案/翻修案留存文件用。注意：一律用雙引號風格產生，是給人看的文件用途，不保證是來源資料庫可以直接重跑的合法語法（尤其 mysql/mssql 的引號規則不一樣）。要先對這個連線跑過 db_schema 同步。",
+    { connectionId: connectionIdParam },
+    async ({ connectionId }) => {
+      const conn = findConnection(connectionId);
+      if (!conn) return toolResult(fail(`找不到連線 ${connectionId}`));
+      const db = openSchemaDb(conn.projectId);
+      try {
+        const cached = readCachedSchema(db, connectionId);
+        if (!cached.lastSyncedAt) return toolResult(fail(`還沒同步過 schema，先呼叫 db_schema（refresh:true）`));
+        return toolResult(ok({ ddl: exportDdlFromCache(cached) }));
       } finally {
         db.close();
       }

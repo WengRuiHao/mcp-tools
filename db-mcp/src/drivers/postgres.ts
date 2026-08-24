@@ -2,6 +2,7 @@ import pg from "pg";
 import type { DbConnection } from "../config-store.js";
 import type {
   DbDriver,
+  QueryParams,
   SchemaIntrospection,
   QueryResult,
   TestConnectionResult,
@@ -10,6 +11,7 @@ import type {
   ForeignKeyInfo,
   IndexInfo,
 } from "../db-client.js";
+import { toPositionalPlaceholders } from "../named-params.js";
 
 // v1 先固定查 public schema；之後要支援自訂 schema 再幫 DbConnection 加欄位。
 const DEFAULT_SCHEMA = "public";
@@ -149,12 +151,25 @@ async function introspectSchema(conn: DbConnection): Promise<SchemaIntrospection
   }
 }
 
-async function runQuery(conn: DbConnection, sql: string, maxRows: number, timeoutMs: number): Promise<QueryResult> {
+async function runQuery(
+  conn: DbConnection,
+  sql: string,
+  params: QueryParams | undefined,
+  maxRows: number,
+  timeoutMs: number
+): Promise<QueryResult> {
   const start = Date.now();
   const client = buildClient(conn, timeoutMs);
   await client.connect();
   try {
-    const res = await client.query(sql);
+    let finalSql = sql;
+    let values: unknown[] | undefined;
+    if (params && Object.keys(params).length > 0) {
+      const { sql: prepared, paramOrder } = toPositionalPlaceholders(sql, (i) => `$${i}`);
+      finalSql = prepared;
+      values = paramOrder.map((name) => params[name] ?? null);
+    }
+    const res = await client.query(finalSql, values);
     const columns = (res.fields ?? []).map((f) => f.name);
     const allRows = res.rows.map((row) => columns.map((c) => normalizeValue(row[c])));
     const truncated = allRows.length > maxRows;

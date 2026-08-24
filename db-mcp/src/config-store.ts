@@ -126,6 +126,24 @@ export function addConnection(input: Omit<DbConnection, "id" | "createdAt">): Db
   return connection;
 }
 
+export function updateConnection(id: string, input: Omit<DbConnection, "id" | "createdAt">): DbConnection | undefined {
+  const connections = listConnections();
+  const idx = connections.findIndex((c) => c.id === id);
+  if (idx === -1) return undefined;
+  const updated: DbConnection = { ...input, id, createdAt: connections[idx].createdAt };
+  connections[idx] = updated;
+  writeJsonFile(getConnectionsFilePath(), { connections });
+  return updated;
+}
+
+export function deleteConnection(id: string): boolean {
+  const connections = listConnections();
+  const next = connections.filter((c) => c.id !== id);
+  if (next.length === connections.length) return false;
+  writeJsonFile(getConnectionsFilePath(), { connections: next });
+  return true;
+}
+
 /** 對外（例如 db_list_connections 工具）看到的連線資訊，絕對不含密碼。 */
 export function toSafeConnection(c: DbConnection): Omit<DbConnection, "password"> {
   const { password, ...safe } = c;
