@@ -113,6 +113,10 @@ export interface ConnectionSyncMeta {
   env: string;
 }
 
+// 每個連線最多留幾筆歷史快照——沒有這個上限，反覆 refresh 大型 schema（很多 routine 原始碼）
+// 會讓 schema_snapshots 這張表無限長大，實測 728 張表+172 個預存程序的 schema 單筆快照就有數 MB。
+const MAX_SNAPSHOTS_PER_CONNECTION = 10;
+
 /** 用一次全新的 introspection 結果整批覆蓋這個連線的快取（表/欄位/FK/索引），並補一筆歷史快照。 */
 export function replaceSchemaSnapshot(
   db: DatabaseSync,
@@ -185,6 +189,13 @@ export function replaceSchemaSnapshot(
       now,
       JSON.stringify(introspection)
     );
+    // 每次 refresh 都會整包再存一份歷史快照，不清舊的檔案會無限長大——只留最近幾筆，
+    // 大型 schema（很多 routine 原始碼）重複 refresh 幾次沒有這個上限會很快膨脹到幾十 MB 以上。
+    db.prepare(
+      `DELETE FROM schema_snapshots WHERE connection_id = ? AND id NOT IN (
+         SELECT id FROM schema_snapshots WHERE connection_id = ? ORDER BY snapshot_at DESC LIMIT ${MAX_SNAPSHOTS_PER_CONNECTION}
+       )`
+    ).run(connectionId, connectionId);
 
     db.exec("COMMIT");
   } catch (e) {
