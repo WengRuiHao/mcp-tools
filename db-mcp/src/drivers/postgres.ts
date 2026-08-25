@@ -13,9 +13,6 @@ import type {
 } from "../db-client.js";
 import { toPositionalPlaceholders } from "../named-params.js";
 
-// v1 先固定查 public schema；之後要支援自訂 schema 再幫 DbConnection 加欄位。
-const DEFAULT_SCHEMA = "public";
-
 function buildClient(conn: DbConnection, timeoutMs: number): pg.Client {
   return new pg.Client({
     host: conn.host,
@@ -52,71 +49,70 @@ async function testConnection(conn: DbConnection): Promise<TestConnectionResult>
   }
 }
 
+// 排除系統 schema，其餘全部內省——實測遇到真實案例是自訂 schema（跟資料庫同名，public 反而是空的），
+// 硬編碼單一 schema（之前是寫死 "public"）會直接漏掉整個資料庫，所以改成掃全部使用者 schema。
+const SYSTEM_SCHEMA_FILTER = `n.nspname NOT IN ('pg_catalog', 'information_schema') AND n.nspname NOT LIKE 'pg_toast%'`;
+const SYSTEM_SCHEMA_FILTER_INFO_SCHEMA = `table_schema NOT IN ('pg_catalog', 'information_schema') AND table_schema NOT LIKE 'pg_toast%'`;
+
 async function introspectSchema(conn: DbConnection): Promise<SchemaIntrospection> {
   const client = buildClient(conn, 15000);
   await client.connect();
   try {
-    const schema = DEFAULT_SCHEMA;
-
     const tablesRes = await client.query(
-      `SELECT c.relname AS table_name,
+      `SELECT n.nspname AS schema_name, c.relname AS table_name,
               CASE c.relkind WHEN 'v' THEN 'VIEW' ELSE 'TABLE' END AS table_type,
               NULLIF(c.reltuples, -1)::bigint AS row_estimate
        FROM pg_class c
        JOIN pg_namespace n ON n.oid = c.relnamespace
-       WHERE n.nspname = $1 AND c.relkind IN ('r','v')
-       ORDER BY c.relname`,
-      [schema]
+       WHERE ${SYSTEM_SCHEMA_FILTER} AND c.relkind IN ('r','v')
+       ORDER BY n.nspname, c.relname`
     );
     const tables: TableInfo[] = tablesRes.rows.map((r) => ({
-      schema,
+      schema: r.schema_name,
       name: r.table_name,
       type: r.table_type,
       rowEstimate: r.row_estimate === null ? null : Number(r.row_estimate),
     }));
 
     const pkRes = await client.query(
-      `SELECT tc.table_name, kcu.column_name
+      `SELECT tc.table_schema, tc.table_name, kcu.column_name
        FROM information_schema.table_constraints tc
        JOIN information_schema.key_column_usage kcu
          ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
-       WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = $1`,
-      [schema]
+       WHERE tc.constraint_type = 'PRIMARY KEY' AND ${SYSTEM_SCHEMA_FILTER_INFO_SCHEMA.replace(/table_schema/g, "tc.table_schema")}`
     );
-    const pkSet = new Set(pkRes.rows.map((r) => `${r.table_name}.${r.column_name}`));
+    const pkSet = new Set(pkRes.rows.map((r) => `${r.table_schema}.${r.table_name}.${r.column_name}`));
 
     const colRes = await client.query(
-      `SELECT table_name, column_name, ordinal_position, data_type, is_nullable, column_default
+      `SELECT table_schema, table_name, column_name, ordinal_position, data_type, is_nullable, column_default
        FROM information_schema.columns
-       WHERE table_schema = $1
-       ORDER BY table_name, ordinal_position`,
-      [schema]
+       WHERE ${SYSTEM_SCHEMA_FILTER_INFO_SCHEMA}
+       ORDER BY table_schema, table_name, ordinal_position`
     );
     const columns: ColumnInfo[] = colRes.rows.map((r) => ({
-      schema,
+      schema: r.table_schema,
       table: r.table_name,
       name: r.column_name,
       ordinal: r.ordinal_position,
       dataType: r.data_type,
       nullable: r.is_nullable === "YES",
-      isPk: pkSet.has(`${r.table_name}.${r.column_name}`),
+      isPk: pkSet.has(`${r.table_schema}.${r.table_name}.${r.column_name}`),
       defaultValue: r.column_default,
     }));
 
     const fkRes = await client.query(
-      `SELECT tc.constraint_name, tc.table_name, kcu.column_name,
+      `SELECT tc.constraint_name, tc.table_schema, tc.table_name, kcu.column_name,
               ccu.table_schema AS ref_schema, ccu.table_name AS ref_table, ccu.column_name AS ref_column
        FROM information_schema.table_constraints tc
        JOIN information_schema.key_column_usage kcu
          ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
        JOIN information_schema.constraint_column_usage ccu
          ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema
-       WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = $1`,
-      [schema]
+       WHERE tc.constraint_type = 'FOREIGN KEY' AND ${SYSTEM_SCHEMA_FILTER_INFO_SCHEMA.replace(/table_schema/g, "tc.table_schema")}`
     );
     const foreignKeys: ForeignKeyInfo[] = fkRes.rows.map((r) => ({
       constraintName: r.constraint_name,
-      schema,
+      schema: r.table_schema,
       table: r.table_name,
       column: r.column_name,
       refSchema: r.ref_schema,
@@ -125,19 +121,18 @@ async function introspectSchema(conn: DbConnection): Promise<SchemaIntrospection
     }));
 
     const idxRes = await client.query(
-      `SELECT t.relname AS table_name, i.relname AS index_name, a.attname AS column_name,
+      `SELECT n.nspname AS schema_name, t.relname AS table_name, i.relname AS index_name, a.attname AS column_name,
               array_position(ix.indkey, a.attnum) AS ordinal, ix.indisunique AS is_unique
        FROM pg_index ix
        JOIN pg_class t ON t.oid = ix.indrelid
        JOIN pg_class i ON i.oid = ix.indexrelid
        JOIN pg_namespace n ON n.oid = t.relnamespace
        JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey)
-       WHERE n.nspname = $1
-       ORDER BY t.relname, i.relname, ordinal`,
-      [schema]
+       WHERE ${SYSTEM_SCHEMA_FILTER}
+       ORDER BY n.nspname, t.relname, i.relname, ordinal`
     );
     const indexes: IndexInfo[] = idxRes.rows.map((r) => ({
-      schema,
+      schema: r.schema_name,
       table: r.table_name,
       indexName: r.index_name,
       column: r.column_name,

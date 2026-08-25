@@ -14,10 +14,14 @@ import type {
 
 oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT;
 
-// v1 假設用 service name 連（host:port/service），不是舊式的 SID（host:port:SID）；
+// 這個工具主要目標是建置/翻修案常見的老舊 Oracle 系統，實測遇到的第一個真實案例是舊式 SID
+// （jdbc:oracle:thin:@host:port:SID），不是新式 service name。node-oracledb 的 Easy Connect
+// 語法（host:port/xxx）並不支援冒號 SID 格式（實測會丟 NJS-515），SID 一定要用完整的 TNS
+// descriptor 字串明確標出 CONNECT_DATA=(SID=...)，用 service name 語法硬套 SID 會連錯或連不上。
+// 之後真的遇到 service name 制的環境要連，再補一個設定欄位分辨兩種格式。
 // 也假設用 schema 擁有者本人的帳號連線，所以查 USER_* 系列 view 就夠，不用查 ALL_*/DBA_*。
 function buildConnectString(conn: DbConnection): string {
-  return `${conn.host}:${conn.port}/${conn.database}`;
+  return `(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=${conn.host})(PORT=${conn.port}))(CONNECT_DATA=(SID=${conn.database})))`;
 }
 
 function normalizeValue(v: unknown): unknown {
