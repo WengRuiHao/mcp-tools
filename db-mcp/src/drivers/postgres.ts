@@ -10,6 +10,8 @@ import type {
   TableInfo,
   ForeignKeyInfo,
   IndexInfo,
+  ViewDefinitionInfo,
+  RoutineInfo,
 } from "../db-client.js";
 import { toPositionalPlaceholders } from "../named-params.js";
 
@@ -140,7 +142,34 @@ async function introspectSchema(conn: DbConnection): Promise<SchemaIntrospection
       isUnique: r.is_unique,
     }));
 
-    return { tables, columns, foreignKeys, indexes };
+    const viewRes = await client.query(
+      `SELECT schemaname AS schema_name, viewname AS view_name, definition
+       FROM pg_views
+       WHERE ${SYSTEM_SCHEMA_FILTER.replace(/n\.nspname/g, "schemaname")}`
+    );
+    const views: ViewDefinitionInfo[] = viewRes.rows.map((r) => ({
+      schema: r.schema_name,
+      name: r.view_name,
+      definition: r.definition,
+    }));
+
+    // prokind 是 PG11+ 才有的欄位（'f'=function, 'p'=procedure）；舊版 PG 沒有這個欄位會查不到，先接受這個限制。
+    const routineRes = await client.query(
+      `SELECT n.nspname AS schema_name, p.proname AS routine_name,
+              CASE p.prokind WHEN 'p' THEN 'PROCEDURE' ELSE 'FUNCTION' END AS routine_type,
+              pg_get_functiondef(p.oid) AS definition
+       FROM pg_proc p
+       JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE ${SYSTEM_SCHEMA_FILTER} AND p.prokind IN ('f', 'p')`
+    );
+    const routines: RoutineInfo[] = routineRes.rows.map((r) => ({
+      schema: r.schema_name,
+      name: r.routine_name,
+      type: r.routine_type,
+      definition: r.definition,
+    }));
+
+    return { tables, columns, foreignKeys, indexes, views, routines };
   } finally {
     await client.end().catch(() => {});
   }

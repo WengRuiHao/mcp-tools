@@ -10,6 +10,8 @@ import type {
   TableInfo,
   ForeignKeyInfo,
   IndexInfo,
+  ViewDefinitionInfo,
+  RoutineInfo,
 } from "../db-client.js";
 import { toAtNamedPlaceholders } from "../named-params.js";
 
@@ -142,7 +144,35 @@ async function introspectSchema(conn: DbConnection): Promise<SchemaIntrospection
       isUnique: !!r.is_unique,
     }));
 
-    return { tables, columns, foreignKeys, indexes };
+    const viewRes = await pool.request().input("schema", sql.NVarChar, schema).query(
+      `SELECT s.name AS schema_name, o.name AS view_name, m.definition
+       FROM sys.views o
+       JOIN sys.schemas s ON s.schema_id = o.schema_id
+       JOIN sys.sql_modules m ON m.object_id = o.object_id
+       WHERE s.name = @schema`
+    );
+    const views: ViewDefinitionInfo[] = viewRes.recordset.map((r: any) => ({
+      schema: r.schema_name,
+      name: r.view_name,
+      definition: r.definition,
+    }));
+
+    // type: P=預存程序、FN/TF/IF=各種函式(純量/資料表函式)
+    const routineRes = await pool.request().input("schema", sql.NVarChar, schema).query(
+      `SELECT s.name AS schema_name, o.name AS routine_name, o.type AS obj_type, m.definition
+       FROM sys.objects o
+       JOIN sys.schemas s ON s.schema_id = o.schema_id
+       JOIN sys.sql_modules m ON m.object_id = o.object_id
+       WHERE s.name = @schema AND o.type IN ('P', 'FN', 'TF', 'IF')`
+    );
+    const routines: RoutineInfo[] = routineRes.recordset.map((r: any) => ({
+      schema: r.schema_name,
+      name: r.routine_name,
+      type: r.obj_type === "P" ? "PROCEDURE" : "FUNCTION",
+      definition: r.definition,
+    }));
+
+    return { tables, columns, foreignKeys, indexes, views, routines };
   } finally {
     await pool.close().catch(() => {});
   }

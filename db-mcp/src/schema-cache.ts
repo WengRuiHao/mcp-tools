@@ -61,6 +61,26 @@ CREATE TABLE IF NOT EXISTS indexes (
   PRIMARY KEY (connection_id, index_name, column_name)
 );
 
+CREATE TABLE IF NOT EXISTS views (
+  connection_id TEXT NOT NULL,
+  schema_name TEXT NOT NULL DEFAULT '',
+  view_name TEXT NOT NULL,
+  definition TEXT,
+  PRIMARY KEY (connection_id, schema_name, view_name)
+);
+
+-- 沒有用 (connection_id, schema_name, routine_name, routine_type) 當主鍵——
+-- Postgres/Oracle 允許同名函式多載（相同名稱、不同參數签名），主鍵設同名唯一實測會直接撞 UNIQUE constraint。
+CREATE TABLE IF NOT EXISTS routines (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  connection_id TEXT NOT NULL,
+  schema_name TEXT NOT NULL DEFAULT '',
+  routine_name TEXT NOT NULL,
+  routine_type TEXT NOT NULL,
+  definition TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_routines_lookup ON routines(connection_id, routine_name);
+
 CREATE TABLE IF NOT EXISTS notes (
   schema_name TEXT NOT NULL DEFAULT '',
   table_name TEXT NOT NULL,
@@ -111,7 +131,7 @@ export function replaceSchemaSnapshot(
          last_synced_at = excluded.last_synced_at, last_sync_status = 'success', last_sync_message = NULL`
     ).run(connectionId, meta.name, meta.dbType, meta.env, now);
 
-    for (const t of ["tables", "columns", "foreign_keys", "indexes"]) {
+    for (const t of ["tables", "columns", "foreign_keys", "indexes", "views", "routines"]) {
       db.prepare(`DELETE FROM ${t} WHERE connection_id = ?`).run(connectionId);
     }
 
@@ -144,6 +164,20 @@ export function replaceSchemaSnapshot(
     );
     for (const idx of introspection.indexes) {
       insIdx.run(connectionId, idx.schema, idx.table, idx.indexName, idx.column, idx.ordinal, idx.isUnique ? 1 : 0);
+    }
+
+    const insView = db.prepare(
+      `INSERT INTO views (connection_id, schema_name, view_name, definition) VALUES (?, ?, ?, ?)`
+    );
+    for (const v of introspection.views) {
+      insView.run(connectionId, v.schema, v.name, v.definition);
+    }
+
+    const insRoutine = db.prepare(
+      `INSERT INTO routines (connection_id, schema_name, routine_name, routine_type, definition) VALUES (?, ?, ?, ?, ?)`
+    );
+    for (const r of introspection.routines) {
+      insRoutine.run(connectionId, r.schema, r.name, r.type, r.definition);
     }
 
     db.prepare(`INSERT INTO schema_snapshots (connection_id, snapshot_at, raw_json) VALUES (?, ?, ?)`).run(
@@ -210,12 +244,27 @@ export function readCachedSchema(db: DatabaseSync, connectionId: string) {
     isUnique: !!idx.is_unique,
   }));
 
+  const viewRows = db.prepare(`SELECT * FROM views WHERE connection_id = ? ORDER BY view_name`).all(connectionId) as any[];
+  const views = viewRows.map((v) => ({ schema: v.schema_name, name: v.view_name, definition: v.definition }));
+
+  const routineRows = db
+    .prepare(`SELECT * FROM routines WHERE connection_id = ? ORDER BY routine_name`)
+    .all(connectionId) as any[];
+  const routines = routineRows.map((r) => ({
+    schema: r.schema_name,
+    name: r.routine_name,
+    type: r.routine_type,
+    definition: r.definition,
+  }));
+
   return {
     lastSyncedAt: connRow?.last_synced_at ?? null,
     tableCount: tables.length,
     tables,
     foreignKeys,
     indexes,
+    views,
+    routines,
   };
 }
 
@@ -250,23 +299,53 @@ export type CachedSchema = ReturnType<typeof readCachedSchema>;
  * 欄位總數沒超標就原樣回傳；超標的話把每張表的 columns 陣列換成 columnCount，
  * 並標記 truncated——AI 要看某張表的完整欄位，改用 db_schema 的 tableName 參數單獨拿那一張。
  */
+// view/routine 的定義是整段 SQL 原始碼，一段大的預存程序就可能好幾千字——欄位數沒超標不代表這段不會爆。
+const MAX_DEFINITION_CHARS_BEFORE_SUMMARY = 100_000;
+
 export function summarizeIfLarge(cached: CachedSchema): CachedSchema & { truncated: boolean; truncatedMessage?: string } {
   const totalColumns = cached.tables.reduce((sum, t: any) => sum + (t.columns?.length ?? 0), 0);
-  if (totalColumns <= MAX_COLUMNS_BEFORE_SUMMARY) {
+  const totalDefChars = [...cached.views, ...cached.routines].reduce((sum, v: any) => sum + (v.definition?.length ?? 0), 0);
+  const columnsOverLimit = totalColumns > MAX_COLUMNS_BEFORE_SUMMARY;
+  const definitionsOverLimit = totalDefChars > MAX_DEFINITION_CHARS_BEFORE_SUMMARY;
+
+  if (!columnsOverLimit && !definitionsOverLimit) {
     return { ...cached, truncated: false };
   }
-  const tables = cached.tables.map((t: any) => ({
-    schema: t.schema,
-    name: t.name,
-    type: t.type,
-    rowEstimate: t.rowEstimate,
-    columnCount: t.columns?.length ?? 0,
-  }));
+
+  const tables = columnsOverLimit
+    ? cached.tables.map((t: any) => ({
+        schema: t.schema,
+        name: t.name,
+        type: t.type,
+        rowEstimate: t.rowEstimate,
+        columnCount: t.columns?.length ?? 0,
+      }))
+    : cached.tables;
+
+  const views = definitionsOverLimit ? cached.views.map((v) => ({ schema: v.schema, name: v.name })) : cached.views;
+  const routines = definitionsOverLimit
+    ? cached.routines.map((r) => ({ schema: r.schema, name: r.name, type: r.type }))
+    : cached.routines;
+
+  const notes: string[] = [];
+  if (columnsOverLimit) {
+    notes.push(
+      `欄位共 ${totalColumns} 個，超過上限（${MAX_COLUMNS_BEFORE_SUMMARY}），已省略每張表的欄位細節、只留表名+欄位數量。對 db_schema 加 tableName 參數可單獨查某一張表。`
+    );
+  }
+  if (definitionsOverLimit) {
+    notes.push(
+      `view/function/procedure 定義文字總長 ${totalDefChars} 字元，超過上限（${MAX_DEFINITION_CHARS_BEFORE_SUMMARY}），已省略定義內容、只留名稱。要看特定 view/routine 的定義，用 db_query 直接查（例如 postgres: SELECT definition FROM pg_views WHERE viewname = '...')。`
+    );
+  }
+
   return {
     ...cached,
     tables: tables as any,
+    views: views as any,
+    routines: routines as any,
     truncated: true,
-    truncatedMessage: `這個連線共 ${totalColumns} 個欄位，超過單次回傳上限（${MAX_COLUMNS_BEFORE_SUMMARY}），已省略每張表的欄位細節、只留表名+欄位數量。想看特定表的完整欄位/PK/FK，對 db_schema 加 tableName 參數單獨查那一張；想先定位相關的表，用 db_search_tables 關鍵字搜。`,
+    truncatedMessage: notes.join(" "),
   };
 }
 

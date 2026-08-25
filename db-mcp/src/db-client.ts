@@ -41,11 +41,26 @@ export interface IndexInfo {
   isUnique: boolean;
 }
 
+export interface ViewDefinitionInfo {
+  schema: string;
+  name: string;
+  definition: string | null;
+}
+
+export interface RoutineInfo {
+  schema: string;
+  name: string;
+  type: "FUNCTION" | "PROCEDURE";
+  definition: string | null;
+}
+
 export interface SchemaIntrospection {
   tables: TableInfo[];
   columns: ColumnInfo[];
   foreignKeys: ForeignKeyInfo[];
   indexes: IndexInfo[];
+  views: ViewDefinitionInfo[];
+  routines: RoutineInfo[];
 }
 
 export interface QueryResult {

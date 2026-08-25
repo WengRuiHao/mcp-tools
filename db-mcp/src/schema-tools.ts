@@ -19,11 +19,13 @@ import { toolResult, ok, fail, projectIdParam, connectionIdParam } from "./share
 export function registerSchemaTools(server: McpServer): void {
   server.tool(
     "db_schema",
-    "【唯讀】取得某個連線的 schema（表/欄位/PK/FK/索引）。預設讀本地 SQLite 快取（快很多、不碰真正的資料庫）；" +
+    "【唯讀】取得某個連線的 schema（表/欄位/PK/FK/索引/VIEW 定義/FUNCTION 與 PROCEDURE 原始碼）。" +
+      "預設讀本地 SQLite 快取（快很多、不碰真正的資料庫）；" +
       "第一次用某個連線、或懷疑正式環境結構已經變了，才加 refresh:true 強制重新連線同步並覆蓋快取。" +
       "快取從沒同步過的話，即使不給 refresh 也會自動同步一次。" +
-      "回應可能因為欄位太多被自動截斷成只有表名+欄位數量（回應裡 truncated:true 會說明）——" +
-      "這種情況要看特定表的完整欄位/PK/FK，改加 tableName 參數單獨查那一張。",
+      "回應可能因為欄位太多或 view/function/procedure 定義文字太長被自動截斷成只留名稱（回應裡 truncated:true 會說明）——" +
+      "這種情況要看特定表的完整欄位/PK/FK，改加 tableName 參數單獨查那一張；view/routine 定義太長被截斷的話改用 db_query 直接查。" +
+      "注意：Oracle 的 VIEW 定義（LONG 型別）某些環境可能抓不到，view 名稱本身還是看得到，只是沒有定義內容。",
     {
       connectionId: connectionIdParam,
       refresh: z.boolean().default(false).describe("true 會實際連線重新查一次 schema 並覆蓋快取"),

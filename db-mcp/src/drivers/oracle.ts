@@ -10,6 +10,8 @@ import type {
   TableInfo,
   ForeignKeyInfo,
   IndexInfo,
+  ViewDefinitionInfo,
+  RoutineInfo,
 } from "../db-client.js";
 
 oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT;
@@ -131,7 +133,37 @@ async function introspectSchema(conn: DbConnection): Promise<SchemaIntrospection
       isUnique: r.UNIQUENESS === "UNIQUE",
     }));
 
-    return { tables, columns, foreignKeys, indexes };
+    // user_views.text 是 LONG 型別，比較舊的 Oracle 沒有 12c+ 才有的 TEXT_VC(VARCHAR2) 欄位可以避開，
+    // 直接查 text 讓 oracledb 自己處理，抓不到的話這個查詢本身會失敗（不影響前面已經拿到的 table/column 等資訊）。
+    let views: ViewDefinitionInfo[] = [];
+    try {
+      const viewRes = await connection.execute<any>(`SELECT view_name, text FROM user_views`);
+      views = (viewRes.rows ?? []).map((r) => ({ schema, name: r.VIEW_NAME, definition: r.TEXT }));
+    } catch (e: any) {
+      views = []; // LONG 欄位在某些 client 設定下抓不到，view 清單本身（不含定義）還是能從 tables 裡看到
+    }
+
+    // user_source.text 是逐行存的 VARCHAR2（不是 LONG），JS 端自己組回完整原始碼，避開 Oracle LISTAGG 的長度限制。
+    const sourceRes = await connection.execute<any>(
+      `SELECT name, type, line, text
+       FROM user_source
+       WHERE type IN ('FUNCTION', 'PROCEDURE')
+       ORDER BY name, type, line`
+    );
+    const routineMap = new Map<string, { name: string; type: string; lines: string[] }>();
+    for (const r of sourceRes.rows ?? []) {
+      const key = `${r.NAME}.${r.TYPE}`;
+      if (!routineMap.has(key)) routineMap.set(key, { name: r.NAME, type: r.TYPE, lines: [] });
+      routineMap.get(key)!.lines.push(r.TEXT ?? "");
+    }
+    const routines: RoutineInfo[] = [...routineMap.values()].map((r) => ({
+      schema,
+      name: r.name,
+      type: r.type === "PROCEDURE" ? "PROCEDURE" : "FUNCTION",
+      definition: r.lines.join(""),
+    }));
+
+    return { tables, columns, foreignKeys, indexes, views, routines };
   } finally {
     await connection.close().catch(() => {});
   }

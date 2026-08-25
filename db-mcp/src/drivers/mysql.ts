@@ -10,6 +10,8 @@ import type {
   TableInfo,
   ForeignKeyInfo,
   IndexInfo,
+  ViewDefinitionInfo,
+  RoutineInfo,
 } from "../db-client.js";
 import { toPositionalPlaceholders } from "../named-params.js";
 
@@ -124,7 +126,33 @@ async function introspectSchema(conn: DbConnection): Promise<SchemaIntrospection
       isUnique: Number(r.non_unique) === 0,
     }));
 
-    return { tables, columns, foreignKeys, indexes };
+    const [viewRows] = await connection.query<mysql.RowDataPacket[]>(
+      `SELECT table_name, view_definition
+       FROM information_schema.views
+       WHERE table_schema = ?`,
+      [schema]
+    );
+    const views: ViewDefinitionInfo[] = viewRows.map((r) => ({
+      schema,
+      name: r.table_name,
+      definition: r.view_definition,
+    }));
+
+    // routine_definition 需要對應權限才拿得到，權限不夠會是 NULL（不是錯誤，就只是看不到內容）。
+    const [routineRows] = await connection.query<mysql.RowDataPacket[]>(
+      `SELECT routine_name, routine_type, routine_definition
+       FROM information_schema.routines
+       WHERE routine_schema = ?`,
+      [schema]
+    );
+    const routines: RoutineInfo[] = routineRows.map((r) => ({
+      schema,
+      name: r.routine_name,
+      type: r.routine_type === "PROCEDURE" ? "PROCEDURE" : "FUNCTION",
+      definition: r.routine_definition,
+    }));
+
+    return { tables, columns, foreignKeys, indexes, views, routines };
   } finally {
     await connection.end().catch(() => {});
   }
