@@ -11,6 +11,7 @@ import {
   detectExternalChanges,
   resolveManualAction,
   writePendingActionsReport,
+  readArtifact,
   type TicketStatus,
 } from "./pipeline-store.js";
 import { syncPendingActionsReport, getPipelineAsanaUserGid, getUncommittedChangesSummary, filterOutGitCommitActions } from "./pending-actions-sync.js";
@@ -246,6 +247,9 @@ export function registerTicketLifecycleTools(server: McpServer): void {
   server.tool(
     "advance_ticket_stage",
     "更新某張票單的追蹤狀態，記錄目前進行到哪個階段，並可以一併更新 project_dir / verdict。" +
+      "**推進到 \"project_dir_confirmed\"/\"analyzed\"/\"implemented\"/\"verified\" 這幾個階段前，會檢查對應的證據是否已經存在，不是單純改個欄位就能過關**：" +
+      "\"project_dir_confirmed\" 要求 project_dir 已確定（這次帶或先前已設定過）；\"analyzed\"/\"implemented\"/\"verified\" 分別要求 01-analysis.md／02-implementation.md／03-verification.md 已經透過 write_ticket_artifact 寫入非空內容——" +
+      "沒有對應證據就直接呼叫這個工具想跳過某個角色（例如只做完工程師改動就想直接標記 verified），會被拒絕，訊息會說明還缺哪一份文件。" +
       "**verdict 設成 \"FAIL\" 時，rootCause 是必填參數**（\"analysis\" 或 \"implementation\"）——判斷這次 FAIL 的根因在分析階段還是實作階段，供下一輪處理這張票時決定要自動跳回分析師還是工程師，不能省略。verdict 不是 \"FAIL\"（PASS，或這次沒有更新 verdict）時，不需要也不應該帶 rootCause，帶了會被拒絕。" +
       "**這個呼叫只要有更新 verdict，就會自動清空 confirmation**（這個人類確認是對上一輪程式碼/結論表態的，新 verdict 出爐代表結論已經更新，舊確認一律作廢，不能沿用）、並機械式維護 consecutive_fail_count（FAIL 累加、PASS 歸零，累加到 3 之後回傳的 needs_human_review 會是 true）。" +
       "**呼叫完會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.md`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
@@ -281,6 +285,42 @@ export function registerTicketLifecycleTools(server: McpServer): void {
           true
         );
       }
+
+      // 防止跳過某個角色就直接宣告推進到後面的階段（例如只做完工程師改動就想直接標成 verified）：
+      // 每個階段要求對應的產出文件已經透過 write_ticket_artifact 寫入非空內容，不能只改 stage 欄位就過關。
+      const STAGE_ARTIFACT_REQUIREMENT: Partial<Record<TicketStatus["stage"], string>> = {
+        analyzed: "01-analysis.md",
+        implemented: "02-implementation.md",
+        verified: "03-verification.md",
+      };
+      const requiredArtifact = STAGE_ARTIFACT_REQUIREMENT[stage];
+      if (requiredArtifact) {
+        const artifactContent = await readArtifact(taskGid, requiredArtifact);
+        if (!artifactContent || !artifactContent.trim()) {
+          return textResult(
+            {
+              success: false,
+              message: `這張票還沒有 ${requiredArtifact} 的內容（尚未呼叫 write_ticket_artifact 寫入非空內容），不能推進到 "${stage}" 階段——這份文件是實際完成該階段工作的證據，不能只更新 stage 卻沒有對應的分析/實作/驗證產出。`,
+            },
+            true
+          );
+        }
+      }
+
+      if (stage === "project_dir_confirmed") {
+        const current = await readStatus(taskGid);
+        const resolvedProjectDir = project_dir ?? current.project_dir;
+        if (!resolvedProjectDir) {
+          return textResult(
+            {
+              success: false,
+              message: `推進到 "project_dir_confirmed" 階段時必須確定 project_dir（可以這次呼叫時一併帶入，或這張票先前已經設定過），不能是空值。`,
+            },
+            true
+          );
+        }
+      }
+
       const patch: Partial<TicketStatus> = {};
       if (project_dir !== undefined) patch.project_dir = project_dir;
       if (verdict !== undefined) patch.verdict = verdict;
