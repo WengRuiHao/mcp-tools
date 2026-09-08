@@ -31,7 +31,7 @@ function getFullEnvironment(): Record<string, string> {
 
 async function connect(name: string, entrypoint: string): Promise<Client> {
   const transport = new StdioClientTransport({ command: process.execPath, args: [entrypoint], env: getFullEnvironment() });
-  const client = new Client({ name: `asana-pipeline-mcp (${name} bridge)`, version: "0.1.0" });
+  const client = new Client({ name: `dev-pipeline-mcp (${name} bridge)`, version: "0.1.0" });
   await client.connect(transport);
   return client;
 }
@@ -84,7 +84,7 @@ function parseToolResult(result: { content: Array<{ type: string; text?: string 
  * - Anything else thrown (transport closed, child process died, JSON-RPC timeout, etc.) — a connection-level
  *   failure. The cached client is dropped so the *next* call reconnects instead of reusing a dead client forever.
  * Either way the error propagates to the caller; the MCP SDK's own tool-call dispatcher turns a thrown error
- * into a proper `isError` tool result for whoever is calling asana-pipeline-mcp, so this is safe to just throw.
+ * into a proper `isError` tool result for whoever is calling dev-pipeline-mcp, so this is safe to just throw.
  */
 async function bridgeCall(
   getClient: () => Promise<Client>,

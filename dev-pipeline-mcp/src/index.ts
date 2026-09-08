@@ -12,7 +12,7 @@ import { registerTicketLifecycleTools } from "./ticket-lifecycle-tools.js";
 import { registerTicketArtifactTools } from "./ticket-artifact-tools.js";
 
 const server = new McpServer({
-  name: "asana-pipeline-mcp",
+  name: "dev-pipeline-mcp",
   version: "0.1.0",
 });
 
@@ -35,6 +35,6 @@ process.on("exit", () => {
 });
 
 main().catch((err) => {
-  console.error("asana-pipeline-mcp failed to start:", err);
+  console.error("dev-pipeline-mcp failed to start:", err);
   process.exit(1);
 });

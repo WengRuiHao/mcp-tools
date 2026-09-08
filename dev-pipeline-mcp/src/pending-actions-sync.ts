@@ -126,7 +126,7 @@ export async function getPipelineAsanaUserGid(): Promise<string | null> {
     if (gid) cachedPipelineAsanaUserGid = gid;
     return gid;
   } catch (err: any) {
-    console.error(`[asana-pipeline-mcp] getPipelineAsanaUserGid failed: ${err?.message ?? err}`);
+    console.error(`[dev-pipeline-mcp] getPipelineAsanaUserGid failed: ${err?.message ?? err}`);
     return null;
   }
 }
@@ -200,6 +200,6 @@ export async function syncPendingActionsReport(ticketGid: string): Promise<void>
       uncommittedChanges,
     });
   } catch (err: any) {
-    console.error(`[asana-pipeline-mcp] syncPendingActionsReport(${ticketGid}) failed: ${err?.message ?? err}`);
+    console.error(`[dev-pipeline-mcp] syncPendingActionsReport(${ticketGid}) failed: ${err?.message ?? err}`);
   }
 }

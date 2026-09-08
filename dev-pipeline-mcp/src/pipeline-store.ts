@@ -95,7 +95,7 @@ const CLAUDE_MD_MARKER_END = "<!-- asana-pipeline-mcp:tracking-note:end -->";
 const CLAUDE_MD_NOTE = `${CLAUDE_MD_MARKER_START}
 ## Asana pipeline 追蹤紀錄
 
-這個專案底下的 \`.asana-pipeline/\` 目錄，是 asana-pipeline-mcp 自動處理 Asana 票單時建立的追蹤紀錄，跟這個專案本身的程式碼無關，純粹是紀錄檔案。
+這個專案底下的 \`.asana-pipeline/\` 目錄，是 dev-pipeline-mcp 自動處理 Asana 票單時建立的追蹤紀錄，跟這個專案本身的程式碼無關，純粹是紀錄檔案。
 
 結構：\`.asana-pipeline/<Asana 專案全名稱>/<票號>/\`（子任務會巢狀掛在父票號底下，層數不限）。每張票的目錄裡有：
 - \`ticket.md\` — 從 Asana 抓下來的票單原文（描述 + 留言）
@@ -331,7 +331,7 @@ export async function peekStatus(ticketGid: string): Promise<TicketStatus> {
   try {
     return await readStatusFileRaw(filePath);
   } catch (err: any) {
-    console.error(`[asana-pipeline-mcp] peekStatus: ${err.message}`);
+    console.error(`[dev-pipeline-mcp] peekStatus: ${err.message}`);
     return { ...NEW_STATUS };
   }
 }
@@ -740,7 +740,7 @@ export async function resolveTicketDisplayName(gid: string, status: TicketStatus
     const firstLine = ticketMd?.split("\n")[0]?.trim();
     if (firstLine?.startsWith("# ") && firstLine.length > 2) return firstLine.slice(2).trim();
   } catch (err: any) {
-    console.error(`[asana-pipeline-mcp] resolveTicketDisplayName(${gid}) failed: ${err?.message ?? err}`);
+    console.error(`[dev-pipeline-mcp] resolveTicketDisplayName(${gid}) failed: ${err?.message ?? err}`);
   }
   return gid;
 }
@@ -867,7 +867,7 @@ export async function writePendingActionsReport(
   const content = [
     `# 待人工處理清單 — ${projectName}`,
     "",
-    `> 由 \`asana-pipeline-mcp\` 的 \`list_pending_tickets\` 自動產生/覆寫，最後更新：${nowIso()}`,
+    `> 由 \`dev-pipeline-mcp\` 的 \`list_pending_tickets\` 自動產生/覆寫，最後更新：${nowIso()}`,
     `> 每次執行 pipeline 都會用當下最新狀態整份重寫這個檔案——不要手動編輯，改動不會被保留。`,
     `> 括號裡是票號（對照 Asana 上的單號用），偵測不到票號的極少數情況會退回顯示內部 taskGid。`,
     "",
