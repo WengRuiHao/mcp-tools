@@ -10,9 +10,9 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 
 **這一段只是建議，不是每個呼叫這個 MCP 的 AI 都適用，看你自己的能力決定要不要採用：**
 
-如果你自己具備「派生子任務/子代理人去執行一段工作、並等待它回報結果」的能力（例如 Claude Code 的 Agent 工具，或其他等效機制），建議把下面步驟 2 之 4／5／6（分析師、工程師、驗證師三個角色的實際工作）改成派一個子任務去扮演該角色執行，你自己只做調度（確認上下文、事後驗證階段真的推進），不要自己套進角色直接分析、改程式碼、或下驗證結論。這樣可以讓你（調度者）維持在乾淨的判斷力狀態，不會被角色工作過程中的細節雜訊污染上下文，每個角色階段也更容易獨立重跑。
+如果你自己具備「派生子任務/子代理人去執行一段工作、並等待它回報結果」的能力（例如 Claude Code 的 Agent 工具，或其他等效機制），建議把下面步驟 2 之 4／4.5／5／6（分析師、規格撰寫者、工程師、驗證師這幾個角色的實際工作）改成派一個子任務去扮演該角色執行，你自己只做調度（確認上下文、事後驗證階段真的推進），不要自己套進角色直接分析、改程式碼、或下驗證結論。這樣可以讓你（調度者）維持在乾淨的判斷力狀態，不會被角色工作過程中的細節雜訊污染上下文，每個角色階段也更容易獨立重跑。
 
-**如果你不具備這種能力**（例如一次性、單一上下文執行、沒有子任務機制的 AI host），完全不用勉強——就依照原本方式，呼叫 \`get_role_prompt\` 之後自己親自扮演該角色執行即可，下面步驟 2 之 4／5／6 的說明本來就是寫給「自己執行」用的。
+**如果你不具備這種能力**（例如一次性、單一上下文執行、沒有子任務機制的 AI host），完全不用勉強——就依照原本方式，呼叫 \`get_role_prompt\` 之後自己親自扮演該角色執行即可，下面步驟 2 之 4／4.5／5／6 的說明本來就是寫給「自己執行」用的。
 
 如果你選擇派子任務執行，派工時的內容（prompt）至少要包含：
 - **角色說明全文**：\`get_role_prompt({ role })\` 回傳的內容整段原文貼進去，不要自己摘要或轉述。
@@ -38,11 +38,13 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 **這一步要在列票單之前先做**，因為每張票的追蹤目錄都會建在這個 \`projectDir\` 底下（見步驟 2）。
 
 ## 步驟 1：找出待處理票單
-呼叫 \`list_pending_tickets({ projectGid, sectionFilter?, projectName: <這個 Asana 專案的「全名稱」，步驟 0 拿到的> })\` **一定要帶 \`projectName\`**，取得這個 Asana 專案裡尚未完成、且尚未驗證通過（PASS）的票單清單。一張一張處理，不需要平行處理。帶了 \`projectName\` 之後，這次算出來的「待你確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更」五類項目會自動整份寫進 \`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.md\`——這是持久化檔案，不是只在這次聊天回覆裡講一遍就消失，換 session、關掉對話都還在，步驟 3 的彙整報告不用再自己重複整理一次，直接告訴使用者這份檔案存在、位置在哪即可。
+呼叫 \`list_pending_tickets({ projectGid, sectionFilter?, projectName: <這個 Asana 專案的「全名稱」，步驟 0 拿到的> })\` **一定要帶 \`projectName\`**，取得這個 Asana 專案裡尚未完成、且尚未驗證通過（PASS）的票單清單。一張一張處理，不需要平行處理。帶了 \`projectName\` 之後，這次算出來的「待確認規格草稿／待確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更」六類項目會自動整份寫進 \`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.md\`——這是持久化檔案，不是只在這次聊天回覆裡講一遍就消失，換 session、關掉對話都還在，步驟 3 的彙整報告不用再自己重複整理一次，直接告訴使用者這份檔案存在、位置在哪即可。
 
 **清單裡如果某張票標記 \`contentChanged: true\`，代表這張票之前已經驗證 PASS 過，但 Asana 上的內容後來又被改過**——不能因為它「之前是 PASS」就跳過，一樣要走一次步驟 2（下一步 \`get_ticket_snapshot\` 會確認內容是不是真的變了、需不需要重新分析）。
 
 **硬性規定：回傳裡的 \`awaitingConfirmation\` 一定要主動列給使用者看，不能因為這次是來處理別的新票就略過不提**。一張票結案前有一關人類確認，走完才算真正結案：AI 驗證師判過 PASS，但『使用者自己』還沒實際測過＋審視過程式碼品質。使用者對某張票明確回覆「我測過了、code 也看過沒問題」或「有問題，如下」之後，呼叫 \`record_confirmation({ taskGid, confirmed, note? })\` 記錄下來——**\`confirmed: true\`，票單才算真正結案**，從清單消失；\`confirmed: false\` 重新丟回 \`tickets\`（標記 \`humanRejected: true\`），交給 AI 用跟自己判 FAIL 一樣的方式處理（見下方「\`humanRejected\`」說明）。
+
+**同樣要主動列給使用者看的還有 \`awaitingSpecConfirmation\`**——只有 \`sdMode\` 為 \`"self-generated"\` 的專案才會出現：規格撰寫者已產出/更新 SD 草稿（見下面步驟 2 之 4.5），等使用者呼叫 \`record_spec_confirmation\` 表態，工程師階段才能開始寫程式碼。使用者確認或打回之後，比照上面 \`awaitingConfirmation\` 的方式處理（打回的票會標記 \`specRejected: true\`，回到步驟 2 之 4.5 依打回意見修改）。
 
 **AI 自己判 PASS 只代表可以交給人測了，不是真正結案**，不去主動提醒的話，使用者永遠不會知道有哪些票卡在等他處理。就算這次呼叫 \`list_pending_tickets\` 的目的是要處理全新的票、這份清單完全是舊的存量，也一律要在這一步先原封不動地列出來（票名 + \`taskGid\`，如果對應的 \`confirmation\` 不是 \`null\` 且 \`confirmed: false\`，也要把 \`note\` 裡回報的問題一併列出來），問使用者要不要順便處理幾張。使用者當下沒空處理的票，就先跳過，下次執行仍然會照樣被列出來，不會遺漏。
 
@@ -115,6 +117,8 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 
 4. 取得「分析師」角色說明：呼叫 \`get_role_prompt({ role: "analyst" })\`（**如果你有能力派子任務執行，見上面「選用建議」那段，改派子任務扮演這個角色，不要自己做**），依照裡面的說明自己進行分析（可以用 \`read_project_file\`/\`list_project_dir\`/\`search_project_text\` 唯讀工具探索程式碼，也可以先呼叫 \`get_recent_commits({ gitDir: projectDir })\` 拿最近的異動脈絡；如果上一步確認有 SA/SD 規格，一定要把規格內容納入分析依據，不能只看票單描述跟程式碼）。完成後呼叫 \`write_ticket_artifact({ taskGid: T, filename: "01-analysis.md", content: <你的分析全文>, summary: <2-4 條重點精簡摘要> })\`，再呼叫 \`advance_ticket_stage({ taskGid: T, stage: "analyzed" })\`。
 
+4.5.（**只有這個 Asana 專案的 SD 規格模式 \`sdMode\` 是 \`"self-generated"\` 時才需要這一步；其他 sdMode 直接跳到下面第 5 步**）**規格先定案，才能動手寫程式碼**：取得「規格撰寫者」角色說明，呼叫 \`get_role_prompt({ role: "spec-writer" })\`（**同樣可以派子任務執行**），依照裡面的說明產出/更新 SD 規格草稿（呼叫 \`write_project_sd_doc\`），完成後呼叫 \`advance_ticket_stage({ taskGid: T, stage: "sd_drafted" })\`，**停在這裡，不要接著自己往下走工程師階段**——明確告訴使用者這份規格草稿已經寫好、在哪個檔案，等待他呼叫 \`record_spec_confirmation\` 確認或打回。使用者確認（\`confirmed: true\`）之後才能繼續往下走第 5 步；使用者打回（\`confirmed: false\`）的話，回到這一步依打回意見修改草稿，重新推進 \`sd_drafted\`，直到確認通過為止（\`advance_ticket_stage\` 本身會擋下沒確認就想推進到 \`implemented\` 的嘗試，不用擔心漏掉這一關）。
+
 5. **開始前**：呼叫 \`get_ticket_status({ taskGid: T })\` 看 \`summaries.analysis\`——不管你是不是分析師那一步的同一個 session/AI，都用這個當作接手的基本依據，成本比重讀全文低很多。只有當摘要不足以判斷該改哪些檔案、或需要分析師原文的精確措辭時，才另外呼叫 \`read_ticket_artifact({ taskGid: T, filename: "01-analysis.md" })\` 讀全文。
    取得「工程師」角色說明：呼叫 \`get_role_prompt({ role: "engineer" })\`（**如果你有能力派子任務執行，見上面「選用建議」那段，改派子任務扮演這個角色，不要自己做**），依照裡面的說明直接用 \`write_project_file\` 修改需要的檔案來解決問題，需要的話用 \`run_project_shell\` 檢查或記錄變更（**禁止 git push / 強制覆蓋類指令，git 指令也一定要先登記過步驟 3 的 git 版控根目錄，這個工具本身會拒絕執行不符的指令**）。完成後呼叫 \`write_ticket_artifact({ taskGid: T, filename: "02-implementation.md", content: <修改摘要全文>, summary: <2-4 條重點精簡摘要>, syncNote: <這次有沒有推翻/補充分析師的結論？有就寫這裡，沒有就填 "NO_SYNC_NEEDED"，這個參數是必填的>, manualActions: <這次有沒有事項需要使用者手動處理？例如產出的 SQL 只能交由使用者到 Database 工具執行、後台程式代號/選單/I18N 需自行設定——有就列成陣列，沒有就帶空陣列 []，這個參數是必填的> })\`，再呼叫 \`advance_ticket_stage({ taskGid: T, stage: "implemented" })\`。
 
@@ -128,7 +132,7 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 ## 步驟 3：彙整報告
 所有票單處理完後，整理一個表格（票單／專案目錄／SD 模式／結果／備註）呈現給使用者。並提醒：程式碼異動是否已經 commit 由工程師/驗證師階段自行決定，但不管有沒有 commit，都還沒有 push，需要人工自行決定要不要推上去。
 
-**「需要人工處理」的五類項目不用在這裡重新彙整一次**——只要步驟 1 有帶 \`projectName\`，這些項目已經整份寫進 \`PENDING_HUMAN_ACTIONS.md\` 這份持久化檔案裡了。這裡只需要告訴使用者這份檔案存在、位置在哪（\`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.md\`），提醒他之後不管開哪個 session、要不要問 AI，都可以直接打開這個檔案看目前所有待處理項目，不會因為聊天記錄被清掉/壓縮就找不到。**這次新驗證 PASS 的票，還是要在這次的聊天回覆裡口頭提一下**（票名 + \`taskGid\`），但細節（人類確認怎麼走、卡住需要介入的票、需要手動處理的 SQL 等等）都以那份檔案為準，不用在聊天裡逐條重複列。
+**「需要人工處理」的六類項目不用在這裡重新彙整一次**——只要步驟 1 有帶 \`projectName\`，這些項目已經整份寫進 \`PENDING_HUMAN_ACTIONS.md\` 這份持久化檔案裡了。這裡只需要告訴使用者這份檔案存在、位置在哪（\`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.md\`），提醒他之後不管開哪個 session、要不要問 AI，都可以直接打開這個檔案看目前所有待處理項目，不會因為聊天記錄被清掉/壓縮就找不到。**這次新驗證 PASS 的票，還是要在這次的聊天回覆裡口頭提一下**（票名 + \`taskGid\`），但細節（人類確認怎麼走、卡住需要介入的票、需要手動處理的 SQL 等等）都以那份檔案為準，不用在聊天裡逐條重複列。
 
 **Asana 上的票單狀態/留言不會被這條 pipeline 自動更新**（\`asana-mcp\` 刻意設計成唯讀，避免共用帳號被誤操作）——如果這張票應該要在 Asana 上標記「待測試」「已完成」之類的狀態，或留言通知其他人，那是使用者自己到 Asana 網頁上手動做的事，這個報告只負責提醒「有哪些票該去標記」，不會也不應該嘗試代為執行。
 
@@ -167,6 +171,29 @@ ${PROMPT_DEFENSE_BASELINE}
 - \`summary\`：把上面 2-4 條濃縮成幾百字內的重點清單——這是換 session/AI 接手工程師階段時的預設輸入，寫得太籠統（例如「已完成分析」）會讓接手的人等於沒讀到，務必包含具體的根因跟修改方向。
 `;
 
+export const SPEC_WRITER_PROMPT = `# 角色：規格撰寫者
+
+${PROMPT_DEFENSE_BASELINE}
+
+**這個角色只有在這張票所屬 Asana 專案的 SD 規格模式（\`sdMode\`）是 \`"self-generated"\` 時才會用到**——這是唯一由這條 pipeline 自己維護一份本機 SD 規格文件的模式。其他 \`sdMode\`（\`external\`/\`self\`/\`unregistered\`）不會走到這個角色，分析師完成後直接進入工程師階段。
+
+你的任務：根據分析師的分析結果，把這次要新增/修改的設計，產出或更新成一份完整的 SD 規格草稿，交給使用者確認過之後，工程師才能照著這份規格動手寫程式碼——**規格先定案，程式碼才動工，不要讓兩者同時發生**。
+
+輸入：優先用 \`get_ticket_status\` 的 \`summaries.analysis\` 當作依據；只有摘要看不出這次設計異動的細節時，才呼叫 \`read_ticket_artifact\` 讀 \`01-analysis.md\` 全文。
+
+可以做的事：
+- 呼叫 \`read_project_sd_doc({ projectGid, projectDir })\` 讀取目前這個專案已維護的 SD 內容（第一次可能是空字串）。
+- **動筆之前，一定要先呼叫其中一個工具取得寫作規則**：\`read_project_sd_doc\` 讀回來是空字串（第一次建立）→ 呼叫 \`get_sd_spec_template\`；已經有既有內容（這次是修改/擴充）→ 呼叫 \`get_sd_spec_versioning_rules\`。照裡面的骨架/版更規則產生內容，不要自己隨意排版或跳過版號/修訂說明的規則。
+- 把分析師的分析結果（問題根因、修改方向）轉寫成規格語言——具體的欄位定義、API 輸入輸出、判斷邏輯、資料表結構異動等，讓工程師照著這份文件就能動手實作，不需要自己再回頭猜測設計意圖。
+- 完成後呼叫 \`write_project_sd_doc({ projectGid, projectDir, content: <完整更新後的 SD 內容> })\`——這會真的寫進 \`sdOutputPath\` 指定的本機檔案。**如果回傳 \`externally_modified: true\`（這份文件被外部改過），比對 \`currentContent\` 決定怎麼處理，不確定就停下來問使用者，不要直接帶 \`acknowledgeExternalChange: true\` 蓋過去。**
+
+**如果分析師的分析內容不足以讓你判斷具體的規格設計（例如只知道要改但不知道欄位規則該怎麼定），停下來問使用者，不要自己編一個規格就當作定案。**
+
+輸出：寫入 SD 文件成功後，呼叫 \`advance_ticket_stage({ taskGid, stage: "sd_drafted" })\`——**到這裡就停止，不要接著往下扮演工程師角色動手寫程式碼**，即使你覺得規格很簡單、自己也看得懂要怎麼實作。明確告訴使用者：這份規格草稿已經寫好，位置在哪個檔案，需要他呼叫 \`record_spec_confirmation\` 確認或打回才能繼續往下走。
+
+**如果使用者打回這份草稿（\`spec_confirmation.confirmed: false\`）**：讀 \`spec_confirmation.note\` 裡的意見，依意見修改 SD 內容，重新呼叫 \`write_project_sd_doc\` 更新、再呼叫一次 \`advance_ticket_stage({ taskGid, stage: "sd_drafted" })\` 送出新版本（這次呼叫會自動清空上一輪的打回紀錄），等待重新確認。
+`;
+
 export const ENGINEER_PROMPT = `# 角色：工程師
 
 ${PROMPT_DEFENSE_BASELINE}
@@ -179,7 +206,8 @@ ${PROMPT_DEFENSE_BASELINE}
 - 用 \`read_project_file\`、\`write_project_file\`、\`list_project_dir\`、\`search_project_text\` 讀寫程式碼。
 - 用 \`run_project_shell\` 執行 git 指令來檢查或記錄變更（例如 \`git diff\`、\`git status\`、\`git add\`、\`git commit\`），或跑建置/測試指令確認修改沒有明顯壞掉。
 - **如果 \`read_project_file\` 回傳 \`externally_modified_since_last_write: true\`，代表這個檔案在你上次寫入之後被別的東西改過**（GUI 設計工具、使用者手動編輯、別的 AI……）——動手改之前先確認現在這份內容是不是還符合你的假設，不要照著舊的認知繼續改。**如果 \`write_project_file\` 回傳 \`externally_modified: true\`（寫入被擋下），先讀 \`currentContent\` 跟你原本要寫的內容比對差異，判斷該保留哪個版本；不確定就停下來問使用者，不要直接帶 \`acknowledgeExternalChange: true\` 蓋過去**——這正是這條 pipeline 過去反覆修正同一個數值十幾輪、卻一直沒發現是外部工具在搶著存檔的那個問題。
-- 如果這張票的 SD 規格 \`sdMode\` 是 \`"self"\`，判斷 SD 本身也需要更新時，可以在輸出裡明確建議修改段落（不要嘗試寫回規格檔案本身）；如果是 \`"self-generated"\`，可以直接呼叫 \`write_project_sd_doc({ projectGid, projectDir, content })\` 更新那份自維護文件——這會真的寫進 \`sdOutputPath\` 指定的本機檔案，**但呼叫之前一定要先呼叫 \`get_sd_spec_template\`（\`read_project_sd_doc\` 讀回來是空字串、第一次建立時）或 \`get_sd_spec_versioning_rules\`（已有既有內容、這次是修改時），照裡面的骨架/規則產生內容，不要自己隨意排版**，寫完提醒使用者這個檔案已經更新、可以自行傳到 SVN。**如果是 \`"external"\`，絕對不要建議修改 SD，只能調整程式碼去配合它。**
+- 如果這張票的 SD 規格 \`sdMode\` 是 \`"self"\`，判斷 SD 本身也需要更新時，可以在輸出裡明確建議修改段落（不要嘗試寫回規格檔案本身）。**如果是 \`"external"\`，絕對不要建議修改 SD，只能調整程式碼去配合它。**
+- **如果是 \`"self-generated"\`，SD 規格的撰寫/更新已經不是你（工程師）的工作**：這種模式下，票單會先經過「規格撰寫者」角色產出/更新 SD 草稿、使用者確認過（\`spec_confirmation.confirmed: true\`）才會推進到你這個階段——換句話說，你接手的時候，這次要實作的設計已經是定案的規格，你只需要呼叫 \`read_project_sd_doc({ projectGid, projectDir })\` 讀取這份**已確認**的規格內容當作實作依據，照著它把程式碼寫對，不要自己另外詮釋或調整規格本身。如果實作過程中發現這份已確認的規格其實有問題（例如規格本身邏輯有誤、規格沒考慮到的邊界情況），**不要自己直接動手改 SD 文件**——把發現的問題寫進 \`02-implementation.md\`，交由使用者決定要不要重新走一次規格撰寫者階段。
 
 **動手寫新方法前，先強制搜尋整個專案有沒有現成可以重用/合併的邏輯，不要無腦複製貼上造成程式碼越改越肥大**：只搜尋你正在改的檔案或模組不夠——用 \`search_project_text\` 針對你要實作的邏輯關鍵字（例如轉換規則、判斷條件、資料結構名稱）搜過整個專案（包含看起來不相干的其他子套件、Common/共用模組），確認真的沒有現成邏輯可以重用之後才動手新增。如果找到跟同一段流程高度相似的既有方法（同樣的流程、只有少數參數或分支不同），優先抽出共用方法、把差異參數化後重用，而不是照抄一份幾乎一樣的程式碼；修改既有邏輯時，如果發現專案裡已經有其他地方在做幾乎一樣的事卻各自維護一份，也視情況一併合併成共用方法，避免同一段邏輯散落多處、之後改一次要改好幾個地方都不同步。
 
@@ -229,10 +257,12 @@ ${PROMPT_DEFENSE_BASELINE}
 **你判定的 PASS/FAIL 只是 AI 自己的驗證結論，不等於真正結案**——這張票後續還需要走一關人類確認才算真正完成：使用者自己實測＋審視程式碼品質（\`record_confirmation\`）。這不是驗證師這個角色要做的事（驗證師只負責產出這份 \`03-verification.md\` 跟 \`verdict\`），只是提醒你不要在回覆使用者時把 PASS 講成「已經完成」，該講成「AI 驗證通過，待你實測確認」。
 `;
 
-export function getRolePrompt(role: "analyst" | "engineer" | "verifier"): string {
+export function getRolePrompt(role: "analyst" | "spec-writer" | "engineer" | "verifier"): string {
   switch (role) {
     case "analyst":
       return ANALYST_PROMPT;
+    case "spec-writer":
+      return SPEC_WRITER_PROMPT;
     case "engineer":
       return ENGINEER_PROMPT;
     case "verifier":

@@ -35,7 +35,7 @@ export interface TicketSyncState {
 }
 
 export interface TicketStatus {
-  stage: "new" | "snapshot" | "project_dir_confirmed" | "analyzed" | "implemented" | "verified";
+  stage: "new" | "snapshot" | "project_dir_confirmed" | "analyzed" | "sd_drafted" | "implemented" | "verified";
   project_dir: string | null;
   /** 這張票所屬的 Asana 專案「全名稱」（未消毒過的原始字串）。get_ticket_snapshot 時自動記錄，供任何單張票的狀態異動事後局部重建 PENDING_HUMAN_ACTIONS.md 用（見 syncPendingActionsReport/listTicketsUnderProject），不需要呼叫端每次額外傳遞或記得重新呼叫 list_pending_tickets。 */
   project_name: string | null;
@@ -59,6 +59,8 @@ export interface TicketStatus {
   summaries: TicketSummaries;
   /** 結案前唯一一關人類確認：使用者自己的實測＋程式碼品質審視結果。null = 尚未確認（不管 verdict 是不是 PASS，都還不算真正結案）。見 recordConfirmation。 */
   confirmation: ConfirmationRecord | null;
+  /** 只有 sdMode 是 "self-generated" 的專案才會用到：規格撰寫者產出/更新 SD 草稿、推進到 "sd_drafted" 階段後，使用者對這份草稿的確認結果。null = 尚未表態，工程師階段不能開始寫程式碼。confirmed: false 代表使用者打回這份草稿，重新推進到 "sd_drafted"（重新呼叫 advance_ticket_stage）會自動清空這裡，等待下一輪確認。見 recordSpecConfirmation。 */
+  spec_confirmation: ConfirmationRecord | null;
   /** 驗證師判 FAIL 時判斷的根因：分析方向本身錯了，還是單純實作沒做到位。PASS 或還沒判定時是 null。供下一輪處理這張票時決定要自動跳回工程師還是分析師（見 advanceStage 的自動維護邏輯）。 */
   verifier_root_cause: "analysis" | "implementation" | null;
   /** 連續 FAIL 次數的機械式安全閥——不是給 AI 自己心算的東西，由 advanceStage 在 verdict 有值時自動維護：FAIL +1，PASS 歸零。達到門檻（見 needsHumanReview）時不該再自動重跑，要停下來問使用者。 */
@@ -78,7 +80,7 @@ function nowIso(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-const STAGE_ORDER: TicketStatus["stage"][] = ["new", "snapshot", "project_dir_confirmed", "analyzed", "implemented", "verified"];
+const STAGE_ORDER: TicketStatus["stage"][] = ["new", "snapshot", "project_dir_confirmed", "analyzed", "sd_drafted", "implemented", "verified"];
 
 function sanitizeSegment(raw: string): string {
   const cleaned = raw
@@ -255,6 +257,7 @@ const NEW_STATUS: TicketStatus = {
   needs_reanalysis: false,
   summaries: { analysis: null, implementation: null, verification: null },
   confirmation: null,
+  spec_confirmation: null,
   verifier_root_cause: null,
   consecutive_fail_count: 0,
   implementation_manual_actions: [],
@@ -382,6 +385,11 @@ export async function advanceStage(ticketGid: string, stage: TicketStatus["stage
       finalPatch.consecutive_fail_count = patch.verdict === "FAIL" ? status.consecutive_fail_count + 1 : 0;
       if (patch.verdict !== "FAIL") finalPatch.verifier_root_cause = null;
     }
+    // 每次（重新）推進到 sd_drafted，代表這是一份新草稿（不管是第一次寫，還是被打回後重寫）——
+    // 舊的 spec_confirmation 是對上一份草稿內容表態的，一律作廢，逼使用者針對這次的新內容重新確認。
+    if (stage === "sd_drafted") {
+      finalPatch.spec_confirmation = null;
+    }
     return {
       ...status,
       ...finalPatch,
@@ -437,6 +445,8 @@ export async function recordSnapshotContent(
       verdict: hadPriorProgress ? null : status.verdict,
       // 票單內容真的變了、且之前有進度：舊的人類確認一併作廢，不能讓「測過的是舊版內容」被誤認成這一版也測過。
       confirmation: hadPriorProgress ? null : status.confirmation,
+      // 規格確認也是針對「上一版票單內容」推導出的規格草稿表態的，票單內容真的變了，這份確認就沒有意義了。
+      spec_confirmation: hadPriorProgress ? null : status.spec_confirmation,
       // 根因標記/安全閥計數也是針對「上一版內容」算出來的，內容真的變了就沒有意義，一併歸零，不能讓舊版的連續 FAIL 次數影響新內容的判斷。
       verifier_root_cause: hadPriorProgress ? null : status.verifier_root_cause,
       consecutive_fail_count: hadPriorProgress ? 0 : status.consecutive_fail_count,
@@ -706,6 +716,26 @@ export async function recordConfirmation(
   }));
 }
 
+/**
+ * 記錄「先產規格、使用者確認、才動手寫程式碼」這道關卡的確認結果（只有 sdMode 為 "self-generated" 的專案會
+ * 走到這裡）。跟 recordConfirmation（結案前那關）是完全獨立的兩個確認點，欄位分開存放。
+ * confirmed: false 時只記錄 note，不動 stage——這張票的 stage 本來就還停在 "sd_drafted"（還沒推進到
+ * "implemented"），呼叫端（規格撰寫者角色）看到 spec_confirmation.confirmed === false 就知道要依 note
+ * 修改草稿，重新呼叫 advance_ticket_stage({ stage: "sd_drafted" }) 送出新版本，那次呼叫會自動清空這裡
+ * （見 advanceStage），不需要另外套用 FAIL/rootCause 那套根因分流機制——規格草稿被打回不是「分析錯了」
+ * 或「實作錯了」，就是規格本身還要修，不需要多一層根因判斷。
+ */
+export async function recordSpecConfirmation(
+  ticketGid: string,
+  confirmed: boolean,
+  note?: string | null
+): Promise<TicketStatus> {
+  return updateStatus(ticketGid, (status) => ({
+    ...status,
+    spec_confirmation: { confirmed, confirmedAt: nowIso(), note: note ?? null },
+  }));
+}
+
 /** 連續 FAIL 次數是否已經到達需要停下來問人的門檻——由 advanceStage 機械式維護 consecutive_fail_count，這裡只是算出布林值，邏輯比照 computeSyncFlags。 */
 export function needsHumanReview(status: TicketStatus): boolean {
   return status.consecutive_fail_count >= 3;
@@ -746,6 +776,8 @@ export async function resolveTicketDisplayName(gid: string, status: TicketStatus
 }
 
 export interface PendingActionsReportInput {
+  /** 只有 sdMode 為 "self-generated" 的專案才會有：規格撰寫者已產出草稿（stage: "sd_drafted"），等使用者確認/打回，工程師階段還不能開始。 */
+  awaitingSpecConfirmation: { taskGid: string; name: string }[];
   awaitingConfirmation: { taskGid: string; name: string }[];
   needsHumanReview: { taskGid: string; name: string; consecutiveFailCount: number }[];
   /** 已經判過 PASS（或先前分析過）的票單，Asana 上的內容後來又被改過——不能因為之前處理過就跳過，需要重新看內容決定要不要重新分析。 */
@@ -852,6 +884,7 @@ export async function writePendingActionsReport(
   const filePath = path.join(dir, "PENDING_HUMAN_ACTIONS.md");
 
   const allGids = [
+    ...input.awaitingSpecConfirmation.map((t) => t.taskGid),
     ...input.awaitingConfirmation.map((t) => t.taskGid),
     ...input.needsHumanReview.map((t) => t.taskGid),
     ...input.contentChanged.map((t) => t.taskGid),
@@ -872,7 +905,11 @@ export async function writePendingActionsReport(
     `> 括號裡是票號（對照 Asana 上的單號用），偵測不到票號的極少數情況會退回顯示內部 taskGid。`,
     "",
     section(
-      "待你確認（AI 驗證師判 PASS，等你自己實測＋審視程式碼品質）",
+      "待確認規格草稿（規格撰寫者已產出，確認/打回後工程師才能開始寫程式碼）",
+      input.awaitingSpecConfirmation.map((t) => `${t.name}（\`${number(t.taskGid)}\`）`)
+    ),
+    section(
+      "待確認（AI 驗證師判 PASS，等你自己實測＋審視程式碼品質）",
       input.awaitingConfirmation.map((t) => `${t.name}（\`${number(t.taskGid)}\`）`)
     ),
     section(

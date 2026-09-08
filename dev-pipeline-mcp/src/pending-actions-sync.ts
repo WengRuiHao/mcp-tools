@@ -159,6 +159,7 @@ export async function syncPendingActionsReport(ticketGid: string): Promise<void>
     const pipelineUserGid = await getPipelineAsanaUserGid();
 
     const ticketGids = await listTicketsUnderProject(projectDir, projectName);
+    const awaitingSpecConfirmation: { taskGid: string; name: string }[] = [];
     const awaitingConfirmation: { taskGid: string; name: string }[] = [];
     const needsHumanReviewList: { taskGid: string; name: string; consecutiveFailCount: number }[] = [];
     const contentChangedList: { taskGid: string; name: string; stage: string }[] = [];
@@ -180,6 +181,11 @@ export async function syncPendingActionsReport(ticketGid: string): Promise<void>
         needsHumanReviewList.push({ taskGid: gid, name, consecutiveFailCount: s.consecutive_fail_count });
       }
 
+      if (s.stage === "sd_drafted" && s.spec_confirmation === null) {
+        awaitingSpecConfirmation.push({ taskGid: gid, name });
+        continue;
+      }
+
       const isVerifiedPass = s.stage === "verified" && s.verdict === "PASS";
       if (isVerifiedPass && !s.needs_reanalysis) {
         if (s.confirmation?.confirmed === true) continue;
@@ -193,6 +199,7 @@ export async function syncPendingActionsReport(ticketGid: string): Promise<void>
 
     const uncommittedChanges = await getUncommittedChangesSummary(projectDir, manualActionsList);
     await writePendingActionsReport(projectDir, projectName, {
+      awaitingSpecConfirmation,
       awaitingConfirmation,
       needsHumanReview: needsHumanReviewList,
       contentChanged: contentChangedList,
