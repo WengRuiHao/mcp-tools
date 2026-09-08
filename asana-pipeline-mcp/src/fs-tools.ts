@@ -163,6 +163,7 @@ export async function fsSearchText(root: string, pattern: string, useRegex: bool
   const matches: SearchMatch[] = [];
   let filesScanned = 0;
   let truncatedByTimeout = false;
+  let truncatedByMatchCap = false;
 
   let regex: RegExp | null = null;
   if (useRegex) {
@@ -215,7 +216,10 @@ export async function fsSearchText(root: string, pattern: string, useRegex: bool
         const hit = regex ? regex.test(lines[i]) : lines[i].toLowerCase().includes(pattern.toLowerCase());
         if (hit) {
           matches.push({ file: path.relative(resolvedRoot, filePath), line: i + 1, text: lines[i].trim().slice(0, 300) });
-          if (matches.length >= MAX_MATCHES) return;
+          if (matches.length >= MAX_MATCHES) {
+            truncatedByMatchCap = true;
+            return;
+          }
         }
       }
     }
@@ -224,6 +228,8 @@ export async function fsSearchText(root: string, pattern: string, useRegex: bool
   await walk(resolvedRoot);
   if (truncatedByTimeout) {
     matches.push({ file: "(搜尋逾時)", line: 0, text: `已達 ${SEARCH_TIME_BUDGET_MS}ms 時間預算，搜尋提前中止，以上結果可能不完整。` });
+  } else if (truncatedByMatchCap) {
+    matches.push({ file: "(結果過多)", line: 0, text: `已達 ${MAX_MATCHES} 筆上限，可能還有更多未顯示的符合結果，建議換更精確的關鍵字縮小範圍再搜一次，不要假設這就是全部。` });
   }
   return matches;
 }
