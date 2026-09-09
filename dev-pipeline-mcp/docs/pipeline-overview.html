@@ -391,8 +391,8 @@
           <text x="104" y="130" text-anchor="middle" class="mono-label" font-size="11" opacity="0.7">見上方步驟 0</text>
 
           <rect x="248" y="78" width="196" height="74" rx="10" fill="none" stroke="currentColor" opacity="0.85"/>
-          <text x="346" y="104" text-anchor="middle" class="mono-label" font-size="12.5">list_pending_tickets</text>
-          <text x="346" y="126" text-anchor="middle" font-size="12.5">取得待處理票單清單</text>
+          <text x="346" y="104" text-anchor="middle" font-size="12.5">列出待處理的票</text>
+          <text x="346" y="126" text-anchor="middle" class="mono-label" font-size="10" opacity="0.7">list_pending_tickets</text>
 
           <rect x="500" y="66" width="260" height="98" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
           <text x="630" y="98" text-anchor="middle" font-weight="700" fill="var(--accent-ink)">單張票 T 的三階段</text>
@@ -416,13 +416,13 @@
         <!-- awaitingConfirmation branch: surfaced alongside list_pending_tickets, not part of the per-ticket loop -->
         <line x1="346" y1="152" x2="346" y2="184" stroke="var(--warn)" stroke-width="1.6" marker-end="url(#arrowWarn)"/>
         <rect x="196" y="188" width="300" height="88" rx="10" fill="var(--warn-soft)" stroke="var(--warn)"/>
-        <text x="346" y="208" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--warn)">＋ 待確認的舊票</text>
-        <text x="346" y="226" text-anchor="middle" class="mono-label" font-size="10" fill="var(--warn)" opacity="0.85">awaitingConfirmation</text>
-        <text x="346" y="244" text-anchor="middle" font-size="10.5" fill="var(--warn)">使用者自測＋審視 code 還沒表態</text>
-        <text x="346" y="264" text-anchor="middle" font-size="10.5" fill="var(--warn)" opacity="0.9">主動列出，等待人工回覆</text>
+        <text x="346" y="208" text-anchor="middle" font-size="13" font-weight="700" fill="var(--warn)">順便提醒：還有舊票在等你</text>
+        <text x="346" y="228" text-anchor="middle" font-size="10.5" fill="var(--warn)">AI 之前做完的票，你還沒實際</text>
+        <text x="346" y="244" text-anchor="middle" font-size="10.5" fill="var(--warn)">測過＋看過程式碼確認</text>
+        <text x="346" y="264" text-anchor="middle" class="mono-label" font-size="9.5" fill="var(--warn)" opacity="0.8">awaitingConfirmation</text>
       </svg>
       </div>
-      <figcaption>清單裡每張新票依序走一遍三階段（不平行處理），全部處理完才彙整成一份報告給使用者；同一次呼叫也會帶出還沒走完人類確認的舊票（awaitingConfirmation），不管這次有沒有新票要處理都要主動提出來，不能悄悄略過。</figcaption>
+      <figcaption>清單裡每張新票依序走一遍三階段（不平行處理），全部處理完才彙整成一份報告給使用者；同一次也會順便帶出還沒被你確認過的舊票，不管這次有沒有新票要處理都要主動提出來，不能悄悄略過。</figcaption>
     </figure>
   </section>
 
@@ -431,13 +431,19 @@
       <span class="block-num">2</span>
       <h2>單張票的狀態機</h2>
     </div>
-    <p class="block-note">這是這次改版新增的重點：<strong>已經 PASS 的票，如果 Asana 內容後來被改過，會被強制打回重新分析</strong>；內容沒再變的話，則會落入<strong>待使用者確認（自測＋審視 code）</strong>狀態，AI 判的 PASS 不等於真正結案，不會悄悄消失在清單外。<strong>verdict 是 FAIL 時，會依 rootCause 自動路由回分析師或工程師重跑，不用停下來問使用者</strong>——使用者確認 confirmed:false 時也會套用同一套機制，不是另開一條人工流程。</p>
+    <p class="block-note">用白話講一遍：一張票依序經過六個步驟。<strong>驗證沒通過，AI 會自動回頭修正，不用你操心</strong>；<strong>驗證通過了也還不算真的結束，要等你自己測過、看過程式碼才算數</strong>；<strong>如果 Asana 上的票單內容後來又被改過，AI 會自動重新分析，不會用舊資料繼續做</strong>。</p>
     <figure class="diagram">
       <div class="diagram-scroll">
-      <svg viewBox="0 0 1080 620" role="img" aria-label="票單狀態機：new 到 snapshot 到 project_dir_confirmed 到 analyzed 到 implemented 到 verified 依序推進，只會往前走；verified 且 PASS 之後，如果偵測到票單內容雜湊改變，會在 verified 節點觸發一個警示標記：needs_reanalysis 設為 true、verdict、confirmation 一併清空，逼下一輪重新從分析師開始，但 stage 欄位本身仍是 verified，不會倒退回任何較早的節點；verified 且 FAIL 時，advance_ticket_stage 必填 rootCause，依 analysis 或 implementation 自動路由回分析師或工程師重跑，並機械式維護 consecutive_fail_count，達到門檻（needs_human_review）就停下來問使用者，不再自動重跑；verified 且 PASS、內容也沒再變的情況下，會先落入待使用者自己實測＋審視程式碼品質確認的狀態，使用者呼叫 record_confirmation 帶 confirmed:true，才會真正進入已結案狀態；confirmed:false 會把 verdict 重設回 null、標記 humanRejected:true，重新套用跟驗證師判 FAIL 完全一樣的根因分流機制，不是交由人工事後自行判斷。額外補充：只有 sdMode 為 self-generated 的專案，analyzed 之後會先經過 sd_drafted 這個規格先定案關卡——規格撰寫者產出 SD 草稿、推進到 sd_drafted，使用者呼叫 record_spec_confirmation 確認（confirmed:true）才能解鎖推進到 implemented，confirmed:false 則打回、清空 spec_confirmation 等重新產出；其他 sdMode 略過這一關，analyzed 直接推進 implemented">
+      <svg viewBox="0 0 1080 460" role="img" aria-label="一張票單會依序經過六個階段：剛收到票、抓票單內容、確認程式碼位置、AI分析問題、AI寫程式碼、AI驗證結果，只會往前走不會跳過。只有AI自己維護規格文件的專案，分析完之後會多一步：AI先寫規格草稿讓使用者確認，確認過才能繼續寫程式碼。驗證結果如果沒通過，AI會自動回頭修正再重驗一次；如果通過，還要使用者自己實測並看過程式碼確認沒問題，才算真的完成，使用者發現有問題一樣會被送回去自動修正。如果Asana上的票單內容後來又被改過，AI會自動重新分析，不會用舊資料繼續">
         <defs>
           <marker id="arrowStage" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+          </marker>
+          <marker id="arrowSpec" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+          </marker>
+          <marker id="arrowStale" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--stale)"/>
           </marker>
           <marker id="arrowWarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="var(--warn)"/>
@@ -445,156 +451,101 @@
           <marker id="arrowGood" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="var(--good)"/>
           </marker>
-          <marker id="arrowStale" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M0,0 L10,5 L0,10 z" fill="var(--stale)"/>
-          </marker>
-          <marker id="arrowSpec" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
-          </marker>
         </defs>
 
-        <!-- stage nodes -->
-        <g font-size="12.5" text-anchor="middle">
-          <!-- new -->
-          <rect x="20" y="150" width="120" height="56" rx="9" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
-          <text x="80" y="183" class="mono-label">new</text>
+        <!-- conditional spec-draft note (only self-generated projects) -->
+        <rect x="586" y="25" width="250" height="53" rx="9" fill="var(--accent-soft)" stroke="var(--accent)" stroke-dasharray="4 3"/>
+        <text x="711" y="44" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--accent-ink)">有些專案：AI 先寫規格草稿</text>
+        <text x="711" y="60" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)">等你確認過才能繼續寫程式碼</text>
+        <text x="711" y="74" text-anchor="middle" font-size="9" fill="var(--accent-ink)" opacity="0.75">（只有 AI 自己維護規格的專案才會這樣）</text>
+        <line x1="711" y1="78" x2="711" y2="97" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrowSpec)"/>
 
-          <!-- snapshot -->
-          <rect x="182" y="150" width="120" height="56" rx="9" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
-          <text x="242" y="183" class="mono-label">snapshot</text>
+        <!-- content-changed warning tag above verified -->
+        <rect x="858" y="25" width="200" height="53" rx="9" fill="var(--stale-soft)" stroke="var(--stale)" stroke-dasharray="4 3"/>
+        <text x="958" y="44" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--stale)">⚠ 票單內容後來又變了？</text>
+        <text x="958" y="60" text-anchor="middle" font-size="10.5" fill="var(--stale)">AI 會自動重新分析，不用你說</text>
+        <text x="958" y="74" text-anchor="middle" font-size="9" fill="var(--stale)" opacity="0.75">（不會沿用舊資料繼續做）</text>
+        <line x1="958" y1="78" x2="975" y2="97" stroke="var(--stale)" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrowStale)"/>
 
-          <!-- project_dir_confirmed -->
-          <rect x="344" y="150" width="146" height="56" rx="9" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
-          <text x="417" y="177">目錄確認</text>
-          <text x="417" y="193" class="mono-label" font-size="10.5" opacity="0.75">project_dir_confirmed</text>
+        <!-- main row: 6 step cards -->
+        <g font-size="13" text-anchor="middle">
+          <rect x="20" y="100" width="150" height="80" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
+          <circle cx="42" cy="116" r="12" fill="currentColor"/><text x="42" y="120" fill="var(--bg)" font-weight="700" font-size="11">1</text>
+          <text x="95" y="140" font-weight="700">剛收到票</text>
+          <text x="95" y="158" class="mono-label" font-size="9.5" opacity="0.7">new</text>
 
-          <!-- analyzed -->
-          <rect x="532" y="150" width="120" height="56" rx="9" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
-          <text x="592" y="183" class="mono-label">analyzed</text>
+          <rect x="196" y="100" width="150" height="80" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
+          <circle cx="218" cy="116" r="12" fill="currentColor"/><text x="218" y="120" fill="var(--bg)" font-weight="700" font-size="11">2</text>
+          <text x="271" y="140" font-weight="700">抓票單內容</text>
+          <text x="271" y="158" class="mono-label" font-size="9.5" opacity="0.7">snapshot</text>
 
-          <!-- implemented -->
-          <rect x="694" y="150" width="126" height="56" rx="9" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
-          <text x="757" y="183" class="mono-label">implemented</text>
+          <rect x="372" y="100" width="150" height="80" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
+          <circle cx="394" cy="116" r="12" fill="currentColor"/><text x="394" y="120" fill="var(--bg)" font-weight="700" font-size="11">3</text>
+          <text x="447" y="134" font-weight="700">確認程式碼</text>
+          <text x="447" y="150" font-weight="700">位置</text>
+          <text x="447" y="166" class="mono-label" font-size="8.5" opacity="0.7">project_dir_confirmed</text>
 
-          <!-- verified -->
-          <rect x="862" y="150" width="102" height="56" rx="9" fill="var(--good-soft)" stroke="var(--good)"/>
-          <text x="913" y="177" fill="var(--good)" font-weight="700">verified</text>
-          <text x="913" y="193" class="mono-label" font-size="10.5" fill="var(--good)">PASS / FAIL</text>
+          <rect x="548" y="100" width="150" height="80" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
+          <circle cx="570" cy="116" r="12" fill="currentColor"/><text x="570" y="120" fill="var(--bg)" font-weight="700" font-size="11">4</text>
+          <text x="623" y="140" font-weight="700">AI 分析問題</text>
+          <text x="623" y="158" class="mono-label" font-size="9.5" opacity="0.7">analyzed</text>
+
+          <rect x="724" y="100" width="150" height="80" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
+          <circle cx="746" cy="116" r="12" fill="currentColor"/><text x="746" y="120" fill="var(--bg)" font-weight="700" font-size="11">5</text>
+          <text x="799" y="140" font-weight="700">AI 寫程式碼</text>
+          <text x="799" y="158" class="mono-label" font-size="9.5" opacity="0.7">implemented</text>
+
+          <rect x="900" y="100" width="150" height="80" rx="10" fill="var(--good-soft)" stroke="var(--good)"/>
+          <circle cx="922" cy="116" r="12" fill="var(--good)"/><text x="922" y="120" fill="var(--good-soft)" font-weight="700" font-size="11">6</text>
+          <text x="975" y="140" font-weight="700" fill="var(--good)">AI 驗證結果</text>
+          <text x="975" y="158" class="mono-label" font-size="9.5" fill="var(--good)">verified</text>
         </g>
 
-        <!-- forward arrows -->
         <g stroke="currentColor">
-          <line x1="140" y1="178" x2="178" y2="178" marker-end="url(#arrowStage)"/>
-          <line x1="302" y1="178" x2="340" y2="178" marker-end="url(#arrowStage)"/>
-          <line x1="490" y1="178" x2="528" y2="178" marker-end="url(#arrowStage)"/>
-          <line x1="652" y1="178" x2="690" y2="178" marker-end="url(#arrowStage)"/>
-          <line x1="820" y1="178" x2="858" y2="178" marker-end="url(#arrowStage)"/>
+          <line x1="170" y1="140" x2="192" y2="140" marker-end="url(#arrowStage)"/>
+          <line x1="346" y1="140" x2="368" y2="140" marker-end="url(#arrowStage)"/>
+          <line x1="522" y1="140" x2="544" y2="140" marker-end="url(#arrowStage)"/>
+          <line x1="698" y1="140" x2="720" y2="140" marker-end="url(#arrowStage)"/>
+          <line x1="874" y1="140" x2="896" y2="140" marker-end="url(#arrowStage)"/>
         </g>
 
-        <!-- unchanged self-note under snapshot -->
-        <path d="M 242 206 C 200 236, 284 236, 242 210" fill="none" stroke="currentColor" opacity="0.55" stroke-width="1.3" marker-end="url(#arrowStage)"/>
-        <text x="242" y="256" text-anchor="middle" font-size="11.5" opacity="0.7">內容 hash 相同 → unchanged:true</text>
-        <text x="242" y="270" text-anchor="middle" font-size="11.5" opacity="0.7">不重寫檔案、不回傳全文</text>
+        <!-- outcome: FAIL → auto-retry -->
+        <path d="M 900 165 L 800 195 L 200 195 L 200 220" fill="none" stroke="var(--stale)" stroke-width="1.6" marker-end="url(#arrowStale)"/>
+        <rect x="60" y="224" width="600" height="100" rx="10" fill="var(--stale-soft)" stroke="var(--stale)"/>
+        <text x="360" y="248" text-anchor="middle" font-size="13.5" font-weight="700" fill="var(--stale)">😕 沒通過 → AI 自動回頭修，不用你操心</text>
+        <text x="360" y="268" text-anchor="middle" font-size="11" fill="var(--stale)">問題出在「分析方向」就回步驟 4 重新分析；出在「寫的程式碼」就回步驟 5 重寫</text>
+        <text x="360" y="286" text-anchor="middle" font-size="11" font-weight="500" fill="var(--stale)">同一張票連續失敗 3 次以上，AI 才會停下來問你</text>
+        <text x="360" y="306" text-anchor="middle" font-size="10.5" fill="var(--stale)" opacity="0.85">你自己測試後回報「有問題」，也會走同一套自動修正流程</text>
 
-        <!-- flag: content changed after verified (attached to the verified node itself, not a backward transition) -->
-        <line x1="913" y1="150" x2="900" y2="134" stroke="var(--stale)" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#arrowStage)"/>
-        <rect x="640" y="14" width="330" height="128" rx="9" fill="var(--stale-soft)" stroke="var(--stale)"/>
-        <text x="805" y="35" text-anchor="middle" font-size="11.5" fill="var(--stale)" font-weight="500">⚠ Asana 內容 hash 變了 → needs_reanalysis = true</text>
-        <text x="805" y="53" text-anchor="middle" font-size="11.5" fill="var(--stale)">verdict 清空；stage 欄位仍是 verified，不會倒退</text>
-        <text x="805" y="71" text-anchor="middle" font-size="11.5" fill="var(--stale)">confirmation 一併清空</text>
-        <text x="805" y="89" text-anchor="middle" font-size="11.5" fill="var(--stale)">（人類確認作廢，不能沿用舊版內容的確認）</text>
-        <text x="805" y="107" text-anchor="middle" font-size="11.5" fill="var(--stale)">下一輪要當作還沒驗證過，重新從分析師開始</text>
+        <!-- outcome: PASS → 待確認 → 已完成 -->
+        <line x1="975" y1="180" x2="975" y2="220" stroke="var(--warn)" stroke-width="1.6" marker-end="url(#arrowWarn)"/>
+        <rect x="855" y="224" width="210" height="86" rx="10" fill="var(--warn-soft)" stroke="var(--warn)"/>
+        <text x="960" y="246" text-anchor="middle" font-size="13" font-weight="700" fill="var(--warn)">🙂 AI 覺得通過了</text>
+        <text x="960" y="264" text-anchor="middle" font-size="11" fill="var(--warn)">但還要你自己實測、</text>
+        <text x="960" y="280" text-anchor="middle" font-size="11" fill="var(--warn)">看過程式碼才算數</text>
+        <text x="960" y="298" text-anchor="middle" font-size="9.5" fill="var(--warn)" opacity="0.8">你說「有問題」→ 走上面自動修正流程</text>
 
-        <!-- verified + FAIL → rootCause 分流（也是 humanRejected 重新進來的同一個入口） -->
-        <line x1="862" y1="206" x2="862" y2="225" stroke="var(--stale)" stroke-width="1.6" marker-end="url(#arrowStale)"/>
-        <path d="M 862 225 L 668 225 L 668 286" fill="none" stroke="var(--stale)" stroke-width="1.6" marker-end="url(#arrowStale)"/>
+        <line x1="960" y1="310" x2="960" y2="340" stroke="var(--good)" stroke-width="1.6" marker-end="url(#arrowGood)"/>
+        <rect x="885" y="344" width="150" height="54" rx="10" fill="var(--good-soft)" stroke="var(--good)"/>
+        <text x="960" y="366" text-anchor="middle" font-size="13" font-weight="700" fill="var(--good)">✅ 真的完成了</text>
+        <text x="960" y="384" text-anchor="middle" font-size="10" fill="var(--good)">你確認過沒問題</text>
 
-        <line x1="592" y1="288" x2="592" y2="210" stroke="var(--stale)" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#arrowStale)"/>
-        <text x="592" y="248" text-anchor="middle" class="mono-label" font-size="9.5" fill="var(--stale)">rootCause:</text>
-        <text x="592" y="260" text-anchor="middle" class="mono-label" font-size="9.5" fill="var(--stale)">"analysis"</text>
-
-        <line x1="757" y1="288" x2="757" y2="210" stroke="var(--stale)" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#arrowStale)"/>
-        <text x="757" y="262" text-anchor="middle" class="mono-label" font-size="9.5" fill="var(--stale)">rootCause:</text>
-        <text x="757" y="274" text-anchor="middle" class="mono-label" font-size="9.5" fill="var(--stale)">"implementation"</text>
-
-        <rect x="140" y="290" width="620" height="128" rx="9" fill="var(--stale-soft)" stroke="var(--stale)"/>
-        <text x="450" y="312" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--stale)">verdict: FAIL → rootCause 根因分流</text>
-        <text x="450" y="328" text-anchor="middle" class="mono-label" font-size="10" fill="var(--stale)" opacity="0.85">advance_ticket_stage({ verdict: "FAIL", rootCause })（必填）</text>
-        <text x="450" y="346" text-anchor="middle" font-size="10.5" fill="var(--stale)">"analysis" → 回分析師重跑；"implementation" → 回工程師重跑（不停下來問）</text>
-        <text x="450" y="364" text-anchor="middle" font-size="10.5" fill="var(--stale)">consecutive_fail_count 機械式累加（verdict 變 PASS 才歸零）</text>
-        <text x="450" y="382" text-anchor="middle" font-size="10.5" font-weight="500" fill="var(--stale)">needs_human_review（≥ 3 次）→ 停下來問使用者，不再自動重跑</text>
-        <text x="450" y="400" text-anchor="middle" font-size="10.5" fill="var(--stale)" opacity="0.9">下方使用者確認 confirmed:false 時，也會導向這裡（humanRejected:true）</text>
-
-        <!-- verified + PASS + 內容沒變 → 進入待使用者確認 -->
-        <line x1="913" y1="206" x2="913" y2="246" stroke="var(--warn)" stroke-width="1.6" marker-end="url(#arrowWarn)"/>
-        <rect x="773" y="250" width="280" height="100" rx="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
-        <text x="913" y="272" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--warn)">待使用者自測＋審視 code</text>
-        <text x="913" y="288" text-anchor="middle" class="mono-label" font-size="10.5" fill="var(--warn)" opacity="0.8">awaitingConfirmation</text>
-        <text x="913" y="304" text-anchor="middle" class="mono-label" font-size="10.5" fill="var(--warn)">confirmation ≠ true</text>
-        <text x="913" y="322" text-anchor="middle" font-size="10.5" fill="var(--warn)" opacity="0.9">confirmed:false → verdict 清空、humanRejected:true</text>
-        <text x="913" y="338" text-anchor="middle" class="mono-label" font-size="10" fill="var(--warn)" opacity="0.75">record_confirmation（見左側 FAIL 分流方塊）</text>
-
-        <!-- record_confirmation(confirmed:true) → 已結案 -->
-        <line x1="913" y1="350" x2="913" y2="384" stroke="var(--good)" stroke-width="1.6" marker-end="url(#arrowGood)"/>
-        <rect x="828" y="388" width="170" height="60" rx="9" fill="var(--good-soft)" stroke="var(--good)"/>
-        <text x="913" y="411" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--good)">已結案</text>
-        <text x="913" y="428" text-anchor="middle" class="mono-label" font-size="10.5" fill="var(--good)">confirmed: true</text>
-
-        <!-- 補充區塊：sd_drafted 規格先定案關卡（只有 sdMode: self-generated 才會走到，獨立於上方主狀態機，避免打亂既有版位） -->
-        <line x1="140" y1="472" x2="964" y2="472" stroke="currentColor" opacity="0.25"/>
-        <text x="540" y="492" text-anchor="middle" font-weight="700" fill="var(--accent)">補充：規格先定案關卡（僅 sdMode: "self-generated"）</text>
-
-        <g font-size="12" text-anchor="middle">
-          <rect x="40" y="522" width="128" height="44" rx="8" fill="var(--surface-2)" stroke="currentColor" opacity="0.6" stroke-dasharray="4 3"/>
-          <text x="104" y="549" opacity="0.85">analyzed（承上）</text>
-
-          <rect x="248" y="510" width="220" height="68" rx="9" fill="var(--accent-soft)" stroke="var(--accent)"/>
-          <text x="358" y="534" font-weight="700" fill="var(--accent-ink)">sd_drafted</text>
-          <text x="358" y="550" font-size="10.5" fill="var(--accent-ink)">規格撰寫者產出/更新 SD 草稿</text>
-          <text x="358" y="566" font-size="10.5" fill="var(--accent-ink)">停下來等使用者表態</text>
-
-          <rect x="700" y="522" width="150" height="44" rx="8" fill="var(--surface-2)" stroke="currentColor" opacity="0.6" stroke-dasharray="4 3"/>
-          <text x="775" y="549" opacity="0.85">implemented（承上）</text>
-        </g>
-
-        <line x1="168" y1="544" x2="244" y2="544" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#arrowSpec)"/>
-        <line x1="468" y1="544" x2="696" y2="544" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#arrowSpec)"/>
-        <text x="582" y="534" text-anchor="middle" class="mono-label" font-size="10.5" fill="var(--accent-ink)">record_spec_confirmation</text>
-        <text x="582" y="558" text-anchor="middle" class="mono-label" font-size="10.5" fill="var(--accent-ink)">confirmed: true → 解鎖</text>
-
-        <path d="M 300 578 C 260 610, 420 610, 416 580" fill="none" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#arrowSpec)"/>
-        <text x="358" y="616" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)">confirmed: false → 打回，spec_confirmation 清空、規格撰寫者重新產出</text>
-
-        <text x="104" y="590" text-anchor="middle" font-size="10" opacity="0.7">其他 sdMode（external/self/</text>
-        <text x="104" y="602" text-anchor="middle" font-size="10" opacity="0.7">unregistered）略過此關，</text>
-        <text x="104" y="614" text-anchor="middle" font-size="10" opacity="0.7">見上方主流程直接推進</text>
+        <text x="360" y="345" text-anchor="middle" font-size="11" opacity="0.7">（左邊「規格草稿」那一步：你打回意見的話，AI 改完會重新請你確認一次，不會跳過）</text>
       </svg>
       </div>
-      <figcaption>get_ticket_snapshot 每次都會比對票單內容的雜湊值：沒變就走上面那條「unchanged」捷徑省 token；真的變了、而且這張票已經有進度，就在 verified 節點亮起右上角的警示（不是狀態倒退），逼下一輪重新從分析師開始。verified+FAIL 時，advance_ticket_stage 必填 rootCause，依「分析方向錯」還是「實作沒做到位」自動路由回分析師或工程師重跑，不用停下來問使用者，直到連續 FAIL 達到門檻（needs_human_review）才停下來問。內容沒再變、verdict 是 PASS 的話，會先落入「待使用者：自測＋審視 code」——這是 AI 自己判的結論，不是真正結案；只有使用者呼叫 record_confirmation 帶 confirmed:true，才會進入已結案狀態。confirmed:false 會套用跟左邊 FAIL 分流完全一樣的機制（verdict 重設回 null、humanRejected:true），不是另開一條人工流程。這整段狀態轉換完全落在本地追蹤檔案裡，不會回寫到 Asana 本身——asana-mcp 刻意設計成唯讀，避免共用帳號被誤操作，Asana 上要不要標記完成一律交由使用者自己手動處理。下方補充區塊是另一條獨立分流：只有 sdMode 為 self-generated 的專案，analyzed 之後會先產出 SD 規格草稿（sd_drafted），使用者呼叫 record_spec_confirmation 確認過才會解鎖 implemented，打回的話清空確認紀錄、規格撰寫者重新產出；其他 sdMode 不受影響，直接從 analyzed 推進 implemented。</figcaption>
+      <figcaption>六個步驟只會往前走，不會跳過也不會倒退。驗證沒通過時，AI 會依問題出在分析階段還是實作階段，自動回頭找對應角色重跑，不用你介入；連續失敗太多次才會停下來問你。驗證通過只代表「AI 自己檢查沒問題」，還要你自己實測＋看過程式碼確認，才算真正完成——你回報有問題的話，一樣會被送進上面的自動修正流程，不是另開一條人工處理方式。只有 AI 自己維護規格文件的專案，分析完之後會先請你確認一份規格草稿，確認過才會開始寫程式碼；其他專案不受影響。如果 Asana 上的票單內容後來又被改過，AI 也會自動重新分析，不會沿用舊資料繼續做。</figcaption>
     </figure>
     <ul class="walkthrough">
-      <li>上排六個灰色方框是這張票在 <code class="mono">status.json</code> 裡的 <code class="mono">stage</code> 欄位，依序代表：
-        <ul class="sub">
-          <li><code class="mono">new</code> — 票剛被列出來，還沒抓過內容</li>
-          <li><code class="mono">snapshot</code> — 已呼叫 <code class="mono">get_ticket_snapshot</code>，票單描述＋留言已抓下來寫進 <code class="mono">ticket.md</code></li>
-          <li><code class="mono">project_dir_confirmed</code>（圖上顯示「目錄確認」）— 已知道這張票對應哪個程式碼目錄</li>
-          <li><code class="mono">analyzed</code> — 分析師已產出 <code class="mono">01-analysis.md</code></li>
-          <li><code class="mono">implemented</code> — 工程師已修改完程式碼、產出 <code class="mono">02-implementation.md</code></li>
-          <li><code class="mono">verified</code>（綠色）— 驗證師已給出 <code class="mono">PASS</code>/<code class="mono">FAIL</code> 結論</li>
-        </ul>
-        灰色箭頭只往右走：這六格永遠照這個順序推進，不會跳過、也不會倒退。<strong>只有 <code class="mono">sdMode</code> 為 <code class="mono">"self-generated"</code> 的專案，<code class="mono">analyzed</code> 跟 <code class="mono">implemented</code> 之間會多一個條件式的 <code class="mono">sd_drafted</code> 階段</strong>，見下方補充圖。
-      </li>
-      <li><code class="mono">snapshot</code> 框下面那個灰色小圈圈：每次重新呼叫 <code class="mono">get_ticket_snapshot</code> 抓這張票，如果內容雜湊值跟上次一樣，工具不會重寫 <code class="mono">ticket.md</code>、也不會把全文塞回這次回應，只回傳簡短的 <code class="mono">unchanged: true</code>——單純是省 token 的捷徑，跟 <code class="mono">stage</code> 有沒有推進無關。</li>
-      <li><code class="mono">verified</code> 框右上角那張紅色卡片：只有這張票已經走到 <code class="mono">verified</code>、之後 <code class="mono">get_ticket_snapshot</code> 又偵測到內容雜湊真的變了，才會出現。它代表 <code class="mono">status.json</code> 裡另外幾個<strong>獨立</strong>欄位被改動：<code class="mono">needs_reanalysis</code> 變成 <code class="mono">true</code>、<code class="mono">verdict</code> 清空成 <code class="mono">null</code>、<code class="mono">confirmation</code> 這關人類確認也一併清空成 <code class="mono">null</code>（不能讓「測過的是舊版內容」被誤認成這一版也測過）。這張卡片刻意畫成只掛在 <code class="mono">verified</code> 框旁邊、沒有箭頭連回任何更早的框——因為 <code class="mono">stage</code> 欄位本身完全沒有變動，這張票的 <code class="mono">stage</code> 永遠還是顯示 <code class="mono">verified</code>；真正改變的是「這張票該不該被當作已經處理完」，不是它處理到哪一步。</li>
-      <li>紅框下方那張較寬的「<code class="mono">verdict: FAIL → rootCause 根因分流</code>」卡片：驗證師判 <code class="mono">FAIL</code> 時，呼叫 <code class="mono">advance_ticket_stage</code> 必須帶 <code class="mono">rootCause</code>（<code class="mono">"analysis"</code> 或 <code class="mono">"implementation"</code>），AI 依這個判斷自動跳回分析師或工程師重跑，不用停下來問使用者；<code class="mono">consecutive_fail_count</code> 由工具機械式維護（<code class="mono">FAIL</code> 累加、<code class="mono">PASS</code> 歸零），達到門檻（<code class="mono">needs_human_review</code>，預設連續 3 次）就不再自動重跑，要停下來問使用者。這個入口不只給 AI 自己判 <code class="mono">FAIL</code> 用——下面使用者確認 <code class="mono">confirmed: false</code>，也會導向同一套機制。</li>
-      <li>綠框下面是一張黃色「待確認」卡片：<code class="mono">verified</code> 且 <code class="mono">PASS</code>、內容也沒再變的情況下，票單會落入待確認——使用者自己實測＋審視程式碼品質；呼叫 <code class="mono">record_confirmation({ confirmed: true })</code> 之後，票單才會進入最下面的綠色「已結案」；<strong><code class="mono">confirmed: false</code> 會把 <code class="mono">verdict</code> 重設回 <code class="mono">null</code>、標記 <code class="mono">humanRejected: true</code>，重新落入上面那套 <code class="mono">FAIL</code> 根因分流機制</strong>，不是留著等人工事後自己判斷、也不是另開一條獨立流程。</li>
-      <li>下方分隔線以下是<strong>另一條獨立分流</strong>，跟上面主狀態機不是同一件事：只有 <code class="mono">sdMode</code> 為 <code class="mono">"self-generated"</code> 的專案，分析師完成後會先由「規格撰寫者」角色產出/更新 SD 規格草稿、推進到 <code class="mono">sd_drafted</code> 就停下來；使用者呼叫 <code class="mono">record_spec_confirmation({ confirmed: true })</code> 才會解鎖、允許 <code class="mono">advance_ticket_stage</code> 推進到 <code class="mono">implemented</code>——沒確認過會被工具直接擋下。<code class="mono">confirmed: false</code> 不會讓 <code class="mono">stage</code> 倒退，只會清空 <code class="mono">spec_confirmation</code>，交由規格撰寫者依打回意見修改後重新推進 <code class="mono">sd_drafted</code>。其他 <code class="mono">sdMode</code>（<code class="mono">external</code>/<code class="mono">self</code>/<code class="mono">unregistered</code>）完全不受影響，維持 <code class="mono">analyzed</code> 直接推進 <code class="mono">implemented</code> 的原有行為。</li>
+      <li>六個灰色方框是這張票目前走到哪一步：<code class="mono">new</code>（剛收到）→ <code class="mono">snapshot</code>（抓過內容）→ <code class="mono">project_dir_confirmed</code>（知道程式碼在哪）→ <code class="mono">analyzed</code>（分析完了）→ <code class="mono">implemented</code>（程式碼寫完了）→ <code class="mono">verified</code>（驗證完了，綠色）。只會照順序往前走，不會跳過也不會倒退。</li>
+      <li>上方兩張虛線小卡片是「特殊情況」提醒：左邊藍色的是<strong>只有 AI 自己維護規格文件的專案</strong>才會出現的額外一步——AI 先把規格寫成草稿讓你確認，確認過才會動手寫程式碼，你打回意見的話 AI 會改完再讓你確認一次；右邊紅色的是<strong>如果 Asana 上的票單內容後來又被人改過</strong>，AI 會自動當作要重新分析，不會用舊資料繼續做。</li>
+      <li>驗證結果分成兩條路：<strong>沒通過（紅色）</strong>——AI 自動回頭修正、重新驗證，不用你介入，只有連續失敗太多次才會停下來問你；你自己測試後回報有問題，也是走這條路。<strong>通過了（黃色）</strong>——先進入「待你確認」狀態，AI 覺得沒問題不代表真的沒問題，要等你自己實測、看過程式碼，確認沒問題（綠色「真的完成了」）才算真正結束。</li>
     </ul>
     <div class="legend">
-      <span><i style="background:var(--surface-2); border:1px solid var(--ink); height:14px; border-radius:3px;"></i>灰＝一般階段方框</span>
-      <span><i style="background:var(--good-soft); border:1px solid var(--good); height:14px; border-radius:3px;"></i>綠＝verified 且已有結論</span>
-      <span><i style="background:var(--stale-soft); border:1px solid var(--stale); height:14px; border-radius:3px;"></i>紅＝需要重新分析的警示</span>
-      <span><i style="background:var(--accent-soft); border:1px solid var(--accent); height:14px; border-radius:3px;"></i>藍＝規格先定案關卡（僅 self-generated）</span>
+      <span><i style="background:var(--surface-2); border:1px solid var(--ink); height:14px; border-radius:3px;"></i>灰＝一般步驟</span>
+      <span><i style="background:var(--good-soft); border:1px solid var(--good); height:14px; border-radius:3px;"></i>綠＝已驗證／真的完成</span>
+      <span><i style="background:var(--warn-soft); border:1px solid var(--warn); height:14px; border-radius:3px;"></i>黃＝等你確認</span>
+      <span><i style="background:var(--stale-soft); border:1px solid var(--stale); height:14px; border-radius:3px;"></i>紅＝沒通過／需要重新分析</span>
+      <span><i style="background:var(--accent-soft); border:1px solid var(--accent); height:14px; border-radius:3px;"></i>藍＝規格先定案（僅特定專案）</span>
     </div>
   </section>
 
@@ -636,7 +587,7 @@
     <p class="block-note">追蹤狀態落地在磁碟上，不是活在對話記憶裡——接手時該讀「摘要」還是「全文」，成本差很多。</p>
     <figure class="diagram">
       <div class="diagram-scroll">
-      <svg viewBox="0 0 980 260" role="img" aria-label="跨 session 接手示意：追蹤目錄裡的 status.json 摘要透過 get_ticket_status 用低成本的粗實線送到接手的新 session 或新 AI，作為預設輸入；只有摘要不夠用時，才用較高成本的虛線 read_ticket_artifact 去讀 01-analysis.md 等全文檔案">
+      <svg viewBox="0 0 980 260" role="img" aria-label="換人或換新對話接手怎麼銜接：所有進度都存在硬碟上的追蹤檔案，不是活在對話記憶裡。接手的AI會先看濃縮過的重點摘要，成本低、速度快；只有摘要不夠用時，才去讀完整內容，成本比較高">
         <defs>
           <marker id="arrowResumeCheap" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
@@ -648,30 +599,30 @@
 
         <!-- disk store box -->
         <rect x="24" y="30" width="300" height="200" rx="12" fill="var(--surface-2)" stroke="currentColor" opacity="0.8"/>
-        <text x="174" y="54" text-anchor="middle" font-weight="700" font-size="13">追蹤目錄（磁碟，非對話記憶）</text>
+        <text x="174" y="54" text-anchor="middle" font-weight="700" font-size="13">硬碟上的追蹤紀錄</text>
 
         <rect x="44" y="70" width="260" height="46" rx="8" fill="var(--accent-soft)" stroke="var(--accent)"/>
-        <text x="174" y="90" text-anchor="middle" class="mono-label" font-size="11.5" fill="var(--accent-ink)">status.json → summaries</text>
-        <text x="174" y="105" text-anchor="middle" font-size="11" fill="var(--accent-ink)" opacity="0.85">2–4 條重點摘要，體積小</text>
+        <text x="174" y="90" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--accent-ink)">📝 重點摘要</text>
+        <text x="174" y="105" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)" opacity="0.85">2–4 條重點，體積小</text>
 
         <rect x="44" y="126" width="260" height="86" rx="8" fill="var(--warn-soft)" stroke="var(--warn)"/>
-        <text x="174" y="146" text-anchor="middle" class="mono-label" font-size="11.5" fill="var(--warn)">01/02/03-*.md</text>
-        <text x="174" y="162" text-anchor="middle" font-size="11" fill="var(--warn)" opacity="0.9">分析／實作／驗證全文</text>
-        <text x="174" y="178" text-anchor="middle" class="mono-label" font-size="10.5" fill="var(--warn)" opacity="0.8">ticket.md（含留言串）</text>
-        <text x="174" y="200" text-anchor="middle" font-size="10.5" fill="var(--warn)" opacity="0.75">篇幅較大，按需讀取</text>
+        <text x="174" y="148" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--warn)">📄 完整內容</text>
+        <text x="174" y="166" text-anchor="middle" font-size="10.5" fill="var(--warn)" opacity="0.9">分析／實作／驗證全文</text>
+        <text x="174" y="182" text-anchor="middle" font-size="10.5" fill="var(--warn)" opacity="0.9">連票單原文、留言都在</text>
+        <text x="174" y="200" text-anchor="middle" font-size="10" fill="var(--warn)" opacity="0.75">篇幅較大，需要才讀</text>
 
         <!-- receiving session box -->
         <rect x="620" y="70" width="336" height="120" rx="12" fill="none" stroke="currentColor" opacity="0.85"/>
-        <text x="788" y="98" text-anchor="middle" font-weight="700" font-size="13">接手的 session／AI</text>
-        <text x="788" y="118" text-anchor="middle" font-size="11.5" opacity="0.75">不管是不是原來那個 session，</text>
+        <text x="788" y="98" text-anchor="middle" font-weight="700" font-size="13">接手的人／AI</text>
+        <text x="788" y="118" text-anchor="middle" font-size="11.5" opacity="0.75">不管是不是原來那個對話，</text>
         <text x="788" y="134" text-anchor="middle" font-size="11.5" opacity="0.75">一律先假設要重新確認進度</text>
 
         <!-- arrows -->
         <line x1="304" y1="93" x2="614" y2="105" stroke="var(--accent)" stroke-width="2" marker-end="url(#arrowResumeCheap)"/>
-        <text x="460" y="80" text-anchor="middle" font-size="11.5" fill="var(--accent-ink)" font-weight="500">① get_ticket_status（預設，低成本）</text>
+        <text x="460" y="80" text-anchor="middle" font-size="12" fill="var(--accent-ink)" font-weight="500">① 先看摘要（快，預設這樣做）</text>
 
         <line x1="304" y1="168" x2="614" y2="150" stroke="var(--warn)" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#arrowResumeCostly)"/>
-        <text x="460" y="238" text-anchor="middle" font-size="11.5" fill="var(--warn)" font-weight="500">② read_ticket_artifact（摘要不夠時才讀，成本較高）</text>
+        <text x="460" y="238" text-anchor="middle" font-size="12" fill="var(--warn)" font-weight="500">② 摘要不夠用，才讀完整內容（比較慢）</text>
       </svg>
       </div>
       <figcaption>每個角色開始前都先看摘要，只有摘要漏掉關鍵細節（例如工程師要知道分析師點名的確切檔案）才多花一次 tool call 讀全文。</figcaption>
@@ -690,7 +641,7 @@
     <p class="block-note">跟上面「票單狀態機」不同軸向：那組管「票單原文 vs 追蹤系統」，這組管「追蹤系統內部 01/02/03 三份文件彼此」——這條 pipeline 曾經實際發生過工程師階段反覆修正十幾輪、<code class="mono">02-implementation.md</code> 一路追加，但 <code class="mono">01-analysis.md</code> 完全沒同步，全靠使用者事後肉眼發現。</p>
     <figure class="diagram">
       <div class="diagram-scroll">
-      <svg viewBox="0 0 1000 470" role="img" aria-label="01-analysis.md、02-implementation.md、03-verification.md 三份文件的強制同步機制：寫 02 時 syncNote 必填，帶入 NO_SYNC_NEEDED 代表確認不需要同步、只快照 01 目前雜湊；帶入實際內容則附加到 01 尾端並更新雜湊，兩種情況都會讓 sync_flags.analysis_stale 暫時變回 false；但如果 01 之後又被獨立改寫，sync_flags.analysis_stale 會變回 true，直到下次寫 02 時再重新核對。寫 03 時對 02 套用同樣的機制">
+      <svg viewBox="0 0 1000 470" role="img" aria-label="分析、實作、驗證三份紀錄怎麼保持同步：AI寫實作紀錄時，一定要交代這次有沒有推翻分析紀錄的結論；沒有的話只做個記號代表核對過；有推翻的話，AI會自動把新發現補寫回分析紀錄，不會漏掉。如果之後分析紀錄又被單獨改過，這個核對記號會失效，下次寫實作紀錄要重新核對一次。驗證紀錄對實作紀錄也套用同樣的機制">
         <defs>
           <marker id="arrowSyncNeutral" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
@@ -705,53 +656,56 @@
 
         <!-- row 1: three documents -->
         <rect x="20" y="20" width="180" height="54" rx="9" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
-        <text x="110" y="52" text-anchor="middle" font-size="12.5">01-analysis.md</text>
+        <text x="110" y="42" text-anchor="middle" font-size="13" font-weight="700">分析紀錄</text>
+        <text x="110" y="60" text-anchor="middle" class="mono-label" font-size="9.5" opacity="0.7">01-analysis.md</text>
 
         <rect x="390" y="20" width="220" height="54" rx="9" fill="var(--accent-soft)" stroke="var(--accent)"/>
-        <text x="500" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--accent-ink)">02-implementation.md</text>
+        <text x="500" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="var(--accent-ink)">實作紀錄</text>
+        <text x="500" y="60" text-anchor="middle" class="mono-label" font-size="9.5" fill="var(--accent-ink)">02-implementation.md</text>
 
         <rect x="800" y="20" width="180" height="54" rx="9" fill="none" stroke="currentColor" opacity="0.45" stroke-dasharray="4 4"/>
-        <text x="890" y="52" text-anchor="middle" font-size="12.5" opacity="0.55">03-verification.md</text>
+        <text x="890" y="42" text-anchor="middle" font-size="13" opacity="0.55">驗證紀錄</text>
+        <text x="890" y="60" text-anchor="middle" class="mono-label" font-size="9.5" opacity="0.5">03-verification.md</text>
 
         <line x1="610" y1="47" x2="794" y2="47" stroke="currentColor" opacity="0.45" stroke-dasharray="4 4" marker-end="url(#arrowSyncNeutral)"/>
-        <text x="702" y="34" text-anchor="middle" font-size="11" opacity="0.7">寫 03 時，02→03 套用同樣機制</text>
+        <text x="702" y="34" text-anchor="middle" font-size="11" opacity="0.7">驗證紀錄對實作紀錄套用同樣機制</text>
 
         <line x1="500" y1="74" x2="500" y2="97" stroke="currentColor" marker-end="url(#arrowSyncNeutral)"/>
 
         <!-- decision diamond -->
         <polygon points="500,97 583,145 500,193 417,145" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"/>
-        <text x="500" y="140" text-anchor="middle" font-size="12" font-weight="700" fill="var(--accent-ink)">syncNote</text>
-        <text x="500" y="156" text-anchor="middle" font-size="12" font-weight="700" fill="var(--accent-ink)">帶了什麼？</text>
+        <text x="500" y="136" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--accent-ink)">有沒有推翻</text>
+        <text x="500" y="152" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--accent-ink)">前面的結論？</text>
 
         <line x1="417" y1="145" x2="284" y2="221" stroke="currentColor" marker-end="url(#arrowSyncNeutral)"/>
         <line x1="583" y1="145" x2="716" y2="221" stroke="var(--accent)" marker-end="url(#arrowSyncAccent)"/>
 
-        <!-- branch A: NO_SYNC_NEEDED -->
+        <!-- branch A: no reversal -->
         <rect x="140" y="225" width="260" height="78" rx="9" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
-        <text x="270" y="250" text-anchor="middle" class="mono-label" font-size="12">"NO_SYNC_NEEDED"</text>
-        <text x="270" y="268" text-anchor="middle" font-size="11.5" opacity="0.75">快照目前 01 雜湊</text>
-        <text x="270" y="284" text-anchor="middle" font-size="11.5" opacity="0.75">01 內容不變</text>
+        <text x="270" y="250" text-anchor="middle" font-size="13" font-weight="700">沒有，維持原樣</text>
+        <text x="270" y="268" text-anchor="middle" font-size="11" opacity="0.75">做個記號，代表已經核對過</text>
+        <text x="270" y="286" text-anchor="middle" class="mono-label" font-size="9" opacity="0.6">"NO_SYNC_NEEDED"</text>
 
-        <!-- branch B: real note -->
+        <!-- branch B: reversed -->
         <rect x="560" y="225" width="300" height="78" rx="9" fill="var(--accent-soft)" stroke="var(--accent)"/>
-        <text x="710" y="250" text-anchor="middle" font-size="12" font-weight="700" fill="var(--accent-ink)">syncNote 有實際內容</text>
-        <text x="710" y="268" text-anchor="middle" font-size="11.5" fill="var(--accent-ink)" opacity="0.9">附加到 01-analysis.md 尾端</text>
-        <text x="710" y="284" text-anchor="middle" font-size="11" fill="var(--accent-ink)" opacity="0.8">新增「同步更新」段落並更新雜湊</text>
+        <text x="710" y="250" text-anchor="middle" font-size="13" font-weight="700" fill="var(--accent-ink)">有，推翻了之前的結論</text>
+        <text x="710" y="268" text-anchor="middle" font-size="11" fill="var(--accent-ink)" opacity="0.9">自動把新發現補寫回「分析紀錄」</text>
+        <text x="710" y="286" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)" opacity="0.8">不會漏掉、不用你提醒</text>
 
         <!-- convergence -->
         <line x1="290" y1="303" x2="400" y2="343" stroke="currentColor" marker-end="url(#arrowSyncNeutral)"/>
         <line x1="700" y1="303" x2="600" y2="343" stroke="currentColor" marker-end="url(#arrowSyncNeutral)"/>
 
         <rect x="310" y="345" width="380" height="50" rx="9" fill="none" stroke="currentColor" opacity="0.8"/>
-        <text x="500" y="366" text-anchor="middle" class="mono-label" font-size="11">analysis_hash_at_impl_write ← 01 現在雜湊</text>
-        <text x="500" y="384" text-anchor="middle" font-size="11.5" font-weight="500" fill="var(--good)">→ sync_flags.analysis_stale 暫時變回 false</text>
+        <text x="500" y="368" text-anchor="middle" font-size="12.5" font-weight="700">做好記號：這次已經核對過了</text>
+        <text x="500" y="386" text-anchor="middle" font-size="11" font-weight="500" fill="var(--good)">分析紀錄暫時不會被標記為「過期」</text>
 
         <!-- drift / stale scenario -->
         <path d="M 110 74 C 55 210, 55 340, 110 405" fill="none" stroke="var(--stale)" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#arrowSyncStale)"/>
 
         <rect x="20" y="410" width="320" height="50" rx="9" fill="var(--stale-soft)" stroke="var(--stale)"/>
-        <text x="180" y="430" text-anchor="middle" font-size="11.5" fill="var(--stale)">若之後 01 又被獨立改寫（例如重新分析）</text>
-        <text x="180" y="448" text-anchor="middle" font-size="11.5" font-weight="500" fill="var(--stale)">→ sync_flags.analysis_stale 變回 true</text>
+        <text x="180" y="430" text-anchor="middle" font-size="11.5" fill="var(--stale)">如果之後「分析紀錄」又被單獨改過</text>
+        <text x="180" y="448" text-anchor="middle" font-size="11.5" font-weight="500" fill="var(--stale)">→ 這個記號失效，下次要重新核對</text>
       </svg>
       </div>
       <figcaption>寫 <code class="mono">02-implementation.md</code>/<code class="mono">03-verification.md</code> 時 <code class="mono">syncNote</code> 是必填參數，不能省略——工具層級的強制檢查，不管是哪個 AI/host 在呼叫都一樣有效，不依賴對方自己記得或遵守 prompt 建議。</figcaption>
@@ -766,7 +720,7 @@
     <p class="block-note">跟上面「01/02/03 互相同步」是不同軸向的比對：那張比的是「兩份都是這個 MCP 自己以前記錄的雜湊」彼此對不對得起來；這張比的是「這個 MCP 記錄的舊雜湊」跟「磁碟上現在真正的內容」對不對得起來——只有這組比對抓得到使用者或沒走這條 pipeline 的 AI 直接手動編輯追蹤檔案的情況。</p>
     <figure class="diagram">
       <div class="diagram-scroll">
-      <svg viewBox="0 0 1040 320" role="img" aria-label="外部修改偵測：get_ticket_status 每次呼叫都會重新讀取 01/02/03-*.md 現在磁碟上的實際內容、重新算雜湊，跟 status.json 記錄的 sync.*_hash 比對——不是拿兩個舊記錄互相比。一樣的話 external_changes 對應欄位是 false，代表可以信任摘要與同步旗標；不一樣的話是 true，代表這份檔案在 MCP 不知情的狀況下被改過，摘要與同步旗標可能已經過期，應該重新用 read_ticket_artifact 讀全文，確認沒問題後可以呼叫 resync_ticket_artifact 把雜湊記錄同步回目前內容">
+      <svg viewBox="0 0 1040 320" role="img" aria-label="AI怎麼知道紀錄被別人動過：每次查詢票單狀態，AI都會重新讀取磁碟上三份紀錄現在的實際內容，跟上次記錄的內容比對，不是拿兩個舊記錄互相比。一樣的話代表資料可信，可以放心用摘要；不一樣的話代表這份檔案在AI不知情的狀況下被改過，摘要可能已經過期，應該重新讀全文，確認沒問題後可以請AI把記錄同步成目前的內容">
         <defs>
           <marker id="arrowDetect" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
@@ -781,25 +735,25 @@
 
         <g font-size="12.5">
           <rect x="20" y="110" width="150" height="60" rx="9" fill="none" stroke="currentColor" opacity="0.85"/>
-          <text x="95" y="135" text-anchor="middle" class="mono-label">get_ticket_status</text>
-          <text x="95" y="153" text-anchor="middle" font-size="11" opacity="0.7">({ taskGid })</text>
+          <text x="95" y="135" text-anchor="middle" font-size="13" font-weight="700">查詢票單狀態</text>
+          <text x="95" y="153" text-anchor="middle" class="mono-label" font-size="9.5" opacity="0.7">get_ticket_status</text>
 
           <rect x="210" y="105" width="230" height="70" rx="9" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
-          <text x="325" y="128" text-anchor="middle" font-size="12">讀取磁碟上現在的內容</text>
-          <text x="325" y="146" text-anchor="middle" font-size="11" opacity="0.7">01/02/03-*.md，重新算雜湊</text>
+          <text x="325" y="130" text-anchor="middle" font-size="12.5">重新讀一次磁碟上</text>
+          <text x="325" y="148" text-anchor="middle" font-size="12.5">現在的實際內容</text>
 
           <polygon points="580,95 655,140 580,185 505,140" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"/>
-          <text x="580" y="134" text-anchor="middle" font-size="11" font-weight="700" fill="var(--accent-ink)">跟 sync.*_hash</text>
-          <text x="580" y="150" text-anchor="middle" font-size="11" font-weight="700" fill="var(--accent-ink)">一樣嗎？</text>
+          <text x="580" y="134" text-anchor="middle" font-size="12" font-weight="700" fill="var(--accent-ink)">跟上次記錄</text>
+          <text x="580" y="150" text-anchor="middle" font-size="12" font-weight="700" fill="var(--accent-ink)">的一樣嗎？</text>
 
           <rect x="740" y="105" width="210" height="70" rx="9" fill="var(--good-soft)" stroke="var(--good)"/>
-          <text x="845" y="128" text-anchor="middle" font-size="10.5" fill="var(--good)" opacity="0.8">external_changes.xxx</text>
-          <text x="845" y="148" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--good)">= false（資料可信）</text>
+          <text x="845" y="130" text-anchor="middle" font-size="13" font-weight="700" fill="var(--good)">✅ 資料可信</text>
+          <text x="845" y="148" text-anchor="middle" font-size="10.5" fill="var(--good)" opacity="0.85">放心用摘要就好</text>
 
           <rect x="360" y="225" width="440" height="80" rx="9" fill="var(--stale-soft)" stroke="var(--stale)"/>
-          <text x="580" y="248" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--stale)">external_changes.xxx = true</text>
-          <text x="580" y="266" text-anchor="middle" font-size="11" fill="var(--stale)">summaries／sync_flags 可能過期，改讀 read_ticket_artifact 全文</text>
-          <text x="580" y="284" text-anchor="middle" font-size="11" fill="var(--stale)">確認內容沒問題、想同步雜湊記錄 → 呼叫 resync_ticket_artifact</text>
+          <text x="580" y="248" text-anchor="middle" font-size="13" font-weight="700" fill="var(--stale)">⚠ 被別人動過了</text>
+          <text x="580" y="266" text-anchor="middle" font-size="11" fill="var(--stale)">摘要可能已經過期，AI 會改讀完整內容</text>
+          <text x="580" y="284" text-anchor="middle" font-size="11" fill="var(--stale)">你確認內容沒問題後，可以請 AI 把記錄同步成目前版本</text>
         </g>
 
         <line x1="170" y1="140" x2="206" y2="140" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrowDetect)"/>
@@ -835,27 +789,28 @@
           </marker>
         </defs>
 
-        <g font-size="12">
+        <g font-family="'Noto Sans TC',sans-serif">
           <rect x="20" y="60" width="190" height="116" rx="9" fill="none" stroke="currentColor" opacity="0.85"/>
-          <text x="115" y="112" text-anchor="middle" class="mono-label" font-size="12">list_pending_tickets</text>
-          <text x="115" y="130" text-anchor="middle" class="mono-label" font-size="10.5" opacity="0.7">({ projectGid, projectName })</text>
+          <text x="115" y="112" text-anchor="middle" font-size="13" font-weight="700">每次處理票單時</text>
+          <text x="115" y="130" text-anchor="middle" class="mono-label" font-size="9.5" opacity="0.7">list_pending_tickets</text>
 
           <rect x="248" y="60" width="230" height="116" rx="9" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
-          <text x="363" y="86" text-anchor="middle" font-size="12">掃描專案所有票單</text>
-          <text x="363" y="104" text-anchor="middle" font-size="11" opacity="0.7">彙整六類人工待辦：</text>
-          <text x="363" y="122" text-anchor="middle" font-size="10.5" opacity="0.7">待確認規格草稿／待確認／</text>
-          <text x="363" y="140" text-anchor="middle" font-size="10.5" opacity="0.7">卡住需要介入／內容已變更／</text>
-          <text x="363" y="158" text-anchor="middle" font-size="10.5" opacity="0.7">待手動處理／Git未commit</text>
+          <text x="363" y="86" text-anchor="middle" font-size="12.5">掃描所有票單</text>
+          <text x="363" y="104" text-anchor="middle" font-size="11" opacity="0.7">整理出六種你該注意的事：</text>
+          <text x="363" y="122" text-anchor="middle" font-size="10.5" opacity="0.7">規格待確認／結果待確認／</text>
+          <text x="363" y="140" text-anchor="middle" font-size="10.5" opacity="0.7">卡住需要你／內容變了／</text>
+          <text x="363" y="158" text-anchor="middle" font-size="10.5" opacity="0.7">待手動處理／忘記存檔</text>
 
           <rect x="548" y="60" width="230" height="116" rx="9" fill="var(--warn-soft)" stroke="var(--warn)"/>
-          <text x="663" y="104" text-anchor="middle" font-size="12" font-weight="700" fill="var(--warn)">PENDING_HUMAN_ACTIONS.md</text>
-          <text x="663" y="124" text-anchor="middle" font-size="10.5" fill="var(--warn)">整份覆寫，不是累加</text>
-          <text x="663" y="140" text-anchor="middle" font-size="10.5" fill="var(--warn)">落在磁碟，不是聊天記錄</text>
+          <text x="663" y="98" text-anchor="middle" font-size="13" font-weight="700" fill="var(--warn)">寫成一份清單檔案</text>
+          <text x="663" y="118" text-anchor="middle" class="mono-label" font-size="9.5" fill="var(--warn)" opacity="0.85">PENDING_HUMAN_ACTIONS.md</text>
+          <text x="663" y="138" text-anchor="middle" font-size="10.5" fill="var(--warn)">每次整份重寫，不是累加</text>
+          <text x="663" y="154" text-anchor="middle" font-size="10.5" fill="var(--warn)">存在硬碟上，不是聊天記錄</text>
 
           <rect x="838" y="60" width="220" height="116" rx="9" fill="var(--good-soft)" stroke="var(--good)"/>
-          <text x="948" y="104" text-anchor="middle" font-size="12" font-weight="700" fill="var(--good)">你直接打開檔案看</text>
+          <text x="948" y="104" text-anchor="middle" font-size="13" font-weight="700" fill="var(--good)">你直接打開檔案看</text>
           <text x="948" y="124" text-anchor="middle" font-size="10.5" fill="var(--good)">不需要開 AI、不需要問</text>
-          <text x="948" y="140" text-anchor="middle" font-size="10.5" fill="var(--good)">不會因對話結束/壓縮而消失</text>
+          <text x="948" y="140" text-anchor="middle" font-size="10.5" fill="var(--good)">不會因對話結束就找不到</text>
         </g>
 
         <line x1="210" y1="118" x2="244" y2="118" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrowReport)"/>

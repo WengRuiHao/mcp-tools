@@ -1,13 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 620" role="img" aria-label="票單狀態機：new 到 snapshot 到 project_dir_confirmed 到 analyzed 到 implemented 到 verified 依序推進，只會往前走；verified 且 PASS 之後，如果偵測到票單內容雜湊改變，會在 verified 節點觸發一個警示標記：needs_reanalysis 設為 true、verdict、confirmation 一併清空，逼下一輪重新從分析師開始，但 stage 欄位本身仍是 verified，不會倒退回任何較早的節點；verified 且 FAIL 時，advance_ticket_stage 必填 rootCause，依 analysis 或 implementation 自動路由回分析師或工程師重跑，並機械式維護 consecutive_fail_count，達到門檻（needs_human_review）就停下來問使用者，不再自動重跑；verified 且 PASS、內容也沒再變的情況下，會先落入待使用者自己實測＋審視程式碼品質確認的狀態，使用者呼叫 record_confirmation 帶 confirmed:true，才會真正進入已結案狀態；confirmed:false 會把 verdict 重設回 null、標記 humanRejected:true，重新套用跟驗證師判 FAIL 完全一樣的根因分流機制，不是交由人工事後自行判斷。額外補充：只有 sdMode 為 self-generated 的專案，analyzed 之後會先經過 sd_drafted 這個規格先定案關卡——規格撰寫者產出 SD 草稿、推進到 sd_drafted，使用者呼叫 record_spec_confirmation 確認（confirmed:true）才能解鎖推進到 implemented，confirmed:false 則打回、清空 spec_confirmation 等重新產出；其他 sdMode 略過這一關，analyzed 直接推進 implemented">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 460" role="img" aria-label="一張票單會依序經過六個階段：剛收到票、抓票單內容、確認程式碼位置、AI分析問題、AI寫程式碼、AI驗證結果，只會往前走不會跳過。只有AI自己維護規格文件的專案，分析完之後會多一步：AI先寫規格草稿讓使用者確認，確認過才能繼續寫程式碼。驗證結果如果沒通過，AI會自動回頭修正再重驗一次；如果通過，還要使用者自己實測並看過程式碼確認沒問題，才算真的完成，使用者發現有問題一樣會被送回去自動修正。如果Asana上的票單內容後來又被改過，AI會自動重新分析，不會用舊資料繼續">
   <defs>
     <marker id="arrowStage" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
     </marker>
+    <marker id="arrowSpec" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5c6f99"/>
+    </marker>
     <marker id="arrowStale" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#a84b36"/>
-    </marker>
-    <marker id="arrowMuted" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#2a2620" fill-opacity="0.55"/>
     </marker>
     <marker id="arrowWarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#b9782e"/>
@@ -15,116 +15,88 @@
     <marker id="arrowGood" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#4c7a52"/>
     </marker>
-    <marker id="arrowSpec" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#5c6f99"/>
-    </marker>
   </defs>
 
-  <rect x="0" y="0" width="1080" height="620" fill="#f5f2ea"/>
+  <rect x="0" y="0" width="1080" height="460" fill="#f5f2ea"/>
 
-  <g font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="12.5" text-anchor="middle">
-    <rect x="20" y="150" width="120" height="56" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="80" y="183" fill="#2a2620">new</text>
+  <g font-family="'Noto Sans TC',sans-serif">
+    <!-- conditional spec-draft note (only self-generated projects) -->
+    <rect x="586" y="25" width="250" height="53" rx="9" fill="#e3e7f0" stroke="#5c6f99" stroke-dasharray="4 3"/>
+    <text x="711" y="44" text-anchor="middle" font-size="10.5" font-weight="700" fill="#5c6f99">有些專案：AI 先寫規格草稿</text>
+    <text x="711" y="60" text-anchor="middle" font-size="10.5" fill="#5c6f99">等你確認過才能繼續寫程式碼</text>
+    <text x="711" y="74" text-anchor="middle" font-size="9" fill="#5c6f99" opacity="0.75">（只有 AI 自己維護規格的專案才會這樣）</text>
+    <line x1="711" y1="78" x2="711" y2="97" stroke="#5c6f99" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrowSpec)"/>
 
-    <rect x="182" y="150" width="120" height="56" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="242" y="183" fill="#2a2620">snapshot</text>
+    <!-- content-changed warning tag above verified -->
+    <rect x="858" y="25" width="200" height="53" rx="9" fill="#f2dbd2" stroke="#a84b36" stroke-dasharray="4 3"/>
+    <text x="958" y="44" text-anchor="middle" font-size="10.5" font-weight="700" fill="#a84b36">⚠ 票單內容後來又變了？</text>
+    <text x="958" y="60" text-anchor="middle" font-size="10.5" fill="#a84b36">AI 會自動重新分析，不用你說</text>
+    <text x="958" y="74" text-anchor="middle" font-size="9" fill="#a84b36" opacity="0.75">（不會沿用舊資料繼續做）</text>
+    <line x1="958" y1="78" x2="975" y2="97" stroke="#a84b36" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrowStale)"/>
 
-    <rect x="344" y="150" width="146" height="56" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="417" y="177" font-family="'Noto Sans TC',sans-serif" fill="#2a2620">目錄確認</text>
-    <text x="417" y="193" font-size="10.5" fill="#2a2620" opacity="0.75">project_dir_confirmed</text>
+    <!-- main row: 6 step cards -->
+    <g font-size="13" text-anchor="middle">
+      <rect x="20" y="100" width="150" height="80" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+      <circle cx="42" cy="116" r="12" fill="#2a2620"/><text x="42" y="120" fill="#f5f2ea" font-weight="700" font-size="11">1</text>
+      <text x="95" y="140" font-weight="700" fill="#2a2620">剛收到票</text>
+      <text x="95" y="158" font-family="'IBM Plex Mono',sans-serif" font-size="9.5" fill="#6b6558">new</text>
 
-    <rect x="532" y="150" width="120" height="56" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="592" y="183" fill="#2a2620">analyzed</text>
+      <rect x="196" y="100" width="150" height="80" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+      <circle cx="218" cy="116" r="12" fill="#2a2620"/><text x="218" y="120" fill="#f5f2ea" font-weight="700" font-size="11">2</text>
+      <text x="271" y="140" font-weight="700" fill="#2a2620">抓票單內容</text>
+      <text x="271" y="158" font-family="'IBM Plex Mono',sans-serif" font-size="9.5" fill="#6b6558">snapshot</text>
 
-    <rect x="694" y="150" width="126" height="56" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="757" y="183" fill="#2a2620">implemented</text>
+      <rect x="372" y="100" width="150" height="80" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+      <circle cx="394" cy="116" r="12" fill="#2a2620"/><text x="394" y="120" fill="#f5f2ea" font-weight="700" font-size="11">3</text>
+      <text x="447" y="134" font-weight="700" fill="#2a2620">確認程式碼</text>
+      <text x="447" y="150" font-weight="700" fill="#2a2620">位置</text>
+      <text x="447" y="166" font-family="'IBM Plex Mono',sans-serif" font-size="8.5" fill="#6b6558">project_dir_confirmed</text>
 
-    <rect x="862" y="150" width="102" height="56" rx="9" fill="#dfe9dd" stroke="#4c7a52"/>
-    <text x="913" y="177" font-weight="700" fill="#4c7a52">verified</text>
-    <text x="913" y="193" font-size="10.5" fill="#4c7a52">PASS / FAIL</text>
+      <rect x="548" y="100" width="150" height="80" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+      <circle cx="570" cy="116" r="12" fill="#2a2620"/><text x="570" y="120" fill="#f5f2ea" font-weight="700" font-size="11">4</text>
+      <text x="623" y="140" font-weight="700" fill="#2a2620">AI 分析問題</text>
+      <text x="623" y="158" font-family="'IBM Plex Mono',sans-serif" font-size="9.5" fill="#6b6558">analyzed</text>
+
+      <rect x="724" y="100" width="150" height="80" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+      <circle cx="746" cy="116" r="12" fill="#2a2620"/><text x="746" y="120" fill="#f5f2ea" font-weight="700" font-size="11">5</text>
+      <text x="799" y="140" font-weight="700" fill="#2a2620">AI 寫程式碼</text>
+      <text x="799" y="158" font-family="'IBM Plex Mono',sans-serif" font-size="9.5" fill="#6b6558">implemented</text>
+
+      <rect x="900" y="100" width="150" height="80" rx="10" fill="#dfe9dd" stroke="#4c7a52"/>
+      <circle cx="922" cy="116" r="12" fill="#4c7a52"/><text x="922" y="120" fill="#f5f2ea" font-weight="700" font-size="11">6</text>
+      <text x="975" y="140" font-weight="700" fill="#4c7a52">AI 驗證結果</text>
+      <text x="975" y="158" font-family="'IBM Plex Mono',sans-serif" font-size="9.5" fill="#4c7a52">verified</text>
+    </g>
   </g>
 
   <g stroke="#2a2620">
-    <line x1="140" y1="178" x2="178" y2="178" marker-end="url(#arrowStage)"/>
-    <line x1="302" y1="178" x2="340" y2="178" marker-end="url(#arrowStage)"/>
-    <line x1="490" y1="178" x2="528" y2="178" marker-end="url(#arrowStage)"/>
-    <line x1="652" y1="178" x2="690" y2="178" marker-end="url(#arrowStage)"/>
-    <line x1="820" y1="178" x2="858" y2="178" marker-end="url(#arrowStage)"/>
+    <line x1="170" y1="140" x2="192" y2="140" marker-end="url(#arrowStage)"/>
+    <line x1="346" y1="140" x2="368" y2="140" marker-end="url(#arrowStage)"/>
+    <line x1="522" y1="140" x2="544" y2="140" marker-end="url(#arrowStage)"/>
+    <line x1="698" y1="140" x2="720" y2="140" marker-end="url(#arrowStage)"/>
+    <line x1="874" y1="140" x2="896" y2="140" marker-end="url(#arrowStage)"/>
   </g>
 
-  <path d="M 242 206 C 200 236, 284 236, 242 210" fill="none" stroke="#2a2620" stroke-opacity="0.55" stroke-width="1.3" marker-end="url(#arrowMuted)"/>
-  <text x="242" y="256" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#6b6558">內容 hash 相同 → unchanged:true</text>
-  <text x="242" y="270" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#6b6558">不重寫檔案、不回傳全文</text>
+  <!-- outcome: FAIL → auto-retry -->
+  <path d="M 900 165 L 800 195 L 200 195 L 200 220" fill="none" stroke="#a84b36" stroke-width="1.6" marker-end="url(#arrowStale)"/>
+  <rect x="60" y="224" width="600" height="100" rx="10" fill="#f2dbd2" stroke="#a84b36"/>
+  <text x="360" y="248" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13.5" font-weight="700" fill="#a84b36">😕 沒通過 → AI 自動回頭修，不用你操心</text>
+  <text x="360" y="268" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#a84b36">問題出在「分析方向」就回步驟 4 重新分析；出在「寫的程式碼」就回步驟 5 重寫</text>
+  <text x="360" y="286" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" font-weight="500" fill="#a84b36">同一張票連續失敗 3 次以上，AI 才會停下來問你</text>
+  <text x="360" y="306" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#a84b36" opacity="0.85">你自己測試後回報「有問題」，也會走同一套自動修正流程</text>
 
-  <line x1="913" y1="150" x2="900" y2="134" stroke="#a84b36" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#arrowStale)"/>
-  <rect x="640" y="14" width="330" height="128" rx="9" fill="#f2dbd2" stroke="#a84b36"/>
-  <text x="805" y="35" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" font-weight="500" fill="#a84b36">⚠ Asana 內容 hash 變了 → needs_reanalysis = true</text>
-  <text x="805" y="53" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#a84b36">verdict 清空；stage 欄位仍是 verified，不會倒退</text>
-  <text x="805" y="71" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#a84b36">confirmation 一併清空</text>
-  <text x="805" y="89" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#a84b36">（人類確認作廢，不能沿用舊版內容的確認）</text>
-  <text x="805" y="107" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#a84b36">下一輪要當作還沒驗證過，重新從分析師開始</text>
+  <!-- outcome: PASS → 待確認 → 已完成 -->
+  <line x1="975" y1="180" x2="975" y2="220" stroke="#b9782e" stroke-width="1.6" marker-end="url(#arrowWarn)"/>
+  <rect x="855" y="224" width="210" height="86" rx="10" fill="#f1e2c8" stroke="#b9782e"/>
+  <text x="960" y="246" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" font-weight="700" fill="#b9782e">🙂 AI 覺得通過了</text>
+  <text x="960" y="264" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#b9782e">但還要你自己實測、</text>
+  <text x="960" y="280" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#b9782e">看過程式碼才算數</text>
+  <text x="960" y="298" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="9.5" fill="#b9782e" opacity="0.8">你說「有問題」→ 走上面自動修正流程</text>
 
-  <!-- verified + FAIL → rootCause 分流（也是 humanRejected 重新進來的同一個入口） -->
-  <line x1="862" y1="206" x2="862" y2="225" stroke="#a84b36" stroke-width="1.6" marker-end="url(#arrowStale)"/>
-  <path d="M 862 225 L 668 225 L 668 286" fill="none" stroke="#a84b36" stroke-width="1.6" marker-end="url(#arrowStale)"/>
+  <line x1="960" y1="310" x2="960" y2="340" stroke="#4c7a52" stroke-width="1.6" marker-end="url(#arrowGood)"/>
+  <rect x="885" y="344" width="150" height="54" rx="10" fill="#dfe9dd" stroke="#4c7a52"/>
+  <text x="960" y="366" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" font-weight="700" fill="#4c7a52">✅ 真的完成了</text>
+  <text x="960" y="384" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#4c7a52">你確認過沒問題</text>
 
-  <line x1="592" y1="288" x2="592" y2="210" stroke="#a84b36" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#arrowStale)"/>
-  <text x="592" y="248" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9.5" fill="#a84b36">rootCause:</text>
-  <text x="592" y="260" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9.5" fill="#a84b36">"analysis"</text>
-
-  <line x1="757" y1="288" x2="757" y2="210" stroke="#a84b36" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#arrowStale)"/>
-  <text x="757" y="262" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9.5" fill="#a84b36">rootCause:</text>
-  <text x="757" y="274" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9.5" fill="#a84b36">"implementation"</text>
-
-  <rect x="140" y="290" width="620" height="128" rx="9" fill="#f2dbd2" stroke="#a84b36"/>
-  <text x="450" y="312" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12.5" font-weight="700" fill="#a84b36">verdict: FAIL → rootCause 根因分流</text>
-  <text x="450" y="328" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10" fill="#a84b36" opacity="0.85">advance_ticket_stage({ verdict: "FAIL", rootCause })（必填）</text>
-  <text x="450" y="346" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#a84b36">"analysis" → 回分析師重跑；"implementation" → 回工程師重跑（不停下來問）</text>
-  <text x="450" y="364" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#a84b36">consecutive_fail_count 機械式累加（verdict 變 PASS 才歸零）</text>
-  <text x="450" y="382" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" font-weight="500" fill="#a84b36">needs_human_review（≥ 3 次）→ 停下來問使用者，不再自動重跑</text>
-  <text x="450" y="400" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#a84b36" opacity="0.9">下方使用者確認 confirmed:false 時，也會導向這裡（humanRejected:true）</text>
-
-  <!-- verified + PASS + 內容沒變 → 進入待使用者確認 -->
-  <line x1="913" y1="206" x2="913" y2="246" stroke="#b9782e" stroke-width="1.6" marker-end="url(#arrowWarn)"/>
-  <rect x="773" y="250" width="280" height="100" rx="9" fill="#f1e2c8" stroke="#b9782e"/>
-  <text x="913" y="272" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12.5" font-weight="700" fill="#b9782e">待使用者自測＋審視 code</text>
-  <text x="913" y="288" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10.5" fill="#b9782e" opacity="0.8">awaitingConfirmation</text>
-  <text x="913" y="304" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10.5" fill="#b9782e">confirmation ≠ true</text>
-  <text x="913" y="322" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#b9782e" opacity="0.9">confirmed:false → verdict 清空、humanRejected:true</text>
-  <text x="913" y="338" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10" fill="#b9782e" opacity="0.75">record_confirmation（見左側 FAIL 分流方塊）</text>
-
-  <!-- record_confirmation(confirmed:true) → 已結案 -->
-  <line x1="913" y1="350" x2="913" y2="384" stroke="#4c7a52" stroke-width="1.6" marker-end="url(#arrowGood)"/>
-  <rect x="828" y="388" width="170" height="60" rx="9" fill="#dfe9dd" stroke="#4c7a52"/>
-  <text x="913" y="411" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12.5" font-weight="700" fill="#4c7a52">已結案</text>
-  <text x="913" y="428" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10.5" fill="#4c7a52">confirmed: true</text>
-
-  <!-- 補充區塊：sd_drafted 規格先定案關卡（只有 sdMode: self-generated 才會走到，獨立於上方主狀態機，避免打亂既有版位） -->
-  <line x1="140" y1="472" x2="964" y2="472" stroke="#2a2620" stroke-opacity="0.25" stroke-width="1"/>
-  <text x="540" y="492" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12.5" font-weight="700" fill="#5c6f99">補充：規格先定案關卡（僅 sdMode: "self-generated"）</text>
-
-  <g font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="12" text-anchor="middle">
-    <rect x="40" y="522" width="128" height="44" rx="8" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.6" stroke-dasharray="4 3"/>
-    <text x="104" y="549" font-family="'Noto Sans TC',sans-serif" fill="#2a2620" opacity="0.85">analyzed（承上）</text>
-
-    <rect x="248" y="510" width="220" height="68" rx="9" fill="#e3e7f0" stroke="#5c6f99"/>
-    <text x="358" y="534" font-weight="700" fill="#5c6f99">sd_drafted</text>
-    <text x="358" y="550" font-size="10.5" font-family="'Noto Sans TC',sans-serif" fill="#5c6f99">規格撰寫者產出/更新 SD 草稿</text>
-    <text x="358" y="566" font-size="10.5" font-family="'Noto Sans TC',sans-serif" fill="#5c6f99">停下來等使用者表態</text>
-
-    <rect x="700" y="522" width="150" height="44" rx="8" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.6" stroke-dasharray="4 3"/>
-    <text x="775" y="549" font-family="'Noto Sans TC',sans-serif" fill="#2a2620" opacity="0.85">implemented（承上）</text>
-  </g>
-
-  <line x1="168" y1="544" x2="244" y2="544" stroke="#5c6f99" stroke-width="1.6" marker-end="url(#arrowSpec)"/>
-  <line x1="468" y1="544" x2="696" y2="544" stroke="#5c6f99" stroke-width="1.6" marker-end="url(#arrowSpec)"/>
-  <text x="582" y="534" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#5c6f99">record_spec_confirmation</text>
-  <text x="582" y="558" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10.5" fill="#5c6f99">confirmed: true → 解鎖</text>
-
-  <path d="M 300 578 C 260 610, 420 610, 416 580" fill="none" stroke="#5c6f99" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#arrowSpec)"/>
-  <text x="358" y="616" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#5c6f99">confirmed: false → 打回，spec_confirmation 清空、規格撰寫者重新產出</text>
-
-  <text x="104" y="590" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">其他 sdMode（external/self/</text>
-  <text x="104" y="602" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">unregistered）略過此關，</text>
-  <text x="104" y="614" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">見上方主流程直接推進</text>
+  <text x="360" y="345" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#6b6558">（左邊「規格草稿」那一步：你打回意見的話，AI 改完會重新請你確認一次，不會跳過）</text>
 </svg>
