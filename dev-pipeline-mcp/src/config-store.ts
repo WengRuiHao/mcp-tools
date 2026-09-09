@@ -19,13 +19,6 @@ export function getAsanaMcpEntrypoint(): string {
   return path.resolve(__dirname, "..", "..", "asana-mcp", "dist", "index.js");
 }
 
-/** Absolute path to spec-pipeline-mcp's compiled entrypoint (dist/index.js), used to spawn it as a child MCP server. */
-export function getSpecPipelineMcpEntrypoint(): string {
-  const configured = process.env.SPEC_PIPELINE_MCP_PATH;
-  if (configured) return path.resolve(configured);
-  return path.resolve(__dirname, "..", "..", "spec-pipeline-mcp", "dist", "index.js");
-}
-
 /** Absolute path to svn-mcp's compiled entrypoint (dist/index.js), used to spawn it as a child MCP server. */
 export function getSvnMcpEntrypoint(): string {
   const configured = process.env.SVN_MCP_PATH;

@@ -13,15 +13,16 @@ npm install
 npm run build
 ```
 
-這個 MCP 是「橋接」設計，本身沒有 Asana token、不自己讀寫 SVN，轉呼叫兩個既有 MCP；「Asana 專案↔目錄」「git 版控根目錄」這兩份登記表是自己本機維護的：
+這個 MCP 是「橋接」設計，本身沒有 Asana token、不自己讀寫 SVN，轉呼叫兩個既有 MCP；「Asana 專案↔目錄」「git 版控根目錄」這兩份登記表、`get_recent_commits`（讀 git log）是自己本機維護/實作的：
 
 | 依賴 | 用途 |
 |---|---|
 | [`asana-mcp`](../asana-mcp) | 抓 Asana 票單/看板/留言（唯讀） |
-| [`spec-pipeline-mcp`](../spec-pipeline-mcp) | 只借 `get_recent_commits`，目錄登記不經過它 |
 | [`svn-mcp`](../svn-mcp) | SA/SD 規格文件在 SVN 上的瀏覽/讀取（唯讀） |
 
-啟動時會自動把這三個當子行程啟動，**必須先各自 `npm install && npm run build` 過**。
+啟動時會自動把這兩個當子行程啟動，**必須先各自 `npm install && npm run build` 過**。
+
+> 這個專案原本還借用一個獨立的 `spec-pipeline-mcp` 提供 `get_recent_commits`，2026-09-09 已經把這個功能收回本專案自己實作（`git-utils.ts`），`spec-pipeline-mcp` 這個獨立 MCP／它專屬的「分析規格檔案」觸發流程已經整個淘汰——那類「先建置案再補規格」的情境，改走本專案既有的 Asana 票單流程即可（規格一律讀 SVN，不用再本機同步一份）。
 
 <details>
 <summary>環境變數</summary>
@@ -29,7 +30,6 @@ npm run build
 | 變數 | 說明 | 預設值 |
 |---|---|---|
 | `ASANA_MCP_PATH` | asana-mcp 的 `dist/index.js` 絕對路徑 | `../asana-mcp/dist/index.js` |
-| `SPEC_PIPELINE_MCP_PATH` | spec-pipeline-mcp 的 `dist/index.js` 絕對路徑 | `../spec-pipeline-mcp/dist/index.js` |
 | `SVN_MCP_PATH` | svn-mcp 的 `dist/index.js` 絕對路徑 | `../svn-mcp/dist/index.js` |
 | `ASANA_PIPELINE_DATA_DIR` | 本機輕量資料（票單索引/登記表/`file-write-state.json`）存放目錄；票單內容本身在各專案的 `.asana-pipeline/` 底下 | `./data` |
 
@@ -163,7 +163,7 @@ npm run build
 | `get_sd_spec_template` / `get_sd_spec_versioning_rules` | SD 規格撰寫範本／版更規範，寫入前應先呼叫其中之一 |
 | `svn_list_connections` / `svn_test_connection` | 轉呼叫 svn-mcp，列出/測試 SVN 連線 |
 | `svn_browse` / `svn_cat` / `svn_doc_images` / `svn_log` | 轉呼叫 svn-mcp 讀 SVN 上的規格（唯讀），一律讀遠端不讀本機 checkout |
-| `get_recent_commits` | 查某目錄最近的 git commit（轉呼叫 spec-pipeline-mcp） |
+| `get_recent_commits` | 查某目錄最近的 git commit |
 | `read_project_file` / `write_project_file` / `list_project_dir` / `search_project_text` | 讀寫/搜尋專案檔案（限 `projectDir` 範圍內）；偵測外部修改，見下方安全限制 |
 | `resolve_git_roots` / `register_git_roots` | 查詢/登記專案目錄實際的 git 版控根目錄（可前後端分開） |
 | `run_project_shell` | 跑 shell 指令；git 指令會驗證版控根目錄，見下方安全限制 |

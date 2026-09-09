@@ -1,9 +1,8 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { getAsanaMcpEntrypoint, getSpecPipelineMcpEntrypoint, getSvnMcpEntrypoint } from "./config-store.js";
+import { getAsanaMcpEntrypoint, getSvnMcpEntrypoint } from "./config-store.js";
 
 let asanaClient: Client | null = null;
-let specPipelineClient: Client | null = null;
 let svnClient: Client | null = null;
 
 /**
@@ -41,13 +40,6 @@ async function getAsanaClient(): Promise<Client> {
     asanaClient = await connect("asana-mcp", getAsanaMcpEntrypoint());
   }
   return asanaClient;
-}
-
-async function getSpecPipelineClient(): Promise<Client> {
-  if (!specPipelineClient) {
-    specPipelineClient = await connect("spec-pipeline-mcp", getSpecPipelineMcpEntrypoint());
-  }
-  return specPipelineClient;
 }
 
 async function getSvnClient(): Promise<Client> {
@@ -115,17 +107,6 @@ export async function callAsanaTool(name: string, args: Record<string, unknown>)
   );
 }
 
-export async function callSpecPipelineTool(name: string, args: Record<string, unknown>): Promise<any> {
-  return bridgeCall(
-    getSpecPipelineClient,
-    () => {
-      specPipelineClient = null;
-    },
-    name,
-    args
-  );
-}
-
 export async function callSvnTool(name: string, args: Record<string, unknown>): Promise<any> {
   return bridgeCall(
     getSvnClient,
@@ -138,8 +119,7 @@ export async function callSvnTool(name: string, args: Record<string, unknown>): 
 }
 
 export async function closeChildMcpClients(): Promise<void> {
-  await Promise.allSettled([asanaClient?.close(), specPipelineClient?.close(), svnClient?.close()]);
+  await Promise.allSettled([asanaClient?.close(), svnClient?.close()]);
   asanaClient = null;
-  specPipelineClient = null;
   svnClient = null;
 }

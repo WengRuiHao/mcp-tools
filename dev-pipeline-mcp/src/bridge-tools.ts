@@ -1,10 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { callAsanaTool, callSpecPipelineTool, callSvnTool } from "./mcp-clients.js";
+import path from "node:path";
+import { callAsanaTool, callSvnTool } from "./mcp-clients.js";
+import { getRecentCommits, isGitRepoRoot } from "./git-utils.js";
 import { textResult } from "./shared.js";
 
 /**
- * 這裡集中放「純轉發呼叫給兄弟 MCP 子行程」的工具（svn-mcp / asana-mcp / spec-pipeline-mcp），
+ * 這裡集中放「純轉發呼叫給兄弟 MCP 子行程」的工具（svn-mcp / asana-mcp），
  * 讓驅動 pipeline 的 AI 不用另外接這幾個 MCP 的連線。之後要新增其他「轉發給兄弟 MCP」的工具，
  * 加在這個檔案就好，不用散落到別的分類檔案裡。
  */
@@ -109,14 +111,22 @@ export function registerBridgeTools(server: McpServer): void {
 
   server.tool(
     "get_recent_commits",
-    "查詢指定目錄的最近 git commit 記錄（透過 spec-pipeline-mcp），供分析師階段參考最新異動脈絡。",
+    "查詢指定目錄的最近 git commit 記錄，供分析師階段參考最新異動脈絡。",
     {
       gitDir: z.string().describe("git 版控目錄"),
       limit: z.number().int().positive().max(100).default(10).describe("要抓取的 commit 數量，預設 10"),
     },
     async ({ gitDir, limit }) => {
-      const result = await callSpecPipelineTool("get_recent_commits", { gitDir, limit });
-      return textResult(result);
+      const absGitDir = path.resolve(gitDir);
+      if (!(await isGitRepoRoot(absGitDir))) {
+        return textResult({ success: false, message: `提供的目錄不是有效的 git 版控目錄: ${absGitDir}` }, true);
+      }
+      try {
+        const commits = await getRecentCommits(absGitDir, limit);
+        return textResult({ success: true, gitDir: absGitDir, commits });
+      } catch (err: any) {
+        return textResult({ success: false, message: `讀取 commit 記錄失敗: ${err.message}` }, true);
+      }
     }
   );
 }

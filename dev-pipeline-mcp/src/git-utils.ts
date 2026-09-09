@@ -1,6 +1,5 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import path from "node:path";
 
 const execFileAsync = promisify(execFile);
 
@@ -29,44 +28,9 @@ export async function getGitTopLevel(dir: string): Promise<string | null> {
   }
 }
 
-export async function isDirInsideWorkTree(dir: string): Promise<boolean> {
-  try {
-    const result = await runGit(["rev-parse", "--is-inside-work-tree"], dir);
-    return result === "true";
-  } catch {
-    return false;
-  }
-}
-
 export async function isGitRepoRoot(dir: string): Promise<boolean> {
   const top = await getGitTopLevel(dir);
   return top !== null;
-}
-
-/**
- * Checks whether the specific file is tracked by git, as opposed to merely sitting
- * somewhere underneath an unrelated ancestor repo. `rev-parse --show-toplevel` walks
- * up parent directories and will report "tracked" for a spec nested under an unrelated
- * outer repo (e.g. a home directory that happens to be a git repo) even though the file
- * itself has nothing to do with that repo's history.
- */
-export async function isFileTracked(filePath: string): Promise<boolean> {
-  const dir = path.dirname(filePath);
-  const base = path.basename(filePath);
-  try {
-    await execFileAsync("git", ["ls-files", "--error-unmatch", "--", base], { cwd: dir });
-    return true;
-  } catch (err: any) {
-    // A string `code` (ENOENT/EACCES/ENOTDIR/...) means the process itself never ran —
-    // git isn't installed, cwd is missing, or permissions are wrong. That's an environment
-    // failure, not "this file isn't tracked" — don't let it masquerade as gitTracked:false.
-    if (typeof err?.code === "string") {
-      throw new Error(`無法在 ${dir} 執行 git 指令（${err.code}）：${err.message}`);
-    }
-    // git ran and exited non-zero because the pathspec didn't match a tracked file —
-    // this is the genuine "not tracked" case (numeric exit code).
-    return false;
-  }
 }
 
 const FIELD_SEP = "\x1f";
@@ -97,8 +61,4 @@ export async function getRecentCommits(gitDir: string, limit: number): Promise<C
   }
 
   return commits;
-}
-
-export function toPosixPath(p: string): string {
-  return path.resolve(p).replace(/\\/g, "/");
 }
