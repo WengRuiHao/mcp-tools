@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 760" role="img" aria-label="dev-pipeline-mcp 主流程每一步實際呼叫哪個 MCP：取得流程／角色說明是本機文字，不呼叫任何 MCP；一次性設定（專案/目錄/SA-SD/git roots）全部是它自己本機的登記表，不跨行程；列出待處理票單與抓票單內容橋接 asana-mcp；SA/SD 規格讀取橋接 svn-mcp；分析師/工程師/驗證師的實際判斷由呼叫端 AI 自己的模型執行，這個 MCP 完全不參與思考（分析師視需要會呼叫 get_recent_commits 抓 commit 記錄，這是這個 MCP 自己本機實作的 git log 邏輯，不再橋接外部 MCP）；修改程式碼與跑指令直接操作使用者的專案目錄，不經過任何其他 MCP；寫入追蹤檔案與查詢狀態是這個 MCP 自己本機管理的檔案">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 760" role="img" aria-label="自動處理 Asana 票單這個流程，每一步實際在做什麼：先看操作說明（本機文字，不用任何工具）；設定一次專案基本資料（存在本機登記表）；抓 Asana 票單內容（借用讀 Asana 票單工具）；讀規格文件，只有部分情況需要（借用讀 SVN 規格文件工具）；AI 自己動腦分析問題、寫程式碼、檢查結果對不對，這一步完全是你正在用的 AI 自己想，這個工具不會幫忙想；實際改程式碼、跑測試（直接動你自己的專案資料夾）；把這次做了什麼記下來，方便下次查進度（存在本機，這個工具自己管理的檔案）">
   <defs>
     <marker id="flowArrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
@@ -10,60 +10,61 @@
   <g font-family="'Noto Sans TC',sans-serif">
     <!-- Step 1 -->
     <rect x="40" y="20" width="430" height="64" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="255" y="46" text-anchor="middle" font-size="12" font-weight="700" fill="#2a2620">get_pipeline_overview／get_role_prompt</text>
-    <text x="255" y="64" text-anchor="middle" font-size="11" fill="#6b6558">取得流程／角色說明文字</text>
+    <text x="255" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">① 先看操作說明</text>
+    <text x="255" y="66" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="9.5" fill="#6b6558">get_pipeline_overview／get_role_prompt</text>
 
     <rect x="500" y="32" width="360" height="40" rx="20" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.6"/>
-    <text x="680" y="57" text-anchor="middle" font-size="11" fill="#2a2620">本機純文字，不呼叫任何 MCP</text>
+    <text x="680" y="57" text-anchor="middle" font-size="11" fill="#2a2620">只是本機文字，不用呼叫任何工具</text>
 
     <!-- Step 2 -->
     <rect x="40" y="120" width="430" height="64" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="255" y="146" text-anchor="middle" font-size="12" font-weight="700" fill="#2a2620">一次性設定：專案／目錄／git roots</text>
-    <text x="255" y="164" text-anchor="middle" font-size="11" fill="#6b6558">resolve/register_project_dir、git_roots…</text>
+    <text x="255" y="148" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">② 設定一次專案基本資料</text>
+    <text x="255" y="166" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="9.5" fill="#6b6558">register_project_dir／git_roots…</text>
 
     <rect x="500" y="132" width="360" height="40" rx="20" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.6"/>
-    <text x="680" y="157" text-anchor="middle" font-size="11" fill="#2a2620">本機登記表，不跨行程</text>
+    <text x="680" y="157" text-anchor="middle" font-size="11" fill="#2a2620">存在本機的登記表裡，設定過一次不用再問</text>
 
     <!-- Step 3 -->
     <rect x="40" y="220" width="430" height="64" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="255" y="246" text-anchor="middle" font-size="12" font-weight="700" fill="#2a2620">list_pending_tickets／get_ticket_snapshot</text>
-    <text x="255" y="264" text-anchor="middle" font-size="11" fill="#6b6558">列出待處理票單、抓票單內容＋留言串</text>
+    <text x="255" y="248" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">③ 抓 Asana 上的票單內容</text>
+    <text x="255" y="266" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="9.5" fill="#6b6558">list_pending_tickets／get_ticket_snapshot</text>
 
     <rect x="500" y="232" width="360" height="40" rx="20" fill="#dbe9ea" stroke="#2b6777"/>
-    <text x="680" y="257" text-anchor="middle" font-size="11" font-weight="600" fill="#17414c">橋接 asana-mcp</text>
+    <text x="680" y="257" text-anchor="middle" font-size="11" font-weight="600" fill="#17414c">借用「讀 Asana 票單」這個工具</text>
 
     <!-- Step 4 -->
     <rect x="40" y="320" width="430" height="64" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="255" y="346" text-anchor="middle" font-size="12" font-weight="700" fill="#2a2620">SA/SD 規格讀取（external／self 模式）</text>
-    <text x="255" y="364" text-anchor="middle" font-size="11" fill="#6b6558">svn_browse／svn_cat／svn_doc_images</text>
+    <text x="255" y="348" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">④ 讀規格文件（部分情況才需要）</text>
+    <text x="255" y="366" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="9.5" fill="#6b6558">svn_browse／svn_cat／svn_doc_images</text>
 
     <rect x="500" y="332" width="360" height="40" rx="20" fill="#f1e2c8" stroke="#b9782e"/>
-    <text x="680" y="357" text-anchor="middle" font-size="11" font-weight="600" fill="#8a5a1f">橋接 svn-mcp</text>
+    <text x="680" y="357" text-anchor="middle" font-size="11" font-weight="600" fill="#8a5a1f">借用「讀 SVN 規格文件」這個工具</text>
 
     <!-- Step 5 (highlighted: this is where thinking happens) -->
     <rect x="40" y="420" width="430" height="64" rx="9" fill="#dfe9dd" stroke="#4c7a52" stroke-width="1.6"/>
-    <text x="255" y="446" text-anchor="middle" font-size="12" font-weight="700" fill="#365f3b">分析師／工程師／驗證師的實際判斷</text>
-    <text x="255" y="464" text-anchor="middle" font-size="11" fill="#365f3b" opacity="0.9">問題根因、怎麼改、PASS／FAIL</text>
+    <text x="255" y="444" text-anchor="middle" font-size="13" font-weight="700" fill="#365f3b">⑤ AI 自己動腦：分析、寫程式、檢查</text>
+    <text x="255" y="461" text-anchor="middle" font-size="10.5" fill="#365f3b" opacity="0.9">問題根因、怎麼改、有沒有做對</text>
+    <text x="255" y="475" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="9" fill="#365f3b" opacity="0.75">分析師／工程師／驗證師</text>
 
     <rect x="500" y="428" width="360" height="48" rx="20" fill="#dfe9dd" stroke="#4c7a52" stroke-width="1.6"/>
-    <text x="680" y="449" text-anchor="middle" font-size="11" font-weight="700" fill="#365f3b">呼叫端 AI 自己的模型執行</text>
-    <text x="680" y="465" text-anchor="middle" font-size="9.5" fill="#365f3b" opacity="0.85">分析師視需要呼叫本機 get_recent_commits，不再橋接外部 MCP</text>
+    <text x="680" y="449" text-anchor="middle" font-size="11" font-weight="700" fill="#365f3b">完全是你正在用的 AI 自己想</text>
+    <text x="680" y="465" text-anchor="middle" font-size="9.5" fill="#365f3b" opacity="0.85">這個工具不會幫忙想，只負責記錄結果</text>
 
     <!-- Step 6 -->
     <rect x="40" y="520" width="430" height="64" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="255" y="546" text-anchor="middle" font-size="12" font-weight="700" fill="#2a2620">write_project_file／run_project_shell</text>
-    <text x="255" y="564" text-anchor="middle" font-size="11" fill="#6b6558">實際修改程式碼、跑編譯／測試</text>
+    <text x="255" y="548" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">⑥ 實際改程式碼、跑測試</text>
+    <text x="255" y="566" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="9.5" fill="#6b6558">write_project_file／run_project_shell</text>
 
     <rect x="500" y="532" width="360" height="40" rx="20" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.6"/>
-    <text x="680" y="557" text-anchor="middle" font-size="11" fill="#2a2620">直接讀寫 projectDir，不經過其他 MCP</text>
+    <text x="680" y="557" text-anchor="middle" font-size="11" fill="#2a2620">直接動你自己的專案資料夾，不假手別的工具</text>
 
     <!-- Step 7 -->
     <rect x="40" y="620" width="430" height="64" rx="9" fill="#dfe9dd" stroke="#4c7a52"/>
-    <text x="255" y="646" text-anchor="middle" font-size="12" font-weight="700" fill="#365f3b">write_ticket_artifact／get_ticket_status</text>
-    <text x="255" y="664" text-anchor="middle" font-size="11" fill="#365f3b" opacity="0.9">寫入 01/02/03、查詢 stage／sync_flags</text>
+    <text x="255" y="648" text-anchor="middle" font-size="13" font-weight="700" fill="#365f3b">⑦ 把進度記下來，方便下次查</text>
+    <text x="255" y="666" text-anchor="middle" font-family="'IBM Plex Mono','Noto Sans TC',sans-serif" font-size="9.5" fill="#365f3b" opacity="0.8">write_ticket_artifact／get_ticket_status</text>
 
     <rect x="500" y="632" width="360" height="40" rx="20" fill="#dfe9dd" stroke="#4c7a52" stroke-opacity="0.7"/>
-    <text x="680" y="657" text-anchor="middle" font-size="11" fill="#365f3b">本機：dev-pipeline-mcp 自己的追蹤檔案</text>
+    <text x="680" y="657" text-anchor="middle" font-size="11" fill="#365f3b">存在本機，這個工具自己管理的檔案</text>
 
     <!-- connecting arrows down the main column -->
     <g stroke="#2a2620">

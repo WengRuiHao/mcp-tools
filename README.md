@@ -15,21 +15,21 @@
 
 ## 架構圖解
 
-### 怎麼呼叫、MCP 之間怎麼溝通
+### 你的 AI 同時可以用哪些工具
 
-![五個 MCP 的連線架構：AI host 對五個 MCP 各自建立獨立的 MCP stdio 連線；dev-pipeline-mcp 另外自己啟動 asana-mcp、svn-mcp 兩個子行程，是完全獨立於 host 那兩條連線的第二份實體；github-mcp 跟 office-docs-mcp 都沒有被任何其他 MCP 橋接](docs/img/mcp-architecture.svg)
+![你在用的 AI 同時可以打開 5 個工具：讀 Asana 票單、讀 SVN 規格文件、自動處理 Asana 票單全流程、操作 GitHub、讀寫 Word/Excel/PDF。這 5 個工具各自獨立運作；只有「自動處理 Asana 票單全流程」比較特別，它自己內部又另外開了一份「讀 Asana 票單」跟「讀 SVN 規格文件」來用](docs/img/mcp-architecture.svg)
 
-- Host 對五個 MCP 各自建立獨立連線——五個獨立 process，透過 stdio／JSON-RPC 溝通，彼此互不知道對方存在。
-- 只有 `dev-pipeline-mcp` 會再啟動一次 `asana-mcp`／`svn-mcp` 當子行程橋接（見 `mcp-clients.ts`），是跟 host 直連的那兩個完全不同的另一份 process；`github-mcp`／`office-docs-mcp` 都沒被任何人橋接。
-- `svn-mcp` 另外有個非 MCP 協定的 HTTP bridge（`dist-exe/`），是給 `claudeweb` 用的第二個介面，跟這裡講的「MCP 對 MCP」橋接是兩件事。
+- 這 5 個工具（技術上叫 MCP server）各自是獨立的小程式，AI 個別連上就能用，彼此不知道對方存在。
+- 只有 `dev-pipeline-mcp`（自動處理 Asana 票單全流程）比較特別：它自己內部又另外啟動了一份 `asana-mcp`／`svn-mcp` 來用（見 `mcp-clients.ts`），是完全獨立的第二份，不是跟 AI 直連的那兩份共用；`github-mcp`／`office-docs-mcp` 沒有被誰借用。
+- `svn-mcp` 另外有一個給 `claudeweb`（另一個內部網頁工具）用的介面，跟這裡講的「工具借用工具」是兩回事。
 
-> 這個 repo 原本還有一個獨立的 `spec-pipeline-mcp`（規格檔案 → 分析師 → 工程師 → 驗證師，不掛 Asana），2026-09-09 已經整個併入 `dev-pipeline-mcp` 並淘汰——它原本服務的「建置案」情境其實也是從 Asana 派工，規格一律讀 SVN，不需要另外一條獨立流程或本機同步一份規格檔案。
+> 這個 repo 原本還有一個獨立的 `spec-pipeline-mcp`（讀單一規格檔案 → 分析 → 改程式 → 驗證，不掛 Asana），2026-09-09 已經整個併入 `dev-pipeline-mcp` 並淘汰——它原本服務的「建置案」情境其實也是從 Asana 派工，規格一律讀 SVN，不需要另外一條獨立流程或本機同步一份規格檔案。
 
-### dev-pipeline-mcp 主流程：每一步呼叫哪個 MCP
+### 自動處理 Asana 票單：每一步實際在做什麼
 
-![dev-pipeline-mcp 的橋接關係：Asana 專案對應目錄、SA/SD 規格設定、git 版控根目錄這三份登記表都是本機的，不跨行程；真正呼叫別的 MCP 只有兩處——抓票單橋接 asana-mcp、讀規格橋接 svn-mcp；分析師階段視需要抓的 commit 記錄是本機實作，不橋接其他 MCP；角色判斷跟改程式碼都是呼叫端 AI 自己做](docs/img/pipeline-bridge-flow.svg)
+![自動處理 Asana 票單這個流程，每一步實際在做什麼：先看操作說明；設定一次專案基本資料；抓 Asana 票單內容；讀規格文件（部分情況才需要）；AI 自己動腦分析問題、寫程式碼、檢查結果對不對；實際改程式碼、跑測試；把進度記下來方便下次查](docs/img/pipeline-bridge-flow.svg)
 
-一次性設定（專案/目錄/SA-SD/git roots）都是本機登記表，不跨行程；真正橋接別的 MCP 只有兩處：抓票單 → asana-mcp、讀規格 → svn-mcp。分析師視需要抓 commit 記錄是這個 MCP 自己的本機實作（`git-utils.ts`），角色判斷跟改程式碼一律是呼叫端 AI 自己做。
+一次性設定（專案/目錄/SA-SD/git roots）都存在本機，不用借用任何工具；真正會借用其他工具的只有兩步：抓票單、讀規格。分析問題、寫程式碼、判斷對不對這幾步，完全是你正在用的 AI 自己想，這個工具只負責記錄結果，不會幫忙思考。
 
 ## 各自的連線/憑證資料
 
