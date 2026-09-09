@@ -70,7 +70,7 @@ npm run build
 |---|---|---|
 | `external` | 規格是客戶/第三方產的 | 只能參考，不能建議修改 SD，只調整程式碼配合 |
 | `self` | 規格是自己團隊產的 | 可在報告裡建議修改段落，但不寫回 SVN（唯讀） |
-| `self-generated` | 沒有既有規格，AI 自己維護 | 真的寫進 `sdOutputPath` 指定的本機檔案 |
+| `self-generated` | 沒有既有規格，AI 自己維護 | 唯一會多走 `sd_drafted` 規格先定案關卡的模式：「規格撰寫者」角色先產出草稿寫進 `sdOutputPath`，使用者 `record_spec_confirmation` 確認過工程師才能動手寫程式碼 |
 | `unregistered` | 不登記，逐票詢問 | 唯一每張票都要單獨問「有沒有 SD」的模式 |
 
 ---
@@ -146,12 +146,12 @@ npm run build
 ## 提供的工具
 
 <details>
-<summary>展開完整工具清單（38 個）</summary>
+<summary>展開完整工具清單（39 個）</summary>
 
 | 工具 | 用途 |
 |---|---|
 | `get_pipeline_overview` | 取得整條流程說明（第一步一定先呼叫） |
-| `get_role_prompt` | 取得分析師／工程師／驗證師其中一個角色的職責說明 |
+| `get_role_prompt` | 取得分析師／規格撰寫者／工程師／驗證師其中一個角色的職責說明（`spec-writer` 只有 `sdMode: "self-generated"` 才需要） |
 | `resolve_default_project` / `register_default_project` | 查詢/登記「今天的問題單」預設 Asana 專案 |
 | `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；附上 `awaitingConfirmation`（AI 已 PASS、還卡在使用者自測這關的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）。**帶 `projectName` 會把這六類整份寫進 `PENDING_HUMAN_ACTIONS.md`**（見下方說明） |
 | `get_ticket_snapshot` | 抓票單內容＋留言，寫入追蹤檔案；子任務自動偵測（讀 Asana `parent` 欄位） |
@@ -173,6 +173,7 @@ npm run build
 | `resolve_manual_action` | 把某張票單 `manualActions` 裡「使用者確認已經處理完」的一項移除（文字精確比對），不用整份陣列重新宣告一次 |
 | `record_sasd_check` | 記錄這張票有沒有對應 SA/SD；沒呼叫過會擋下 `01-analysis.md` 的寫入 |
 | `record_confirmation` | 記錄結案前唯一一關人類確認——使用者自己的實測＋程式碼品質審視結果（`confirmed`/`note`），只能在 `verified` 階段之後呼叫；`confirmed: true` 才會讓票單真正離開 `awaitingConfirmation`、算結案 |
+| `record_spec_confirmation` | 記錄「先產規格、使用者確認、才寫程式碼」關卡的確認結果（僅 `sdMode: "self-generated"`），只能在 `sd_drafted` 階段之後呼叫；`confirmed: true` 才會解鎖 `advance_ticket_stage` 推進到 `implemented`，`confirmed: false` 打回、清空紀錄等重新產出 |
 
 </details>
 
