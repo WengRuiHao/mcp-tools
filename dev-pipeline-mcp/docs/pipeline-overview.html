@@ -211,7 +211,8 @@
     overflow-x: auto;
   }
 
-  svg text { font-family: var(--font-body); fill: currentColor; }
+  svg text { font-family: var(--font-body); }
+  svg text:not([fill]) { fill: currentColor; }
   svg .mono-label { font-family: var(--font-mono); }
 
   /* setup steps row */
