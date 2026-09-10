@@ -41,7 +41,7 @@ export function registerProjectConfigTools(server: McpServer): void {
 
   server.tool(
     "resolve_sasd_config",
-    "查詢這個 Asana 專案的 SA/SD 規格設定（SA 存放位置、SD 的模式與位置）。找到就直接用，不用再問使用者；找不到則回傳 needsInput，呼叫端要照 get_pipeline_overview 的說明問完整套問題後呼叫 register_sasd_config。這是每個 Asana 專案只需要設定一次的東西，不是每張票都要問——除非 sdMode 是 \"unregistered\"，那種情況才需要逐票詢問。",
+    "查詢這個 Asana 專案的 SA/SD 規格設定（SA 存放位置、SD 的模式與位置，sdMode 是 \"self-generated\" 時還會附上 specOrder：\"spec_first\" 或 \"code_first\"）。找到就直接用，不用再問使用者；找不到則回傳 needsInput，呼叫端要照 get_pipeline_overview 的說明問完整套問題後呼叫 register_sasd_config。這是每個 Asana 專案只需要設定一次的東西，不是每張票都要問——除非 sdMode 是 \"unregistered\"，那種情況才需要逐票詢問。",
     { projectGid: z.string().describe("Asana 專案 gid") },
     async ({ projectGid }) => {
       const config = await resolveSasdConfig(projectGid);
@@ -55,7 +55,7 @@ export function registerProjectConfigTools(server: McpServer): void {
     "登記某個 Asana 專案的 SA/SD 規格設定。sdMode 有四種：" +
       "\"external\"（SD 是別人/客戶產的，只能讀取當作依據，絕對不能建議修改 SD 本身，只能調整程式碼）、" +
       "\"self\"（SD 是我方產的，判斷需要調整時可以在驗證/實作報告裡明確建議修改段落，但因為 SVN 是唯讀的，不能直接寫回去，要交由人工事後更新）、" +
-      "\"self-generated\"（沒有既有 SD，AI 自己維護一份 living document，之後可以用 read_project_sd_doc/write_project_sd_doc 真的讀寫這份文件——**這份文件會寫在 sdOutputPath 指定的真實本機路徑**，不是藏在這個 MCP 自己的安裝目錄裡，方便使用者事後直接把這個檔案傳到 SVN）、" +
+      "\"self-generated\"（沒有既有 SD，AI 自己維護一份 living document，之後可以用 read_project_sd_doc/write_project_sd_doc 真的讀寫這份文件——**這份文件會寫在 sdOutputPath 指定的真實本機路徑**，不是藏在這個 MCP 自己的安裝目錄裡，方便使用者事後直接把這個檔案傳到 SVN；還要多問一題決定 specOrder，見下方）、" +
       "\"unregistered\"（沒有登記 SD 位置也不自動產生，之後每一張票都要單獨詢問使用者這張票有沒有對應 SD，不會被這裡的設定省略掉）。" +
       "**\"external\"/\"self\" 一定要帶 svnConnectionId，而且這個工具會真的呼叫 svn_test_connection 驗證連得上才會登記成功**——saRoot/sdRoot 是 SVN 上的正式路徑，連不上 SVN 就沒辦法確認規格內容，不能假設之後會自己通。",
     {
@@ -79,11 +79,30 @@ export function registerProjectConfigTools(server: McpServer): void {
           "AI 產出的 SD 規格要寫入的本機檔案路徑（相對於 projectDir），只有 sdMode 是 \"self-generated\" 時才需要。" +
             "這是使用者準備之後要傳到 SVN 的真實檔案位置，一定要先問使用者，不要自己隨便挑一個路徑。"
         ),
+      specOrder: z
+        .enum(["spec_first", "code_first"])
+        .nullable()
+        .optional()
+        .describe(
+          "只有 sdMode 是 \"self-generated\" 時才需要，必填：\"spec_first\"（先由規格撰寫者產出/確認 SD 草稿，工程師才動手寫程式碼，這是原本唯一支援的順序）或 " +
+            "\"code_first\"（工程師先依分析師的結論直接寫程式碼，規格撰寫者事後依實際改動反推補一份 SD 草稿，一樣要經過使用者 record_spec_confirmation 確認才能讓票單推進到 verified）。" +
+            "一定要先問使用者要哪一種，不要自己預設，問過一次之後這個專案往後每一張票都會沿用同一個順序。"
+        ),
     },
-    async ({ projectGid, saRoot, sdMode, sdRoot, svnConnectionId, sdOutputPath }) => {
+    async ({ projectGid, saRoot, sdMode, sdRoot, svnConnectionId, sdOutputPath, specOrder }) => {
       if (sdMode === "self-generated" && !sdOutputPath) {
         return textResult(
           { success: false, message: "sdMode 是 self-generated 時必須提供 sdOutputPath——請先問使用者「AI 產出的 SD 規格要放在本機哪個目錄/檔案」，再重新呼叫。" },
+          true
+        );
+      }
+      if (sdMode === "self-generated" && !specOrder) {
+        return textResult(
+          {
+            success: false,
+            message:
+              "sdMode 是 self-generated 時必須提供 specOrder——請先問使用者「這個專案要先產規格再產 code，還是先產 code 再補規格」，得到 \"spec_first\" 或 \"code_first\" 之後再重新呼叫。",
+          },
           true
         );
       }
@@ -105,14 +124,25 @@ export function registerProjectConfigTools(server: McpServer): void {
           );
         }
       }
+      const resolvedSpecOrder = sdMode === "self-generated" ? specOrder ?? null : null;
       await registerSasdConfig(projectGid, {
         saRoot,
         sdMode,
         sdRoot: sdRoot ?? null,
         sdOutputPath: sdOutputPath ?? null,
         svnConnectionId: svnConnectionId ?? null,
+        specOrder: resolvedSpecOrder,
       });
-      return textResult({ success: true, projectGid, saRoot, sdMode, sdRoot: sdRoot ?? null, sdOutputPath: sdOutputPath ?? null, svnConnectionId: svnConnectionId ?? null });
+      return textResult({
+        success: true,
+        projectGid,
+        saRoot,
+        sdMode,
+        sdRoot: sdRoot ?? null,
+        sdOutputPath: sdOutputPath ?? null,
+        svnConnectionId: svnConnectionId ?? null,
+        specOrder: resolvedSpecOrder,
+      });
     }
   );
 

@@ -9,6 +9,9 @@ import { readJsonFile, updateJsonFile } from "./atomic-store.js";
 
 export type SdMode = "external" | "self" | "self-generated" | "unregistered";
 
+/** Only meaningful when sdMode is "self-generated": which comes first, the SD draft or the code. "spec_first" (default/original behavior) drafts+confirms the SD before the engineer touches any code; "code_first" lets the engineer implement directly from the analyst's findings, then the spec-writer reverse-derives the SD from the actual change afterward — still gated by the same spec_confirmation before the ticket can reach "verified". */
+export type SpecOrder = "spec_first" | "code_first";
+
 export interface SasdConfig {
   saRoot: string;
   sdMode: SdMode;
@@ -17,6 +20,8 @@ export interface SasdConfig {
   sdOutputPath: string | null;
   /** svn-mcp connection id/name (from svn_list_connections) this project's saRoot/sdRoot live under — required for "external"/"self" so run_project_shell-style connectivity verification (svn_test_connection) can gate registration before any ticket work proceeds. */
   svnConnectionId: string | null;
+  /** Only set (non-null) when sdMode is "self-generated" — decides whether this project drafts the SD before or after the code for every ticket. Null for every other sdMode. */
+  specOrder: SpecOrder | null;
 }
 
 const SASD_CONFIG_FILE = "sasd-config.json";

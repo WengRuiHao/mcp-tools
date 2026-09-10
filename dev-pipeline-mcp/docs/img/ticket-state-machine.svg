@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 460" role="img" aria-label="一張票單會依序經過六個階段：剛收到票、抓票單內容、確認程式碼位置、AI分析問題、AI寫程式碼、AI驗證結果，只會往前走不會跳過。只有AI自己維護規格文件的專案，分析完之後會多一步：AI先寫規格草稿讓使用者確認，確認過才能繼續寫程式碼。驗證結果如果沒通過，AI會自動回頭修正再重驗一次；如果通過，還要使用者自己實測並看過程式碼確認沒問題，才算真的完成，使用者發現有問題一樣會被送回去自動修正。如果Asana上的票單內容後來又被改過，AI會自動重新分析，不會用舊資料繼續">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 460" role="img" aria-label="一張票單會依序經過六個階段：剛收到票、抓票單內容、確認程式碼位置、AI分析問題、AI寫程式碼、AI驗證結果，只會往前走不會跳過。只有AI自己維護規格文件的專案，會多一步規格草稿確認：依專案設定，這一步發生在AI分析問題之後、AI寫程式碼之前（先規格後程式碼），或是AI寫程式碼之後、AI驗證結果之前（先程式碼後反推規格），確認過才能繼續往下走。驗證結果如果沒通過，AI會自動回頭修正再重驗一次；如果通過，還要使用者自己實測並看過程式碼確認沒問題，才算真的完成，使用者發現有問題一樣會被送回去自動修正。如果Asana上的票單內容後來又被改過，AI會自動重新分析，不會用舊資料繼續">
   <defs>
     <marker id="arrowStage" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
@@ -22,9 +22,9 @@
   <g font-family="'Noto Sans TC',sans-serif">
     <!-- conditional spec-draft note (only self-generated projects) -->
     <rect x="586" y="25" width="250" height="53" rx="9" fill="#e3e7f0" stroke="#5c6f99" stroke-dasharray="4 3"/>
-    <text x="711" y="44" text-anchor="middle" font-size="10.5" font-weight="700" fill="#5c6f99">有些專案：AI 先寫規格草稿</text>
-    <text x="711" y="60" text-anchor="middle" font-size="10.5" fill="#5c6f99">等你確認過才能繼續寫程式碼</text>
-    <text x="711" y="74" text-anchor="middle" font-size="9" fill="#5c6f99" opacity="0.75">（只有 AI 自己維護規格的專案才會這樣）</text>
+    <text x="711" y="44" text-anchor="middle" font-size="10.5" font-weight="700" fill="#5c6f99">有些專案：AI 會多寫一份規格草稿</text>
+    <text x="711" y="60" text-anchor="middle" font-size="10.5" fill="#5c6f99">等你確認過才能繼續往下走</text>
+    <text x="711" y="74" text-anchor="middle" font-size="9" fill="#5c6f99" opacity="0.75">（依設定，發生在寫程式碼前或後）</text>
     <line x1="711" y1="78" x2="711" y2="97" stroke="#5c6f99" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrowSpec)"/>
 
     <!-- content-changed warning tag above verified -->
@@ -98,5 +98,5 @@
   <text x="960" y="366" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" font-weight="700" fill="#4c7a52">✅ 真的完成了</text>
   <text x="960" y="384" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#4c7a52">你確認過沒問題</text>
 
-  <text x="360" y="345" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#6b6558">（左邊「規格草稿」那一步：你打回意見的話，AI 改完會重新請你確認一次，不會跳過）</text>
+  <text x="360" y="345" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#6b6558">（規格草稿那一步：你打回意見的話，AI 會重新請你確認一次；有些專案這一步改在「寫程式碼」之後才出現，一樣不會跳過）</text>
 </svg>

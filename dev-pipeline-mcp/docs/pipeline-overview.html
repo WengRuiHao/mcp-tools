@@ -434,7 +434,7 @@
     <p class="block-note">用白話講一遍：一張票依序經過六個步驟。<strong>驗證沒通過，AI 會自動回頭修正，不用你操心</strong>；<strong>驗證通過了也還不算真的結束，要等你自己測過、看過程式碼才算數</strong>；<strong>如果 Asana 上的票單內容後來又被改過，AI 會自動重新分析，不會用舊資料繼續做</strong>。</p>
     <figure class="diagram">
       <div class="diagram-scroll">
-      <svg viewBox="0 0 1080 460" role="img" aria-label="一張票單會依序經過六個階段：剛收到票、抓票單內容、確認程式碼位置、AI分析問題、AI寫程式碼、AI驗證結果，只會往前走不會跳過。只有AI自己維護規格文件的專案，分析完之後會多一步：AI先寫規格草稿讓使用者確認，確認過才能繼續寫程式碼。驗證結果如果沒通過，AI會自動回頭修正再重驗一次；如果通過，還要使用者自己實測並看過程式碼確認沒問題，才算真的完成，使用者發現有問題一樣會被送回去自動修正。如果Asana上的票單內容後來又被改過，AI會自動重新分析，不會用舊資料繼續">
+      <svg viewBox="0 0 1080 460" role="img" aria-label="一張票單會依序經過六個階段：剛收到票、抓票單內容、確認程式碼位置、AI分析問題、AI寫程式碼、AI驗證結果，只會往前走不會跳過。只有AI自己維護規格文件的專案，會多一步規格草稿確認：依專案設定，這一步發生在AI分析問題之後、AI寫程式碼之前（先規格後程式碼），或是AI寫程式碼之後、AI驗證結果之前（先程式碼後反推規格），確認過才能繼續往下走。驗證結果如果沒通過，AI會自動回頭修正再重驗一次；如果通過，還要使用者自己實測並看過程式碼確認沒問題，才算真的完成，使用者發現有問題一樣會被送回去自動修正。如果Asana上的票單內容後來又被改過，AI會自動重新分析，不會用舊資料繼續">
         <defs>
           <marker id="arrowStage" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
@@ -455,9 +455,9 @@
 
         <!-- conditional spec-draft note (only self-generated projects) -->
         <rect x="586" y="25" width="250" height="53" rx="9" fill="var(--accent-soft)" stroke="var(--accent)" stroke-dasharray="4 3"/>
-        <text x="711" y="44" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--accent-ink)">有些專案：AI 先寫規格草稿</text>
-        <text x="711" y="60" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)">等你確認過才能繼續寫程式碼</text>
-        <text x="711" y="74" text-anchor="middle" font-size="9" fill="var(--accent-ink)" opacity="0.75">（只有 AI 自己維護規格的專案才會這樣）</text>
+        <text x="711" y="44" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--accent-ink)">有些專案：AI 會多寫一份規格草稿</text>
+        <text x="711" y="60" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)">等你確認過才能繼續往下走</text>
+        <text x="711" y="74" text-anchor="middle" font-size="9" fill="var(--accent-ink)" opacity="0.75">（依設定，發生在寫程式碼前或後）</text>
         <line x1="711" y1="78" x2="711" y2="97" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrowSpec)"/>
 
         <!-- content-changed warning tag above verified -->
@@ -530,14 +530,14 @@
         <text x="960" y="366" text-anchor="middle" font-size="13" font-weight="700" fill="var(--good)">✅ 真的完成了</text>
         <text x="960" y="384" text-anchor="middle" font-size="10" fill="var(--good)">你確認過沒問題</text>
 
-        <text x="360" y="345" text-anchor="middle" font-size="11" opacity="0.7">（左邊「規格草稿」那一步：你打回意見的話，AI 改完會重新請你確認一次，不會跳過）</text>
+        <text x="360" y="345" text-anchor="middle" font-size="11" opacity="0.7">（規格草稿那一步：你打回意見的話，AI 會重新請你確認一次；有些專案這一步改在「寫程式碼」之後才出現，一樣不會跳過）</text>
       </svg>
       </div>
-      <figcaption>六個步驟只會往前走，不會跳過也不會倒退。驗證沒通過時，AI 會依問題出在分析階段還是實作階段，自動回頭找對應角色重跑，不用你介入；連續失敗太多次才會停下來問你。驗證通過只代表「AI 自己檢查沒問題」，還要你自己實測＋看過程式碼確認，才算真正完成——你回報有問題的話，一樣會被送進上面的自動修正流程，不是另開一條人工處理方式。只有 AI 自己維護規格文件的專案，分析完之後會先請你確認一份規格草稿，確認過才會開始寫程式碼；其他專案不受影響。如果 Asana 上的票單內容後來又被改過，AI 也會自動重新分析，不會沿用舊資料繼續做。</figcaption>
+      <figcaption>六個步驟只會往前走，不會跳過也不會倒退。驗證沒通過時，AI 會依問題出在分析階段還是實作階段，自動回頭找對應角色重跑，不用你介入；連續失敗太多次才會停下來問你。驗證通過只代表「AI 自己檢查沒問題」，還要你自己實測＋看過程式碼確認，才算真正完成——你回報有問題的話，一樣會被送進上面的自動修正流程，不是另開一條人工處理方式。只有 AI 自己維護規格文件的專案，會多請你確認一份規格草稿：依專案設定（specOrder），這一步發生在分析完之後、開始寫程式碼之前（先規格後程式碼），或是程式碼寫完之後、驗證完成之前（先程式碼後反推規格）；其他專案不受影響。如果 Asana 上的票單內容後來又被改過，AI 也會自動重新分析，不會沿用舊資料繼續做。</figcaption>
     </figure>
     <ul class="walkthrough">
       <li>六個灰色方框是這張票目前走到哪一步：<code class="mono">new</code>（剛收到）→ <code class="mono">snapshot</code>（抓過內容）→ <code class="mono">project_dir_confirmed</code>（知道程式碼在哪）→ <code class="mono">analyzed</code>（分析完了）→ <code class="mono">implemented</code>（程式碼寫完了）→ <code class="mono">verified</code>（驗證完了，綠色）。只會照順序往前走，不會跳過也不會倒退。</li>
-      <li>上方兩張虛線小卡片是「特殊情況」提醒：左邊藍色的是<strong>只有 AI 自己維護規格文件的專案</strong>才會出現的額外一步——AI 先把規格寫成草稿讓你確認，確認過才會動手寫程式碼，你打回意見的話 AI 會改完再讓你確認一次；右邊紅色的是<strong>如果 Asana 上的票單內容後來又被人改過</strong>，AI 會自動當作要重新分析，不會用舊資料繼續做。</li>
+      <li>上方兩張虛線小卡片是「特殊情況」提醒：左邊藍色的是<strong>只有 AI 自己維護規格文件的專案</strong>才會出現的額外一步——AI 把規格寫成草稿讓你確認，你打回意見的話 AI 會改完再讓你確認一次；依專案設定的 <code class="mono">specOrder</code>，這一步可能卡在「分析問題」跟「寫程式碼」之間（先規格後程式碼，確認過才動手寫），也可能卡在「寫程式碼」跟「驗證結果」之間（先程式碼後反推規格，工程師先寫完，AI 才依實作反推補一份規格）。右邊紅色的是<strong>如果 Asana 上的票單內容後來又被人改過</strong>，AI 會自動當作要重新分析，不會用舊資料繼續做。</li>
       <li>驗證結果分成兩條路：<strong>沒通過（紅色）</strong>——AI 自動回頭修正、重新驗證，不用你介入，只有連續失敗太多次才會停下來問你；你自己測試後回報有問題，也是走這條路。<strong>通過了（黃色）</strong>——先進入「待你確認」狀態，AI 覺得沒問題不代表真的沒問題，要等你自己實測、看過程式碼，確認沒問題（綠色「真的完成了」）才算真正結束。</li>
     </ul>
     <div class="legend">
@@ -569,7 +569,7 @@
       <div class="sasd-card">
         <span class="mode gen">self-generated</span>
         <p class="rule">沒有既有規格，AI 自己維護</p>
-        <p>唯一會多走 <code class="mono">sd_drafted</code> 規格先定案關卡的模式：「規格撰寫者」角色先產出草稿寫進 sdOutputPath，使用者 <code class="mono">record_spec_confirmation</code> 確認過，工程師才能動手寫程式碼（見上方區塊 2 補充圖）。</p>
+        <p>唯一會多走 <code class="mono">sd_drafted</code> 規格確認關卡的模式：「規格撰寫者」角色產出草稿寫進 sdOutputPath，使用者 <code class="mono">record_spec_confirmation</code> 確認過才能繼續（見上方區塊 2 補充圖）。額外要登記 <code class="mono">specOrder</code>：<code class="mono">spec_first</code>——規格先定案，工程師才動手寫程式碼；<code class="mono">code_first</code>——工程師先依分析結果直接寫程式碼，規格撰寫者再依實際改動反推補一份草稿，一樣要確認過票單才能推進到驗證完成。</p>
       </div>
       <div class="sasd-card">
         <span class="mode unreg">unregistered</span>

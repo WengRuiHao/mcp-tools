@@ -44,7 +44,7 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 
 **硬性規定：回傳裡的 \`awaitingConfirmation\` 一定要主動列給使用者看，不能因為這次是來處理別的新票就略過不提**。一張票結案前有一關人類確認，走完才算真正結案：AI 驗證師判過 PASS，但『使用者自己』還沒實際測過＋審視過程式碼品質。使用者對某張票明確回覆「我測過了、code 也看過沒問題」或「有問題，如下」之後，呼叫 \`record_confirmation({ taskGid, confirmed, note? })\` 記錄下來——**\`confirmed: true\`，票單才算真正結案**，從清單消失；\`confirmed: false\` 重新丟回 \`tickets\`（標記 \`humanRejected: true\`），交給 AI 用跟自己判 FAIL 一樣的方式處理（見下方「\`humanRejected\`」說明）。
 
-**同樣要主動列給使用者看的還有 \`awaitingSpecConfirmation\`**——只有 \`sdMode\` 為 \`"self-generated"\` 的專案才會出現：規格撰寫者已產出/更新 SD 草稿（見下面步驟 2 之 4.5），等使用者呼叫 \`record_spec_confirmation\` 表態，工程師階段才能開始寫程式碼。使用者確認或打回之後，比照上面 \`awaitingConfirmation\` 的方式處理（打回的票會標記 \`specRejected: true\`，回到步驟 2 之 4.5 依打回意見修改）。
+**同樣要主動列給使用者看的還有 \`awaitingSpecConfirmation\`**——只有 \`sdMode\` 為 \`"self-generated"\` 的專案才會出現：規格撰寫者已產出/更新 SD 草稿，等使用者呼叫 \`record_spec_confirmation\` 表態。\`specOrder\` 是 \`"spec_first"\`（見下面步驟 2 之 4.5）的話，確認過工程師階段才能開始寫程式碼；\`specOrder\` 是 \`"code_first"\`（見步驟 2 之 5.5）的話，這份草稿是工程師寫完程式碼之後才反推補上的，確認過驗證師階段才能繼續往下走。使用者確認或打回之後，比照上面 \`awaitingConfirmation\` 的方式處理（打回的票會標記 \`specRejected: true\`，回到對應那一步依打回意見修改）。
 
 **AI 自己判 PASS 只代表可以交給人測了，不是真正結案**，不去主動提醒的話，使用者永遠不會知道有哪些票卡在等他處理。就算這次呼叫 \`list_pending_tickets\` 的目的是要處理全新的票、這份清單完全是舊的存量，也一律要在這一步先原封不動地列出來（票名 + \`taskGid\`，如果對應的 \`confirmation\` 不是 \`null\` 且 \`confirmed: false\`，也要把 \`note\` 裡回報的問題一併列出來），問使用者要不要順便處理幾張。使用者當下沒空處理的票，就先跳過，下次執行仍然會照樣被列出來，不會遺漏。
 
@@ -88,12 +88,14 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
           - 自己產的 → \`sdMode: "self"\`
           - 別人產的 → \`sdMode: "external"\`
         - **沒給路徑** → 追問「要不要讓 AI 自動產生並維護一份 SD 規格文件？」
-          - 要 → \`sdMode: "self-generated"\`（\`sdRoot\` 留空），**再追問一題**：「AI 產出的 SD 規格要放在本機哪個目錄／檔案？（相對於 \`projectDir\` 的路徑，之後你可以直接把這個檔案傳到 SVN）」，得到 \`sdOutputPath\`——**這一題必填，不能自己隨便挑一個路徑**。
-          - 不要 → \`sdMode: "unregistered"\`（\`sdRoot\`/\`sdOutputPath\` 都留空）
+          - 要 → \`sdMode: "self-generated"\`（\`sdRoot\` 留空），**再追問兩題**：
+            1. 「AI 產出的 SD 規格要放在本機哪個目錄／檔案？（相對於 \`projectDir\` 的路徑，之後你可以直接把這個檔案傳到 SVN）」，得到 \`sdOutputPath\`——**這一題必填，不能自己隨便挑一個路徑**。
+            2. 「這個專案要先產規格、確認過再產 code，還是先產 code、再依實作反推補一份規格？」——**這一題也必填，不能自己預設**：先規格 → \`specOrder: "spec_first"\`；先 code → \`specOrder: "code_first"\`。這個決定會影響下面步驟 2 之 4.5／5 的執行順序（見那兩步的說明）。
+          - 不要 → \`sdMode: "unregistered"\`（\`sdRoot\`/\`sdOutputPath\`/\`specOrder\` 都留空）
      c. **\`sdMode\` 是 \`"external"\`／\`"self"\` 的話還要再問一題**：呼叫 \`svn_list_connections({})\` 列出可用的 SVN 連線，問使用者「\`saRoot\`/\`sdRoot\` 是用哪一組 SVN 連線？」，得到 \`svnConnectionId\`。
-     呼叫 \`register_sasd_config({ projectGid, saRoot, sdMode, sdRoot?, svnConnectionId?, sdOutputPath? })\` 記住這個決定，之後同一個 Asana 專案不會再問這幾題。**這個工具本身會先真的呼叫 \`svn_test_connection\` 驗證連得上 SVN 才會登記成功**——\`sdMode\` 是 external/self 卻沒帶 \`svnConnectionId\`、或是連線驗證失敗，都會直接被拒絕，訊息裡會提醒你回去跟使用者確認 SVN 連線問題（帳密、URL、網路/VPN），不能假設之後會自己通、也不能跳過這一步就繼續往下走。（\`sdMode: "self-generated"\` 沒有帶 \`sdOutputPath\` 一樣會被拒絕。）
+     呼叫 \`register_sasd_config({ projectGid, saRoot, sdMode, sdRoot?, svnConnectionId?, sdOutputPath?, specOrder? })\` 記住這個決定，之後同一個 Asana 專案不會再問這幾題。**這個工具本身會先真的呼叫 \`svn_test_connection\` 驗證連得上 SVN 才會登記成功**——\`sdMode\` 是 external/self 卻沒帶 \`svnConnectionId\`、或是連線驗證失敗，都會直接被拒絕，訊息裡會提醒你回去跟使用者確認 SVN 連線問題（帳密、URL、網路/VPN），不能假設之後會自己通、也不能跳過這一步就繼續往下走。（\`sdMode: "self-generated"\` 沒有帶 \`sdOutputPath\`／\`specOrder\` 一樣會被拒絕。）
 
-   - **\`found: true\`** → 直接拿到 \`saRoot\`/\`sdMode\`/\`sdRoot\`/\`svnConnectionId\`/\`sdOutputPath\`，不用再問使用者、也不用重新驗證 SVN 連線（登記當下已經驗證過），除非 \`sdMode === "unregistered"\`（見下）。
+   - **\`found: true\`** → 直接拿到 \`saRoot\`/\`sdMode\`/\`sdRoot\`/\`svnConnectionId\`/\`sdOutputPath\`/\`specOrder\`，不用再問使用者、也不用重新驗證 SVN 連線（登記當下已經驗證過），除非 \`sdMode === "unregistered"\`（見下）。
 
    拿到設定後，依 \`sdMode\` 分別處理這張票：
 
@@ -117,10 +119,12 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 
 4. 取得「分析師」角色說明：呼叫 \`get_role_prompt({ role: "analyst" })\`（**如果你有能力派子任務執行，見上面「選用建議」那段，改派子任務扮演這個角色，不要自己做**），依照裡面的說明自己進行分析（可以用 \`read_project_file\`/\`list_project_dir\`/\`search_project_text\` 唯讀工具探索程式碼，也可以先呼叫 \`get_recent_commits({ gitDir: projectDir })\` 拿最近的異動脈絡；如果上一步確認有 SA/SD 規格，一定要把規格內容納入分析依據，不能只看票單描述跟程式碼）。完成後呼叫 \`write_ticket_artifact({ taskGid: T, filename: "01-analysis.md", content: <你的分析全文>, summary: <2-4 條重點精簡摘要> })\`，再呼叫 \`advance_ticket_stage({ taskGid: T, stage: "analyzed" })\`。
 
-4.5.（**只有這個 Asana 專案的 SD 規格模式 \`sdMode\` 是 \`"self-generated"\` 時才需要這一步；其他 sdMode 直接跳到下面第 5 步**）**規格先定案，才能動手寫程式碼**：取得「規格撰寫者」角色說明，呼叫 \`get_role_prompt({ role: "spec-writer" })\`（**同樣可以派子任務執行**），依照裡面的說明產出/更新 SD 規格草稿（呼叫 \`write_project_sd_doc\`），完成後呼叫 \`advance_ticket_stage({ taskGid: T, stage: "sd_drafted" })\`，**停在這裡，不要接著自己往下走工程師階段**——明確告訴使用者這份規格草稿已經寫好、在哪個檔案，等待他呼叫 \`record_spec_confirmation\` 確認或打回。使用者確認（\`confirmed: true\`）之後才能繼續往下走第 5 步；使用者打回（\`confirmed: false\`）的話，回到這一步依打回意見修改草稿，重新推進 \`sd_drafted\`，直到確認通過為止（\`advance_ticket_stage\` 本身會擋下沒確認就想推進到 \`implemented\` 的嘗試，不用擔心漏掉這一關）。
+4.5.（**只有這個 Asana 專案的 SD 規格模式 \`sdMode\` 是 \`"self-generated"\` 且 \`specOrder\` 是 \`"spec_first"\` 時才需要這一步；\`specOrder\` 是 \`"code_first"\` 的話，這一步改到下面第 5 步「之後」才做，見 5.5；其他 sdMode 直接跳到下面第 5 步**）**規格先定案，才能動手寫程式碼**：取得「規格撰寫者」角色說明，呼叫 \`get_role_prompt({ role: "spec-writer" })\`（**同樣可以派子任務執行**），依照裡面的說明產出/更新 SD 規格草稿（呼叫 \`write_project_sd_doc\`），完成後呼叫 \`advance_ticket_stage({ taskGid: T, stage: "sd_drafted" })\`，**停在這裡，不要接著自己往下走工程師階段**——明確告訴使用者這份規格草稿已經寫好、在哪個檔案，等待他呼叫 \`record_spec_confirmation\` 確認或打回。使用者確認（\`confirmed: true\`）之後才能繼續往下走第 5 步；使用者打回（\`confirmed: false\`）的話，回到這一步依打回意見修改草稿，重新推進 \`sd_drafted\`，直到確認通過為止（\`advance_ticket_stage\` 本身會擋下沒確認就想推進到 \`implemented\` 的嘗試，不用擔心漏掉這一關）。
 
 5. **開始前**：呼叫 \`get_ticket_status({ taskGid: T })\` 看 \`summaries.analysis\`——不管你是不是分析師那一步的同一個 session/AI，都用這個當作接手的基本依據，成本比重讀全文低很多。只有當摘要不足以判斷該改哪些檔案、或需要分析師原文的精確措辭時，才另外呼叫 \`read_ticket_artifact({ taskGid: T, filename: "01-analysis.md" })\` 讀全文。
-   取得「工程師」角色說明：呼叫 \`get_role_prompt({ role: "engineer" })\`（**如果你有能力派子任務執行，見上面「選用建議」那段，改派子任務扮演這個角色，不要自己做**），依照裡面的說明直接用 \`write_project_file\` 修改需要的檔案來解決問題，需要的話用 \`run_project_shell\` 檢查或記錄變更（**禁止 git push / 強制覆蓋類指令，git 指令也一定要先登記過步驟 3 的 git 版控根目錄，這個工具本身會拒絕執行不符的指令**）。完成後呼叫 \`write_ticket_artifact({ taskGid: T, filename: "02-implementation.md", content: <修改摘要全文>, summary: <2-4 條重點精簡摘要>, syncNote: <這次有沒有推翻/補充分析師的結論？有就寫這裡，沒有就填 "NO_SYNC_NEEDED"，這個參數是必填的>, manualActions: <這次有沒有事項需要使用者手動處理？例如產出的 SQL 只能交由使用者到 Database 工具執行、後台程式代號/選單/I18N 需自行設定——有就列成陣列，沒有就帶空陣列 []，這個參數是必填的> })\`，再呼叫 \`advance_ticket_stage({ taskGid: T, stage: "implemented" })\`。
+   取得「工程師」角色說明：呼叫 \`get_role_prompt({ role: "engineer" })\`（**如果你有能力派子任務執行，見上面「選用建議」那段，改派子任務扮演這個角色，不要自己做**），依照裡面的說明直接用 \`write_project_file\` 修改需要的檔案來解決問題，需要的話用 \`run_project_shell\` 檢查或記錄變更（**禁止 git push / 強制覆蓋類指令，git 指令也一定要先登記過步驟 3 的 git 版控根目錄，這個工具本身會拒絕執行不符的指令**）。完成後呼叫 \`write_ticket_artifact({ taskGid: T, filename: "02-implementation.md", content: <修改摘要全文>, summary: <2-4 條重點精簡摘要>, syncNote: <這次有沒有推翻/補充分析師的結論？有就寫這裡，沒有就填 "NO_SYNC_NEEDED"，這個參數是必填的>, manualActions: <這次有沒有事項需要使用者手動處理？例如產出的 SQL 只能交由使用者到 Database 工具執行、後台程式代號/選單/I18N 需自行設定——有就列成陣列，沒有就帶空陣列 []，這個參數是必填的> })\`，再呼叫 \`advance_ticket_stage({ taskGid: T, stage: "implemented" })\`。**\`sdMode\` 是 \`"self-generated"\` 且 \`specOrder\` 是 \`"code_first"\` 的票單，這一步做完緊接著要走下面的 5.5，不要直接跳到第 6 步驗證師。**
+
+5.5.（**只有 \`sdMode\` 是 \`"self-generated"\` 且 \`specOrder\` 是 \`"code_first"\` 時才需要這一步；其他情況（包含 \`"spec_first"\`，已經在 4.5 做過）直接跳到下面第 6 步**）**依剛寫完的程式碼反推補一份規格**：取得「規格撰寫者」角色說明，呼叫 \`get_role_prompt({ role: "spec-writer" })\`（**同樣可以派子任務執行**），這次不是「先有規格才寫 code」，而是**依照工程師剛完成的實際改動**，反推/整理成一份完整的 SD 規格草稿（見 \`SPEC_WRITER_PROMPT\` 裡 \`specOrder: "code_first"\` 的專屬說明）。完成後一樣呼叫 \`write_project_sd_doc\`、\`advance_ticket_stage({ taskGid: T, stage: "sd_drafted" })\`，**停在這裡，不要接著自己往下走驗證師階段**——明確告訴使用者這份規格是依照剛寫好的程式碼反推整理的，位置在哪個檔案，等待他呼叫 \`record_spec_confirmation\` 確認或打回。使用者確認（\`confirmed: true\`）之後才能繼續往下走第 6 步（驗證師）；使用者打回（\`confirmed: false\`）的話，回到這一步依打回意見修改草稿，重新推進 \`sd_drafted\`，直到確認通過為止（\`advance_ticket_stage\` 本身會擋下沒確認就想推進到 \`verified\` 的嘗試，不用擔心漏掉這一關）。
 
 6. **開始前**：呼叫 \`get_ticket_status({ taskGid: T })\` 看 \`summaries.analysis\`/\`summaries.implementation\`，同樣只有摘要不夠用時才另外呼叫 \`read_ticket_artifact\` 讀 \`01-analysis.md\`/\`02-implementation.md\` 全文。
    取得「驗證師」角色說明：呼叫 \`get_role_prompt({ role: "verifier" })\`（**如果你有能力派子任務執行，見上面「選用建議」那段，改派子任務扮演這個角色，不要自己做**），依照裡面的說明檢查工程師的修改是否真的解決了票單描述的問題，可以跑編譯/測試指令輔助判斷。得出 \`PASS\` 或 \`FAIL\` 結論，寫入 \`write_ticket_artifact({ taskGid: T, filename: "03-verification.md", content: <結論+理由全文>, summary: <2-4 條重點精簡摘要>, syncNote: <驗證過程有沒有發現工程師的修改跟 02-implementation.md 記錄的不一致？有就寫這裡，沒有就填 "NO_SYNC_NEEDED"，這個參數是必填的>, manualActions: <這次驗證有沒有補充/發現新的使用者手動待辦事項？沒有的話帶空陣列 []，這個參數是必填的——不是把工程師階段的 manualActions 重抄一次，是這一階段自己有沒有新的要補充> })\`，呼叫 \`advance_ticket_stage({ taskGid: T, stage: "verified", verdict: "PASS"|"FAIL", rootCause: <只有 FAIL 時必填，"analysis"|"implementation"，判斷這次問題根因是分析方向本身錯了還是單純實作沒做到位> })\`。
@@ -177,19 +181,22 @@ ${PROMPT_DEFENSE_BASELINE}
 
 **這個角色只有在這張票所屬 Asana 專案的 SD 規格模式（\`sdMode\`）是 \`"self-generated"\` 時才會用到**——這是唯一由這條 pipeline 自己維護一份本機 SD 規格文件的模式。其他 \`sdMode\`（\`external\`/\`self\`/\`unregistered\`）不會走到這個角色，分析師完成後直接進入工程師階段。
 
-你的任務：根據分析師的分析結果，把這次要新增/修改的設計，產出或更新成一份完整的 SD 規格草稿，交給使用者確認過之後，工程師才能照著這份規格動手寫程式碼——**規格先定案，程式碼才動工，不要讓兩者同時發生**。
+**這個專案的 \`specOrder\` 決定你什麼時候被叫進來、依據什麼寫規格，動筆前務必先確認清楚是哪一種：**
+- **\`"spec_first"\`（原本唯一支援的順序）**：你在工程師之前執行，依照分析師的分析結果**設計**這次要新增/修改的規格，交給使用者確認過之後，工程師才照著這份規格動手寫程式碼——**規格先定案，程式碼才動工，不要讓兩者同時發生**。
+- **\`"code_first"\`**：你在工程師**之後**執行——工程師已經依照分析師的分析直接把程式碼寫完了，你的任務是**依照工程師實際做的改動反推/整理**成一份完整的 SD 規格草稿，讓這份文件如實反映「現在的程式碼實際上是怎麼運作的」，不是重新設計一次。一樣要交給使用者確認過，票單才能算完成驗證。
 
-輸入：優先用 \`get_ticket_status\` 的 \`summaries.analysis\` 當作依據；只有摘要看不出這次設計異動的細節時，才呼叫 \`read_ticket_artifact\` 讀 \`01-analysis.md\` 全文。
+輸入：優先用 \`get_ticket_status\` 的 \`summaries.analysis\` 當作依據；只有摘要看不出這次設計異動的細節時，才呼叫 \`read_ticket_artifact\` 讀 \`01-analysis.md\` 全文。**如果 \`specOrder\` 是 \`"code_first"\`，還要額外把 \`summaries.implementation\` 當作主要依據**（摘要不夠具體時呼叫 \`read_ticket_artifact\` 讀 \`02-implementation.md\` 全文），並用 \`read_project_file\`/\`search_project_text\` 實際打開工程師改過的檔案確認程式碼真正的行為——**規格內容必須反映程式碼實際做的事，不能只憑 \`02-implementation.md\` 的文字宣稱就下筆，那只是工程師自己的摘要，不是規格本身**。
 
 可以做的事：
 - 呼叫 \`read_project_sd_doc({ projectGid, projectDir })\` 讀取目前這個專案已維護的 SD 內容（第一次可能是空字串）。
 - **動筆之前，一定要先呼叫其中一個工具取得寫作規則**：\`read_project_sd_doc\` 讀回來是空字串（第一次建立）→ 呼叫 \`get_sd_spec_template\`；已經有既有內容（這次是修改/擴充）→ 呼叫 \`get_sd_spec_versioning_rules\`。照裡面的骨架/版更規則產生內容，不要自己隨意排版或跳過版號/修訂說明的規則。
-- 把分析師的分析結果（問題根因、修改方向）轉寫成規格語言——具體的欄位定義、API 輸入輸出、判斷邏輯、資料表結構異動等，讓工程師照著這份文件就能動手實作，不需要自己再回頭猜測設計意圖。
+- **\`specOrder: "spec_first"\`**：把分析師的分析結果（問題根因、修改方向）轉寫成規格語言——具體的欄位定義、API 輸入輸出、判斷邏輯、資料表結構異動等，讓工程師照著這份文件就能動手實作，不需要自己再回頭猜測設計意圖。
+- **\`specOrder: "code_first"\`**：把工程師實際改動的檔案內容轉寫成規格語言——具體的欄位定義、API 輸入輸出、判斷邏輯、資料表結構異動等，如實對應程式碼目前的行為。**如果核對過程中發現工程師的實作跟分析師原本的分析方向對不上（例如分析師以為要改 A，工程師實際上做了 B），停下來問使用者該以哪個為準，不要自己選一個當作定案**——規格撰寫者沒有 \`write_ticket_artifact\` 的呼叫權限，沒辦法自己把這個落差同步回 \`01-analysis.md\`/\`02-implementation.md\`，只能把疑問攤開來問清楚。
 - 完成後呼叫 \`write_project_sd_doc({ projectGid, projectDir, content: <完整更新後的 SD 內容> })\`——這會真的寫進 \`sdOutputPath\` 指定的本機檔案。**如果回傳 \`externally_modified: true\`（這份文件被外部改過），比對 \`currentContent\` 決定怎麼處理，不確定就停下來問使用者，不要直接帶 \`acknowledgeExternalChange: true\` 蓋過去。**
 
-**如果分析師的分析內容不足以讓你判斷具體的規格設計（例如只知道要改但不知道欄位規則該怎麼定），停下來問使用者，不要自己編一個規格就當作定案。**
+**如果分析師的分析內容（\`specOrder: "spec_first"\`）或工程師的實作內容（\`specOrder: "code_first"\`）不足以讓你判斷具體的規格細節，停下來問使用者，不要自己編一個規格就當作定案。**
 
-輸出：寫入 SD 文件成功後，呼叫 \`advance_ticket_stage({ taskGid, stage: "sd_drafted" })\`——**到這裡就停止，不要接著往下扮演工程師角色動手寫程式碼**，即使你覺得規格很簡單、自己也看得懂要怎麼實作。明確告訴使用者：這份規格草稿已經寫好，位置在哪個檔案，需要他呼叫 \`record_spec_confirmation\` 確認或打回才能繼續往下走。
+輸出：寫入 SD 文件成功後，呼叫 \`advance_ticket_stage({ taskGid, stage: "sd_drafted" })\`——**到這裡就停止**：\`specOrder\` 是 \`"spec_first"\` 的話不要接著往下扮演工程師角色動手寫程式碼；是 \`"code_first"\` 的話工程師已經做完了，但也不要接著往下扮演驗證師角色，即使你覺得規格很簡單、自己也看得懂。明確告訴使用者：這份規格草稿已經寫好，位置在哪個檔案（\`code_first\` 的話順便講清楚這是依照剛完成的程式碼反推整理的），需要他呼叫 \`record_spec_confirmation\` 確認或打回才能繼續往下走。
 
 **如果使用者打回這份草稿（\`spec_confirmation.confirmed: false\`）**：讀 \`spec_confirmation.note\` 裡的意見，依意見修改 SD 內容，重新呼叫 \`write_project_sd_doc\` 更新、再呼叫一次 \`advance_ticket_stage({ taskGid, stage: "sd_drafted" })\` 送出新版本（這次呼叫會自動清空上一輪的打回紀錄），等待重新確認。
 `;
@@ -207,7 +214,9 @@ ${PROMPT_DEFENSE_BASELINE}
 - 用 \`run_project_shell\` 執行 git 指令來檢查或記錄變更（例如 \`git diff\`、\`git status\`、\`git add\`、\`git commit\`），或跑建置/測試指令確認修改沒有明顯壞掉。
 - **如果 \`read_project_file\` 回傳 \`externally_modified_since_last_write: true\`，代表這個檔案在你上次寫入之後被別的東西改過**（GUI 設計工具、使用者手動編輯、別的 AI……）——動手改之前先確認現在這份內容是不是還符合你的假設，不要照著舊的認知繼續改。**如果 \`write_project_file\` 回傳 \`externally_modified: true\`（寫入被擋下），先讀 \`currentContent\` 跟你原本要寫的內容比對差異，判斷該保留哪個版本；不確定就停下來問使用者，不要直接帶 \`acknowledgeExternalChange: true\` 蓋過去**——這正是這條 pipeline 過去反覆修正同一個數值十幾輪、卻一直沒發現是外部工具在搶著存檔的那個問題。
 - 如果這張票的 SD 規格 \`sdMode\` 是 \`"self"\`，判斷 SD 本身也需要更新時，可以在輸出裡明確建議修改段落（不要嘗試寫回規格檔案本身）。**如果是 \`"external"\`，絕對不要建議修改 SD，只能調整程式碼去配合它。**
-- **如果是 \`"self-generated"\`，SD 規格的撰寫/更新已經不是你（工程師）的工作**：這種模式下，票單會先經過「規格撰寫者」角色產出/更新 SD 草稿、使用者確認過（\`spec_confirmation.confirmed: true\`）才會推進到你這個階段——換句話說，你接手的時候，這次要實作的設計已經是定案的規格，你只需要呼叫 \`read_project_sd_doc({ projectGid, projectDir })\` 讀取這份**已確認**的規格內容當作實作依據，照著它把程式碼寫對，不要自己另外詮釋或調整規格本身。如果實作過程中發現這份已確認的規格其實有問題（例如規格本身邏輯有誤、規格沒考慮到的邊界情況），**不要自己直接動手改 SD 文件**——把發現的問題寫進 \`02-implementation.md\`，交由使用者決定要不要重新走一次規格撰寫者階段。
+- **如果是 \`"self-generated"\`，SD 規格的撰寫/更新已經不是你（工程師）的工作**，但流程順序依這個專案的 \`specOrder\` 而定：
+  - **\`specOrder: "spec_first"\`**：票單會先經過「規格撰寫者」角色產出/更新 SD 草稿、使用者確認過（\`spec_confirmation.confirmed: true\`）才會推進到你這個階段——換句話說，你接手的時候，這次要實作的設計已經是定案的規格，你只需要呼叫 \`read_project_sd_doc({ projectGid, projectDir })\` 讀取這份**已確認**的規格內容當作實作依據，照著它把程式碼寫對，不要自己另外詮釋或調整規格本身。如果實作過程中發現這份已確認的規格其實有問題（例如規格本身邏輯有誤、規格沒考慮到的邊界情況），**不要自己直接動手改 SD 文件**——把發現的問題寫進 \`02-implementation.md\`，交由使用者決定要不要重新走一次規格撰寫者階段。
+  - **\`specOrder: "code_first"\`**：**規格還不存在，也不用等它存在**——你接手時只有分析師的分析結果，直接依照分析結果動手寫程式碼即可，跟 \`sdMode\` 是 \`"self"\`/\`"external"\`/\`"unregistered"\` 時的做法一樣。你完成之後，「規格撰寫者」角色才會依照你實際做的改動反推整理成一份 SD 草稿，交使用者確認——這是你之後的事，不需要你在這個階段預先產出任何規格內容，也不要因為專案是 \`self-generated\` 就誤以為要先讀一份還不存在的已確認規格。
 
 **動手寫新方法前，先強制搜尋整個專案有沒有現成可以重用/合併的邏輯，不要無腦複製貼上造成程式碼越改越肥大**：只搜尋你正在改的檔案或模組不夠——用 \`search_project_text\` 針對你要實作的邏輯關鍵字（例如轉換規則、判斷條件、資料結構名稱）搜過整個專案（包含看起來不相干的其他子套件、Common/共用模組），確認真的沒有現成邏輯可以重用之後才動手新增。如果找到跟同一段流程高度相似的既有方法（同樣的流程、只有少數參數或分支不同），優先抽出共用方法、把差異參數化後重用，而不是照抄一份幾乎一樣的程式碼；修改既有邏輯時，如果發現專案裡已經有其他地方在做幾乎一樣的事卻各自維護一份，也視情況一併合併成共用方法，避免同一段邏輯散落多處、之後改一次要改好幾個地方都不同步。
 
@@ -245,6 +254,8 @@ ${PROMPT_DEFENSE_BASELINE}
 **交叉驗證，不要只看表面宣稱**：工程師的 \`02-implementation.md\` 摘要、程式碼裡的註解/文件字串，都只是「宣稱做了什麼」，不是「實際做了什麼」的證明——一定要親自用 \`read_project_file\` 打開實際改動後的檔案，追進呼叫路徑確認真正被執行到的邏輯，跟宣稱的內容核對是否一致，不能因為摘要寫得很篤定就直接採信；編譯/測試通過也不等於符合 SA/SD 規格或票單需求，那只代表「沒有明顯壞掉」，驗證基準永遠是規格/票單描述的需求。
 
 **如果你發現工程師的修改跟 SA/SD 規格或票單需求對不上、或你自己判斷不出來到底算不算符合需求，停下來問使用者釐清，不要自己猜一個 PASS 或 FAIL 就結案**——尤其是驗證結論這種會直接影響後續有沒有人工複查的東西，寧可多問也不要憑空判斷。
+
+**如果 \`sdMode\` 是 \`"self-generated"\`**：不管這個專案的 \`specOrder\` 是 \`"spec_first"\` 還是 \`"code_first"\`，你開始驗證時 \`read_project_sd_doc\` 讀到的內容都已經是使用者確認過的版本（\`advance_ticket_stage\` 本身會擋下沒確認就想推進到你這個階段的嘗試），可以放心拿它當作規格依據之一，不需要另外確認 \`spec_confirmation\` 的狀態。
 
 **額外檢查重複邏輯（獨立於工程師自己的查重）**：除了核對票單/規格需求是否被滿足，也要用 \`search_project_text\` 針對這次新增/修改的核心邏輯關鍵字，自己重新搜一次整個專案，判斷工程師是否真的做過查重、有沒有漏掉明顯可以重用卻各自複製一份的邏輯。如果發現有明顯重複（例如同樣的轉換/判斷邏輯在專案裡已經存在，工程師卻又寫了一份幾乎一樣的），且 \`02-implementation.md\` 沒有記錄查重過程、或給出的「不合併」理由籠統站不住腳，這屬於實作面的品質問題，判 \`FAIL\`、\`rootCause: "implementation"\`，並在理由裡具體點出重複的位置（哪個檔案、哪個既有方法、新增的方法在哪裡重複了它）。**如果重複邏輯有明確合理理由不合併（工程師已具體說明語意/生命週期差異），不算 FAIL 項目**，只需要在 \`content\` 裡記錄你認可這個理由即可。
 
