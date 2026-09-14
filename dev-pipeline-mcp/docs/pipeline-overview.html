@@ -334,7 +334,7 @@
   <header class="hero">
     <p class="eyebrow">操作手冊 · dev-pipeline-mcp</p>
     <h1>Asana Pipeline 全景圖</h1>
-    <p class="lede">從「今天有哪些票該處理」到分析師 → 工程師 → 驗證師三階段自動跑完，再到換 session／換 AI 接手、票單內容被改過怎麼被抓出來、追蹤檔案被繞過 MCP 直接改過又怎麼被抓出來、跑完之後需要人工處理的事項怎麼持久化——這七張圖對照目前這個 MCP 實際在跑的完整流程。</p>
+    <p class="lede">從「今天有哪些票該處理」到分析師 → 工程師 → 驗證師 → 測試工程師四階段自動跑完，再到換 session／換 AI 接手、票單內容被改過怎麼被抓出來、追蹤檔案被繞過 MCP 直接改過又怎麼被抓出來、跑完之後需要人工處理的事項怎麼持久化——這七張圖對照目前這個 MCP 實際在跑的完整流程。</p>
   </header>
 
   <section class="block">
@@ -375,7 +375,7 @@
     <p class="block-note">設定只做一次，但這張圖是每次「處理今天的問題單」都會重跑一遍的主迴圈。</p>
     <figure class="diagram">
       <div class="diagram-scroll">
-      <svg viewBox="0 0 1000 330" role="img" aria-label="每次執行的主迴圈：一次性設定之後，呼叫 list_pending_tickets 取得待處理票單清單，同時也會拿到 awaitingConfirmation（AI 已驗證 PASS、但使用者自己還沒實測＋審視程式碼品質的舊票），必須主動列給使用者看並等待 record_confirmation；接著逐張新票走過三階段處理，處理完一張換下一張，全部跑完後彙整報告">
+      <svg viewBox="0 0 1000 330" role="img" aria-label="每次執行的主迴圈：一次性設定之後，呼叫 list_pending_tickets 取得待處理票單清單，同時也會拿到 awaitingConfirmation（AI 已驗證 PASS、但使用者自己還沒實測＋審視程式碼品質的舊票），必須主動列給使用者看並等待 record_confirmation；接著逐張新票走過四階段處理，處理完一張換下一張，全部跑完後彙整報告">
         <defs>
           <marker id="arrowMain" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
@@ -396,8 +396,8 @@
           <text x="346" y="126" text-anchor="middle" class="mono-label" font-size="10" opacity="0.7">list_pending_tickets</text>
 
           <rect x="500" y="66" width="260" height="98" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
-          <text x="630" y="98" text-anchor="middle" font-weight="700" fill="var(--accent-ink)">單張票 T 的三階段</text>
-          <text x="630" y="120" text-anchor="middle" font-size="12.5" fill="var(--accent-ink)">分析師 → 工程師 → 驗證師</text>
+          <text x="630" y="98" text-anchor="middle" font-weight="700" fill="var(--accent-ink)">單張票 T 的四階段</text>
+          <text x="630" y="120" text-anchor="middle" font-size="12.5" fill="var(--accent-ink)">分析 → 工程 → 驗證 → 測試</text>
           <text x="630" y="140" text-anchor="middle" font-size="11.5" fill="var(--accent-ink)" opacity="0.85">（完整展開見下一張圖）</text>
 
           <rect x="812" y="78" width="172" height="74" rx="10" fill="none" stroke="currentColor" opacity="0.85"/>
@@ -423,7 +423,7 @@
         <text x="346" y="264" text-anchor="middle" class="mono-label" font-size="9.5" fill="var(--warn)" opacity="0.8">awaitingConfirmation</text>
       </svg>
       </div>
-      <figcaption>清單裡每張新票依序走一遍三階段（不平行處理），全部處理完才彙整成一份報告給使用者；同一次也會順便帶出還沒被你確認過的舊票，不管這次有沒有新票要處理都要主動提出來，不能悄悄略過。</figcaption>
+      <figcaption>清單裡每張新票依序走一遍四階段（不平行處理），全部處理完才彙整成一份報告給使用者；同一次也會順便帶出還沒被你確認過的舊票，不管這次有沒有新票要處理都要主動提出來，不能悄悄略過。</figcaption>
     </figure>
   </section>
 
@@ -432,10 +432,10 @@
       <span class="block-num">2</span>
       <h2>單張票的狀態機</h2>
     </div>
-    <p class="block-note">用白話講一遍：一張票依序經過六個步驟。<strong>驗證沒通過，AI 會自動回頭修正，不用你操心</strong>；<strong>驗證通過了也還不算真的結束，要等你自己測過、看過程式碼才算數</strong>；<strong>如果 Asana 上的票單內容後來又被改過，AI 會自動重新分析，不會用舊資料繼續做</strong>。</p>
+    <p class="block-note">用白話講一遍：一張票依序經過七個步驟。<strong>驗證或測試沒通過，AI 會自動回頭修正，不用你操心</strong>；<strong>都通過了也還不算真的結束，要等你自己測過、看過程式碼才算數</strong>；<strong>如果 Asana 上的票單內容後來又被改過，AI 會自動重新分析，不會用舊資料繼續做</strong>。</p>
     <figure class="diagram">
       <div class="diagram-scroll">
-      <svg viewBox="0 0 1080 460" role="img" aria-label="一張票單會依序經過六個階段：剛收到票、抓票單內容、確認程式碼位置、AI分析問題、AI寫程式碼、AI驗證結果，只會往前走不會跳過。只有AI自己維護規格文件的專案，會多一步規格草稿確認：依專案設定，這一步發生在AI分析問題之後、AI寫程式碼之前（先規格後程式碼），或是AI寫程式碼之後、AI驗證結果之前（先程式碼後反推規格），確認過才能繼續往下走。驗證結果如果沒通過，AI會自動回頭修正再重驗一次；如果通過，還要使用者自己實測並看過程式碼確認沒問題，才算真的完成，使用者發現有問題一樣會被送回去自動修正。如果Asana上的票單內容後來又被改過，AI會自動重新分析，不會用舊資料繼續">
+      <svg viewBox="0 0 1080 470" role="img" aria-label="一張票單會依序經過七個階段：剛收到票、抓票單內容、確認程式碼位置、AI分析問題、AI寫程式碼、AI驗證結果、AI測試情境，只會往前走不會跳過。只有AI自己維護規格文件的專案，會多一步規格草稿確認：依專案設定，這一步發生在AI分析問題之後、AI寫程式碼之前（先規格後程式碼），或是AI寫程式碼之後、AI驗證結果之前（先程式碼後反推規格），確認過才能繼續往下走。驗證結果或測試情境任一步沒通過，AI會自動回頭修正再重驗一次；測試情境裡AI沒把握精確判定的項目不算沒通過，只會列進待你確認的清單。全部通過後，還要使用者自己實測並看過程式碼確認沒問題，才算真的完成，使用者發現有問題一樣會被送回去自動修正。如果Asana上的票單內容後來又被改過，AI會自動重新分析，不會用舊資料繼續">
         <defs>
           <marker id="arrowStage" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
@@ -455,83 +455,92 @@
         </defs>
 
         <!-- conditional spec-draft note (only self-generated projects) -->
-        <rect x="586" y="25" width="250" height="53" rx="9" fill="var(--accent-soft)" stroke="var(--accent)" stroke-dasharray="4 3"/>
-        <text x="711" y="44" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--accent-ink)">有些專案：AI 會多寫一份規格草稿</text>
-        <text x="711" y="60" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)">等你確認過才能繼續往下走</text>
-        <text x="711" y="74" text-anchor="middle" font-size="9" fill="var(--accent-ink)" opacity="0.75">（依設定，發生在寫程式碼前或後）</text>
-        <line x1="711" y1="78" x2="711" y2="97" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrowSpec)"/>
+        <rect x="481" y="25" width="210" height="53" rx="9" fill="var(--accent-soft)" stroke="var(--accent)" stroke-dasharray="4 3"/>
+        <text x="586" y="42" text-anchor="middle" font-size="10" font-weight="700" fill="var(--accent-ink)">有些專案：AI 會多寫</text>
+        <text x="586" y="56" text-anchor="middle" font-size="10" font-weight="700" fill="var(--accent-ink)">一份規格草稿，等你確認</text>
+        <text x="586" y="70" text-anchor="middle" font-size="8.5" fill="var(--accent-ink)" opacity="0.75">（依設定，發生在寫程式碼前或後）</text>
+        <line x1="586" y1="78" x2="586" y2="97" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrowSpec)"/>
 
         <!-- content-changed warning tag above verified -->
-        <rect x="858" y="25" width="200" height="53" rx="9" fill="var(--stale-soft)" stroke="var(--stale)" stroke-dasharray="4 3"/>
-        <text x="958" y="44" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--stale)">⚠ 票單內容後來又變了？</text>
-        <text x="958" y="60" text-anchor="middle" font-size="10.5" fill="var(--stale)">AI 會自動重新分析，不用你說</text>
-        <text x="958" y="74" text-anchor="middle" font-size="9" fill="var(--stale)" opacity="0.75">（不會沿用舊資料繼續做）</text>
-        <line x1="958" y1="78" x2="975" y2="97" stroke="var(--stale)" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrowStale)"/>
+        <rect x="717" y="25" width="170" height="53" rx="9" fill="var(--stale-soft)" stroke="var(--stale)" stroke-dasharray="4 3"/>
+        <text x="802" y="42" text-anchor="middle" font-size="10" font-weight="700" fill="var(--stale)">⚠ 票單內容變了？</text>
+        <text x="802" y="56" text-anchor="middle" font-size="10" fill="var(--stale)">AI 會自動重新分析</text>
+        <text x="802" y="70" text-anchor="middle" font-size="8.5" fill="var(--stale)" opacity="0.75">（不會沿用舊資料繼續做）</text>
+        <line x1="802" y1="78" x2="802" y2="97" stroke="var(--stale)" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrowStale)"/>
 
-        <!-- main row: 6 step cards -->
-        <g font-size="13" text-anchor="middle">
-          <rect x="20" y="100" width="150" height="80" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
-          <circle cx="42" cy="116" r="12" fill="currentColor"/><text x="42" y="120" fill="var(--bg)" font-weight="700" font-size="11">1</text>
-          <text x="95" y="140" font-weight="700">剛收到票</text>
-          <text x="95" y="158" class="mono-label" font-size="9.5" opacity="0.7">new</text>
+        <!-- main row: 7 step cards -->
+        <g font-size="12.5" text-anchor="middle">
+          <rect x="20" y="100" width="124" height="80" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
+          <circle cx="40" cy="116" r="12" fill="currentColor"/><text x="40" y="120" fill="var(--bg)" font-weight="700" font-size="11">1</text>
+          <text x="82" y="140" font-weight="700">剛收到票</text>
+          <text x="82" y="158" class="mono-label" font-size="9" opacity="0.7">new</text>
 
-          <rect x="196" y="100" width="150" height="80" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
-          <circle cx="218" cy="116" r="12" fill="currentColor"/><text x="218" y="120" fill="var(--bg)" font-weight="700" font-size="11">2</text>
-          <text x="271" y="140" font-weight="700">抓票單內容</text>
-          <text x="271" y="158" class="mono-label" font-size="9.5" opacity="0.7">snapshot</text>
+          <rect x="164" y="100" width="124" height="80" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
+          <circle cx="184" cy="116" r="12" fill="currentColor"/><text x="184" y="120" fill="var(--bg)" font-weight="700" font-size="11">2</text>
+          <text x="226" y="140" font-weight="700">抓票單內容</text>
+          <text x="226" y="158" class="mono-label" font-size="9" opacity="0.7">snapshot</text>
 
-          <rect x="372" y="100" width="150" height="80" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
-          <circle cx="394" cy="116" r="12" fill="currentColor"/><text x="394" y="120" fill="var(--bg)" font-weight="700" font-size="11">3</text>
-          <text x="447" y="134" font-weight="700">確認程式碼</text>
-          <text x="447" y="150" font-weight="700">位置</text>
-          <text x="447" y="166" class="mono-label" font-size="8.5" opacity="0.7">project_dir_confirmed</text>
+          <rect x="308" y="100" width="124" height="80" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
+          <circle cx="328" cy="116" r="12" fill="currentColor"/><text x="328" y="120" fill="var(--bg)" font-weight="700" font-size="11">3</text>
+          <text x="370" y="134" font-weight="700">確認程式碼</text>
+          <text x="370" y="150" font-weight="700">位置</text>
+          <text x="370" y="166" class="mono-label" font-size="8" opacity="0.7">project_dir_confirmed</text>
 
-          <rect x="548" y="100" width="150" height="80" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
-          <circle cx="570" cy="116" r="12" fill="currentColor"/><text x="570" y="120" fill="var(--bg)" font-weight="700" font-size="11">4</text>
-          <text x="623" y="140" font-weight="700">AI 分析問題</text>
-          <text x="623" y="158" class="mono-label" font-size="9.5" opacity="0.7">analyzed</text>
+          <rect x="452" y="100" width="124" height="80" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
+          <circle cx="472" cy="116" r="12" fill="currentColor"/><text x="472" y="120" fill="var(--bg)" font-weight="700" font-size="11">4</text>
+          <text x="514" y="140" font-weight="700">AI 分析問題</text>
+          <text x="514" y="158" class="mono-label" font-size="9" opacity="0.7">analyzed</text>
 
-          <rect x="724" y="100" width="150" height="80" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
-          <circle cx="746" cy="116" r="12" fill="currentColor"/><text x="746" y="120" fill="var(--bg)" font-weight="700" font-size="11">5</text>
-          <text x="799" y="140" font-weight="700">AI 寫程式碼</text>
-          <text x="799" y="158" class="mono-label" font-size="9.5" opacity="0.7">implemented</text>
+          <rect x="596" y="100" width="124" height="80" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
+          <circle cx="616" cy="116" r="12" fill="currentColor"/><text x="616" y="120" fill="var(--bg)" font-weight="700" font-size="11">5</text>
+          <text x="658" y="140" font-weight="700">AI 寫程式碼</text>
+          <text x="658" y="158" class="mono-label" font-size="9" opacity="0.7">implemented</text>
 
-          <rect x="900" y="100" width="150" height="80" rx="10" fill="var(--good-soft)" stroke="var(--good)"/>
-          <circle cx="922" cy="116" r="12" fill="var(--good)"/><text x="922" y="120" fill="var(--good-soft)" font-weight="700" font-size="11">6</text>
-          <text x="975" y="140" font-weight="700" fill="var(--good)">AI 驗證結果</text>
-          <text x="975" y="158" class="mono-label" font-size="9.5" fill="var(--good)">verified</text>
+          <rect x="740" y="100" width="124" height="80" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
+          <circle cx="760" cy="116" r="12" fill="currentColor"/><text x="760" y="120" fill="var(--bg)" font-weight="700" font-size="11">6</text>
+          <text x="802" y="140" font-weight="700">AI 驗證結果</text>
+          <text x="802" y="158" class="mono-label" font-size="9" opacity="0.7">verified</text>
+
+          <rect x="884" y="100" width="124" height="80" rx="10" fill="var(--good-soft)" stroke="var(--good)"/>
+          <circle cx="904" cy="116" r="12" fill="var(--good)"/><text x="904" y="120" fill="var(--good-soft)" font-weight="700" font-size="11">7</text>
+          <text x="946" y="140" font-weight="700" fill="var(--good)">AI 測試情境</text>
+          <text x="946" y="158" class="mono-label" font-size="9" fill="var(--good)">tested</text>
         </g>
 
         <g stroke="currentColor">
-          <line x1="170" y1="140" x2="192" y2="140" marker-end="url(#arrowStage)"/>
-          <line x1="346" y1="140" x2="368" y2="140" marker-end="url(#arrowStage)"/>
-          <line x1="522" y1="140" x2="544" y2="140" marker-end="url(#arrowStage)"/>
-          <line x1="698" y1="140" x2="720" y2="140" marker-end="url(#arrowStage)"/>
-          <line x1="874" y1="140" x2="896" y2="140" marker-end="url(#arrowStage)"/>
+          <line x1="144" y1="140" x2="160" y2="140" marker-end="url(#arrowStage)"/>
+          <line x1="288" y1="140" x2="304" y2="140" marker-end="url(#arrowStage)"/>
+          <line x1="432" y1="140" x2="448" y2="140" marker-end="url(#arrowStage)"/>
+          <line x1="576" y1="140" x2="592" y2="140" marker-end="url(#arrowStage)"/>
+          <line x1="720" y1="140" x2="736" y2="140" marker-end="url(#arrowStage)"/>
+          <line x1="864" y1="140" x2="880" y2="140" marker-end="url(#arrowStage)"/>
         </g>
 
-        <!-- outcome: FAIL → auto-retry -->
-        <path d="M 900 165 L 800 195 L 200 195 L 200 220" fill="none" stroke="var(--stale)" stroke-width="1.6" marker-end="url(#arrowStale)"/>
-        <rect x="60" y="224" width="600" height="100" rx="10" fill="var(--stale-soft)" stroke="var(--stale)"/>
-        <text x="360" y="248" text-anchor="middle" font-size="13.5" font-weight="700" fill="var(--stale)">😕 沒通過 → AI 自動回頭修，不用你操心</text>
+        <!-- outcome: FAIL (either step 6 verified or step 7 tested) → auto-retry -->
+        <path d="M 802 180 L 802 206 L 300 206 L 300 220" fill="none" stroke="var(--stale)" stroke-width="1.6" marker-end="url(#arrowStale)"/>
+        <path d="M 946 180 L 946 213 L 520 213 L 520 220" fill="none" stroke="var(--stale)" stroke-width="1.6" marker-end="url(#arrowStale)"/>
+        <rect x="60" y="224" width="600" height="112" rx="10" fill="var(--stale-soft)" stroke="var(--stale)"/>
+        <text x="360" y="248" text-anchor="middle" font-size="13.5" font-weight="700" fill="var(--stale)">😕 步驟 6 或 7 沒通過 → AI 自動回頭修，不用你操心</text>
         <text x="360" y="268" text-anchor="middle" font-size="11" fill="var(--stale)">問題出在「分析方向」就回步驟 4 重新分析；出在「寫的程式碼」就回步驟 5 重寫</text>
         <text x="360" y="286" text-anchor="middle" font-size="11" font-weight="500" fill="var(--stale)">同一張票連續失敗 3 次以上，AI 才會停下來問你</text>
-        <text x="360" y="306" text-anchor="middle" font-size="10.5" fill="var(--stale)" opacity="0.85">你自己測試後回報「有問題」，也會走同一套自動修正流程</text>
+        <text x="360" y="304" text-anchor="middle" font-size="10.5" fill="var(--stale)" opacity="0.85">你自己測試後回報「有問題」，也會走同一套自動修正流程</text>
+        <text x="360" y="322" text-anchor="middle" font-size="10.5" fill="var(--stale)" opacity="0.85">步驟 7 沒把握精確判定的項目不算沒通過，只會列進下面的待確認清單</text>
 
-        <!-- outcome: PASS → 待確認 → 已完成 -->
-        <line x1="975" y1="180" x2="975" y2="220" stroke="var(--warn)" stroke-width="1.6" marker-end="url(#arrowWarn)"/>
-        <rect x="855" y="224" width="210" height="86" rx="10" fill="var(--warn-soft)" stroke="var(--warn)"/>
-        <text x="960" y="246" text-anchor="middle" font-size="13" font-weight="700" fill="var(--warn)">🙂 AI 覺得通過了</text>
-        <text x="960" y="264" text-anchor="middle" font-size="11" fill="var(--warn)">但還要你自己實測、</text>
-        <text x="960" y="280" text-anchor="middle" font-size="11" fill="var(--warn)">看過程式碼才算數</text>
-        <text x="960" y="298" text-anchor="middle" font-size="9.5" fill="var(--warn)" opacity="0.8">你說「有問題」→ 走上面自動修正流程</text>
+        <!-- outcome: 步驟7 PASS → 待確認 → 已完成 -->
+        <line x1="946" y1="180" x2="946" y2="220" stroke="var(--warn)" stroke-width="1.6" marker-end="url(#arrowWarn)"/>
+        <rect x="841" y="224" width="210" height="98" rx="10" fill="var(--warn-soft)" stroke="var(--warn)"/>
+        <text x="946" y="246" text-anchor="middle" font-size="13" font-weight="700" fill="var(--warn)">🙂 AI 都覺得通過了</text>
+        <text x="946" y="264" text-anchor="middle" font-size="11" fill="var(--warn)">但還要你自己實測、</text>
+        <text x="946" y="280" text-anchor="middle" font-size="11" fill="var(--warn)">看過程式碼才算數</text>
+        <text x="946" y="296" text-anchor="middle" font-size="9.5" fill="var(--warn)" opacity="0.85">附上步驟 7 列的待人工確認項目</text>
+        <text x="946" y="311" text-anchor="middle" font-size="9.5" fill="var(--warn)" opacity="0.8">你說「有問題」→ 走上面自動修正流程</text>
 
-        <line x1="960" y1="310" x2="960" y2="340" stroke="var(--good)" stroke-width="1.6" marker-end="url(#arrowGood)"/>
-        <rect x="885" y="344" width="150" height="54" rx="10" fill="var(--good-soft)" stroke="var(--good)"/>
-        <text x="960" y="366" text-anchor="middle" font-size="13" font-weight="700" fill="var(--good)">✅ 真的完成了</text>
-        <text x="960" y="384" text-anchor="middle" font-size="10" fill="var(--good)">你確認過沒問題</text>
+        <line x1="946" y1="322" x2="946" y2="352" stroke="var(--good)" stroke-width="1.6" marker-end="url(#arrowGood)"/>
+        <rect x="871" y="356" width="150" height="54" rx="10" fill="var(--good-soft)" stroke="var(--good)"/>
+        <text x="946" y="378" text-anchor="middle" font-size="13" font-weight="700" fill="var(--good)">✅ 真的完成了</text>
+        <text x="946" y="396" text-anchor="middle" font-size="10" fill="var(--good)">你確認過沒問題</text>
 
-        <text x="360" y="345" text-anchor="middle" font-size="11" opacity="0.7">（規格草稿那一步：你打回意見的話，AI 會重新請你確認一次；有些專案這一步改在「寫程式碼」之後才出現，一樣不會跳過）</text>
+        <text x="360" y="357" text-anchor="middle" font-size="11" opacity="0.7">（規格草稿那一步：你打回意見的話，AI 會重新請你確認一次；有些專案這一步改在「寫程式碼」之後才出現，一樣不會跳過）</text>
       </svg>
       </div>
       <figcaption>六個步驟只會往前走，不會跳過也不會倒退。驗證沒通過時，AI 會依問題出在分析階段還是實作階段，自動回頭找對應角色重跑，不用你介入；連續失敗太多次才會停下來問你。驗證通過只代表「AI 自己檢查沒問題」，還要你自己實測＋看過程式碼確認，才算真正完成——你回報有問題的話，一樣會被送進上面的自動修正流程，不是另開一條人工處理方式。只有 AI 自己維護規格文件的專案，會多請你確認一份規格草稿：依專案設定（specOrder），這一步發生在分析完之後、開始寫程式碼之前（先規格後程式碼），或是程式碼寫完之後、驗證完成之前（先程式碼後反推規格）；其他專案不受影響。如果 Asana 上的票單內容後來又被改過，AI 也會自動重新分析，不會沿用舊資料繼續做。</figcaption>
@@ -637,12 +646,12 @@
   <section class="block">
     <div class="block-head">
       <span class="block-num">5</span>
-      <h2>01/02/03 互相同步</h2>
+      <h2>01/02/03/04 互相同步</h2>
     </div>
-    <p class="block-note">跟上面「票單狀態機」不同軸向：那組管「票單原文 vs 追蹤系統」，這組管「追蹤系統內部 01/02/03 三份文件彼此」——這條 pipeline 曾經實際發生過工程師階段反覆修正十幾輪、<code class="mono">02-implementation.md</code> 一路追加，但 <code class="mono">01-analysis.md</code> 完全沒同步，全靠使用者事後肉眼發現。</p>
+    <p class="block-note">跟上面「票單狀態機」不同軸向：那組管「票單原文 vs 追蹤系統」，這組管「追蹤系統內部 01/02/03/04 四份文件彼此」——這條 pipeline 曾經實際發生過工程師階段反覆修正十幾輪、<code class="mono">02-implementation.md</code> 一路追加，但 <code class="mono">01-analysis.md</code> 完全沒同步，全靠使用者事後肉眼發現。下圖以 01→02→03 為例，<code class="mono">03-verification.md</code> 對 <code class="mono">04-test.md</code>（測試工程師）套用完全同一套機制，沒有另外畫一次。</p>
     <figure class="diagram">
       <div class="diagram-scroll">
-      <svg viewBox="0 0 1000 470" role="img" aria-label="分析、實作、驗證三份紀錄怎麼保持同步：AI寫實作紀錄時，一定要交代這次有沒有推翻分析紀錄的結論；沒有的話只做個記號代表核對過；有推翻的話，AI會自動把新發現補寫回分析紀錄，不會漏掉。如果之後分析紀錄又被單獨改過，這個核對記號會失效，下次寫實作紀錄要重新核對一次。驗證紀錄對實作紀錄也套用同樣的機制">
+      <svg viewBox="0 0 1000 470" role="img" aria-label="分析、實作、驗證、測試四份紀錄怎麼保持同步：AI寫實作紀錄時，一定要交代這次有沒有推翻分析紀錄的結論；沒有的話只做個記號代表核對過；有推翻的話，AI會自動把新發現補寫回分析紀錄，不會漏掉。如果之後分析紀錄又被單獨改過，這個核對記號會失效，下次寫實作紀錄要重新核對一次。驗證紀錄對實作紀錄、測試紀錄對驗證紀錄，都套用同樣的機制">
         <defs>
           <marker id="arrowSyncNeutral" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
@@ -709,7 +718,7 @@
         <text x="180" y="448" text-anchor="middle" font-size="11.5" font-weight="500" fill="var(--stale)">→ 這個記號失效，下次要重新核對</text>
       </svg>
       </div>
-      <figcaption>寫 <code class="mono">02-implementation.md</code>/<code class="mono">03-verification.md</code> 時 <code class="mono">syncNote</code> 是必填參數，不能省略——工具層級的強制檢查，不管是哪個 AI/host 在呼叫都一樣有效，不依賴對方自己記得或遵守 prompt 建議。</figcaption>
+      <figcaption>寫 <code class="mono">02-implementation.md</code>/<code class="mono">03-verification.md</code>/<code class="mono">04-test.md</code> 時 <code class="mono">syncNote</code> 是必填參數，不能省略——工具層級的強制檢查，不管是哪個 AI/host 在呼叫都一樣有效，不依賴對方自己記得或遵守 prompt 建議。</figcaption>
     </figure>
   </section>
 
@@ -718,10 +727,10 @@
       <span class="block-num">6</span>
       <h2>外部修改偵測</h2>
     </div>
-    <p class="block-note">跟上面「01/02/03 互相同步」是不同軸向的比對：那張比的是「兩份都是這個 MCP 自己以前記錄的雜湊」彼此對不對得起來；這張比的是「這個 MCP 記錄的舊雜湊」跟「磁碟上現在真正的內容」對不對得起來——只有這組比對抓得到使用者或沒走這條 pipeline 的 AI 直接手動編輯追蹤檔案的情況。</p>
+    <p class="block-note">跟上面「01/02/03/04 互相同步」是不同軸向的比對：那張比的是「兩份都是這個 MCP 自己以前記錄的雜湊」彼此對不對得起來；這張比的是「這個 MCP 記錄的舊雜湊」跟「磁碟上現在真正的內容」對不對得起來——只有這組比對抓得到使用者或沒走這條 pipeline 的 AI 直接手動編輯追蹤檔案的情況。</p>
     <figure class="diagram">
       <div class="diagram-scroll">
-      <svg viewBox="0 0 1040 320" role="img" aria-label="AI怎麼知道紀錄被別人動過：每次查詢票單狀態，AI都會重新讀取磁碟上三份紀錄現在的實際內容，跟上次記錄的內容比對，不是拿兩個舊記錄互相比。一樣的話代表資料可信，可以放心用摘要；不一樣的話代表這份檔案在AI不知情的狀況下被改過，摘要可能已經過期，應該重新讀全文，確認沒問題後可以請AI把記錄同步成目前的內容">
+      <svg viewBox="0 0 1040 320" role="img" aria-label="AI怎麼知道紀錄被別人動過：每次查詢票單狀態，AI都會重新讀取磁碟上四份紀錄現在的實際內容，跟上次記錄的內容比對，不是拿兩個舊記錄互相比。一樣的話代表資料可信，可以放心用摘要；不一樣的話代表這份檔案在AI不知情的狀況下被改過，摘要可能已經過期，應該重新讀全文，確認沒問題後可以請AI把記錄同步成目前的內容">
         <defs>
           <marker id="arrowDetect" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
@@ -822,7 +831,7 @@
         <text x="363" y="218" text-anchor="middle" font-size="11" opacity="0.7">寫檔案是它的副作用，不是一個容易被忘記呼叫的額外步驟</text>
       </svg>
       </div>
-      <figcaption><code class="mono">manualActions</code>（<code class="mono">write_ticket_artifact</code> 寫 02/03 時必填，可以是空陣列）逼工程師/驗證師把「這個 SQL 只能你手動執行」這類事項明確宣告出來，不能只埋在全文內容裡指望使用者重讀才發現；六類項目彙整後整份覆寫進磁碟上的 Markdown 檔案，不依賴聊天記錄留存。寫入前會自動掃描是否夾帶完整 SQL 全文或憑證/連線字串，抓到直接拒絕寫入——只能留技術性描述。</figcaption>
+      <figcaption><code class="mono">manualActions</code>（<code class="mono">write_ticket_artifact</code> 寫 02/03/04 時必填，可以是空陣列）逼工程師/驗證師/測試工程師把「這個 SQL 只能你手動執行」「這項要你親自測」這類事項明確宣告出來，不能只埋在全文內容裡指望使用者重讀才發現；六類項目彙整後整份覆寫進磁碟上的 Markdown 檔案，不依賴聊天記錄留存。寫入前會自動掃描是否夾帶完整 SQL 全文或憑證/連線字串，抓到直接拒絕寫入——只能留技術性描述。</figcaption>
     </figure>
   </section>
 

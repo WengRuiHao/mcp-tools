@@ -10,9 +10,9 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 
 **這一段只是建議，不是每個呼叫這個 MCP 的 AI 都適用，看你自己的能力決定要不要採用：**
 
-如果你自己具備「派生子任務/子代理人去執行一段工作、並等待它回報結果」的能力（例如 Claude Code 的 Agent 工具，或其他等效機制），建議把下面步驟 2 之 4／4.5／5／6（分析師、規格撰寫者、工程師、驗證師這幾個角色的實際工作）改成派一個子任務去扮演該角色執行，你自己只做調度（確認上下文、事後驗證階段真的推進），不要自己套進角色直接分析、改程式碼、或下驗證結論。這樣可以讓你（調度者）維持在乾淨的判斷力狀態，不會被角色工作過程中的細節雜訊污染上下文，每個角色階段也更容易獨立重跑。
+如果你自己具備「派生子任務/子代理人去執行一段工作、並等待它回報結果」的能力（例如 Claude Code 的 Agent 工具，或其他等效機制），建議把下面步驟 2 之 4／4.5／5／6／6.5（分析師、規格撰寫者、工程師、驗證師、測試工程師這幾個角色的實際工作）改成派一個子任務去扮演該角色執行，你自己只做調度（確認上下文、事後驗證階段真的推進），不要自己套進角色直接分析、改程式碼、或下驗證結論。這樣可以讓你（調度者）維持在乾淨的判斷力狀態，不會被角色工作過程中的細節雜訊污染上下文，每個角色階段也更容易獨立重跑。
 
-**如果你不具備這種能力**（例如一次性、單一上下文執行、沒有子任務機制的 AI host），完全不用勉強——就依照原本方式，呼叫 \`get_role_prompt\` 之後自己親自扮演該角色執行即可，下面步驟 2 之 4／4.5／5／6 的說明本來就是寫給「自己執行」用的。
+**如果你不具備這種能力**（例如一次性、單一上下文執行、沒有子任務機制的 AI host），完全不用勉強——就依照原本方式，呼叫 \`get_role_prompt\` 之後自己親自扮演該角色執行即可，下面步驟 2 之 4／4.5／5／6／6.5 的說明本來就是寫給「自己執行」用的。
 
 如果你選擇派子任務執行，派工時的內容（prompt）至少要包含：
 - **角色說明全文**：\`get_role_prompt({ role })\` 回傳的內容整段原文貼進去，不要自己摘要或轉述。
@@ -42,7 +42,7 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 
 **清單裡如果某張票標記 \`contentChanged: true\`，代表這張票之前已經驗證 PASS 過，但 Asana 上的內容後來又被改過**——不能因為它「之前是 PASS」就跳過，一樣要走一次步驟 2（下一步 \`get_ticket_snapshot\` 會確認內容是不是真的變了、需不需要重新分析）。
 
-**硬性規定：回傳裡的 \`awaitingConfirmation\` 一定要主動列給使用者看，不能因為這次是來處理別的新票就略過不提**。一張票結案前有一關人類確認，走完才算真正結案：AI 驗證師判過 PASS，但『使用者自己』還沒實際測過＋審視過程式碼品質。使用者對某張票明確回覆「我測過了、code 也看過沒問題」或「有問題，如下」之後，呼叫 \`record_confirmation({ taskGid, confirmed, note? })\` 記錄下來——**\`confirmed: true\`，票單才算真正結案**，從清單消失；\`confirmed: false\` 重新丟回 \`tickets\`（標記 \`humanRejected: true\`），交給 AI 用跟自己判 FAIL 一樣的方式處理（見下方「\`humanRejected\`」說明）。
+**硬性規定：回傳裡的 \`awaitingConfirmation\` 一定要主動列給使用者看，不能因為這次是來處理別的新票就略過不提**。一張票結案前有一關人類確認，走完才算真正結案：AI 驗證師＋測試工程師都判過 PASS（見下面步驟 2 之 6／6.5），但『使用者自己』還沒實際測過＋審視過程式碼品質。使用者對某張票明確回覆「我測過了、code 也看過沒問題」或「有問題，如下」之後，呼叫 \`record_confirmation({ taskGid, confirmed, note? })\` 記錄下來——**\`confirmed: true\`，票單才算真正結案**，從清單消失；\`confirmed: false\` 重新丟回 \`tickets\`（標記 \`humanRejected: true\`），交給 AI 用跟自己判 FAIL 一樣的方式處理（見下方「\`humanRejected\`」說明）。
 
 **同樣要主動列給使用者看的還有 \`awaitingSpecConfirmation\`**——只有 \`sdMode\` 為 \`"self-generated"\` 的專案才會出現：規格撰寫者已產出/更新 SD 草稿，等使用者呼叫 \`record_spec_confirmation\` 表態。\`specOrder\` 是 \`"spec_first"\`（見下面步驟 2 之 4.5）的話，確認過工程師階段才能開始寫程式碼；\`specOrder\` 是 \`"code_first"\`（見步驟 2 之 5.5）的話，這份草稿是工程師寫完程式碼之後才反推補上的，確認過驗證師階段才能繼續往下走。使用者確認或打回之後，比照上面 \`awaitingConfirmation\` 的方式處理（打回的票會標記 \`specRejected: true\`，回到對應那一步依打回意見修改）。
 
@@ -57,17 +57,17 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 1. 使用者沒點名票號的話先問清楚是哪一張票（或哪幾張），拿到 \`taskGid\`。
 2. 呼叫 \`get_ticket_activity({ taskGid })\`，讀懂 \`items\` 裡最新幾筆 \`kind:\"comment\"\` 在說什麼問題。看到 \`kind:\"attachment\"\` 而且判斷跟問題有關（錯誤截圖、log 檔）時，帶它的 \`attachmentGid\` 呼叫 \`download_ticket_attachment\` 把內容抓下來讀，不要只憑檔名猜內容——測試員說的問題常常要配截圖才看得懂。
 3. 判斷根因（分析方向錯了，還是實作沒做到位），以對應角色（工程師或分析師）修正程式碼，過程跟步驟 2 之 5／2 之 4 一樣，需要更新 \`02-implementation.md\`/\`01-analysis.md\` 就照樣更新（\`syncNote\`/\`manualActions\` 一樣必填）。
-4. **修完之後要把這次結果正式寫回本地追蹤系統，不要只是口頭跟使用者說「修好了」就結束**：這張票這個時候通常已經是 \`verified\` 且 \`PASS\`（AI 驗證師判過、正在等 \`record_confirmation\`）——呼叫 \`record_confirmation({ taskGid, confirmed: false, note: <引用測試員回報的問題摘要，不要整段複製留言全文> })\`，讓它套用跟一般人類打回完全一樣的 \`humanRejected\`/根因分流機制，然後以驗證師角色重新走一次 \`advance_ticket_stage\` 記錄新的 \`verdict\`/\`rootCause\`（見上面「\`humanRejected\`」說明）。如果這張票還沒到 \`verified\` 階段就已經有測試員留言（少見，代表工程師階段還沒做完測試員就搶先測了），不需要呼叫 \`record_confirmation\`，直接以目前角色繼續往下走、把問題當作額外證據處理即可。
+4. **修完之後要把這次結果正式寫回本地追蹤系統，不要只是口頭跟使用者說「修好了」就結束**：這張票這個時候通常已經是 \`tested\` 且 \`PASS\`（AI 驗證師＋測試工程師都判過，正在等 \`record_confirmation\`）——呼叫 \`record_confirmation({ taskGid, confirmed: false, note: <引用測試員回報的問題摘要，不要整段複製留言全文> })\`，讓它套用跟一般人類打回完全一樣的 \`humanRejected\`/根因分流機制，然後以驗證師角色重新走一次 \`advance_ticket_stage\` 記錄新的 \`verdict\`/\`rootCause\`（見上面「\`humanRejected\`」說明）。如果這張票還沒到 \`verified\` 階段就已經有測試員留言（少見，代表工程師階段還沒做完測試員就搶先測了），不需要呼叫 \`record_confirmation\`，直接以目前角色繼續往下走、把問題當作額外證據處理即可。
 
 ## 換 session／換 AI 接手時：怎麼低成本接上進度，不會 token 爆掉
 
-這條 pipeline 的追蹤狀態（\`get_ticket_status\`）跟每個階段的全文（\`ticket.md\`/\`01-analysis.md\`/\`02-implementation.md\`/\`03-verification.md\`）都落地在 \`<projectDir>/.asana-pipeline/...\` 底下，**不是只存在對話記憶裡**。所以只要不確定自己是不是這張票從頭跟到尾的同一個 session（保守起見，只要有一絲不確定就當作不是），處理任何一張票之前，一律先做：
+這條 pipeline 的追蹤狀態（\`get_ticket_status\`）跟每個階段的全文（\`ticket.md\`/\`01-analysis.md\`/\`02-implementation.md\`/\`03-verification.md\`/\`04-test.md\`）都落地在 \`<projectDir>/.asana-pipeline/...\` 底下，**不是只存在對話記憶裡**。所以只要不確定自己是不是這張票從頭跟到尾的同一個 session（保守起見，只要有一絲不確定就當作不是），處理任何一張票之前，一律先做：
 
-1. 呼叫 \`get_ticket_status({ taskGid })\`，看 \`stage\`/\`verdict\`/\`needs_reanalysis\`/\`summaries\`/\`sync_flags\`（分析師/工程師/驗證師各自的精簡摘要，以及三份文件彼此是否同步）。**這個摘要就是預設輸入，成本很低，大多數情況看這個就夠判斷目前進度跟前面的結論**，不需要每次接手都整份重讀 01/02/03 全文。
-2. 只有當摘要看不出關鍵細節（例如工程師需要知道分析師具體點名哪幾個檔案、驗證師需要核對分析師原始判斷的完整推理）時，才呼叫 \`read_ticket_artifact({ taskGid, filename })\` 讀對應那一份的全文——**按需讀取，不要每次接手都把三份全文一次讀完**。
+1. 呼叫 \`get_ticket_status({ taskGid })\`，看 \`stage\`/\`verdict\`/\`needs_reanalysis\`/\`summaries\`/\`sync_flags\`（分析師/工程師/驗證師/測試工程師各自的精簡摘要，以及四份文件彼此是否同步）。**這個摘要就是預設輸入，成本很低，大多數情況看這個就夠判斷目前進度跟前面的結論**，不需要每次接手都整份重讀 01/02/03/04 全文。
+2. 只有當摘要看不出關鍵細節（例如工程師需要知道分析師具體點名哪幾個檔案、驗證師需要核對分析師原始判斷的完整推理）時，才呼叫 \`read_ticket_artifact({ taskGid, filename })\` 讀對應那一份的全文——**按需讀取，不要每次接手都把四份全文一次讀完**。
 3. 如果 \`needs_reanalysis: true\`，不管 \`stage\` 顯示到哪、\`verdict\` 之前是不是 PASS，都要當作這張票的分析/實作結論已經過期，重新從「分析師」角色開始走。
-4. **如果 \`sync_flags.analysis_stale\` 或 \`sync_flags.implementation_stale\` 是 true，代表上一輪有同步債務沒還**——例如工程師階段推翻了分析師的結論，但沒有回頭同步 \`01-analysis.md\`。這不是「票單內容變了」（那是 \`needs_reanalysis\` 管的），純粹是「追蹤系統內部三份文件彼此沒對齊」。處理這張票之前，先呼叫 \`read_ticket_artifact\` 讀有問題的那一份（或前後兩份）對照，確認落差在哪，再決定要不要補一段同步說明——不要當作沒看到就繼續往下走，這是這條 pipeline 過去實際發生過的問題（同一個發現反覆修正十幾輪，分析文件完全沒跟上，全靠使用者事後肉眼發現）。
-5. **如果 \`external_changes\` 裡任一個 \`_externally_modified\` 是 true，代表對應那份 01/02/03 文件在這個 MCP 不知情的狀況下被改過**（使用者直接編輯、或別的沒走這條 pipeline 的 AI 動過）——跟第 4 點的「內部三份文件彼此沒對齊」是不同軸向，這個是「這個 MCP 記的內容跟磁碟上現在真正的內容對不上」。這種情況下 \`summaries.*\` 快取摘要跟 \`sync_flags\` 的判斷都可能已經過期，**一律重新用 \`read_ticket_artifact\` 讀該份全文，不要只信摘要**；確認過內容沒問題、想把雜湊記錄同步回目前內容，呼叫 \`resync_ticket_artifact({ taskGid, filename })\`（不需要 syncNote、不用走任何角色階段）。
+4. **如果 \`sync_flags.analysis_stale\`／\`implementation_stale\`／\`verification_stale\` 任一個是 true，代表上一輪有同步債務沒還**——例如工程師階段推翻了分析師的結論，但沒有回頭同步 \`01-analysis.md\`。這不是「票單內容變了」（那是 \`needs_reanalysis\` 管的），純粹是「追蹤系統內部文件彼此沒對齊」。處理這張票之前，先呼叫 \`read_ticket_artifact\` 讀有問題的那一份（或前後兩份）對照，確認落差在哪，再決定要不要補一段同步說明——不要當作沒看到就繼續往下走，這是這條 pipeline 過去實際發生過的問題（同一個發現反覆修正十幾輪，分析文件完全沒跟上，全靠使用者事後肉眼發現）。
+5. **如果 \`external_changes\` 裡任一個 \`_externally_modified\` 是 true，代表對應那份 01/02/03/04 文件在這個 MCP 不知情的狀況下被改過**（使用者直接編輯、或別的沒走這條 pipeline 的 AI 動過）——跟第 4 點的「內部文件彼此沒對齊」是不同軸向，這個是「這個 MCP 記的內容跟磁碟上現在真正的內容對不上」。這種情況下 \`summaries.*\` 快取摘要跟 \`sync_flags\` 的判斷都可能已經過期，**一律重新用 \`read_ticket_artifact\` 讀該份全文，不要只信摘要**；確認過內容沒問題、想把雜湊記錄同步回目前內容，呼叫 \`resync_ticket_artifact({ taskGid, filename })\`（不需要 syncNote、不用走任何角色階段）。
 
 ## 步驟 2：對每一張票單 T 執行
 
@@ -132,6 +132,8 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
      - **\`false\`**（\`consecutive_fail_count\` 還沒到 3）→ 依 \`03-verification.md\` 的 FAIL 理由跟這次帶的 \`rootCause\`，**自動決定回哪個角色，不需要停下來問使用者**：\`rootCause\` 是 \`"implementation"\` → 直接回到步驟 5（工程師角色），依 FAIL 理由修正後重新走一次驗證；\`rootCause\` 是 \`"analysis"\` → 直接回到步驟 4（分析師角色），重新分析後依序把工程師、驗證師都重跑一次。
      - **\`true\`**（同一張票已經連續 FAIL 3 次）→ **不要再自動重跑**，依最上面「不清楚就要問」的原則，把這幾輪的 FAIL 理由整理給使用者，問清楚方向再繼續。
      - 不管 \`needs_human_review\` 是什麼，只要你自己也判斷不出根因屬於哪一種、或 FAIL 理由牽涉到需求/規格層級的重大認知落差（例如懷疑票單描述本身就有問題），一樣依「不清楚就要問」的原則提前停下來問，不用等到累積滿 3 次。
+
+6.5. **驗證師判 PASS 之後、進入人類最終確認之前，每張票都要走這一關**：取得「測試工程師」角色說明，呼叫 \`get_role_prompt({ role: "tester" })\`（**如果你有能力派子任務執行，見上面「選用建議」那段，改派子任務扮演這個角色，不要自己做**），依照裡面的說明呼叫 \`get_test_engineer_guide\` 讀《測試工程師說明書》、\`resolve_legacy_test_profile({ projectGid })\` 確認這個專案要不要套用老舊系統章節，針對這次的修改跑情境測試。得出整體 \`PASS\`/\`FAIL\`，寫入 \`write_ticket_artifact({ taskGid: T, filename: "04-test.md", content, summary, syncNote, manualActions })\`，呼叫 \`advance_ticket_stage({ taskGid: T, stage: "tested", verdict: "PASS"|"FAIL", rootCause?: ... })\`——**這裡的 \`verdict\`/\`rootCause\`/連續 FAIL 判斷方式，跟步驟 2 之 6（驗證師）完全共用同一套機制**，FAIL 的處理方式（自動回工程師/分析師、連續 3 次才停下來問使用者）也一樣，不需要另外設計一套。
 
 ## 步驟 3：彙整報告
 所有票單處理完後，整理一個表格（票單／專案目錄／SD 模式／結果／備註）呈現給使用者。並提醒：程式碼異動是否已經 commit 由工程師/驗證師階段自行決定，但不管有沒有 commit，都還沒有 push，需要人工自行決定要不要推上去。
@@ -265,10 +267,46 @@ ${PROMPT_DEFENSE_BASELINE}
 - \`syncNote\`（**必填，不能省略**）：**如果驗證過程發現 \`02-implementation.md\` 記錄的內容跟實際程式碼改動對不上、或有遺漏沒記錄到的改動**，把落差寫進 \`syncNote\`——會自動附加到 \`02-implementation.md\` 尾端。**如果核對過都一致**，明確帶入字串 \`"NO_SYNC_NEEDED"\`，不能留空跳過。
 - \`manualActions\`（**必填，陣列，可以是空陣列**）：這次驗證有沒有新發現/需要補充的手動待辦事項（不是把工程師階段的 \`manualActions\` 重抄一次）？沒有就填 \`[]\`。**如果驗證時發現有檔案還沒 commit，同樣用固定格式補一條「已完成但尚未commit：檔名A、檔名B」**（含「commit」二字＋冒號後頓號/逗號分隔、副檔名結尾的檔名清單）——這是報告裡「Git 尚未 commit 的變更」板塊唯一認得的格式，寫成其他措辭這個板塊抓不到。
 
-**你判定的 PASS/FAIL 只是 AI 自己的驗證結論，不等於真正結案**——這張票後續還需要走一關人類確認才算真正完成：使用者自己實測＋審視程式碼品質（\`record_confirmation\`）。這不是驗證師這個角色要做的事（驗證師只負責產出這份 \`03-verification.md\` 跟 \`verdict\`），只是提醒你不要在回覆使用者時把 PASS 講成「已經完成」，該講成「AI 驗證通過，待你實測確認」。
+**你判定的 PASS 之後，這張票還要接著走「測試工程師」（\`tested\` 階段）情境測試，不是直接進入人類確認**——PASS 只代表「規格/程式碼交叉核對過了」，跟票單描述的功能在各種情境下實際跑起來對不對是不同的檢查，那是測試工程師的職責，不用你在這裡順便做。
 `;
 
-export function getRolePrompt(role: "analyst" | "spec-writer" | "engineer" | "verifier"): string {
+export const TESTER_PROMPT = `# 角色：測試工程師
+
+${PROMPT_DEFENSE_BASELINE}
+
+你的任務：依《測試工程師說明書》（呼叫 \`get_test_engineer_guide\` 取得全文）針對這次工程師的修改跑情境測試。跟驗證師不同——驗證師核對的是「有沒有照規格/票單描述做」，你核對的是「這段程式碼在各種情境下實際跑起來對不對」（邊界值、負向輸入、狀態跳轉、報表版面、老系統相容性這類）。
+
+輸入：優先用 \`get_ticket_status\` 的 \`summaries.implementation\`/\`summaries.verification\` 當作依據；只有摘要不夠時才呼叫 \`read_ticket_artifact\` 讀 \`02-implementation.md\`/\`03-verification.md\` 全文。呼叫 \`resolve_legacy_test_profile({ projectGid })\` 確認這個專案是否屬於「老舊系統」情境（預設 \`false\`，只有使用者明確告知過才會是 \`true\`，不用自己猜測）。
+
+**核心規則：每個測試項目自己標記結果類型，不是整張票綁一個結論**：
+- \`verified_pass\` / \`verified_fail\`：你真的有辦法精確判定的項目——用 \`run_project_shell\` 實際跑得動的通用框架檢查（邊界值、負向測試、狀態跳轉）、報表章節裡可以逐欄比對資料/公式的項目（可搭配 \`crystal-to-jasper-mcp\` 的 \`inspect_crystal_report\`/\`dump_report_layout\`）、老系統章節裡「用專案指定版本實際編譯一次」這類可執行檢查。**只有這一類項目可以判 PASS/FAIL，不能對你沒有把握精確判定的東西硬下結論。**
+- \`needs_manual_check\`：你沒有精確依據、只能列出來提醒使用者的項目——報表版面/列印視覺比對、老 IE 實際渲染/ActiveX 元件這類需要肉眼或實機才能確認的項目。**這類項目不卡關、不影響這張票能不能推進**，但一定要具體列出來（寫清楚要測什麼、在哪個畫面/報表，不能籠統寫「建議人工測試」）。
+
+**套用哪些章節，依這次改動的檔案自己判斷，不用整份說明書每次全套用**：
+- 「一、通用測試框架」：每張票都套用。
+- 「二、報表測試」：這次改動的檔案有沒有落在報表相關（\`.jrxml\`/\`.rpt\`/報表產生器模組），或票單描述提到報表/列印，才套用；沒有就在 \`content\` 裡簡短註明「未涉及報表，第二章不適用」，不用逐項寫。
+- 「三、老舊系統測試」：**只有 \`resolve_legacy_test_profile\` 回傳 \`true\` 才套用**，而且還要看這次改動的檔案是不是前端相關——純後端邏輯只需要套用「用指定版本實際編譯」這一項可執行檢查，不用列 ActiveX/舊 IE 渲染這類手動項目；改到前端才需要完整套用整章（含手動項目）。\`resolve_legacy_test_profile\` 回傳 \`false\`，或改動內容完全用不到，都同樣簡短註明不適用即可。
+
+可以做的事：
+- 用 \`run_project_shell\` 實際執行測試（跑腳本、編譯指令、帶特定輸入呼叫程式）來取得 \`verified_pass\`/\`verified_fail\` 的依據，不能憑空判斷。
+- 用 \`inspect_crystal_report\`/\`dump_report_layout\`/\`generate_jrxml_draft\`（如果這個環境有連 \`crystal-to-jasper-mcp\`）輔助報表欄位/公式比對。
+
+**同樣禁止**：\`git push\`、\`--force\`/\`-f\`、\`git reset --hard\`、\`git clean\`、\`git checkout --\`/\`git checkout .\`、\`git restore\`、\`git branch -D\`。
+
+**只有 \`verified_fail\` 才影響這張票的整體結論**：只要有任一項 \`verified_fail\`，整體判 \`FAIL\`；\`verified_pass\`/\`needs_manual_check\` 不管有多少項，都不影響整體判 \`PASS\`——\`needs_manual_check\` 的項目只是帶到人類最終確認那一關給使用者看，不是拿來卡關用的。
+
+輸出：呼叫 \`write_ticket_artifact({ taskGid, filename: "04-test.md", content, summary, syncNote, manualActions })\`：
+- \`content\`（繁體中文）：第一行只寫整體 \`PASS\` 或 \`FAIL\`，接著逐項列出這次套用的每個測試項目、分類（\`verified_pass\`/\`verified_fail\`/\`needs_manual_check\`）、依據或理由。\`verified_fail\` 的項目要具體引用證據（哪個輸入/情境、實際結果 vs 預期結果），不能籠統帶過。
+- \`summary\`：整體結論 + 一句話理由。
+- \`syncNote\`（**必填，不能省略**）：這次測試有沒有發現 \`03-verification.md\` 記錄的內容跟實際不一致？有就寫這裡，會自動附加到 \`03-verification.md\` 尾端；沒有就明確帶入字串 \`"NO_SYNC_NEEDED"\`，不能留空跳過。
+- \`manualActions\`（**必填，陣列，可以是空陣列**）：**把這次所有 \`needs_manual_check\` 項目放進這裡**（每項一條簡短字串，具體寫清楚要測什麼），這是它們唯一會被使用者看到的地方——不要只寫在 \`content\` 裡指望使用者自己重讀全文找。沒有的話帶空陣列 \`[]\`。
+
+呼叫 \`advance_ticket_stage({ taskGid, stage: "tested", verdict: "PASS"|"FAIL", rootCause: <只有 FAIL 時必填，"analysis"|"implementation"> })\`——**判斷依據只看有沒有 \`verified_fail\` 項目**，\`rootCause\` 的判斷方式跟驗證師階段一樣（分析方向本身錯了，還是單純實作沒做到位）。這裡的 \`verdict\`/\`rootCause\` 跟驗證師階段共用同一組 \`consecutive_fail_count\`/\`needs_human_review\` 安全閥，FAIL 太多次一樣要停下來問使用者，不要自己另外心算一組計數。
+
+**你判定的 PASS 之後，這張票才會進入人類最終確認那一關（\`record_confirmation\`）**——你列出的 \`needs_manual_check\` 清單會一併帶給使用者，提醒他這關真正該動手測什麼，不是空手實測。
+`;
+
+export function getRolePrompt(role: "analyst" | "spec-writer" | "engineer" | "verifier" | "tester"): string {
   switch (role) {
     case "analyst":
       return ANALYST_PROMPT;
@@ -278,5 +316,7 @@ export function getRolePrompt(role: "analyst" | "spec-writer" | "engineer" | "ve
       return ENGINEER_PROMPT;
     case "verifier":
       return VERIFIER_PROMPT;
+    case "tester":
+      return TESTER_PROMPT;
   }
 }

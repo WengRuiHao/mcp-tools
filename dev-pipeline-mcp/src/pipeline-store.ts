@@ -1,6 +1,6 @@
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { getTicketsIndexFile } from "./config-store.js";
 import { readJsonFile, updateJsonFile, withFileLock, writeJsonFileAtomic } from "./atomic-store.js";
 
@@ -8,6 +8,8 @@ export interface TicketSummaries {
   analysis: string | null;
   implementation: string | null;
   verification: string | null;
+  /** 測試工程師階段的精簡摘要（04-test.md）。 */
+  test: string | null;
 }
 
 /**
@@ -28,14 +30,18 @@ export interface TicketSyncState {
   implementation_hash: string | null;
   /** 03-verification.md 目前內容的雜湊。每次 write_ticket_artifact 寫 03 時更新。 */
   verification_hash: string | null;
+  /** 04-test.md 目前內容的雜湊。每次 write_ticket_artifact 寫 04 時更新。 */
+  test_hash: string | null;
   /** 上次寫 02 時，01 的雜湊是多少（快照）——跟 analysis_hash 不一致代表 01 在那之後又被獨立改過，02 還沒對照過最新的 01。 */
   analysis_hash_at_impl_write: string | null;
   /** 上次寫 03 時，02 的雜湊是多少（快照）——跟 implementation_hash 不一致代表 02 在那之後又被獨立改過，03 還沒對照過最新的 02。 */
   implementation_hash_at_verify_write: string | null;
+  /** 上次寫 04 時，03 的雜湊是多少（快照）——跟 verification_hash 不一致代表 03 在那之後又被獨立改過，04 還沒對照過最新的 03。 */
+  verification_hash_at_test_write: string | null;
 }
 
 export interface TicketStatus {
-  stage: "new" | "snapshot" | "project_dir_confirmed" | "analyzed" | "sd_drafted" | "implemented" | "verified";
+  stage: "new" | "snapshot" | "project_dir_confirmed" | "analyzed" | "sd_drafted" | "implemented" | "verified" | "tested";
   project_dir: string | null;
   /** 這張票所屬的 Asana 專案「全名稱」（未消毒過的原始字串）。get_ticket_snapshot 時自動記錄，供任何單張票的狀態異動事後局部重建 PENDING_HUMAN_ACTIONS.md 用（見 syncPendingActionsReport/listTicketsUnderProject），不需要呼叫端每次額外傳遞或記得重新呼叫 list_pending_tickets。 */
   project_name: string | null;
@@ -69,7 +75,9 @@ export interface TicketStatus {
   implementation_manual_actions: string[];
   /** 驗證師階段宣告/補充的「需要使用者手動處理」事項，語意同上，write_ticket_artifact 寫 03-verification.md 時必填。跟 implementation_manual_actions 是分開累積、不互相覆蓋——工程師交代的事項不會因為驗證師沒有重複提到就消失。 */
   verification_manual_actions: string[];
-  /** 01/02/03 三份文件彼此之間是否同步（跟 content_hash/needs_reanalysis 是不同軸向：那組管「票單原文 vs 追蹤系統」，這組管「追蹤系統內部三份文件互相」）。 */
+  /** 測試工程師階段宣告的「需要使用者手動處理」事項——主要就是 needs_manual_check 分類的測試項目（AI 沒有精確依據判定 PASS/FAIL、只能列出來提醒使用者親自確認的項目，例如報表版面視覺比對、老 IE 實際渲染），write_ticket_artifact 寫 04-test.md 時必填。跟另外兩份 manual_actions 一樣獨立累積、不互相覆蓋。 */
+  test_manual_actions: string[];
+  /** 01/02/03/04 四份文件彼此之間是否同步（跟 content_hash/needs_reanalysis 是不同軸向：那組管「票單原文 vs 追蹤系統」，這組管「追蹤系統內部四份文件互相」）。 */
   sync: TicketSyncState;
 }
 
@@ -80,7 +88,7 @@ function nowIso(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-const STAGE_ORDER: TicketStatus["stage"][] = ["new", "snapshot", "project_dir_confirmed", "analyzed", "sd_drafted", "implemented", "verified"];
+const STAGE_ORDER: TicketStatus["stage"][] = ["new", "snapshot", "project_dir_confirmed", "analyzed", "sd_drafted", "implemented", "verified", "tested"];
 
 function sanitizeSegment(raw: string): string {
   const cleaned = raw
@@ -187,6 +195,87 @@ export async function assignTicketDir(
 }
 
 /**
+ * 把一張票（連同巢狀掛在它底下的所有子任務）的追蹤目錄，從目前登記的 Asana 專案名稱資料夾，搬到
+ * `newProjectName` 底下——修正 `get_ticket_snapshot` 第一次呼叫時 `projectName` 傳錯（例如猜測、
+ * 沒對照 Asana 實際專案全名稱）留下的資料夾命名跟票單實際所屬專案對不起來的問題。
+ *
+ * 背景：`assignTicketDir` 是「第一次指定，永久生效」——同一個 taskGid 之後不管呼叫端再傳什麼
+ * `projectName` 給 `get_ticket_snapshot`，都不會換地方（`tickets-index.json` 裡的既有紀錄優先），
+ * 這是刻意設計（避免 Asana 專案改名/票單被移動專案時，既有追蹤紀錄無預警搬家、跟 git 歷史對不起來），
+ * 但也代表第一次傳錯就無法用「重新呼叫 get_ticket_snapshot」自己修正——這個函式就是專門補這個缺口的
+ * 顯式操作，呼叫端要自己確定新名稱是對的（例如已經用 asana_projects 查證過 Asana 實際專案全名稱）。
+ *
+ * 只更新 `tickets-index.json`（路徑對照表）跟受影響票單各自 `status.json` 的 `project_name` 欄位；
+ * `ticket.md`/`0N-*.md` 的檔案內容本身不受影響（直接整個資料夾用 rename 搬移，內容原封不動）。
+ * 呼叫端自己負責在搬移前後呼叫 `syncPendingActionsReport`，讓新舊兩個專案的 `PENDING_HUMAN_ACTIONS.md`
+ * 都跟著更新（這個函式不匯入 pending-actions-sync.ts，避免循環依賴）。
+ */
+export async function relocateTicketDir(
+  taskGid: string,
+  newProjectName: string
+): Promise<{ taskGid: string; oldDir: string; newDir: string; oldProjectName: string | null; movedDescendants: string[] }> {
+  const oldDir = await getAssignedDir(taskGid);
+  if (!oldDir) {
+    throw new Error(`找不到票單 ${taskGid} 的追蹤目錄，請先呼叫 get_ticket_snapshot 建立。`);
+  }
+
+  const marker = `${path.sep}.asana-pipeline${path.sep}`;
+  const markerIndex = oldDir.indexOf(marker);
+  if (markerIndex === -1) {
+    throw new Error(`票單 ${taskGid} 的追蹤目錄路徑異常（${oldDir}），找不到 .asana-pipeline 區段，無法安全搬移。`);
+  }
+  const projectDir = oldDir.slice(0, markerIndex);
+  const pipelineRoot = path.join(projectDir, ".asana-pipeline");
+  const relFromRoot = path.relative(pipelineRoot, oldDir);
+  const segments = relFromRoot.split(path.sep).filter(Boolean);
+  if (segments.length < 2) {
+    throw new Error(`票單 ${taskGid} 的追蹤目錄結構異常（${oldDir}），無法安全搬移。`);
+  }
+  const restSegments = segments.slice(1); // 票號（＋巢狀子任務路徑），維持不變，只換最前面那層專案名稱資料夾
+  const newSanitized = sanitizeSegment(newProjectName);
+  const newDir = path.join(pipelineRoot, newSanitized, ...restSegments);
+
+  if (path.resolve(newDir) === path.resolve(oldDir)) {
+    throw new Error(`新專案名稱清理後（"${newSanitized}"）跟目前資料夾名稱相同，不需要搬移。`);
+  }
+
+  try {
+    await access(newDir);
+    throw new Error(`目的地資料夾已經存在（${newDir}），可能跟其他票單衝突，已中止搬移，請人工檢查後再試。`);
+  } catch (err: any) {
+    if (err.code !== "ENOENT") throw err;
+  }
+
+  await mkdir(path.dirname(newDir), { recursive: true });
+  await rename(oldDir, newDir);
+
+  const oldPrefix = oldDir + path.sep;
+  const movedDescendants: string[] = [];
+  await updateJsonFile<Record<string, string>>(getTicketsIndexFile(), {}, (index) => {
+    const next = { ...index };
+    for (const [gid, dir] of Object.entries(index)) {
+      if (gid === taskGid) {
+        next[gid] = newDir;
+      } else if (dir.startsWith(oldPrefix)) {
+        next[gid] = newDir + dir.slice(oldDir.length);
+        movedDescendants.push(gid);
+      }
+    }
+    return next;
+  });
+
+  let oldProjectName: string | null = null;
+  for (const gid of [taskGid, ...movedDescendants]) {
+    await updateStatus(gid, (status) => {
+      if (gid === taskGid) oldProjectName = status.project_name;
+      return { ...status, project_name: newProjectName };
+    });
+  }
+
+  return { taskGid, oldDir, newDir, oldProjectName, movedDescendants };
+}
+
+/**
  * 記錄這張票所屬的 Asana 專案脈絡（project_dir/project_name）、顯示名稱、跟目前指派人 gid——
  * 供之後任何單張票的狀態異動（advance_ticket_stage/write_ticket_artifact/resolve_manual_action/
  * record_confirmation）在不知道 projectGid、不重新查 Asana 的情況下，也能局部重建這個專案的
@@ -255,19 +344,22 @@ const NEW_STATUS: TicketStatus = {
   content_hash: null,
   last_seen_modified_at: null,
   needs_reanalysis: false,
-  summaries: { analysis: null, implementation: null, verification: null },
+  summaries: { analysis: null, implementation: null, verification: null, test: null },
   confirmation: null,
   spec_confirmation: null,
   verifier_root_cause: null,
   consecutive_fail_count: 0,
   implementation_manual_actions: [],
   verification_manual_actions: [],
+  test_manual_actions: [],
   sync: {
     analysis_hash: null,
     implementation_hash: null,
     verification_hash: null,
+    test_hash: null,
     analysis_hash_at_impl_write: null,
     implementation_hash_at_verify_write: null,
+    verification_hash_at_test_write: null,
   },
 };
 
@@ -462,6 +554,7 @@ const ARTIFACT_SUMMARY_KEY: Record<string, keyof TicketSummaries> = {
   "01-analysis.md": "analysis",
   "02-implementation.md": "implementation",
   "03-verification.md": "verification",
+  "04-test.md": "test",
 };
 
 /** write_ticket_artifact 寫入 01/02/03 全文時，順便把精簡摘要存進 status.summaries，讓之後接手的 session/AI 用 get_ticket_status 就能低成本掌握進度，不必每次都整份讀全文。寫入 01-analysis.md 時會自動清掉 needs_reanalysis（代表分析師已經針對變更後的內容重新分析過了）。 */
@@ -485,9 +578,13 @@ export async function recordArtifactSummary(ticketGid: string, filename: string,
   });
 }
 
-const MANUAL_ACTIONS_KEY: Record<string, keyof Pick<TicketStatus, "implementation_manual_actions" | "verification_manual_actions">> = {
+const MANUAL_ACTIONS_KEY: Record<
+  string,
+  keyof Pick<TicketStatus, "implementation_manual_actions" | "verification_manual_actions" | "test_manual_actions">
+> = {
   "02-implementation.md": "implementation_manual_actions",
   "03-verification.md": "verification_manual_actions",
+  "04-test.md": "test_manual_actions",
 };
 
 export interface SensitiveManualActionHit {
@@ -527,7 +624,7 @@ export function detectSensitiveManualActions(actions: string[]): SensitiveManual
  */
 export async function recordManualActions(
   ticketGid: string,
-  filename: "02-implementation.md" | "03-verification.md",
+  filename: "02-implementation.md" | "03-verification.md" | "04-test.md",
   actions: string[]
 ): Promise<void> {
   const key = MANUAL_ACTIONS_KEY[filename];
@@ -547,7 +644,7 @@ export interface ResolveManualActionResult {
  */
 export async function resolveManualAction(
   ticketGid: string,
-  filename: "02-implementation.md" | "03-verification.md",
+  filename: "02-implementation.md" | "03-verification.md" | "04-test.md",
   action: string
 ): Promise<ResolveManualActionResult> {
   const key = MANUAL_ACTIONS_KEY[filename];
@@ -575,6 +672,8 @@ export interface SyncFlags {
   analysis_stale: boolean;
   /** true 代表 02-implementation.md 在上次寫 03 之後又被獨立改過，03 目前的結論還沒對照過最新的 02。 */
   implementation_stale: boolean;
+  /** true 代表 03-verification.md 在上次寫 04 之後又被獨立改過，04 目前的測試結論還沒對照過最新的 03。 */
+  verification_stale: boolean;
 }
 
 /** 只在下游階段已經至少寫過一次（有快照可比對）時才可能是 true——下游階段還沒開始寫之前，上游文件不管怎麼變都談不上「不同步」。 */
@@ -584,6 +683,8 @@ export function computeSyncFlags(status: TicketStatus): SyncFlags {
     analysis_stale: s.analysis_hash_at_impl_write !== null && s.analysis_hash_at_impl_write !== s.analysis_hash,
     implementation_stale:
       s.implementation_hash_at_verify_write !== null && s.implementation_hash_at_verify_write !== s.implementation_hash,
+    verification_stale:
+      s.verification_hash_at_test_write !== null && s.verification_hash_at_test_write !== s.verification_hash,
   };
 }
 
@@ -592,6 +693,7 @@ export interface ExternalChangeFlags {
   analysis_externally_modified: boolean;
   implementation_externally_modified: boolean;
   verification_externally_modified: boolean;
+  test_externally_modified: boolean;
 }
 
 /**
@@ -602,10 +704,11 @@ export interface ExternalChangeFlags {
  * 應該提醒使用者重新讀全文，不要只信快取——不需要也不應該自動做任何修正，那是 resync_ticket_artifact 的責任。
  */
 export async function detectExternalChanges(ticketGid: string, status: TicketStatus): Promise<ExternalChangeFlags> {
-  const [analysis, implementation, verification] = await Promise.all([
+  const [analysis, implementation, verification, test] = await Promise.all([
     readArtifact(ticketGid, "01-analysis.md"),
     readArtifact(ticketGid, "02-implementation.md"),
     readArtifact(ticketGid, "03-verification.md"),
+    readArtifact(ticketGid, "04-test.md"),
   ]);
   const isModified = (content: string | null, recordedHash: string | null) =>
     recordedHash !== null && content !== null && hashTicketContent(content) !== recordedHash;
@@ -613,6 +716,7 @@ export async function detectExternalChanges(ticketGid: string, status: TicketSta
     analysis_externally_modified: isModified(analysis, status.sync.analysis_hash),
     implementation_externally_modified: isModified(implementation, status.sync.implementation_hash),
     verification_externally_modified: isModified(verification, status.sync.verification_hash),
+    test_externally_modified: isModified(test, status.sync.test_hash),
   };
 }
 
@@ -620,6 +724,7 @@ const ARTIFACT_HASH_KEY: Record<string, keyof TicketSyncState> = {
   "01-analysis.md": "analysis_hash",
   "02-implementation.md": "implementation_hash",
   "03-verification.md": "verification_hash",
+  "04-test.md": "test_hash",
 };
 
 /** write_ticket_artifact 每次寫 01/02/03 之後呼叫，把「這份文件現在長怎樣」的雜湊記下來，供 computeSyncFlags 比對用。 */
@@ -669,16 +774,36 @@ async function appendSyncNote(ticketGid: string, targetFilename: string, note: s
  * - 其他任何文字：當成真正的同步內容，附加到上一階段文件尾端，並用附加後的新內容重新算雜湊。
  * 兩種情況都會讓 computeSyncFlags 對應的欄位變回 false——因為兩種情況都代表「這個時間點，下游已經跟上游核對過了」，差別只在核對的結果是「有更新」還是「確認無需更新」。
  */
+const STAGE_SYNC_CONFIG: Record<
+  "02-implementation.md" | "03-verification.md" | "04-test.md",
+  { upstream: string; stageLabel: string; hashKey: keyof TicketSyncState; snapshotKey: keyof TicketSyncState }
+> = {
+  "02-implementation.md": {
+    upstream: "01-analysis.md",
+    stageLabel: "工程階段",
+    hashKey: "analysis_hash",
+    snapshotKey: "analysis_hash_at_impl_write",
+  },
+  "03-verification.md": {
+    upstream: "02-implementation.md",
+    stageLabel: "驗證階段",
+    hashKey: "implementation_hash",
+    snapshotKey: "implementation_hash_at_verify_write",
+  },
+  "04-test.md": {
+    upstream: "03-verification.md",
+    stageLabel: "測試階段",
+    hashKey: "verification_hash",
+    snapshotKey: "verification_hash_at_test_write",
+  },
+};
+
 export async function recordStageSync(
   ticketGid: string,
-  target: "02-implementation.md" | "03-verification.md",
+  target: "02-implementation.md" | "03-verification.md" | "04-test.md",
   syncNote: string
 ): Promise<void> {
-  const upstream = target === "02-implementation.md" ? "01-analysis.md" : "02-implementation.md";
-  const stageLabel = target === "02-implementation.md" ? "工程階段" : "驗證階段";
-  const hashKey: keyof TicketSyncState = target === "02-implementation.md" ? "analysis_hash" : "implementation_hash";
-  const snapshotKey: keyof TicketSyncState =
-    target === "02-implementation.md" ? "analysis_hash_at_impl_write" : "implementation_hash_at_verify_write";
+  const { upstream, stageLabel, hashKey, snapshotKey } = STAGE_SYNC_CONFIG[target];
 
   let upstreamHash: string;
   if (syncNote === NO_SYNC_NEEDED) {

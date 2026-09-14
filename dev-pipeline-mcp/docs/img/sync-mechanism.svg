@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 470" role="img" aria-label="分析、實作、驗證三份紀錄怎麼保持同步：AI寫實作紀錄時，一定要交代這次有沒有推翻分析紀錄的結論；沒有的話只做個記號代表核對過；有推翻的話，AI會自動把新發現補寫回分析紀錄，不會漏掉。如果之後分析紀錄又被單獨改過，這個核對記號會失效，下次寫實作紀錄要重新核對一次。驗證紀錄對實作紀錄也套用同樣的機制">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 470" role="img" aria-label="分析、實作、驗證、測試四份紀錄怎麼保持同步：AI寫實作紀錄時，一定要交代這次有沒有推翻分析紀錄的結論；沒有的話只做個記號代表核對過；有推翻的話，AI會自動把新發現補寫回分析紀錄，不會漏掉。如果之後分析紀錄又被單獨改過，這個核對記號會失效，下次寫實作紀錄要重新核對一次。驗證紀錄對實作紀錄、測試紀錄對驗證紀錄，都套用同樣的機制">
   <defs>
     <marker id="arrowNeutral2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>

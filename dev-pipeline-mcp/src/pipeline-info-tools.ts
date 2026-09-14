@@ -13,9 +13,10 @@ export function registerPipelineInfoTools(server: McpServer): void {
 
   server.tool(
     "get_role_prompt",
-    "取得「分析師 / 規格撰寫者 / 工程師 / 驗證師」其中一個角色的職責說明、可用工具、輸出格式。驅動 pipeline 的 AI 在切換角色前應該先呼叫這個工具讀懂該角色的說明。" +
-      "**\"spec-writer\" 只有 sdMode 為 \"self-generated\" 的專案才需要**，其他 sdMode 分析師完成後直接取得 \"engineer\" 說明即可，不用呼叫 \"spec-writer\"。",
-    { role: z.enum(["analyst", "spec-writer", "engineer", "verifier"]).describe("要取得說明的角色") },
+    "取得「分析師 / 規格撰寫者 / 工程師 / 驗證師 / 測試工程師」其中一個角色的職責說明、可用工具、輸出格式。驅動 pipeline 的 AI 在切換角色前應該先呼叫這個工具讀懂該角色的說明。" +
+      "**\"spec-writer\" 只有 sdMode 為 \"self-generated\" 的專案才需要**，其他 sdMode 分析師完成後直接取得 \"engineer\" 說明即可，不用呼叫 \"spec-writer\"。" +
+      "**\"tester\" 是 \"verifier\" 判 PASS 之後、人類最終確認之前的新角色（每張票都會經過）**，負責依《測試工程師說明書》（\`get_test_engineer_guide\`）跑情境測試。",
+    { role: z.enum(["analyst", "spec-writer", "engineer", "verifier", "tester"]).describe("要取得說明的角色") },
     async ({ role }) => textResult(getRolePrompt(role))
   );
 }

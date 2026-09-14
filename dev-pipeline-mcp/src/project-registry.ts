@@ -55,6 +55,26 @@ export async function registerProjectDir(projectGid: string, projectDir: string)
   await updateJsonFile<Record<string, string>>(projectDirConfigPath(), {}, (map) => ({ ...map, [projectGid]: projectDir }));
 }
 
+const LEGACY_TEST_PROFILE_FILE = "legacy-test-profile.json";
+
+function legacyTestProfilePath(): string {
+  return path.join(getDataDir(), LEGACY_TEST_PROFILE_FILE);
+}
+
+/**
+ * 這個 Asana 專案是否屬於「老舊系統測試」情境（測試工程師說明書第三章：JDK6+舊IE 這類自動化測不到的環境）。
+ * 預設 false——不用每個專案都主動問這一題，只有使用者明確告知過（例如「這個專案是舊系統」）才登記為 true。
+ * 跟 SasdConfig 分開存放，因為這個判斷跟 sdMode 無關（sdMode: "unregistered" 的專案一樣可能是老系統）。
+ */
+export async function resolveLegacyTestProfile(projectGid: string): Promise<boolean> {
+  const map = await readJsonFile<Record<string, boolean>>(legacyTestProfilePath(), {});
+  return map[projectGid] ?? false;
+}
+
+export async function registerLegacyTestProfile(projectGid: string, legacyTestProfile: boolean): Promise<void> {
+  await updateJsonFile<Record<string, boolean>>(legacyTestProfilePath(), {}, (map) => ({ ...map, [projectGid]: legacyTestProfile }));
+}
+
 const DEFAULT_PROJECT_FILE = "default-project.json";
 
 function defaultProjectPath(): string {

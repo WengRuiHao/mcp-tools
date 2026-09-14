@@ -47,7 +47,7 @@ npm run build
 ## Asana Pipeline 追蹤檔案同步規則
 
 任何專案目錄下只要有 .asana-pipeline/ 資料夾，一律適用：
-- 直接用 Edit/Write 改了裡面的 01/02/03-*.md（沒透過 write_ticket_artifact）之後，
+- 直接用 Edit/Write 改了裡面的 01/02/03/04-*.md（沒透過 write_ticket_artifact）之後，
   接著呼叫 resync_ticket_artifact({ taskGid, filename }) 同步雜湊記錄。
 - 不確定追蹤狀態是不是最新的，先呼叫 get_ticket_status 看 external_changes，
   任一個 _externally_modified 是 true 就重新讀全文，不要只信快取摘要。
@@ -62,6 +62,7 @@ npm run build
 | `resolve_default_project` / `register_default_project` | 今天要看哪個 Asana 專案 |
 | `resolve_project_dir` / `register_project_dir` | 對應哪個本機/伺服器程式碼目錄 |
 | `resolve_sasd_config` / `register_sasd_config` | SA/SD 規格放哪、模式為何（見下表） |
+| `resolve_legacy_test_profile` / `register_legacy_test_profile` | 這個專案要不要套用測試工程師說明書的「老舊系統測試」章節（JDK6+舊IE這類，預設 `false`，只有使用者明確告知才登記為 `true`） |
 | `resolve_git_roots` / `register_git_roots` | 前後端各自的 git 版控根目錄 |
 
 ### SA/SD 規格四種模式
@@ -88,33 +89,41 @@ npm run build
 
 ### 每次執行的迴圈
 
-![每次執行的主迴圈：一次性設定之後，取得待處理票單清單，同時帶出 awaitingConfirmation（AI 已 PASS、還卡在使用者自測這關的舊票）主動列給使用者，逐張新票走三階段處理，處理完換下一張，全部跑完彙整報告](docs/img/loop-overview.svg)
+![每次執行的主迴圈：一次性設定之後，取得待處理票單清單，同時帶出 awaitingConfirmation（AI 已 PASS、還卡在使用者自測這關的舊票）主動列給使用者，逐張新票走四階段處理，處理完換下一張，全部跑完彙整報告](docs/img/loop-overview.svg)
 
 `list_pending_tickets` 每次呼叫都會多回傳一份清單：`awaitingConfirmation`（AI 驗證師判過 `PASS`、Asana 內容也沒再變過，但**使用者自己還沒實際測過＋審視程式碼品質**的票）。這份清單每次都要主動列給使用者看（不因為這次是來處理別的新票就略過），直到每一張都呼叫 `record_confirmation` 表態，才會從清單消失。
 
 ### 單張票的狀態機
 
-![票單狀態機：new 到 snapshot 到 project_dir_confirmed 到 analyzed 到 implemented 到 verified 依序推進，只會往前走；自維護規格的專案會多一關 sd_drafted 規格確認，依 specOrder 設定出現在 analyzed 之後（spec_first，卡在推進到 implemented 之前）或 implemented 之後（code_first，卡在推進到 verified 之前）；verified 且 PASS 之後若偵測到內容雜湊改變，會觸發警示標記 needs_reanalysis，verdict、confirmation 一併清空，逼下一輪重新從分析師開始；verified 且 FAIL 時依 rootCause 自動路由回分析師或工程師重跑，達到 consecutive_fail_count 門檻才停下來問使用者；內容沒再變的話則落入待使用者確認狀態，confirmed:false 會導向跟 FAIL 一樣的根因分流，直到 record_confirmation 帶 confirmed:true 才進入已結案](docs/img/ticket-state-machine.svg)
+![票單狀態機：new 到 snapshot 到 project_dir_confirmed 到 analyzed 到 implemented 到 verified 到 tested 依序推進，只會往前走；自維護規格的專案會多一關 sd_drafted 規格確認，依 specOrder 設定出現在 analyzed 之後（spec_first，卡在推進到 implemented 之前）或 implemented 之後（code_first，卡在推進到 verified 之前）；verified 或 tested 且 FAIL 時依 rootCause 自動路由回分析師或工程師重跑，兩階共用同一組 consecutive_fail_count，達到門檻才停下來問使用者；tested 階段裡 AI 沒把握精確判定的測試項目不算 FAIL，只會列進待確認清單；tested 且 PASS 之後若偵測到內容雜湊改變，會觸發警示標記 needs_reanalysis，verdict、confirmation 一併清空，逼下一輪重新從分析師開始；內容沒再變的話則落入待使用者確認狀態，confirmed:false 會導向跟 FAIL 一樣的根因分流，直到 record_confirmation 帶 confirmed:true 才進入已結案](docs/img/ticket-state-machine.svg)
 
-六格 `stage`（灰）只會往前走，不會跳過也不會倒退；`snapshot` 下的灰圈是省 token 捷徑（內容雜湊沒變就不重寫、不回全文）。紅卡有兩張：右上角是內容變動的例外——`verified` 且 `PASS` 之後若偵測到 Asana 內容真的變了，會亮起 `needs_reanalysis` 旗標逼下一輪重新分析、`verdict`、`confirmation` 一併清空，但 **`stage` 本身不會倒退**，仍顯示 `verified`；下方較寬那張是 **`verdict: FAIL` 的根因分流**——`advance_ticket_stage` 設 `FAIL` 時必填 `rootCause`（`"analysis"`/`"implementation"`），AI 依此自動跳回分析師或工程師重跑，不用停下來問使用者，`consecutive_fail_count` 由工具機械式維護（FAIL 累加、PASS 歸零），達到門檻（`needs_human_review`，預設連續 3 次）才停下來問。
+七格 `stage`（灰／綠）只會往前走，不會跳過也不會倒退；`snapshot` 下的灰圈是省 token 捷徑（內容雜湊沒變就不重寫、不回全文）。最後一格 `tested`（測試工程師，見下方「測試工程師階段」一節）是 `verified` 判 PASS 之後、人類最終確認之前新增的一關，每張票都會經過，套用哪些檢查項目由 AI 依這張票的改動內容自己判斷。紅卡有兩張：右上角是內容變動的例外——`tested` 且 `PASS` 之後若偵測到 Asana 內容真的變了，會亮起 `needs_reanalysis` 旗標逼下一輪重新分析、`verdict`、`confirmation` 一併清空，但 **`stage` 本身不會倒退**，仍顯示 `tested`；下方較寬那張是 **`verdict: FAIL` 的根因分流**——`verified` 或 `tested` 任一階段 `advance_ticket_stage` 設 `FAIL` 時必填 `rootCause`（`"analysis"`/`"implementation"`），AI 依此自動跳回分析師或工程師重跑，不用停下來問使用者，兩階共用同一組 `consecutive_fail_count`，由工具機械式維護（FAIL 累加、PASS 歸零），達到門檻（`needs_human_review`，預設連續 3 次）才停下來問。`tested` 階段裡 AI 沒把握精確判定的測試項目（`needs_manual_check`）不算 FAIL，不影響這裡的路由，只會列進 `manualActions` 帶到黃卡那一關給使用者。
 
 **自維護規格的專案（`sdMode: "self-generated"`）會多一關 `sd_drafted` 規格確認**，出現的時機依這個專案登記的 `specOrder` 而定：`spec_first`（原本唯一支援的順序）卡在 `analyzed` 之後、`implemented` 之前——規格先定案，工程師才動手寫程式碼；`code_first` 卡在 `implemented` 之後、`verified` 之前——工程師先直接寫程式碼，規格撰寫者再依實際改動反推補一份草稿。兩種順序共用同一個 `spec_confirmation` 欄位跟同一套擋下邏輯，`advance_ticket_stage` 只看「目前是不是卡在 `sd_drafted` 又還沒確認」就會擋下，不需要額外查 `specOrder`。
 
-黃卡是另一個獨立軸向：`verified` 且 `PASS`、內容也沒再變的情況下，票單會先落入「待使用者確認」——**`verdict` 是 AI 驗證師自己判的結論，不等於真正結案**。使用者呼叫 `record_confirmation({ taskGid, confirmed: true })` 之後，才會真正進入綠卡「已結案」。**`confirmed: false`（回報有問題）會把 `verdict` 重設回 `null`、標記 `humanRejected: true`，重新套用跟上面 `FAIL` 完全一樣的根因分流機制**，不是留給人工事後自己判斷、也不是另開一條獨立流程。這整段狀態轉換只落在本地追蹤檔案裡，**不會回寫到 Asana 本身**——`asana-mcp` 刻意設計成唯讀，Asana 上要不要標記完成一律交由使用者自己手動處理。
+黃卡是另一個獨立軸向：`tested` 且 `PASS`、內容也沒再變的情況下，票單會先落入「待使用者確認」——**`verdict` 是 AI（驗證師或測試工程師）自己判的結論，不等於真正結案**。使用者呼叫 `record_confirmation({ taskGid, confirmed: true })` 之後，才會真正進入綠卡「已結案」。**`confirmed: false`（回報有問題）會把 `verdict` 重設回 `null`、標記 `humanRejected: true`，重新套用跟上面 `FAIL` 完全一樣的根因分流機制**，不是留給人工事後自己判斷、也不是另開一條獨立流程。這整段狀態轉換只落在本地追蹤檔案裡，**不會回寫到 Asana 本身**——`asana-mcp` 刻意設計成唯讀，Asana 上要不要標記完成一律交由使用者自己手動處理。
 
-### 01/02/03 互相同步
+### 測試工程師階段（`tested`）
 
-![01/02/03 三份文件的強制同步機制：寫 02 時 syncNote 必填，帶 NO_SYNC_NEEDED 代表確認不需要同步、只快照 01 目前雜湊；帶實際內容則附加到 01 尾端並更新雜湊，兩種情況都讓 sync_flags.analysis_stale 暫時變回 false；但如果 01 之後又被獨立改寫，旗標會變回 true，直到下次寫 02 時再重新核對。寫 03 時對 02 套用同樣機制](docs/img/sync-mechanism.svg)
+`verified` 判 PASS 之後、人類最終確認之前新增的一關，每張票都會經過。跟驗證師（核對規格/程式碼是否一致）不同——測試工程師核對的是「這段程式碼在各種情境下實際跑起來對不對」，依 `get_test_engineer_guide` 取得的測試工程師說明書（通用測試框架／報表測試／老舊系統測試三章）跑情境測試。
 
-跟上一張圖是不同軸向的雜湊比對：那張管「票單原文 vs 追蹤系統」，這張管「01/02/03 三份文件彼此」。`write_ticket_artifact` 寫 02/03 時 `syncNote` 是必填欄位（可以填 `NO_SYNC_NEEDED`，但不能不填），逼呼叫端每次都對「要不要同步」做一次明確判斷——這是這條 pipeline 曾經反覆修正十幾輪、分析文件完全沒跟上、全靠使用者事後肉眼發現的問題換來的強制檢查。
+**每個測試項目自己標記結果類型，不是整張票綁一個結論**：AI 真的有辦法精確判定的項目（例如跑得動的邊界值測試、報表欄位/公式逐欄比對、用指定版本實際編譯）標記 `verified_pass`/`verified_fail`，只有 `verified_fail` 才影響整張票的 `verdict`、觸發跟驗證師一樣的根因自動打回；AI 沒有精確依據、只能提醒使用者的項目（例如報表版面視覺比對、老 IE 實際渲染）標記 `needs_manual_check`，不卡關，透過 `manualActions` 帶到人類最終確認那一關。
+
+**報表／老舊系統兩章是不是套用，AI 依這張票改動的檔案自己判斷**，不用整份說明書每次全套用。老舊系統章節額外多一層：只有 `resolve_legacy_test_profile` 回傳 `true` 才套用——這是專案層級的布林設定（`register_legacy_test_profile`），預設 `false`，只有使用者明確告知「這個專案是 JDK6+舊IE 這類環境」才登記為 `true`，AI 不會自己依程式碼特徵猜測。
+
+### 01/02/03/04 互相同步
+
+![01/02/03/04 四份文件的強制同步機制：寫 02 時 syncNote 必填，帶 NO_SYNC_NEEDED 代表確認不需要同步、只快照 01 目前雜湊；帶實際內容則附加到 01 尾端並更新雜湊，兩種情況都讓 sync_flags.analysis_stale 暫時變回 false；但如果 01 之後又被獨立改寫，旗標會變回 true，直到下次寫 02 時再重新核對。寫 03 時對 02、寫 04（測試工程師）時對 03，都套用同樣機制](docs/img/sync-mechanism.svg)
+
+跟上一張圖是不同軸向的雜湊比對：那張管「票單原文 vs 追蹤系統」，這張管「01/02/03/04 四份文件彼此」。`write_ticket_artifact` 寫 02/03/04 時 `syncNote` 是必填欄位（可以填 `NO_SYNC_NEEDED`，但不能不填），逼呼叫端每次都對「要不要同步」做一次明確判斷——這是這條 pipeline 曾經反覆修正十幾輪、分析文件完全沒跟上、全靠使用者事後肉眼發現的問題換來的強制檢查。
 
 ### 外部修改偵測
 
-![外部修改偵測：get_ticket_status 每次呼叫都會重新讀取 01/02/03-*.md 現在磁碟上的實際內容、重新算雜湊，跟 status.json 記錄的 sync.*_hash 比對，不是拿兩個舊記錄互相比；不一樣就代表這份檔案在 MCP 不知情的狀況下被改過，摘要與同步旗標可能過期](docs/img/external-change-detection.svg)
+![外部修改偵測：get_ticket_status 每次呼叫都會重新讀取 01/02/03/04-*.md 現在磁碟上的實際內容、重新算雜湊，跟 status.json 記錄的 sync.*_hash 比對，不是拿兩個舊記錄互相比；不一樣就代表這份檔案在 MCP 不知情的狀況下被改過，摘要與同步旗標可能過期](docs/img/external-change-detection.svg)
 
-跟上一張「01/02/03 互相同步」圖是不同軸向的比對：那張比的是「兩份都是這個 MCP 自己以前記錄的雜湊」彼此對不對得起來（`sync_flags`）；這張比的是「這個 MCP 記錄的舊雜湊」跟「磁碟上現在真正的內容」對不對得起來（`external_changes`）——**只有這組比對才抓得到「使用者或別的沒走這條 pipeline 的 AI，直接手動編輯了追蹤檔案」這種情況**，因為 `sync_flags` 用的兩個雜湊都只在呼叫 `write_ticket_artifact` 時才會更新，繞過它就不會被更新到，拿兩個「一樣沒被更新過」的舊值互相比，永遠看起來「一致」。
+跟上一張「01/02/03/04 互相同步」圖是不同軸向的比對：那張比的是「兩份都是這個 MCP 自己以前記錄的雜湊」彼此對不對得起來（`sync_flags`）；這張比的是「這個 MCP 記錄的舊雜湊」跟「磁碟上現在真正的內容」對不對得起來（`external_changes`）——**只有這組比對才抓得到「使用者或別的沒走這條 pipeline 的 AI，直接手動編輯了追蹤檔案」這種情況**，因為 `sync_flags` 用的兩個雜湊都只在呼叫 `write_ticket_artifact` 時才會更新，繞過它就不會被更新到，拿兩個「一樣沒被更新過」的舊值互相比，永遠看起來「一致」。
 
-`get_ticket_status` 每次呼叫都會當場重新讀一次 01/02/03 現在的內容、重新算雜湊，回傳裡的 `external_changes.{analysis,implementation,verification}_externally_modified` 任一個是 `true`，就代表對應那份文件被外部改過——這個工具不會自動修正，只負責誠實回報；確認過修改沒問題、想把雜湊記錄同步回目前內容，另外呼叫 `resync_ticket_artifact`。這個機制不需要任何人記得做什麼，純粹是被動的、每次查詢都會自己重算的偵測，不像「叫 AI 記得同步」那樣不可靠。
+`get_ticket_status` 每次呼叫都會當場重新讀一次 01/02/03/04 現在的內容、重新算雜湊，回傳裡的 `external_changes.{analysis,implementation,verification,test}_externally_modified` 任一個是 `true`，就代表對應那份文件被外部改過——這個工具不會自動修正，只負責誠實回報；確認過修改沒問題、想把雜湊記錄同步回目前內容，另外呼叫 `resync_ticket_artifact`。這個機制不需要任何人記得做什麼，純粹是被動的、每次查詢都會自己重算的偵測，不像「叫 AI 記得同步」那樣不可靠。
 
 ### 待人工處理清單（`PENDING_HUMAN_ACTIONS.md`）
 
@@ -157,12 +166,12 @@ npm run build
 ## 提供的工具
 
 <details>
-<summary>展開完整工具清單（40 個）</summary>
+<summary>展開完整工具清單（42 個）</summary>
 
 | 工具 | 用途 |
 |---|---|
 | `get_pipeline_overview` | 取得整條流程說明（第一步一定先呼叫） |
-| `get_role_prompt` | 取得分析師／規格撰寫者／工程師／驗證師其中一個角色的職責說明（`spec-writer` 只有 `sdMode: "self-generated"` 才需要） |
+| `get_role_prompt` | 取得分析師／規格撰寫者／工程師／驗證師／測試工程師其中一個角色的職責說明（`spec-writer` 只有 `sdMode: "self-generated"` 才需要；`tester` 每張票都會經過，是 `verifier` 判 PASS 之後、人類最終確認之前新增的一階） |
 | `resolve_default_project` / `register_default_project` | 查詢/登記「今天的問題單」預設 Asana 專案 |
 | `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；附上 `awaitingConfirmation`（AI 已 PASS、還卡在使用者自測這關的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）。**帶 `projectName` 會把這六類整份寫進 `PENDING_HUMAN_ACTIONS.md`**（見下方說明） |
 | `get_ticket_snapshot` | 抓票單內容＋留言，寫入追蹤檔案；子任務自動偵測（讀 Asana `parent` 欄位） |
@@ -170,6 +179,7 @@ npm run build
 | `download_ticket_attachment` | 下載某個附件到本機暫存檔（`attachmentGid` 來自 `get_ticket_activity`） |
 | `resolve_project_dir` / `register_project_dir` | 查詢/登記 Asana 專案 → 程式碼目錄 |
 | `resolve_sasd_config` / `register_sasd_config` | 查詢/登記 SA/SD 規格設定；`external`/`self` 會真的驗證 SVN 連線才登記成功；`self-generated` 還要額外登記 `specOrder`（`spec_first`/`code_first`） |
+| `resolve_legacy_test_profile` / `register_legacy_test_profile` | 查詢/登記這個專案要不要套用測試工程師說明書的「老舊系統測試」章節（JDK6+舊IE這類，預設 `false`，只有使用者明確告知才登記為 `true`，不自動偵測） |
 | `read_project_sd_doc` / `write_project_sd_doc` | 讀寫「自維護」SD 文件（`self-generated` 專用），寫在 `sdOutputPath` 真實本機檔案 |
 | `get_sd_spec_template` / `get_sd_spec_versioning_rules` | SD 規格撰寫範本／版更規範，寫入前應先呼叫其中之一 |
 | `get_test_engineer_guide` | 取得測試工程師說明書：通用測試框架／報表測試／老舊系統測試三章檢查清單，供設計測試案例、跑手動/情境測試時查，跟驗證師角色的規格/程式碼交叉核對是不同用途 |
@@ -179,12 +189,12 @@ npm run build
 | `read_project_file` / `write_project_file` / `list_project_dir` / `search_project_text` | 讀寫/搜尋專案檔案（限 `projectDir` 範圍內）；偵測外部修改，見下方安全限制 |
 | `resolve_git_roots` / `register_git_roots` | 查詢/登記專案目錄實際的 git 版控根目錄（可前後端分開） |
 | `run_project_shell` | 跑 shell 指令；git 指令會驗證版控根目錄，見下方安全限制 |
-| `get_ticket_status` / `advance_ticket_stage` | 讀取/更新票單追蹤狀態，附 `sync_flags`/`needs_human_review`/`external_changes`（當場重新讀磁碟比對，抓繞過 MCP 的手動修改）；`verdict`（AI 驗證師結論）、`confirmation`（使用者自測＋審視 code）、`verifier_root_cause`（FAIL 根因，供自動路由）是分開的欄位。`verdict: "FAIL"` 時 `rootCause` 必填（`"analysis"`/`"implementation"`），並會機械式維護 `consecutive_fail_count`（FAIL 累加/PASS 歸零）、清空人類確認 |
-| `write_ticket_artifact` / `read_ticket_artifact` | 讀寫追蹤目錄下的分析/實作/驗證檔案；寫 02/03 時 `syncNote`/`manualActions` 都必填（`manualActions` 可以是空陣列） |
-| `resync_ticket_artifact` | 把 01/02/03 其中一份檔案「現在磁碟上的實際內容」重新雜湊、寫回 `sync.*_hash`——給直接手動改過追蹤檔案（沒走 `write_ticket_artifact`）之後，用最低成本同步雜湊記錄，不用跑完整流程；也能順便回填舊票的 `manualActions` |
-| `resolve_manual_action` | 把某張票單 `manualActions` 裡「使用者確認已經處理完」的一項移除（文字精確比對），不用整份陣列重新宣告一次 |
+| `get_ticket_status` / `advance_ticket_stage` | 讀取/更新票單追蹤狀態，附 `sync_flags`/`needs_human_review`/`external_changes`（當場重新讀磁碟比對，抓繞過 MCP 的手動修改）；`verdict`（驗證師或測試工程師的結論，兩者共用同一個欄位跟同一組 `consecutive_fail_count`）、`confirmation`（使用者自測＋審視 code）、`verifier_root_cause`（FAIL 根因，供自動路由）是分開的欄位。`verdict: "FAIL"` 時 `rootCause` 必填（`"analysis"`/`"implementation"`），並會機械式維護 `consecutive_fail_count`（FAIL 累加/PASS 歸零）、清空人類確認。`stage` 新增 `"tested"`（`"verified"` 之後、人類最終確認之前） |
+| `write_ticket_artifact` / `read_ticket_artifact` | 讀寫追蹤目錄下的分析/實作/驗證/測試檔案；寫 02/03/04 時 `syncNote`/`manualActions` 都必填（`manualActions` 可以是空陣列，04 的話裝測試工程師判不出來、只能列出來提醒人工的 `needs_manual_check` 項目） |
+| `resync_ticket_artifact` | 把 01/02/03/04 其中一份檔案「現在磁碟上的實際內容」重新雜湊、寫回 `sync.*_hash`——給直接手動改過追蹤檔案（沒走 `write_ticket_artifact`）之後，用最低成本同步雜湊記錄，不用跑完整流程；也能順便回填舊票的 `manualActions` |
+| `resolve_manual_action` | 把某張票單 `manualActions`（02/03/04 皆可）裡「使用者確認已經處理完」的一項移除（文字精確比對），不用整份陣列重新宣告一次 |
 | `record_sasd_check` | 記錄這張票有沒有對應 SA/SD；沒呼叫過會擋下 `01-analysis.md` 的寫入 |
-| `record_confirmation` | 記錄結案前唯一一關人類確認——使用者自己的實測＋程式碼品質審視結果（`confirmed`/`note`），只能在 `verified` 階段之後呼叫；`confirmed: true` 才會讓票單真正離開 `awaitingConfirmation`、算結案 |
+| `record_confirmation` | 記錄結案前唯一一關人類確認——使用者自己的實測＋程式碼品質審視結果（`confirmed`/`note`），只能在 `tested` 階段之後呼叫；`confirmed: true` 才會讓票單真正離開 `awaitingConfirmation`、算結案 |
 | `record_spec_confirmation` | 記錄「規格草稿定案」關卡的確認結果（僅 `sdMode: "self-generated"`），只能在 `sd_drafted` 階段之後呼叫；`confirmed: true` 才會解鎖 `advance_ticket_stage` 繼續推進——`specOrder: "spec_first"` 解鎖推進到 `implemented`，`"code_first"` 解鎖推進到 `verified`；`confirmed: false` 打回、清空紀錄等重新產出 |
 
 </details>

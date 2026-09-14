@@ -63,11 +63,19 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         const status = await readStatus(task.gid);
 
         // 人工手動待辦跟連續 FAIL 安全閥，不管這張票目前卡在哪個分流，都要獨立檢查一次——不能只在某個分支裡順便處理。
-        const manualActions = [...status.implementation_manual_actions, ...status.verification_manual_actions];
+        const manualActions = [
+          ...status.implementation_manual_actions,
+          ...status.verification_manual_actions,
+          ...status.test_manual_actions,
+        ];
         if (manualActions.length > 0) {
           manualActionsList.push({ taskGid: task.gid, name: task.name, actions: manualActions });
         }
-        if (status.stage === "verified" && status.verdict === "FAIL" && needsHumanReview(status)) {
+        if (
+          (status.stage === "verified" || status.stage === "tested") &&
+          status.verdict === "FAIL" &&
+          needsHumanReview(status)
+        ) {
           needsHumanReviewList.push({ taskGid: task.gid, name: task.name, consecutiveFailCount: status.consecutive_fail_count });
         }
 
@@ -78,15 +86,17 @@ export function registerTicketLifecycleTools(server: McpServer): void {
           continue;
         }
 
-        const isVerifiedPass = status.stage === "verified" && status.verdict === "PASS";
+        // 測試工程師階段（"tested"）是 verified 之後、人類確認之前的最後一道 AI 關卡——只有走到這裡 PASS，
+        // 才算 AI 這邊全部檢查完，可以進入 awaitingConfirmation 交給使用者最終確認。
+        const isTestedPass = status.stage === "tested" && status.verdict === "PASS";
         const boardModifiedAt: string | null = task.modified_at ?? null;
         const contentChanged =
-          isVerifiedPass &&
+          isTestedPass &&
           !!boardModifiedAt &&
           !!status.last_seen_modified_at &&
           boardModifiedAt !== status.last_seen_modified_at;
 
-        if (isVerifiedPass && !contentChanged) {
+        if (isTestedPass && !contentChanged) {
           // AI 已判 PASS 且內容沒再變——但這不等於「真正結案」，要看使用者自己這關有沒有確認過。
           if (status.confirmation?.confirmed === true) continue; // 確認過沒問題，才算真的結案
           awaitingConfirmation.push({
@@ -187,7 +197,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
     "record_confirmation",
     "記錄結案前唯一一關人類確認——使用者自己對這張票的實測結果＋程式碼品質審視——跟 advance_ticket_stage 的 verdict（AI 驗證師自己判定的 PASS/FAIL）是完全不同的東西，不能混用。" +
       "AI 判 PASS 只代表「AI 自己檢查過、可以交給人測了」，不是真正結案；只有呼叫這個工具記錄 confirmed: true，這張票才會從 list_pending_tickets 的 awaitingConfirmation 清單裡消失、真正算結案。" +
-      "只能在這張票已經跑到 verified 階段之後才能呼叫（代表至少走過一次分析/實作/驗證），否則會被拒絕。" +
+      "只能在這張票已經跑到 tested 階段之後才能呼叫（代表至少走過一次分析/實作/驗證/測試），否則會被拒絕。" +
       "confirmed: false 代表使用者實際測過、發現有問題——會記錄下 note，並把這張票的 verdict 重設回 null，重新丟回 list_pending_tickets 的一般待處理清單（標記 humanRejected: true），讓 AI 用跟自己判 FAIL 完全一樣的根因分流機制去處理，不是丟給人工事後自己決定。" +
       "**呼叫完會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.md`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
     {
@@ -197,11 +207,11 @@ export function registerTicketLifecycleTools(server: McpServer): void {
     },
     async ({ taskGid, confirmed, note }) => {
       const current = await readStatus(taskGid);
-      if (current.stage !== "verified") {
+      if (current.stage !== "tested") {
         return textResult(
           {
             success: false,
-            message: `這張票目前 stage 是 "${current.stage}"，還沒跑到 verified 階段（至少要完成一次分析/實作/驗證），無法記錄使用者確認。`,
+            message: `這張票目前 stage 是 "${current.stage}"，還沒跑到 tested 階段（至少要完成一次分析/實作/驗證/測試），無法記錄使用者確認。`,
           },
           true
         );
@@ -268,8 +278,8 @@ export function registerTicketLifecycleTools(server: McpServer): void {
     {
       taskGid: z.string().describe("Asana 任務 gid"),
       filename: z
-        .enum(["02-implementation.md", "03-verification.md"])
-        .describe("這項待辦事項是哪一份文件宣告的（工程師階段用 02，驗證師階段用 03）"),
+        .enum(["02-implementation.md", "03-verification.md", "04-test.md"])
+        .describe("這項待辦事項是哪一份文件宣告的（工程師階段用 02，驗證師階段用 03，測試工程師階段用 04）"),
       action: z.string().describe("要移除的事項，完整文字（可以從 get_ticket_status 或上次 list_pending_tickets 的 manualActions 裡複製）"),
     },
     async ({ taskGid, filename, action }) => {
@@ -292,20 +302,22 @@ export function registerTicketLifecycleTools(server: McpServer): void {
   server.tool(
     "advance_ticket_stage",
     "更新某張票單的追蹤狀態，記錄目前進行到哪個階段，並可以一併更新 project_dir / verdict。" +
-      "**推進到 \"project_dir_confirmed\"/\"analyzed\"/\"implemented\"/\"verified\" 這幾個階段前，會檢查對應的證據是否已經存在，不是單純改個欄位就能過關**：" +
-      "\"project_dir_confirmed\" 要求 project_dir 已確定（這次帶或先前已設定過）；\"analyzed\"/\"implemented\"/\"verified\" 分別要求 01-analysis.md／02-implementation.md／03-verification.md 已經透過 write_ticket_artifact 寫入非空內容——" +
+      "**推進到 \"project_dir_confirmed\"/\"analyzed\"/\"implemented\"/\"verified\"/\"tested\" 這幾個階段前，會檢查對應的證據是否已經存在，不是單純改個欄位就能過關**：" +
+      "\"project_dir_confirmed\" 要求 project_dir 已確定（這次帶或先前已設定過）；\"analyzed\"/\"implemented\"/\"verified\"/\"tested\" 分別要求 01-analysis.md／02-implementation.md／03-verification.md／04-test.md 已經透過 write_ticket_artifact 寫入非空內容——" +
       "沒有對應證據就直接呼叫這個工具想跳過某個角色（例如只做完工程師改動就想直接標記 verified），會被拒絕，訊息會說明還缺哪一份文件。" +
+      "**\"tested\" 是 \"verified\" 之後、使用者最終確認之前新增的一關（測試工程師），verdict/rootCause 的規則跟 \"verified\" 完全一樣，兩者共用同一組 consecutive_fail_count/needs_human_review 安全閥**——判斷依據見 get_role_prompt({role:\"tester\"})：只有測試項目裡出現 AI 有把握判定的 verified_fail 才算 FAIL，AI 沒把握判定、只能列出來提醒使用者的項目（needs_manual_check）不影響這裡的 verdict。" +
       "**verdict 設成 \"FAIL\" 時，rootCause 是必填參數**（\"analysis\" 或 \"implementation\"）——判斷這次 FAIL 的根因在分析階段還是實作階段，供下一輪處理這張票時決定要自動跳回分析師還是工程師，不能省略。verdict 不是 \"FAIL\"（PASS，或這次沒有更新 verdict）時，不需要也不應該帶 rootCause，帶了會被拒絕。" +
       "**這個呼叫只要有更新 verdict，就會自動清空 confirmation**（這個人類確認是對上一輪程式碼/結論表態的，新 verdict 出爐代表結論已經更新，舊確認一律作廢，不能沿用）、並機械式維護 consecutive_fail_count（FAIL 累加、PASS 歸零，累加到 3 之後回傳的 needs_human_review 會是 true）。" +
       "**呼叫完會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.md`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
       stage: z
-        .enum(["new", "snapshot", "project_dir_confirmed", "analyzed", "sd_drafted", "implemented", "verified"])
+        .enum(["new", "snapshot", "project_dir_confirmed", "analyzed", "sd_drafted", "implemented", "verified", "tested"])
         .describe(
           "要推進到的階段。\"sd_drafted\" 只有 sdMode 為 \"self-generated\" 的專案才需要（規格撰寫者產出/更新 SD 草稿後推進到這裡）；" +
             "其他 sdMode 直接從 \"analyzed\" 推進到 \"implemented\" 即可，不用經過這一階。" +
-            "**self-generated 底下這一階出現的時機依 specOrder 而定**：\"spec_first\" 是 \"analyzed\" 之後、\"implemented\" 之前；\"code_first\" 是 \"implemented\" 之後、\"verified\" 之前（工程師先寫完 code，規格撰寫者才依實作反推補上 SD 草稿）。"
+            "**self-generated 底下這一階出現的時機依 specOrder 而定**：\"spec_first\" 是 \"analyzed\" 之後、\"implemented\" 之前；\"code_first\" 是 \"implemented\" 之後、\"verified\" 之前（工程師先寫完 code，規格撰寫者才依實作反推補上 SD 草稿）。" +
+            "\"tested\" 是 \"verified\" 之後、使用者最終確認之前新增的一階（測試工程師），每張票都會經過，套用哪些檢查項目由測試工程師依這張票的改動內容自己判斷（見 get_role_prompt({role:\"tester\"})）。"
         ),
       project_dir: z.string().nullable().optional().describe("這張票對應的專案目錄（有更新才需要帶）"),
       verdict: z.enum(["PASS", "FAIL"]).nullable().optional().describe("驗證結論（只有 verified 階段才需要帶）"),
@@ -341,6 +353,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         analyzed: "01-analysis.md",
         implemented: "02-implementation.md",
         verified: "03-verification.md",
+        tested: "04-test.md",
       };
       const requiredArtifact = STAGE_ARTIFACT_REQUIREMENT[stage];
       if (requiredArtifact) {

@@ -10,6 +10,8 @@ import {
   registerDefaultProject,
   resolveProjectDir,
   registerProjectDir,
+  resolveLegacyTestProfile,
+  registerLegacyTestProfile,
 } from "./project-registry.js";
 import { textResult } from "./shared.js";
 
@@ -168,6 +170,30 @@ export function registerProjectConfigTools(server: McpServer): void {
     async ({ workspaceGid, projectGid, projectName }) => {
       await registerDefaultProject({ workspaceGid, projectGid, projectName });
       return textResult({ success: true, workspaceGid, projectGid, projectName });
+    }
+  );
+
+  server.tool(
+    "resolve_legacy_test_profile",
+    "查詢這個 Asana 專案是否屬於「老舊系統測試」情境（測試工程師說明書第三章：JDK6+舊IE 這類自動化測不到的環境）。" +
+      "**預設 false，不需要每個專案都主動問這一題**——只有使用者明確告知過（例如「這個專案是舊系統，JDK6+舊IE」）才會是 true，找不到登記紀錄就直接當 false 使用，不用停下來問使用者。",
+    { projectGid: z.string().describe("Asana 專案 gid") },
+    async ({ projectGid }) => {
+      const legacyTestProfile = await resolveLegacyTestProfile(projectGid);
+      return textResult({ legacyTestProfile });
+    }
+  );
+
+  server.tool(
+    "register_legacy_test_profile",
+    "登記這個 Asana 專案是否屬於「老舊系統測試」情境。**只有使用者主動告知才呼叫，不要自己依程式碼特徵猜測**——這是一個沒有客觀技術門檻的判斷，交由使用者親口確認，AI 不自行判定。多數專案永遠不需要呼叫這個工具（維持預設 false 即可）。",
+    {
+      projectGid: z.string().describe("Asana 專案 gid"),
+      legacyTestProfile: z.boolean().describe("這個專案是否屬於老舊系統測試情境（JDK6+舊IE這類）"),
+    },
+    async ({ projectGid, legacyTestProfile }) => {
+      await registerLegacyTestProfile(projectGid, legacyTestProfile);
+      return textResult({ success: true, projectGid, legacyTestProfile });
     }
   );
 
