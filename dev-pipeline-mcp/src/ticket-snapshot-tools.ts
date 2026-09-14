@@ -4,10 +4,14 @@ import { callAsanaTool } from "./mcp-clients.js";
 import {
   assignTicketDir,
   getAssignedDir,
+  listTicketsUnderProject,
+  readStatus,
   recordProjectContext,
   recordSnapshotContent,
+  relocateTicketDir,
   writeArtifact,
 } from "./pipeline-store.js";
+import { syncPendingActionsReport } from "./pending-actions-sync.js";
 import { textResult } from "./shared.js";
 
 /**
@@ -174,6 +178,64 @@ export function registerTicketSnapshotTools(server: McpServer): void {
         unchanged: false,
         needsReanalysis: result.needsReanalysis,
         content: result.content,
+      });
+    }
+  );
+
+  server.tool(
+    "relocate_ticket_project",
+    "修正一張票的追蹤資料夾所在的 Asana 專案名稱標籤——用在 get_ticket_snapshot 第一次呼叫時 projectName 傳錯" +
+      "（例如猜測、沒對照 Asana 實際專案全名稱查證）的情況，把 <projectDir>/.asana-pipeline/<舊專案名稱>/<票號>/ " +
+      "整份搬到 <projectDir>/.asana-pipeline/<newProjectName>/<票號>/，連同巢狀掛在它底下的所有子任務一起搬。" +
+      "**這不是「換這張票所屬的 Asana 專案」**（Asana 上這張票實際在哪個專案，這個工具完全不會去改，也改不了）——" +
+      "純粹是本機追蹤資料夾的命名標籤跟 Asana 實際情況兜不起來時的更正操作。" +
+      "**呼叫前務必先查證清楚 newProjectName**（例如用 asana_projects 或 asana_task 確認這張票在 Asana 上真正所屬" +
+      "的專案全名稱），不要用猜的、也不要在不確定的情況下呼叫——這個操作會實際搬動磁碟上的資料夾。" +
+      "**絕對不要自己用檔案總管/shell 手動搬這個資料夾**：這個 MCP 在自己的安裝目錄（跟 projectDir 無關）維護一份" +
+      "taskGid→資料夾路徑的索引（tickets-index.json），手動搬移不會更新這份索引，會導致這個 MCP 之後完全找不到" +
+      "這張票的追蹤檔案（get_ticket_status/resync_ticket_artifact 等工具全部報錯），或更糟：下次呼叫 " +
+      "get_ticket_snapshot 時因為索引還指著舊路徑，在舊路徑生出一份全新空白的追蹤紀錄，蓋掉/岔開原本的進度。" +
+      "務必只透過這個工具搬移。" +
+      "成功後回傳 oldDir/newDir/movedDescendants（一併被搬動的子任務 taskGid 清單），並自動局部重建新舊兩個" +
+      "專案資料夾各自的 PENDING_HUMAN_ACTIONS.md（新的會補上這張票，舊的會拿掉——但只有舊專案底下還有其他已" +
+      "追蹤票單時才補得到，如果這是舊專案底下唯一一張已追蹤的票，舊的 PENDING_HUMAN_ACTIONS.md 不會自動清空，" +
+      "需要人工檢查是否要一併處理/刪除那份檔案）。",
+    {
+      taskGid: z.string().describe("要修正資料夾歸屬的 Asana 任務 gid（如果它有子任務，會一併搬動）"),
+      newProjectName: z.string().describe("已查證過的 Asana 專案「全名稱」（正確答案），不是簡稱或猜測值"),
+    },
+    async ({ taskGid, newProjectName }) => {
+      const before = await readStatus(taskGid).catch(() => null);
+      let result: Awaited<ReturnType<typeof relocateTicketDir>>;
+      try {
+        result = await relocateTicketDir(taskGid, newProjectName);
+      } catch (err: any) {
+        return textResult({ success: false, message: err?.message ?? String(err) }, true);
+      }
+
+      await syncPendingActionsReport(taskGid);
+
+      let oldProjectReportRefreshed = false;
+      if (before?.project_dir && result.oldProjectName && result.oldProjectName !== newProjectName) {
+        const remaining = await listTicketsUnderProject(before.project_dir, result.oldProjectName);
+        if (remaining.length > 0) {
+          await syncPendingActionsReport(remaining[0]);
+          oldProjectReportRefreshed = true;
+        }
+      }
+
+      return textResult({
+        success: true,
+        taskGid,
+        oldDir: result.oldDir,
+        newDir: result.newDir,
+        oldProjectName: result.oldProjectName,
+        newProjectName,
+        movedDescendants: result.movedDescendants,
+        oldProjectReportRefreshed,
+        message: oldProjectReportRefreshed
+          ? "搬移完成，新舊兩個專案的 PENDING_HUMAN_ACTIONS.md 都已更新。"
+          : "搬移完成。舊專案底下已經沒有其他已追蹤票單，它的 PENDING_HUMAN_ACTIONS.md 沒有自動更新（可能需要人工檢查是否要一併清理那份檔案）。",
       });
     }
   );
