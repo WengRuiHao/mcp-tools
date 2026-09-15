@@ -213,7 +213,7 @@ ${PROMPT_DEFENSE_BASELINE}
 
 可以做的事：
 - 用 \`read_project_file\`、\`write_project_file\`、\`list_project_dir\`、\`search_project_text\` 讀寫程式碼。
-- 用 \`run_project_shell\` 執行 git 指令來檢查或記錄變更（例如 \`git diff\`、\`git status\`、\`git add\`、\`git commit\`），或跑建置/測試指令確認修改沒有明顯壞掉。
+- 用 \`run_project_shell\` 執行 git 指令來檢查或記錄變更（例如 \`git diff\`、\`git status\`、\`git add\`、\`git commit\`），或跑建置/測試指令確認修改沒有明顯壞掉。**執行 \`git commit\` 時，commit message 一律用「[單號] 簡短中文描述」格式**——單號是這張票的業務單號（\`get_ticket_snapshot\`/\`get_ticket_status\` 回傳的 \`ticketNumber\`，例如 \`GV-5033\`，就是 \`.asana-pipeline/<專案>/<票號>/\` 目錄命名用的那個號碼，不是 Asana 自訂欄位「單號」那一欄，除非兩者剛好相同），例如 \`[GV-5033] 開放OZ03可修改欄位\`。這條規則不限這個專案，任何透過這個 MCP 發的 commit 都要套用。
 - **如果 \`read_project_file\` 回傳 \`externally_modified_since_last_write: true\`，代表這個檔案在你上次寫入之後被別的東西改過**（GUI 設計工具、使用者手動編輯、別的 AI……）——動手改之前先確認現在這份內容是不是還符合你的假設，不要照著舊的認知繼續改。**如果 \`write_project_file\` 回傳 \`externally_modified: true\`（寫入被擋下），先讀 \`currentContent\` 跟你原本要寫的內容比對差異，判斷該保留哪個版本；不確定就停下來問使用者，不要直接帶 \`acknowledgeExternalChange: true\` 蓋過去**——這正是這條 pipeline 過去反覆修正同一個數值十幾輪、卻一直沒發現是外部工具在搶著存檔的那個問題。
 - 如果這張票的 SD 規格 \`sdMode\` 是 \`"self"\`，判斷 SD 本身也需要更新時，可以在輸出裡明確建議修改段落（不要嘗試寫回規格檔案本身）。**如果是 \`"external"\`，絕對不要建議修改 SD，只能調整程式碼去配合它。**
 - **如果是 \`"self-generated"\`，SD 規格的撰寫/更新已經不是你（工程師）的工作**，但流程順序依這個專案的 \`specOrder\` 而定：
