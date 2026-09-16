@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 420" role="img" aria-label="工程師改完程式碼後，會先查這個專案能不能寫自動化測試，分三種情況：modern（現代JDK/Node，補JUnit5+Mockito或Jest+RTL測試，寫完實際跑一次確認會過）；legacy_junit4（受限舊JDK但仍想要基本自動化覆蓋，改用舊版JUnit4/Mockito語法，要不要加測試依賴先問使用者）；none（完全無法測試或決定維持純手動測試，例如JDK6/7且暫不引入測試依賴，工程師維持原本做法不寫測試）。這是專案層級設定，只有第一次問過使用者，之後同一個專案不會每張票都再問。modern跟legacy_junit4這兩種情況，測試工程師階段會優先重跑工程師補的測試，當這次情境測試的交叉核對證據；none的情況沒有測試可以重跑，測試工程師維持原本純手動的情境測試流程">
+  <defs>
+    <marker id="arrowTC" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
+    </marker>
+    <marker id="arrowTCGood" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4c7a52"/>
+    </marker>
+    <marker id="arrowTCWarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b9782e"/>
+    </marker>
+    <marker id="arrowTCNeutral" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a2620" fill-opacity="0.6"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1040" height="420" fill="#f5f2ea"/>
+
+  <g font-family="'Noto Sans TC',sans-serif">
+    <!-- entry -->
+    <rect x="20" y="68" width="230" height="64" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="135" y="94" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">工程師改完程式碼</text>
+    <text x="135" y="112" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">resolve_test_capability</text>
+
+    <line x1="250" y1="100" x2="434" y2="100" stroke="#2a2620" stroke-width="1.6" marker-end="url(#arrowTC)"/>
+
+    <!-- decision diamond -->
+    <polygon points="440,100 520,55 600,100 520,145" fill="#dbe9ea" stroke="#2b6777" stroke-width="1.4"/>
+    <text x="520" y="94" text-anchor="middle" font-size="11" font-weight="700" fill="#17414c">能不能寫</text>
+    <text x="520" y="110" text-anchor="middle" font-size="11" font-weight="700" fill="#17414c">自動化測試？</text>
+    <text x="520" y="40" text-anchor="middle" font-size="9.5" fill="#6b6558">（專案層級設定，只問使用者一次）</text>
+
+    <!-- branches (exit at the three lower diamond vertices) -->
+    <line x1="440" y1="100" x2="205" y2="188" stroke="#4c7a52" stroke-width="1.6" marker-end="url(#arrowTCGood)"/>
+    <line x1="520" y1="145" x2="520" y2="188" stroke="#b9782e" stroke-width="1.6" marker-end="url(#arrowTCWarn)"/>
+    <line x1="600" y1="100" x2="835" y2="188" stroke="#2a2620" stroke-opacity="0.6" stroke-width="1.6" marker-end="url(#arrowTCNeutral)"/>
+
+    <!-- card 1: modern -->
+    <rect x="60" y="192" width="280" height="120" rx="10" fill="#dfe9dd" stroke="#4c7a52"/>
+    <text x="200" y="216" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="12" font-weight="700" fill="#4c7a52">modern</text>
+    <text x="200" y="238" text-anchor="middle" font-size="11.5" font-weight="700" fill="#295c31">現代 JDK／Node，工具鏈齊全</text>
+    <text x="200" y="258" text-anchor="middle" font-size="10.5" fill="#295c31">補上 JUnit5+Mockito／Jest+RTL 測試</text>
+    <text x="200" y="276" text-anchor="middle" font-size="10.5" fill="#295c31">針對新增/修改的商業邏輯分支</text>
+    <text x="200" y="296" text-anchor="middle" font-size="10.5" fill="#295c31" opacity="0.9">寫完實際跑一次，確認會過</text>
+
+    <!-- card 2: legacy_junit4 -->
+    <rect x="380" y="192" width="280" height="120" rx="10" fill="#f1e2c8" stroke="#b9782e"/>
+    <text x="520" y="216" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="12" font-weight="700" fill="#8a5a1f">legacy_junit4</text>
+    <text x="520" y="238" text-anchor="middle" font-size="11.5" font-weight="700" fill="#8a5a1f">受限舊 JDK，仍想要基本覆蓋</text>
+    <text x="520" y="258" text-anchor="middle" font-size="10.5" fill="#8a5a1f">改用舊版語法（JUnit4／舊版 Mockito）</text>
+    <text x="520" y="276" text-anchor="middle" font-size="10.5" fill="#8a5a1f">建置設定還沒加測試依賴的話</text>
+    <text x="520" y="296" text-anchor="middle" font-size="10.5" fill="#8a5a1f" opacity="0.9">先問你要不要由 AI 加上去</text>
+
+    <!-- card 3: none -->
+    <rect x="700" y="192" width="280" height="120" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="840" y="216" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="12" font-weight="700" fill="#2a2620">none</text>
+    <text x="840" y="238" text-anchor="middle" font-size="11.5" font-weight="700" fill="#2a2620">完全無法測試，或決定純手動測試</text>
+    <text x="840" y="258" text-anchor="middle" font-size="10.5" fill="#4a4335">例如：JDK6/7 且暫不引入測試依賴</text>
+    <text x="840" y="278" text-anchor="middle" font-size="10.5" fill="#4a4335">工程師維持原本做法</text>
+    <text x="840" y="296" text-anchor="middle" font-size="10.5" fill="#4a4335" opacity="0.9">不寫測試，改完確認編譯過即可</text>
+
+    <!-- convergence into tester stage -->
+    <line x1="200" y1="312" x2="200" y2="350" stroke="#4c7a52" stroke-width="1.6" marker-end="url(#arrowTCGood)"/>
+    <line x1="520" y1="312" x2="520" y2="350" stroke="#b9782e" stroke-width="1.6" marker-end="url(#arrowTCWarn)"/>
+    <line x1="840" y1="312" x2="840" y2="350" stroke="#2a2620" stroke-opacity="0.6" stroke-width="1.6" marker-end="url(#arrowTCNeutral)"/>
+
+    <!-- outcome: modern/legacy → tester reruns tests -->
+    <rect x="60" y="356" width="600" height="56" rx="9" fill="#dbe9ea" stroke="#2b6777"/>
+    <text x="360" y="378" text-anchor="middle" font-size="12" font-weight="700" fill="#17414c">➡ 測試工程師階段：優先重跑這些測試，當這次情境測試的交叉核對證據</text>
+    <text x="360" y="396" text-anchor="middle" font-size="10" fill="#17414c" opacity="0.85">涵蓋到的分支直接算 verified_pass／verified_fail，不用再手動重新推導一次</text>
+
+    <!-- outcome: none → no rerun -->
+    <rect x="700" y="356" width="280" height="56" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.6"/>
+    <text x="840" y="378" text-anchor="middle" font-size="11.5" font-weight="700" fill="#2a2620">沒有測試可以重跑</text>
+    <text x="840" y="396" text-anchor="middle" font-size="10" fill="#4a4335">維持原本手動／情境測試流程</text>
+  </g>
+</svg>

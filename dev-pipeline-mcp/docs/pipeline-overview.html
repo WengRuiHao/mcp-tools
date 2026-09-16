@@ -562,6 +562,94 @@
   <section class="block">
     <div class="block-head">
       <span class="block-num">3</span>
+      <h2>工程師要不要補自動化測試</h2>
+    </div>
+    <p class="block-note"><code class="mono">resolve_test_capability</code> 找不到設定時，工程師第一次動手前才會問使用者一次，問完登記之後同一個專案不用每張票再問。</p>
+    <figure class="diagram">
+      <div class="diagram-scroll">
+      <svg viewBox="0 0 1040 420" role="img" aria-label="工程師改完程式碼後，會先查這個專案能不能寫自動化測試，分三種情況：modern（現代JDK/Node，補JUnit5+Mockito或Jest+RTL測試，寫完實際跑一次確認會過）；legacy_junit4（受限舊JDK但仍想要基本自動化覆蓋，改用舊版JUnit4/Mockito語法，要不要加測試依賴先問使用者）；none（完全無法測試或決定維持純手動測試，工程師維持原本做法不寫測試）。這是專案層級設定，只問使用者一次；modern跟legacy_junit4這兩種情況，測試工程師階段會優先重跑工程師補的測試當交叉核對證據，none則維持原本純手動的情境測試流程">
+        <defs>
+          <marker id="arrowTC" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+          </marker>
+          <marker id="arrowTCGood" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--good)"/>
+          </marker>
+          <marker id="arrowTCWarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--warn)"/>
+          </marker>
+          <marker id="arrowTCNeutral" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor" opacity="0.6"/>
+          </marker>
+        </defs>
+
+        <g font-size="12.5">
+          <!-- entry -->
+          <rect x="20" y="68" width="230" height="64" rx="9" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
+          <text x="135" y="94" text-anchor="middle" font-size="13" font-weight="700">工程師改完程式碼</text>
+          <text x="135" y="112" text-anchor="middle" class="mono-label" font-size="9" opacity="0.7">resolve_test_capability</text>
+
+          <line x1="250" y1="100" x2="434" y2="100" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrowTC)"/>
+
+          <!-- decision diamond -->
+          <polygon points="440,100 520,55 600,100 520,145" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"/>
+          <text x="520" y="94" text-anchor="middle" font-size="11" font-weight="700" fill="var(--accent-ink)">能不能寫</text>
+          <text x="520" y="110" text-anchor="middle" font-size="11" font-weight="700" fill="var(--accent-ink)">自動化測試？</text>
+          <text x="520" y="40" text-anchor="middle" font-size="9.5" opacity="0.7">（專案層級設定，只問使用者一次）</text>
+
+          <!-- branches -->
+          <line x1="440" y1="100" x2="205" y2="188" stroke="var(--good)" stroke-width="1.6" marker-end="url(#arrowTCGood)"/>
+          <line x1="520" y1="145" x2="520" y2="188" stroke="var(--warn)" stroke-width="1.6" marker-end="url(#arrowTCWarn)"/>
+          <line x1="600" y1="100" x2="835" y2="188" stroke="currentColor" opacity="0.6" stroke-width="1.6" marker-end="url(#arrowTCNeutral)"/>
+
+          <!-- card 1: modern -->
+          <rect x="60" y="192" width="280" height="120" rx="10" fill="var(--good-soft)" stroke="var(--good)"/>
+          <text x="200" y="216" text-anchor="middle" class="mono-label" font-size="12" font-weight="700" fill="var(--good)">modern</text>
+          <text x="200" y="238" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--good)">現代 JDK／Node，工具鏈齊全</text>
+          <text x="200" y="258" text-anchor="middle" font-size="10.5" fill="var(--good)">補上 JUnit5+Mockito／Jest+RTL 測試</text>
+          <text x="200" y="276" text-anchor="middle" font-size="10.5" fill="var(--good)">針對新增/修改的商業邏輯分支</text>
+          <text x="200" y="296" text-anchor="middle" font-size="10.5" fill="var(--good)" opacity="0.9">寫完實際跑一次，確認會過</text>
+
+          <!-- card 2: legacy_junit4 -->
+          <rect x="380" y="192" width="280" height="120" rx="10" fill="var(--warn-soft)" stroke="var(--warn)"/>
+          <text x="520" y="216" text-anchor="middle" class="mono-label" font-size="12" font-weight="700" fill="var(--warn)">legacy_junit4</text>
+          <text x="520" y="238" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--warn)">受限舊 JDK，仍想要基本覆蓋</text>
+          <text x="520" y="258" text-anchor="middle" font-size="10.5" fill="var(--warn)">改用舊版語法（JUnit4／舊版 Mockito）</text>
+          <text x="520" y="276" text-anchor="middle" font-size="10.5" fill="var(--warn)">建置設定還沒加測試依賴的話</text>
+          <text x="520" y="296" text-anchor="middle" font-size="10.5" fill="var(--warn)" opacity="0.9">先問你要不要由 AI 加上去</text>
+
+          <!-- card 3: none -->
+          <rect x="700" y="192" width="280" height="120" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.85"/>
+          <text x="840" y="216" text-anchor="middle" class="mono-label" font-size="12" font-weight="700">none</text>
+          <text x="840" y="238" text-anchor="middle" font-size="11.5" font-weight="700">完全無法測試，或決定純手動測試</text>
+          <text x="840" y="258" text-anchor="middle" font-size="10.5" opacity="0.8">例如：JDK6/7 且暫不引入測試依賴</text>
+          <text x="840" y="278" text-anchor="middle" font-size="10.5" opacity="0.8">工程師維持原本做法</text>
+          <text x="840" y="296" text-anchor="middle" font-size="10.5" opacity="0.8">不寫測試，改完確認編譯過即可</text>
+
+          <!-- convergence into tester stage -->
+          <line x1="200" y1="312" x2="200" y2="350" stroke="var(--good)" stroke-width="1.6" marker-end="url(#arrowTCGood)"/>
+          <line x1="520" y1="312" x2="520" y2="350" stroke="var(--warn)" stroke-width="1.6" marker-end="url(#arrowTCWarn)"/>
+          <line x1="840" y1="312" x2="840" y2="350" stroke="currentColor" opacity="0.6" stroke-width="1.6" marker-end="url(#arrowTCNeutral)"/>
+
+          <!-- outcome: modern/legacy → tester reruns tests -->
+          <rect x="60" y="356" width="600" height="56" rx="9" fill="var(--accent-soft)" stroke="var(--accent)"/>
+          <text x="360" y="378" text-anchor="middle" font-size="12" font-weight="700" fill="var(--accent-ink)">➡ 測試工程師階段：優先重跑這些測試，當這次情境測試的交叉核對證據</text>
+          <text x="360" y="396" text-anchor="middle" font-size="10" fill="var(--accent-ink)" opacity="0.85">涵蓋到的分支直接算 verified_pass／verified_fail，不用再手動重新推導一次</text>
+
+          <!-- outcome: none → no rerun -->
+          <rect x="700" y="356" width="280" height="56" rx="9" fill="var(--surface-2)" stroke="currentColor" opacity="0.6"/>
+          <text x="840" y="378" text-anchor="middle" font-size="11.5" font-weight="700">沒有測試可以重跑</text>
+          <text x="840" y="396" text-anchor="middle" font-size="10" opacity="0.8">維持原本手動／情境測試流程</text>
+        </g>
+      </svg>
+      </div>
+      <figcaption>這是專案層級設定，跟 <code class="mono">sdMode</code>/<code class="mono">specOrder</code> 一樣只問使用者一次。<code class="mono">legacy_junit4</code> 如果建置設定還沒加測試依賴，AI 會先問使用者要不要由它加上去，不會擅自改 <code class="mono">pom.xml</code>/<code class="mono">build.gradle</code>；<code class="mono">none</code> 是刻意的選擇（例如 JDK6/7 且暫不引入測試依賴的舊專案），不代表哪個環節沒做好。</figcaption>
+    </figure>
+  </section>
+
+  <section class="block">
+    <div class="block-head">
+      <span class="block-num">4</span>
       <h2>SA/SD 規格四種模式</h2>
     </div>
     <p class="block-note"><code class="mono">resolve_sasd_config</code> 找不到設定時才需要逐題問，四選一之後同一個 Asana 專案不會再問（unregistered 除外，那個每張票都要單獨問）。</p>
@@ -591,7 +679,7 @@
 
   <section class="block">
     <div class="block-head">
-      <span class="block-num">4</span>
+      <span class="block-num">5</span>
       <h2>換 session／換 AI 接手</h2>
     </div>
     <p class="block-note">追蹤狀態落地在磁碟上，不是活在對話記憶裡——接手時該讀「摘要」還是「全文」，成本差很多。</p>
@@ -645,7 +733,7 @@
 
   <section class="block">
     <div class="block-head">
-      <span class="block-num">5</span>
+      <span class="block-num">6</span>
       <h2>01/02/03/04 互相同步</h2>
     </div>
     <p class="block-note">跟上面「票單狀態機」不同軸向：那組管「票單原文 vs 追蹤系統」，這組管「追蹤系統內部 01/02/03/04 四份文件彼此」——這條 pipeline 曾經實際發生過工程師階段反覆修正十幾輪、<code class="mono">02-implementation.md</code> 一路追加，但 <code class="mono">01-analysis.md</code> 完全沒同步，全靠使用者事後肉眼發現。下圖以 01→02→03 為例，<code class="mono">03-verification.md</code> 對 <code class="mono">04-test.md</code>（測試工程師）套用完全同一套機制，沒有另外畫一次。</p>
@@ -724,7 +812,7 @@
 
   <section class="block">
     <div class="block-head">
-      <span class="block-num">6</span>
+      <span class="block-num">7</span>
       <h2>外部修改偵測</h2>
     </div>
     <p class="block-note">跟上面「01/02/03/04 互相同步」是不同軸向的比對：那張比的是「兩份都是這個 MCP 自己以前記錄的雜湊」彼此對不對得起來；這張比的是「這個 MCP 記錄的舊雜湊」跟「磁碟上現在真正的內容」對不對得起來——只有這組比對抓得到使用者或沒走這條 pipeline 的 AI 直接手動編輯追蹤檔案的情況。</p>
@@ -780,7 +868,7 @@
 
   <section class="block">
     <div class="block-head">
-      <span class="block-num">7</span>
+      <span class="block-num">8</span>
       <h2>待人工處理清單持久化</h2>
     </div>
     <p class="block-note">過去「這張票需要你確認」「這個 SQL 只能你手動執行」這類提醒只在聊天回覆裡講一次，換個 session、關掉對話視窗就找不到了。現在整份寫進磁碟上的一份 Markdown 檔案，不靠聊天記錄留存。</p>

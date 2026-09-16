@@ -106,13 +106,9 @@ npm run build
 
 ### 工程師階段：要不要補自動化測試（`resolve_test_capability` / `register_test_capability`）
 
-工程師改完程式碼、確認可以編譯/型別檢查通過之後，呼叫 `resolve_test_capability` 決定要不要順手補自動化測試。跟 `sdMode`/`specOrder` 一樣是**專案層級設定**，第一次進到這個專案的工程師階段（`found: false`）才會問使用者一次，問完登記之後同一個專案不用每張票再問：
+![工程師改完程式碼後，會先查這個專案能不能寫自動化測試，分三種情況：modern（現代JDK/Node，補JUnit5+Mockito或Jest+RTL測試，寫完實際跑一次確認會過）；legacy_junit4（受限舊JDK但仍想要基本自動化覆蓋，改用舊版JUnit4/Mockito語法，要不要加測試依賴先問使用者）；none（完全無法測試或決定維持純手動測試，工程師維持原本做法不寫測試）。這是專案層級設定，只問使用者一次；modern跟legacy_junit4這兩種情況，測試工程師階段會優先重跑工程師補的測試當交叉核對證據，none則維持原本純手動的情境測試流程](docs/img/test-capability.svg)
 
-| mode | 適用情境 | 行為 |
-|---|---|---|
-| `modern` | 現代 JDK/Node，工具鏈完整 | 針對新增/修改的商業邏輯分支補上 JUnit5+Mockito（後端）或 Jest+RTL（前端）測試，寫完用 `run_project_shell` 實際跑一次確認會過 |
-| `legacy_junit4` | 受限於舊 JDK，但仍想要基本自動化覆蓋 | 邏輯跟 `modern` 一樣，但改用舊版語法（JUnit4 `@Test`/`@Before`、舊版 Mockito `initMocks`）；如果建置設定還沒加測試依賴，先問使用者要不要由 AI 加上去，不擅自改 `pom.xml`/`build.gradle` |
-| `none` | 完全無法測試，或決定維持純手動測試（例如上銀，JDK6/7且暫不引入測試依賴） | 不寫測試，維持原本做法（改完程式碼、確認編譯過即可） |
+跟 `sdMode`/`specOrder` 一樣是**專案層級設定**，第一次進到這個專案的工程師階段（`found: false`）才會問使用者一次，問完登記之後同一個專案不用每張票再問。三種模式裡，`legacy_junit4` 如果建置設定還沒加測試依賴，AI 會先問使用者要不要由它加上去，不會擅自改 `pom.xml`/`build.gradle`；`none` 是刻意的選擇（例如上銀，JDK6/7且暫不引入測試依賴），不代表哪個環節沒做好。
 
 ### 測試工程師階段（`tested`）
 
