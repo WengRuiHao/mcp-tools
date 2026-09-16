@@ -543,9 +543,11 @@ export async function recordSnapshotContent(
       // 根因標記/安全閥計數也是針對「上一版內容」算出來的，內容真的變了就沒有意義，一併歸零，不能讓舊版的連續 FAIL 次數影響新內容的判斷。
       verifier_root_cause: hadPriorProgress ? null : status.verifier_root_cause,
       consecutive_fail_count: hadPriorProgress ? 0 : status.consecutive_fail_count,
-      // 舊的人工待辦事項是針對「上一版程式碼」宣告的，內容真的變了、要重新走一次實作，舊的宣告一併清空，等新一輪工程師/驗證師重新宣告。
+      // 舊的人工待辦事項是針對「上一版程式碼」宣告的，內容真的變了、要重新走一次實作，舊的宣告一併清空，等新一輪工程師/驗證師/測試工程師重新宣告。
+      // test_manual_actions 一開始（tested 階段上線時）漏了這裡，導致內容變動後舊的測試工程師待辦會殘留、繼續出現在互動報告裡——已補上，跟另外兩份文件同一套規則。
       implementation_manual_actions: hadPriorProgress ? [] : status.implementation_manual_actions,
       verification_manual_actions: hadPriorProgress ? [] : status.verification_manual_actions,
+      test_manual_actions: hadPriorProgress ? [] : status.test_manual_actions,
     });
   });
   return { changed, needsReanalysis: updated.needs_reanalysis, status: updated };

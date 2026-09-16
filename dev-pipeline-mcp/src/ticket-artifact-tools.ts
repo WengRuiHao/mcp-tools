@@ -27,7 +27,9 @@ export function registerTicketArtifactTools(server: McpServer): void {
       "**寫入完成後會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.html`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
-      filename: z.string().describe("檔名，例如 01-analysis.md"),
+      filename: z
+        .enum(["01-analysis.md", "02-implementation.md", "03-verification.md", "04-test.md"])
+        .describe("要寫入哪一份追蹤文件"),
       content: z.string().describe("要寫入的內容（全文，整份覆寫既有檔案——若檔案已有內容，先呼叫 read_ticket_artifact 讀出全文再組合，不要只傳這一輪新增段落）"),
       summary: z
         .string()

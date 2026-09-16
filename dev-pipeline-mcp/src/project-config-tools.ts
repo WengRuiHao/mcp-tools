@@ -178,7 +178,8 @@ export function registerProjectConfigTools(server: McpServer): void {
   server.tool(
     "resolve_legacy_test_profile",
     "查詢這個 Asana 專案是否屬於「老舊系統測試」情境（測試工程師說明書第三章：JDK6+舊IE 這類自動化測不到的環境）。" +
-      "**預設 false，不需要每個專案都主動問這一題**——只有使用者明確告知過（例如「這個專案是舊系統，JDK6+舊IE」）才會是 true，找不到登記紀錄就直接當 false 使用，不用停下來問使用者。",
+      "**預設 false，不需要每個專案都主動問這一題**——只有使用者明確告知過（例如「這個專案是舊系統，JDK6+舊IE」）才會是 true，找不到登記紀錄就直接當 false 使用，不用停下來問使用者。" +
+      "**跟 resolve_test_capability 是兩件事，不要混用**：這個決定的是「測試工程師手動測試要不要套用第三章(JDK6+舊IE)」，那個決定的是「工程師能不能寫自動化測試、用哪套工具鏈」——一個專案可能兩者都成立，也可能只有其中一個成立。",
     { projectGid: z.string().describe("Asana 專案 gid") },
     async ({ projectGid }) => {
       const legacyTestProfile = await resolveLegacyTestProfile(projectGid);

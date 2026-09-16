@@ -23,18 +23,13 @@ import { textResult } from "./shared.js";
 export function registerTicketLifecycleTools(server: McpServer): void {
   server.tool(
     "list_pending_tickets",
-    "列出指定 Asana 專案裡尚未完成、且尚未驗證通過（PASS）的票單清單。透過 asana-mcp 取得看板資料，並依本地追蹤紀錄過濾掉已經處理完成的票。" +
-      "**已經 PASS 的票單如果 Asana 上的內容後來又被改過（用 modified_at 便宜初篩），一樣會重新列進 tickets，並標記 contentChanged: true**——代表這張票不能因為之前 PASS 就跳過，下一步呼叫 get_ticket_snapshot 會確認內容是否真的變了、需不需要重新分析。" +
-      "**結案前還有一關人類確認，回傳額外附上這關待處理的清單：`awaitingConfirmation`**——AI 驗證師判過 PASS、Asana 內容也沒再變過，但『使用者自己』還沒實際測過＋審視過程式碼品質的票單。" +
-      "AI 自己判定 PASS 不等於這張票真的結案，呼叫端每次執行這個工具都必須把這份清單完整秀給使用者看（不能因為這次是來處理別的新票就略過），直到每一張都呼叫過 record_confirmation 為止，才會從清單消失。" +
-      "**另外還有 `awaitingSpecConfirmation`**——只有 sdMode 為 \"self-generated\" 的專案才會出現：規格撰寫者已產出/更新 SD 草稿（stage: \"sd_drafted\"），等使用者呼叫 record_spec_confirmation 表態。specOrder 是 \"spec_first\" 的話，確認過工程師階段才能開始寫程式碼；specOrder 是 \"code_first\" 的話，這份草稿是工程師寫完 code 之後才反推補上的，確認過驗證師階段才能繼續往下驗證——不管哪一種，都要主動秀給使用者看。`tickets` 裡標記 `specRejected: true` 的票，代表使用者已經打回這份草稿（confirmed: false），交給規格撰寫者依 note 修改。" +
-      "**`tickets`（一般待處理清單）裡如果某張票標記 `humanRejected: true`，代表這不是一張全新沒驗證過的票，而是使用者事後回報有問題、被重新丟回來的票**（`record_confirmation` 帶 `confirmed:false` 時會把這張票的 verdict 重設回 null，讓它重新出現在這裡）——處理這種票要當作跟 AI 驗證師自己判 FAIL 完全一樣的情況，套用同一套根因分流機制（見 get_role_prompt({role:\"verifier\"})/advance_ticket_stage 的 rootCause 說明），不要另外發明一套「人工打回」流程。" +
-      "**帶 `projectName` 時，這次算出來的六類「需要人工處理」項目（待確認規格草稿／待確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更）會整份覆寫進一份持久化的 `PENDING_HUMAN_ACTIONS.html`**（放在 `<projectDir>/.asana-pipeline/<projectName>/` 底下，跟每張票自己的追蹤目錄同一層）——這是為了取代「只在聊天視窗提醒一次，換個 session 就找不到」的做法，不需要任何人記得手動維護。強烈建議每次呼叫都帶上 `projectName`（跟步驟 0 拿到的 Asana 專案全名稱一致）。" +
-      "**`PENDING_HUMAN_ACTIONS.html` 是可以互動的**：待確認規格草稿／待確認／需要你手動處理的事項這三類都有勾選框或確認按鈕，使用者在瀏覽器打開這個檔案直接點，就能即時呼叫 `resolve_manual_action`/`record_confirmation`/`record_spec_confirmation`，不需要透過你——但要先在 `dev-pipeline-mcp` 目錄下執行 `npm run start:http` 啟動本機 HTTP bridge（獨立長駐行程，預設監聽 `http://127.0.0.1:8097`），沒啟動的話頁面會顯示唯讀提示、按鈕整批停用。第一次幫使用者產出這份報告時，提醒他們這個啟動步驟。" +
-      "**這份報告不再需要呼叫端手動維護同步時機**——advance_ticket_stage/write_ticket_artifact/resolve_manual_action/record_confirmation/resync_ticket_artifact 這幾個會改動票單狀態的工具，現在每次呼叫完都會自動局部重寫這份報告（純本機運算，不重查 Asana），呼叫這裡的 list_pending_tickets 主要是用來發現「全新、還沒被任何一次 get_ticket_snapshot 摸過」的票單，不是同步這份報告的唯一時機。" +
-      "**`PENDING_HUMAN_ACTIONS.html` 的「Asana 內容已被異動，待重新確認」這個分類，只有這張票目前的指派人剛好是這個 pipeline 帳號本人（透過 asana_me 取得）時才會列進去**——單純內容變了、但沒有人特地把它指派回這個帳號的票單不會出現在這裡，避免大量雜訊。這個過濾條件只影響這份報告要不要顯示，不影響 `tickets`/`contentChangedList` 這兩個回傳欄位本身（那兩個仍然只看內容有沒有變，讓呼叫端知道「這份舊分析可能過期了」）。" +
-      "**`uncommittedChanges` 依票單分組，只列出「git status 真的還沒 commit、又有某張票的 manualActions 點名說是它改的」檔案**——跟這次 pipeline 無關的其他未 commit 檔案不在清單裡（要查全部異動請自己跑 git status）。是否真的還沒 commit 仍然以 git 的真實狀態為準，manualActions 文字只用來標出「這個檔案屬於哪張票」。`registered: false` 代表這個專案還沒呼叫過 `register_git_roots`。" +
-      "**`manualActions`/`manualActionsCount`（回傳 JSON 跟 `PENDING_HUMAN_ACTIONS.html` 都一樣）已經濾掉純粹是「尚未 commit」且點得出具體檔名的項目**——那類事項改由上面的 `uncommittedChanges`/「Git 尚未 commit 的變更」區塊負責呈現（跟真實 git status 核對過，比自由文字準確），不會在這裡重複出現造成雜訊。真的還沒 commit 完的檔案永遠看得到（在 Git 區塊），只是不會在這個區塊也出現一次。",
+    "列出指定 Asana 專案裡尚未完成的票單，並在帶 projectName 時把「需要人工處理」的項目整份覆寫進互動網頁 PENDING_HUMAN_ACTIONS.html。\n\n" +
+      "**回傳欄位速查**：\n" +
+      "- `tickets`：一般待處理清單。`contentChanged:true` = 先前已處理過（甚至 PASS 過），但 Asana 內容後來又變了，不能因為之前處理過就跳過，下一步 get_ticket_snapshot 會確認要不要重新分析；`humanRejected:true` = 使用者用 record_confirmation({confirmed:false}) 打回的票，**套用跟 AI 驗證師自己判 FAIL 完全一樣的根因分流機制**（見 advance_ticket_stage 的 rootCause 說明），不要另開一套「人工打回」流程；`specRejected:true` = 規格草稿被使用者打回。\n" +
+      "- `awaitingConfirmation`：AI 驗證師/測試工程師已判 PASS、Asana 內容也沒再變，只等使用者自己實測＋審視程式碼品質。**每次呼叫都要把這份清單完整秀給使用者看**（不能因為這次是處理別的新票就略過），直到每一張都呼叫過 record_confirmation 才會消失。\n" +
+      "- `awaitingSpecConfirmation`：只有 sdMode:\"self-generated\" 的專案會出現，等使用者呼叫 record_spec_confirmation 表態，同樣要主動秀給使用者看。\n" +
+      "- `manualActions`/`manualActionsCount`、`uncommittedChanges`：兩者互斥——「尚未 commit」且點得出具體檔名的事項只會出現在 `uncommittedChanges`（跟真實 git status 核對過，`registered:false` 代表還沒呼叫過 register_git_roots），不會在 `manualActions` 重複出現。\n\n" +
+      "**`PENDING_HUMAN_ACTIONS.html`**（只有帶 `projectName` 才會寫，放在 `<projectDir>/.asana-pipeline/<projectName>/`，取代「只在聊天視窗提醒一次、換個 session 就找不到」的做法，強烈建議每次都帶）：待確認規格草稿／待確認／需要你手動處理的事項這三類可以直接在瀏覽器勾選/確認（即時呼叫 record_spec_confirmation/record_confirmation/resolve_manual_action，要先在 dev-pipeline-mcp 目錄下執行 `npm run start:http` 啟動本機 HTTP bridge，第一次產出報告時記得提醒使用者這個步驟）；卡住需要你介入／Asana 內容已變更（只有指派人剛好是這個 pipeline 帳號本人才會列入，見 asana_me）／Git 尚未 commit 這三類唯讀。**不需要手動維護同步時機**——任何會改動票單狀態的工具（advance_ticket_stage/write_ticket_artifact/resolve_manual_action/record_confirmation/resync_ticket_artifact）呼叫完都會自動局部重寫這份報告，呼叫這裡的 list_pending_tickets 主要是為了發現「全新、還沒被 get_ticket_snapshot 摸過」的票單。",
     {
       projectGid: z.string().describe("Asana 專案 gid"),
       sectionFilter: z.string().nullable().optional().describe("只取這個 section 名稱底下的任務，不指定就取全部"),
