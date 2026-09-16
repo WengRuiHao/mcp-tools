@@ -1,41 +1,22 @@
 # gitlab-mcp
 
-個人 GitLab MCP server（Personal Access Token）——查詢自己在 GitLab 上的專案、分支、commit 歷史、檔案內容。全部唯讀，不做任何寫入操作。
+讓 Claude 幫你查 GitLab 上「屬於你自己」的東西：有哪些專案、專案裡有哪些分支、每個分支改過什麼、程式內容長怎樣。只能看、不會幫你改動或刪除任何東西。
 
-跟公司共用帳號的 GitLab 整合是分開的兩條路：共用帳號看到的是共用視角，這支 MCP 用你自己的 PAT，`gitlab_list_projects` 查出來的才是你個人實際參與/擁有的專案。
+公司原本共用帳號查到的專案是共用視角，不是你自己真正參與的專案。這個小工具用**你自己申請的通行證**登入，看到的才是你個人帳號實際看得到的東西。
 
-## 架構與流程
+## 這是怎麼運作的
 
-```mermaid
-flowchart TD
-    A["Claude Code 呼叫 gitlab_* 工具"] --> B["config-store.ts 讀取 info/gitlab.json"]
-    B -->|token 不存在| D["回傳錯誤：尚未設定 Personal Access Token"]
-    B -->|token 存在| E["gitlab-client.ts 帶 PRIVATE-TOKEN header 打 GitLab REST API v4"]
-    E --> F["GitLab 站台（預設 gitlab.universalec.com.tw）"]
-    F -->|4xx/5xx| G1["解析錯誤訊息，回傳 success:false"]
-    F -->|200| G2["解析 JSON，回傳 success:true"]
-    G1 --> H["shared.ts toolResult() 包裝成 MCP 回應"]
-    G2 --> H
-```
+![運作方式共四步：你跟 Claude 說想看的東西；Claude 請一個小幫手去查；小幫手用你自己的通行證登入 GitLab，所以只會看到你自己的專案，不是公司共用帳號那份；最後把結果整理成看得懂的樣子給你。如果還沒設定通行證，會提醒你要先申請一組只能看、不能改的通行證](docs/img/how-it-works.svg)
 
-典型的查詢流程，由大範圍逐層鑽入到單一檔案：
+## 平常怎麼用
 
-```mermaid
-flowchart LR
-    P1["gitlab_list_projects
-    列出我的專案"] --> P2["gitlab_list_branches
-    列出分支"]
-    P2 --> P3["gitlab_list_commits
-    看 commit 歷史"]
-    P2 --> P4["gitlab_get_repository_tree
-    瀏覽目錄結構"]
-    P2 --> P7["gitlab_compare_branches
-    比較兩分支差異"]
-    P3 --> P5["gitlab_get_commit_diff
-    看單一 commit 改了什麼"]
-    P4 --> P6["gitlab_get_file_contents
-    讀取檔案內容"]
-```
+從「看專案」開始，一路點下去就能看到細節：
+
+![平常怎麼用：先看自己有哪些專案，點一個進去看它有哪些分支；選了分支之後可以三選一，看修改紀錄、看資料夾跟檔案、或比較兩個分支差在哪；看修改紀錄可以再點一筆看那次到底改了什麼；看資料夾可以再點開某個檔案直接看內容](docs/img/usage-flow.svg)
+
+---
+
+以下是給負責設定的人看的技術細節。
 
 ## 設定
 
