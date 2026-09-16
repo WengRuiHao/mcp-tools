@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { gitlabGetRepositoryTree, gitlabGetFileContents } from "./gitlab-client.js";
+import { gitlabGetRepositoryTree, gitlabGetFileContents, gitlabSearchCode } from "./gitlab-client.js";
 import { toolResult, type GitlabResult } from "./shared.js";
 
 const projectIdParam = z.string().describe("專案的數字 ID，或 URL 路徑（例如 group/subgroup/project）");
@@ -42,5 +42,17 @@ export function registerFileTools(server: McpServer): void {
       ref: z.string().describe("分支名稱、tag 或 commit SHA"),
     },
     async ({ projectId, filePath, ref }) => toolResult(decodeFileContent(await gitlabGetFileContents(projectId, filePath, ref)))
+  );
+
+  server.tool(
+    "gitlab_search_code",
+    "【唯讀】在專案裡搜尋程式碼內容（關鍵字、函式名稱、變數名稱等），用來快速鎖定相關檔案，不用整個目錄逐一翻找。適合「這個功能寫在哪」「哪裡用到某個套件/函式」這類問題。",
+    {
+      projectId: projectIdParam,
+      search: z.string().describe("要搜尋的關鍵字，例如函式名稱、變數名稱、或一段文字"),
+      ref: z.string().nullable().optional().describe("限定搜尋的分支/tag/commit SHA，預設專案的預設分支"),
+      perPage: z.number().int().positive().max(100).nullable().optional().describe("回傳筆數，預設 20"),
+    },
+    async ({ projectId, search, ref, perPage }) => toolResult(await gitlabSearchCode(projectId, search, ref ?? undefined, perPage ?? undefined))
   );
 }

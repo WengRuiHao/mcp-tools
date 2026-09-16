@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 460" role="img" aria-label="平常怎麼用：先看自己有哪些專案，點一個進去看它有哪些分支；選了分支之後可以三選一，看修改紀錄、看資料夾跟檔案、或比較兩個分支差在哪；看修改紀錄可以再點一筆看那次到底改了什麼；看資料夾可以再點開某個檔案直接看內容">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 470" role="img" aria-label="平常怎麼用：先看自己有哪些專案，點一個進去看它有哪些分支；選了分支之後可以四選一，看修改紀錄、看資料夾跟檔案、比較兩個分支差在哪、或直接搜尋關鍵字找相關程式碼；看修改紀錄可以再點一筆看那次到底改了什麼；看資料夾可以再點開某個檔案直接看內容">
   <defs>
     <marker id="arrowMain" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
@@ -8,59 +8,66 @@
     </marker>
   </defs>
 
-  <rect x="0" y="0" width="1100" height="460" fill="#f5f2ea"/>
+  <rect x="0" y="0" width="1100" height="470" fill="#f5f2ea"/>
 
   <g font-family="'Noto Sans TC',sans-serif" text-anchor="middle">
     <!-- N1 -->
-    <rect x="15" y="185" width="190" height="90" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="110" y="220" font-size="13.5" font-weight="700" fill="#2a2620">看我有哪些專案</text>
-    <text x="110" y="240" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">gitlab_list_projects</text>
+    <rect x="15" y="183" width="190" height="90" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="110" y="218" font-size="13.5" font-weight="700" fill="#2a2620">看我有哪些專案</text>
+    <text x="110" y="238" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">gitlab_list_projects</text>
 
     <!-- N2 -->
-    <rect x="245" y="185" width="200" height="90" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="345" y="215" font-size="13.5" font-weight="700" fill="#2a2620">點一個進去，</text>
-    <text x="345" y="234" font-size="13.5" font-weight="700" fill="#2a2620">看它有哪些分支</text>
-    <text x="345" y="253" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">gitlab_list_branches</text>
+    <rect x="245" y="183" width="200" height="90" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="345" y="213" font-size="13.5" font-weight="700" fill="#2a2620">點一個進去，</text>
+    <text x="345" y="232" font-size="13.5" font-weight="700" fill="#2a2620">看它有哪些分支</text>
+    <text x="345" y="251" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">gitlab_list_branches</text>
 
     <!-- N3a: commits -->
-    <rect x="530" y="30" width="230" height="94" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="645" y="60" font-size="13" font-weight="700" fill="#2a2620">看修改紀錄</text>
-    <text x="645" y="79" font-size="10.5" fill="#6b6558">誰、什麼時候、改了什麼</text>
-    <text x="645" y="100" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">gitlab_list_commits</text>
+    <rect x="530" y="10" width="230" height="94" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="645" y="40" font-size="13" font-weight="700" fill="#2a2620">看修改紀錄</text>
+    <text x="645" y="59" font-size="10.5" fill="#6b6558">誰、什麼時候、改了什麼</text>
+    <text x="645" y="80" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">gitlab_list_commits</text>
 
     <!-- N3b: tree (accent, most-used) -->
-    <rect x="530" y="185" width="230" height="94" rx="12" fill="#dbe9ea" stroke="#2b6777"/>
-    <text x="645" y="215" font-size="13" font-weight="700" fill="#17414c">看資料夾跟檔案</text>
-    <text x="645" y="234" font-size="10.5" fill="#17414c">目前分支底下長怎樣</text>
-    <text x="645" y="255" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#17414c" opacity="0.8">gitlab_get_repository_tree</text>
+    <rect x="530" y="124" width="230" height="94" rx="12" fill="#dbe9ea" stroke="#2b6777"/>
+    <text x="645" y="154" font-size="13" font-weight="700" fill="#17414c">看資料夾跟檔案</text>
+    <text x="645" y="173" font-size="10.5" fill="#17414c">目前分支底下長怎樣</text>
+    <text x="645" y="194" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#17414c" opacity="0.8">gitlab_get_repository_tree</text>
 
     <!-- N3c: compare -->
-    <rect x="530" y="340" width="230" height="94" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="645" y="370" font-size="13" font-weight="700" fill="#2a2620">比較兩個分支</text>
-    <text x="645" y="389" font-size="10.5" fill="#6b6558">差在哪，不用自己一個個對</text>
-    <text x="645" y="410" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">gitlab_compare_branches</text>
+    <rect x="530" y="238" width="230" height="94" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="645" y="268" font-size="13" font-weight="700" fill="#2a2620">比較兩個分支</text>
+    <text x="645" y="287" font-size="10.5" fill="#6b6558">差在哪，不用自己一個個對</text>
+    <text x="645" y="308" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">gitlab_compare_branches</text>
+
+    <!-- N3d: search code (accent, fast path) -->
+    <rect x="530" y="352" width="230" height="94" rx="12" fill="#dbe9ea" stroke="#2b6777"/>
+    <text x="645" y="382" font-size="13" font-weight="700" fill="#17414c">直接搜尋關鍵字</text>
+    <text x="645" y="401" font-size="10.5" fill="#17414c">不用翻目錄，一步找到相關檔案</text>
+    <text x="645" y="422" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#17414c" opacity="0.8">gitlab_search_code</text>
 
     <!-- N4a: commit diff -->
-    <rect x="845" y="30" width="230" height="94" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="960" y="60" font-size="13" font-weight="700" fill="#2a2620">點一筆看細節</text>
-    <text x="960" y="79" font-size="10.5" fill="#6b6558">那次到底改了什麼內容</text>
-    <text x="960" y="100" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">gitlab_get_commit_diff</text>
+    <rect x="845" y="10" width="230" height="94" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="960" y="40" font-size="13" font-weight="700" fill="#2a2620">點一筆看細節</text>
+    <text x="960" y="59" font-size="10.5" fill="#6b6558">那次到底改了什麼內容</text>
+    <text x="960" y="80" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">gitlab_get_commit_diff</text>
 
     <!-- N4b: file contents -->
-    <rect x="845" y="185" width="230" height="94" rx="12" fill="#dbe9ea" stroke="#2b6777"/>
-    <text x="960" y="215" font-size="13" font-weight="700" fill="#17414c">打開檔案看內容</text>
-    <text x="960" y="234" font-size="10.5" fill="#17414c">直接讀取程式碼本身</text>
-    <text x="960" y="255" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#17414c" opacity="0.8">gitlab_get_file_contents</text>
+    <rect x="845" y="124" width="230" height="94" rx="12" fill="#dbe9ea" stroke="#2b6777"/>
+    <text x="960" y="154" font-size="13" font-weight="700" fill="#17414c">打開檔案看內容</text>
+    <text x="960" y="173" font-size="10.5" fill="#17414c">直接讀取程式碼本身</text>
+    <text x="960" y="194" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#17414c" opacity="0.8">gitlab_get_file_contents</text>
   </g>
 
   <g stroke="#2a2620" stroke-width="1.6" fill="none">
-    <line x1="205" y1="230" x2="241" y2="230" marker-end="url(#arrowMain)"/>
-    <path d="M 445 230 C 480 230, 480 77, 526 77" marker-end="url(#arrowMain)"/>
-    <line x1="445" y1="230" x2="526" y2="230" marker-end="url(#arrowMain)"/>
-    <path d="M 445 230 C 480 230, 480 387, 526 387" marker-end="url(#arrowMain)"/>
+    <line x1="205" y1="228" x2="241" y2="228" marker-end="url(#arrowMain)"/>
+    <path d="M 445 228 C 485 228, 485 57, 526 57" marker-end="url(#arrowMain)"/>
+    <path d="M 445 228 C 485 228, 485 285, 526 285" marker-end="url(#arrowMain)"/>
   </g>
   <g stroke="#2b6777" stroke-width="1.6" fill="none">
-    <line x1="760" y1="77" x2="841" y2="77" marker-end="url(#arrowAccent)"/>
-    <line x1="760" y1="230" x2="841" y2="230" marker-end="url(#arrowAccent)"/>
+    <path d="M 445 228 C 490 228, 490 171, 526 171" marker-end="url(#arrowAccent)"/>
+    <path d="M 445 228 C 490 228, 490 399, 526 399" marker-end="url(#arrowAccent)"/>
+    <line x1="760" y1="57" x2="841" y2="57" marker-end="url(#arrowAccent)"/>
+    <line x1="760" y1="171" x2="841" y2="171" marker-end="url(#arrowAccent)"/>
   </g>
 </svg>

@@ -157,3 +157,11 @@ export function gitlabGetFileContents(projectId: string, filePath: string, ref: 
   const params = new URLSearchParams({ ref });
   return call("GET", `/projects/${encodeProjectId(projectId)}/repository/files/${encodedPath}?${params.toString()}`);
 }
+
+/** GitLab's per-project code search (scope=blobs) works without Elasticsearch — unlike global/group search, it's backed by a plain grep over that one project, so it's always available. */
+export function gitlabSearchCode(projectId: string, search: string, ref?: string, perPage?: number): Promise<GitlabResult> {
+  const params = new URLSearchParams({ scope: "blobs", search });
+  if (ref) params.set("ref", ref);
+  params.set("per_page", String(perPage ?? 20));
+  return callList("GET", `/projects/${encodeProjectId(projectId)}/search?${params.toString()}`);
+}

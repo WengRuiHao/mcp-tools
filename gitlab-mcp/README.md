@@ -46,6 +46,7 @@
 | `gitlab_compare_branches` | 兩分支/tag/SHA 之間的差異 |
 | `gitlab_get_repository_tree` | 瀏覽分支底下的目錄結構 |
 | `gitlab_get_file_contents` | 讀取分支上某檔案的內容（自動 base64 解碼） |
+| `gitlab_search_code` | 在專案裡搜尋關鍵字/函式名稱，快速鎖定相關檔案 |
 
 ## 安裝
 
