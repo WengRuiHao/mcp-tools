@@ -75,6 +75,38 @@ export async function registerLegacyTestProfile(projectGid: string, legacyTestPr
   await updateJsonFile<Record<string, boolean>>(legacyTestProfilePath(), {}, (map) => ({ ...map, [projectGid]: legacyTestProfile }));
 }
 
+// ---------------------------------------------------------------------------
+// Test capability — per Asana project, whether/how the engineer role should
+// write automated tests. Separate from LegacyTestProfile: that flag is about
+// which *manual* test-engineer chapter applies (JDK6+old IE UI quirks); this
+// is about whether the engineer can add JUnit/Jest-style tests at all, and
+// with which toolchain version if the project's JDK is too old for modern
+// JUnit5/Mockito.
+// ---------------------------------------------------------------------------
+
+export type TestCapabilityMode = "modern" | "legacy_junit4" | "none";
+
+export interface TestCapabilityConfig {
+  mode: TestCapabilityMode;
+  /** Free-text context, e.g. "JDK6, 只能用 JUnit4.12 + Mockito 1.10.19" or "純 JSP，沒有 build test task". Null when mode is "modern" and nothing extra needs saying. */
+  note: string | null;
+}
+
+const TEST_CAPABILITY_FILE = "test-capability-config.json";
+
+function testCapabilityConfigPath(): string {
+  return path.join(getDataDir(), TEST_CAPABILITY_FILE);
+}
+
+export async function resolveTestCapability(projectGid: string): Promise<TestCapabilityConfig | null> {
+  const map = await readJsonFile<Record<string, TestCapabilityConfig>>(testCapabilityConfigPath(), {});
+  return map[projectGid] ?? null;
+}
+
+export async function registerTestCapability(projectGid: string, config: TestCapabilityConfig): Promise<void> {
+  await updateJsonFile<Record<string, TestCapabilityConfig>>(testCapabilityConfigPath(), {}, (map) => ({ ...map, [projectGid]: config }));
+}
+
 const DEFAULT_PROJECT_FILE = "default-project.json";
 
 function defaultProjectPath(): string {

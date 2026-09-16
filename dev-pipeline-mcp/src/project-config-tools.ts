@@ -12,6 +12,8 @@ import {
   registerProjectDir,
   resolveLegacyTestProfile,
   registerLegacyTestProfile,
+  resolveTestCapability,
+  registerTestCapability,
 } from "./project-registry.js";
 import { textResult } from "./shared.js";
 
@@ -194,6 +196,37 @@ export function registerProjectConfigTools(server: McpServer): void {
     async ({ projectGid, legacyTestProfile }) => {
       await registerLegacyTestProfile(projectGid, legacyTestProfile);
       return textResult({ success: true, projectGid, legacyTestProfile });
+    }
+  );
+
+  server.tool(
+    "resolve_test_capability",
+    "查詢這個 Asana 專案的自動化測試能力等級——決定工程師階段要不要順手寫 JUnit/Jest 這類自動化測試、寫哪種版本。" +
+      "找不到登記記錄時回傳 found: false，工程師角色第一次在這個專案動手前要先問使用者一次（見 register_test_capability 的三個選項說明），問完之後就不用每張票都再問。" +
+      "跟 resolve_legacy_test_profile 是兩件事：那個決定的是「測試工程師手動測試要不要套用第三章(JDK6+舊IE)」，這個決定的是「工程師能不能寫自動化測試、用哪套工具鏈」——一個專案可能兩者都是 true/legacy（老IE前端+舊JDK後端），也可能只有其中一個成立。",
+    { projectGid: z.string().describe("Asana 專案 gid") },
+    async ({ projectGid }) => {
+      const config = await resolveTestCapability(projectGid);
+      if (!config) return textResult({ found: false });
+      return textResult({ found: true, ...config });
+    }
+  );
+
+  server.tool(
+    "register_test_capability",
+    "登記這個 Asana 專案的自動化測試能力等級。只有使用者主動告知才呼叫，不要自己依程式碼特徵猜測——" +
+      "三個選項：" +
+      "\"modern\"：可以用現代版本的 JUnit5+Mockito(後端 Java)/Jest+React Testing Library(前端)寫測試，工程師階段照一般方式寫。" +
+      "\"legacy_junit4\"：專案受限於較舊的 JDK 版本(例如 JDK6/7)，現代 JUnit5/新版 Mockito 語法或位元組碼版本在這個 JDK 上編不過，只能改用相容的舊版工具鏈(例如 JUnit 4.12 + Mockito 1.10.19，這是最後一批支援 JDK6 的版本)——note 欄位請寫清楚實際 JDK 版本跟建議用的工具鏈版本，工程師會照這個版本寫。" +
+      "\"none\"：這個專案沒辦法跑任何自動化測試(不是 Java/JS 生態、沒有可用的 build test task、程式碼結構完全無法測試這類)，工程師階段維持原本純手動/情境測試流程，不用寫測試。",
+    {
+      projectGid: z.string().describe("Asana 專案 gid"),
+      mode: z.enum(["modern", "legacy_junit4", "none"]).describe("這個專案的自動化測試能力等級"),
+      note: z.string().nullable().optional().describe("補充說明，例如 legacy_junit4 時實際的 JDK 版本與建議工具鏈版本、或 none 時的原因"),
+    },
+    async ({ projectGid, mode, note }) => {
+      await registerTestCapability(projectGid, { mode, note: note ?? null });
+      return textResult({ success: true, projectGid, mode, note: note ?? null });
     }
   );
 

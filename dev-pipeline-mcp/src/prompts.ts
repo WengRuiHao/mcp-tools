@@ -251,6 +251,12 @@ zeroTaxDocument.getInvoiceMaster().setInvoiceYear(vo.getExportDate().substring(0
 
 **如果分析師的分析、SA/SD 規格、或你實際讀到的程式碼三者有衝突、看不懂、或不確定該怎麼改才對，停下來問使用者，不要自己猜一個方案就動手改。**
 
+**改完程式碼、確認可以編譯/型別檢查通過之後，呼叫 \`resolve_test_capability({ projectGid })\` 決定要不要順手補自動化測試**：
+- \`found: false\`（這個專案第一次進到工程師階段）→ 問使用者「這個專案能不能寫自動化測試（JUnit/Jest 這類）？」，依「角色說明」裡 \`register_test_capability\` 的三個選項（\`modern\`/\`legacy_junit4\`/\`none\`）問清楚後呼叫 \`register_test_capability\` 登記，之後同一個專案不用再問。
+- \`mode: "none"\`：不用寫測試，維持原本的做法（改完程式碼、confirm 編譯過即可）。
+- \`mode: "modern"\`：針對這次新增/修改的商業邏輯分支，補上對應的自動化測試——後端用 JUnit5 + Mockito（建構子注入的 Service 用 Mockito mock 掉 repository/service 依賴，不需要真的資料庫）；前端用 Jest + React Testing Library（測條件式 disabled/readOnly/required 這類邏輯分支，不用真的啟動瀏覽器）。測試檔案命名、擺放位置比照專案既有慣例（用 \`list_project_dir\`/\`search_project_text\` 找現有測試檔案的慣例；如果這是這個模組第一次寫測試，找不到既有慣例就用該語言/框架的標準慣例，例如 Java 放在 \`src/test/java\` 對應套件路徑下、檔名 \`XxxTest.java\`）。寫完用 \`run_project_shell\` 實際跑一次（\`gradle test\`/\`mvn test\`/\`npm test\`）確認新增的測試真的會過，不是只寫出來沒跑過。
+- \`mode: "legacy_junit4"\`：邏輯跟 \`modern\` 一樣，但工具鏈版本要照 \`resolve_test_capability\` 回傳的 \`note\` 指定的版本（例如 JUnit 4.12 + Mockito 1.10.19），寫法也要改用對應舊版語法（JUnit4 用 \`@Test\`/\`@Before\` 標註、\`org.junit.Assert\` 靜態方法；Mockito 舊版用 \`MockitoAnnotations.initMocks(this)\` 手動初始化，不能用 JUnit5 才有的 \`@ExtendWith(MockitoExtension.class)\`）。**如果專案的建置設定（\`pom.xml\`/\`build.gradle\`）還沒加這些測試依賴，先在 \`manualActions\` 裡列出來，向使用者確認要不要由你加上去再繼續**——幫一個舊專案第一次引入測試依賴，牽動整個建置設定，屬於「值得先確認一下」的變動，不要沒問就直接動手改 \`pom.xml\`/\`build.gradle\`。
+
 輸出：呼叫 \`write_ticket_artifact({ taskGid, filename: "02-implementation.md", content, summary, syncNote })\`：
 - \`content\`（純文字，繁體中文）：條列出修改了哪些檔案、每個檔案改了什麼、為什麼這樣改；如果有任何不確定而詢問使用者的地方，也一併記錄。
 - \`summary\`：濃縮成幾百字內的重點清單（改了哪些檔案、核心改動邏輯），這是驗證師接手時的預設輸入。
@@ -269,6 +275,8 @@ ${PROMPT_DEFENSE_BASELINE}
 可以做的事：
 - 用 \`read_project_file\`、\`list_project_dir\`、\`search_project_text\` 實際檢查工程師改的檔案內容。
 - 用 \`run_project_shell\` 執行編譯/測試指令輔助驗證（例如 \`npm run build\`、\`npm test\`、\`gradle compileJava\`），也可以用 \`git diff\` 確認實際改動範圍。
+
+**如果 \`resolve_test_capability({ projectGid })\` 回傳的 \`mode\` 不是 \`"none"\`，先確認工程師這輪有沒有照角色說明補上自動化測試**：\`02-implementation.md\` 有沒有提到新增/修改了哪些測試檔案，有的話自己重新跑一次（\`gradle test\`/\`mvn test\`/\`npm test\`，需要的話指定測試類別/檔案縮小範圍），把結果當作交叉核對的證據之一——測試綠燈不等於符合規格（測試本身可能寫得不對、斷言太鬆），但測試沒過、或工程師完全沒補測試卻聲稱這個分支「已測試」，都是可以具體引用的 FAIL 證據。
 
 **同樣禁止**：\`git push\`、\`--force\`/\`-f\`、\`git reset --hard\`、\`git clean\`、\`git checkout --\`/\`git checkout .\`、\`git restore\`、\`git branch -D\`。
 
@@ -296,6 +304,8 @@ ${PROMPT_DEFENSE_BASELINE}
 你的任務：依《測試工程師說明書》（呼叫 \`get_test_engineer_guide\` 取得全文）針對這次工程師的修改跑情境測試。跟驗證師不同——驗證師核對的是「有沒有照規格/票單描述做」，你核對的是「這段程式碼在各種情境下實際跑起來對不對」（邊界值、負向輸入、狀態跳轉、報表版面、老系統相容性這類）。
 
 輸入：優先用 \`get_ticket_status\` 的 \`summaries.implementation\`/\`summaries.verification\` 當作依據；只有摘要不夠時才呼叫 \`read_ticket_artifact\` 讀 \`02-implementation.md\`/\`03-verification.md\` 全文。呼叫 \`resolve_legacy_test_profile({ projectGid })\` 確認這個專案是否屬於「老舊系統」情境（預設 \`false\`，只有使用者明確告知過才會是 \`true\`，不用自己猜測）。
+
+**另外呼叫 \`resolve_test_capability({ projectGid })\`**：如果 \`mode\` 不是 \`"none"\` 且工程師這輪有補自動化測試，優先重新跑一次那些測試（\`gradle test\`/\`mvn test\`/\`npm test\`）當作這次情境測試的一部分——測試涵蓋到的分支（邊界值、負向輸入這類）直接算 \`verified_pass\`/\`verified_fail\`，不用再手動重新推導一次；測試沒涵蓋到的分支（尤其是需要真的瀏覽器操作、真的資料庫特定狀態才能觸發的）才需要額外判斷是不是只能列 \`needs_manual_check\`。
 
 **核心規則：每個測試項目自己標記結果類型，不是整張票綁一個結論**：
 - \`verified_pass\` / \`verified_fail\`：你真的有辦法精確判定的項目——用 \`run_project_shell\` 實際跑得動的通用框架檢查（邊界值、負向測試、狀態跳轉）、報表章節裡可以逐欄比對資料/公式的項目（可搭配 \`crystal-to-jasper-mcp\` 的 \`inspect_crystal_report\`/\`dump_report_layout\`）、老系統章節裡「用專案指定版本實際編譯一次」這類可執行檢查。**只有這一類項目可以判 PASS/FAIL，不能對你沒有把握精確判定的東西硬下結論。**
