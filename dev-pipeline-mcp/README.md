@@ -63,6 +63,7 @@ npm run build
 | `resolve_project_dir` / `register_project_dir` | 對應哪個本機/伺服器程式碼目錄 |
 | `resolve_sasd_config` / `register_sasd_config` | SA/SD 規格放哪、模式為何（見下表） |
 | `resolve_legacy_test_profile` / `register_legacy_test_profile` | 這個專案要不要套用測試工程師說明書的「老舊系統測試」章節（JDK6+舊IE這類，預設 `false`，只有使用者明確告知才登記為 `true`） |
+| `resolve_test_capability` / `register_test_capability` | 這個專案的工程師階段能不能寫自動化測試、用哪套工具鏈（`modern`/`legacy_junit4`/`none`）。跟上面 `legacy_test_profile` 是不同軸向——那個管「測試工程師手動測試要不要套老 IE 章節」，這個管「工程師能不能寫 JUnit/Jest 自動化測試」，一個專案可能兩者都成立，也可能只成立一個 |
 | `resolve_git_roots` / `register_git_roots` | 前後端各自的 git 版控根目錄 |
 
 ### SA/SD 規格四種模式
@@ -103,9 +104,19 @@ npm run build
 
 黃卡是另一個獨立軸向：`tested` 且 `PASS`、內容也沒再變的情況下，票單會先落入「待使用者確認」——**`verdict` 是 AI（驗證師或測試工程師）自己判的結論，不等於真正結案**。使用者呼叫 `record_confirmation({ taskGid, confirmed: true })` 之後，才會真正進入綠卡「已結案」。**`confirmed: false`（回報有問題）會把 `verdict` 重設回 `null`、標記 `humanRejected: true`，重新套用跟上面 `FAIL` 完全一樣的根因分流機制**，不是留給人工事後自己判斷、也不是另開一條獨立流程。這整段狀態轉換只落在本地追蹤檔案裡，**不會回寫到 Asana 本身**——`asana-mcp` 刻意設計成唯讀，Asana 上要不要標記完成一律交由使用者自己手動處理。
 
+### 工程師階段：要不要補自動化測試（`resolve_test_capability` / `register_test_capability`）
+
+工程師改完程式碼、確認可以編譯/型別檢查通過之後，呼叫 `resolve_test_capability` 決定要不要順手補自動化測試。跟 `sdMode`/`specOrder` 一樣是**專案層級設定**，第一次進到這個專案的工程師階段（`found: false`）才會問使用者一次，問完登記之後同一個專案不用每張票再問：
+
+| mode | 適用情境 | 行為 |
+|---|---|---|
+| `modern` | 現代 JDK/Node，工具鏈完整 | 針對新增/修改的商業邏輯分支補上 JUnit5+Mockito（後端）或 Jest+RTL（前端）測試，寫完用 `run_project_shell` 實際跑一次確認會過 |
+| `legacy_junit4` | 受限於舊 JDK，但仍想要基本自動化覆蓋 | 邏輯跟 `modern` 一樣，但改用舊版語法（JUnit4 `@Test`/`@Before`、舊版 Mockito `initMocks`）；如果建置設定還沒加測試依賴，先問使用者要不要由 AI 加上去，不擅自改 `pom.xml`/`build.gradle` |
+| `none` | 完全無法測試，或決定維持純手動測試（例如上銀，JDK6/7且暫不引入測試依賴） | 不寫測試，維持原本做法（改完程式碼、確認編譯過即可） |
+
 ### 測試工程師階段（`tested`）
 
-`verified` 判 PASS 之後、人類最終確認之前新增的一關，每張票都會經過。跟驗證師（核對規格/程式碼是否一致）不同——測試工程師核對的是「這段程式碼在各種情境下實際跑起來對不對」，依 `get_test_engineer_guide` 取得的測試工程師說明書（通用測試框架／報表測試／老舊系統測試三章）跑情境測試。
+`verified` 判 PASS 之後、人類最終確認之前新增的一關，每張票都會經過。跟驗證師（核對規格/程式碼是否一致）不同——測試工程師核對的是「這段程式碼在各種情境下實際跑起來對不對」，依 `get_test_engineer_guide` 取得的測試工程師說明書（通用測試框架／報表測試／老舊系統測試三章）跑情境測試。**如果 `resolve_test_capability` 回傳的 `mode` 不是 `none` 且工程師這輪真的補了測試，測試工程師會優先重新跑一次那些測試當作情境測試的交叉核對證據**——測試涵蓋到的分支直接算 `verified_pass`/`verified_fail`，沒涵蓋到的（需要真的瀏覽器操作、真的資料庫特定狀態才能觸發）才需要另外判斷是不是只能列 `needs_manual_check`。
 
 **每個測試項目自己標記結果類型，不是整張票綁一個結論**：AI 真的有辦法精確判定的項目（例如跑得動的邊界值測試、報表欄位/公式逐欄比對、用指定版本實際編譯）標記 `verified_pass`/`verified_fail`，只有 `verified_fail` 才影響整張票的 `verdict`、觸發跟驗證師一樣的根因自動打回；AI 沒有精確依據、只能提醒使用者的項目（例如報表版面視覺比對、老 IE 實際渲染）標記 `needs_manual_check`，不卡關，透過 `manualActions` 帶到人類最終確認那一關。
 
@@ -166,7 +177,7 @@ npm run build
 ## 提供的工具
 
 <details>
-<summary>展開完整工具清單（43 個）</summary>
+<summary>展開完整工具清單（45 個）</summary>
 
 | 工具 | 用途 |
 |---|---|
@@ -181,6 +192,7 @@ npm run build
 | `resolve_project_dir` / `register_project_dir` | 查詢/登記 Asana 專案 → 程式碼目錄 |
 | `resolve_sasd_config` / `register_sasd_config` | 查詢/登記 SA/SD 規格設定；`external`/`self` 會真的驗證 SVN 連線才登記成功；`self-generated` 還要額外登記 `specOrder`（`spec_first`/`code_first`） |
 | `resolve_legacy_test_profile` / `register_legacy_test_profile` | 查詢/登記這個專案要不要套用測試工程師說明書的「老舊系統測試」章節（JDK6+舊IE這類，預設 `false`，只有使用者明確告知才登記為 `true`，不自動偵測） |
+| `resolve_test_capability` / `register_test_capability` | 查詢/登記這個專案工程師階段能不能寫自動化測試、用哪套工具鏈（`modern`/`legacy_junit4`/`none`）；測試工程師階段會依這個設定決定要不要重跑工程師補的測試當交叉核對證據 |
 | `read_project_sd_doc` / `write_project_sd_doc` | 讀寫「自維護」SD 文件（`self-generated` 專用），寫在 `sdOutputPath` 真實本機檔案 |
 | `get_sd_spec_template` / `get_sd_spec_versioning_rules` | SD 規格撰寫範本／版更規範，寫入前應先呼叫其中之一 |
 | `get_test_engineer_guide` | 取得測試工程師說明書：通用測試框架／報表測試／老舊系統測試三章檢查清單，供設計測試案例、跑手動/情境測試時查，跟驗證師角色的規格/程式碼交叉核對是不同用途 |
