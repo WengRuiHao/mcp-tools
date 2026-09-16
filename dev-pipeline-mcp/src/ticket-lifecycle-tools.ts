@@ -4,6 +4,7 @@ import { callAsanaTool } from "./mcp-clients.js";
 import { resolveProjectDir } from "./project-registry.js";
 import {
   readStatus,
+  peekStatus,
   advanceStage,
   recordConfirmation,
   recordSpecConfirmation,
@@ -60,7 +61,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
           const sectionNames = (task.memberships ?? []).map((m: any) => m.section?.name);
           if (!sectionNames.includes(sectionFilter)) continue;
         }
-        const status = await readStatus(task.gid);
+        const status = await peekStatus(task.gid);
 
         // 人工手動待辦跟連續 FAIL 安全閥，不管這張票目前卡在哪個分流，都要獨立檢查一次——不能只在某個分支裡順便處理。
         const manualActions = [
