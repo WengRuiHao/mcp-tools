@@ -8,6 +8,7 @@ import {
   listTicketsUnderProject,
   writePendingActionsReport,
   resolveTicketDisplayName,
+  type ManualActionItem,
 } from "./pipeline-store.js";
 
 /**
@@ -38,10 +39,10 @@ export function extractClaimedUncommittedFiles(action: string): string[] {
  * `resolve_manual_action` 比對用的仍然是完整原文。
  */
 export function filterOutGitCommitActions(
-  manualActionsList: { taskGid: string; name: string; actions: string[] }[]
-): { taskGid: string; name: string; actions: string[] }[] {
+  manualActionsList: { taskGid: string; name: string; actions: ManualActionItem[] }[]
+): { taskGid: string; name: string; actions: ManualActionItem[] }[] {
   return manualActionsList
-    .map((t) => ({ ...t, actions: t.actions.filter((a) => extractClaimedUncommittedFiles(a).length === 0) }))
+    .map((t) => ({ ...t, actions: t.actions.filter((a) => extractClaimedUncommittedFiles(a.text).length === 0) }))
     .filter((t) => t.actions.length > 0);
 }
 
@@ -53,7 +54,7 @@ export function filterOutGitCommitActions(
  */
 export async function getUncommittedChangesSummary(
   projectDir: string,
-  manualActionsList: { taskGid: string; name: string; actions: string[] }[]
+  manualActionsList: { taskGid: string; name: string; actions: ManualActionItem[] }[]
 ): Promise<{
   registered: boolean;
   roots: {
@@ -70,7 +71,7 @@ export async function getUncommittedChangesSummary(
   const claimantsByBasename = new Map<string, { taskGid: string; name: string }[]>();
   for (const ticket of manualActionsList) {
     for (const action of ticket.actions) {
-      for (const filename of extractClaimedUncommittedFiles(action)) {
+      for (const filename of extractClaimedUncommittedFiles(action.text)) {
         const existing = claimantsByBasename.get(filename) ?? [];
         if (!existing.some((t) => t.taskGid === ticket.taskGid)) {
           existing.push({ taskGid: ticket.taskGid, name: ticket.name });
@@ -134,7 +135,7 @@ export async function getPipelineAsanaUserGid(): Promise<string | null> {
 /**
  * 任何單張票的狀態異動（advance_ticket_stage/write_ticket_artifact/resolve_manual_action/
  * record_confirmation/resync_ticket_artifact）呼叫完之後都會呼叫這個函式，局部重建這張票所屬
- * Asana 專案的 PENDING_HUMAN_ACTIONS.md——不依賴呼叫端記得額外呼叫 list_pending_tickets，這樣
+ * Asana 專案的 PENDING_HUMAN_ACTIONS.html——不依賴呼叫端記得額外呼叫 list_pending_tickets，這樣
  * 不管誰在用這個 MCP、用什麼話術觸發 pipeline，這份報告都不會因為漏了一步而變成舊資料。
  *
  * 純本機運算（不查 Asana 看板），根據每張已追蹤票單本地已知的狀態欄位重建——換的是「不用為了同步
@@ -163,7 +164,7 @@ export async function syncPendingActionsReport(ticketGid: string): Promise<void>
     const awaitingConfirmation: { taskGid: string; name: string }[] = [];
     const needsHumanReviewList: { taskGid: string; name: string; consecutiveFailCount: number }[] = [];
     const contentChangedList: { taskGid: string; name: string; stage: string }[] = [];
-    const manualActionsList: { taskGid: string; name: string; actions: string[] }[] = [];
+    const manualActionsList: { taskGid: string; name: string; actions: ManualActionItem[] }[] = [];
 
     for (const gid of ticketGids) {
       const s = await peekStatus(gid);
@@ -174,10 +175,17 @@ export async function syncPendingActionsReport(ticketGid: string): Promise<void>
       if (s.last_seen_completed) continue;
       const name = await resolveTicketDisplayName(gid, s);
 
-      const manualActions = [...s.implementation_manual_actions, ...s.verification_manual_actions];
+      const manualActions: ManualActionItem[] = [
+        ...s.implementation_manual_actions.map((text) => ({ filename: "02-implementation.md" as const, text })),
+        ...s.verification_manual_actions.map((text) => ({ filename: "03-verification.md" as const, text })),
+        ...s.test_manual_actions.map((text) => ({ filename: "04-test.md" as const, text })),
+      ];
       if (manualActions.length > 0) manualActionsList.push({ taskGid: gid, name, actions: manualActions });
 
-      if (s.stage === "verified" && s.verdict === "FAIL" && needsHumanReview(s)) {
+      // "tested" 是 "verified" 之後、人類確認之前新增的一關（見 [[README]] 測試工程師階段），FAIL 在
+      // 兩個階段都可能發生——這裡要跟 ticket-lifecycle-tools.ts 的 list_pending_tickets 用同一個條件，
+      // 只檢查 "verified" 會漏掉 2026-09-14 新增 tested 階段之後才 FAIL 的票單。
+      if ((s.stage === "verified" || s.stage === "tested") && s.verdict === "FAIL" && needsHumanReview(s)) {
         needsHumanReviewList.push({ taskGid: gid, name, consecutiveFailCount: s.consecutive_fail_count });
       }
 
@@ -186,8 +194,10 @@ export async function syncPendingActionsReport(ticketGid: string): Promise<void>
         continue;
       }
 
-      const isVerifiedPass = s.stage === "verified" && s.verdict === "PASS";
-      if (isVerifiedPass && !s.needs_reanalysis) {
+      // 只有走到 "tested" 且 PASS，才代表 AI 這邊全部檢查完，可以進入 awaitingConfirmation——
+      // "verified" PASS 本身還沒經過測試工程師這一關，不能提早算數（同上，對齊 list_pending_tickets 的 isTestedPass）。
+      const isTestedPass = s.stage === "tested" && s.verdict === "PASS";
+      if (isTestedPass && !s.needs_reanalysis) {
         if (s.confirmation?.confirmed === true) continue;
         awaitingConfirmation.push({ taskGid: gid, name });
         continue;

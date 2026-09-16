@@ -1,8 +1,9 @@
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { access, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { getTicketsIndexFile } from "./config-store.js";
 import { readJsonFile, updateJsonFile, withFileLock, writeJsonFileAtomic } from "./atomic-store.js";
+import { resolveHttpBridgePort } from "./http-bridge-config.js";
 
 export interface TicketSummaries {
   analysis: string | null;
@@ -43,13 +44,13 @@ export interface TicketSyncState {
 export interface TicketStatus {
   stage: "new" | "snapshot" | "project_dir_confirmed" | "analyzed" | "sd_drafted" | "implemented" | "verified" | "tested";
   project_dir: string | null;
-  /** 這張票所屬的 Asana 專案「全名稱」（未消毒過的原始字串）。get_ticket_snapshot 時自動記錄，供任何單張票的狀態異動事後局部重建 PENDING_HUMAN_ACTIONS.md 用（見 syncPendingActionsReport/listTicketsUnderProject），不需要呼叫端每次額外傳遞或記得重新呼叫 list_pending_tickets。 */
+  /** 這張票所屬的 Asana 專案「全名稱」（未消毒過的原始字串）。get_ticket_snapshot 時自動記錄，供任何單張票的狀態異動事後局部重建 PENDING_HUMAN_ACTIONS.html 用（見 syncPendingActionsReport/listTicketsUnderProject），不需要呼叫端每次額外傳遞或記得重新呼叫 list_pending_tickets。 */
   project_name: string | null;
-  /** 這張票在 Asana 上的顯示名稱（task.name）。get_ticket_snapshot 時自動記錄，同上用途——讓局部重建 PENDING_HUMAN_ACTIONS.md 不需要重新查 Asana 就能顯示票名。 */
+  /** 這張票在 Asana 上的顯示名稱（task.name）。get_ticket_snapshot 時自動記錄，同上用途——讓局部重建 PENDING_HUMAN_ACTIONS.html 不需要重新查 Asana 就能顯示票名。 */
   name: string | null;
   /** 上次抓取時 Asana 這張票的指派人 gid（task.assignee?.gid），沒有指派人是 null。get_ticket_snapshot 時自動記錄。用途：判斷「Asana 內容已被異動，待重新確認」這個提醒該不該冒出來——只有指派人剛好是這個 pipeline 帳號本人時，才代表有人是刻意指派這張票要（重新）處理，用來過濾掉「內容雖然變了、但根本沒指派給這個帳號」這種不需要現在關注的雜訊。 */
   last_seen_assignee_gid: string | null;
-  /** 上次抓取時 Asana 這張票的 task.completed。get_ticket_snapshot 時自動記錄。用途：syncPendingActionsReport 局部重建 PENDING_HUMAN_ACTIONS.md 時，只能看本機已追蹤票單、無法像 list_pending_tickets 那樣即時查 Asana board 排除已完成的任務——這個欄位是替代方案，true 的票單會整張從局部重建結果排除，避免專案裡歷年累積、Asana 上早就標記完成的舊票單無限期在報告裡復活。預設 false（還沒被新版程式碼碰過的舊票單，要等下次 get_ticket_snapshot 才會補上真實值）。 */
+  /** 上次抓取時 Asana 這張票的 task.completed。get_ticket_snapshot 時自動記錄。用途：syncPendingActionsReport 局部重建 PENDING_HUMAN_ACTIONS.html 時，只能看本機已追蹤票單、無法像 list_pending_tickets 那樣即時查 Asana board 排除已完成的任務——這個欄位是替代方案，true 的票單會整張從局部重建結果排除，避免專案裡歷年累積、Asana 上早就標記完成的舊票單無限期在報告裡復活。預設 false（還沒被新版程式碼碰過的舊票單，要等下次 get_ticket_snapshot 才會補上真實值）。 */
   last_seen_completed: boolean;
   verdict: "PASS" | "FAIL" | null;
   sasd_checked: boolean;
@@ -207,7 +208,7 @@ export async function assignTicketDir(
  *
  * 只更新 `tickets-index.json`（路徑對照表）跟受影響票單各自 `status.json` 的 `project_name` 欄位；
  * `ticket.md`/`0N-*.md` 的檔案內容本身不受影響（直接整個資料夾用 rename 搬移，內容原封不動）。
- * 呼叫端自己負責在搬移前後呼叫 `syncPendingActionsReport`，讓新舊兩個專案的 `PENDING_HUMAN_ACTIONS.md`
+ * 呼叫端自己負責在搬移前後呼叫 `syncPendingActionsReport`，讓新舊兩個專案的 `PENDING_HUMAN_ACTIONS.html`
  * 都跟著更新（這個函式不匯入 pending-actions-sync.ts，避免循環依賴）。
  */
 export async function relocateTicketDir(
@@ -279,7 +280,7 @@ export async function relocateTicketDir(
  * 記錄這張票所屬的 Asana 專案脈絡（project_dir/project_name）、顯示名稱、跟目前指派人 gid——
  * 供之後任何單張票的狀態異動（advance_ticket_stage/write_ticket_artifact/resolve_manual_action/
  * record_confirmation）在不知道 projectGid、不重新查 Asana 的情況下，也能局部重建這個專案的
- * PENDING_HUMAN_ACTIONS.md（見 index.ts 的 syncPendingActionsReport），不依賴呼叫端記得在每次
+ * PENDING_HUMAN_ACTIONS.html（見 index.ts 的 syncPendingActionsReport），不依賴呼叫端記得在每次
  * 異動後額外呼叫 list_pending_tickets 才能讓這份報告保持最新。
  * get_ticket_snapshot 每次都會呼叫（即使內容沒變），讓子任務、還沒走到 project_dir_confirmed
  * 階段的票單也能盡早補上這些欄位；project_dir 只在還沒被 advance_ticket_stage 明確設定過時才會
@@ -306,7 +307,7 @@ export async function recordProjectContext(
 /**
  * 列出某個 Asana 專案底下，目前為止已經呼叫過 get_ticket_snapshot 的所有票單 taskGid
  * （不管是頂層票單還是巢狀子任務）。純粹比對本機 tickets-index.json 的目錄路徑前綴，不呼叫
- * Asana——這是讓單張票狀態異動後，也能低成本局部重建 PENDING_HUMAN_ACTIONS.md 的關鍵：不需要
+ * Asana——這是讓單張票狀態異動後，也能低成本局部重建 PENDING_HUMAN_ACTIONS.html 的關鍵：不需要
  * 為了同步一份報告，就對 Asana 重新拉一次整個看板。
  * 代價：全新、還沒被任何一次 get_ticket_snapshot 摸過的票單不會出現在這裡——這類票單的發現仍然
  * 只能靠 list_pending_tickets 對 Asana 的完整查詢，兩者互補、不互相取代。
@@ -571,7 +572,7 @@ export async function recordArtifactSummary(ticketGid: string, filename: string,
       // 曾經清空過（假設 01 改完engineer/verifier 一定會緊接著重跑、屆時 write_ticket_artifact 寫 02/03 的必填 manualActions
       // 會自然覆蓋掉舊清單），但實際上 01 被重寫、stage 卻還停在 verified（例如只是針對 needs_reanalysis 誤觸發做複查、
       // 沒有真的重跑工程師/驗證師）的情況很常見——那樣清空只會讓真正還沒處理完的手動待辦（SQL/I18N之類）從
-      // PENDING_HUMAN_ACTIONS.md 憑空消失、沒有任何機制會補回來。02/03 各自的 manualActions 本來就是各自獨立累積、
+      // PENDING_HUMAN_ACTIONS.html 憑空消失、沒有任何機制會補回來。02/03 各自的 manualActions 本來就是各自獨立累積、
       // 下次真的重寫 02/03 時必填欄位自然會整份覆蓋成最新版，不需要靠這裡預先清空。
     }
     return { ...status, ...patch };
@@ -594,7 +595,7 @@ export interface SensitiveManualActionHit {
 
 /**
  * 掃 manualActions 陣列裡有沒有夾帶完整 SQL 語句全文、憑證/連線字串——這些追蹤摘要（會被整理進
- * PENDING_HUMAN_ACTIONS.md 這種「給人快速掃過」的地方）只該留技術性描述，例如「已產出 INSERT SQL，
+ * PENDING_HUMAN_ACTIONS.html 這種「給人快速掃過」的地方）只該留技術性描述，例如「已產出 INSERT SQL，
  * 新增 3 語系 OPTIONS_SOURCE 選項資料，待手動執行」，不該把真正的 SQL 全文、真實資料值、密碼/連線字串
  * 整段複製進去（即使這些追蹤檔案只存在本機、沒進任何 git repo，涉及銀行等客戶的人資/薪資資料還是要比照
  * 敏感資料處理原則）。只負責擋在寫入之前提醒改寫，不負責判斷「技術性描述夠不夠精簡」這種主觀問題——
@@ -900,6 +901,12 @@ export async function resolveTicketDisplayName(gid: string, status: TicketStatus
   return gid;
 }
 
+/** 一筆手動待辦事項，帶著它是哪一份文件宣告的（resolve_manual_action 精準比對/移除時需要這個 filename，不能只有文字）。 */
+export interface ManualActionItem {
+  filename: "02-implementation.md" | "03-verification.md" | "04-test.md";
+  text: string;
+}
+
 export interface PendingActionsReportInput {
   /** 只有 sdMode 為 "self-generated" 的專案才會有：規格撰寫者已產出草稿（stage: "sd_drafted"），等使用者確認/打回，工程師階段還不能開始。 */
   awaitingSpecConfirmation: { taskGid: string; name: string }[];
@@ -907,7 +914,7 @@ export interface PendingActionsReportInput {
   needsHumanReview: { taskGid: string; name: string; consecutiveFailCount: number }[];
   /** 已經判過 PASS（或先前分析過）的票單，Asana 上的內容後來又被改過——不能因為之前處理過就跳過，需要重新看內容決定要不要重新分析。 */
   contentChanged: { taskGid: string; name: string; stage: string }[];
-  manualActions: { taskGid: string; name: string; actions: string[] }[];
+  manualActions: { taskGid: string; name: string; actions: ManualActionItem[] }[];
   /**
    * 每個已登記 git 版控根目錄的未 commit 檔案，已依票單分組、且只保留「git status 真的還沒 commit、
    * 又有某張票的 manualActions 點名說是它改的」檔案——跟這次 pipeline 無關的其他未 commit 檔案整份省略，
@@ -968,35 +975,278 @@ function compareTicketNumbers(a: string, b: string): number {
   return a.localeCompare(b);
 }
 
+function escapeHtml(raw: string): string {
+  return raw
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /**
- * 把「跟票單有關的未 commit 檔案」排成「## Git 尚未 commit 的變更」這個區塊，依票單分組——沒登記過 git
+ * 把「跟票單有關的未 commit 檔案」排成「Git 尚未 commit 的變更」這個區塊，依票單分組——沒登記過 git
  * 根目錄、git status 執行失敗、或有根目錄但沒有任何票單點名的檔案還沒 commit，都各自給一句清楚的說明，
  * 不要讓使用者猜「是沒登記、真的沒異動、還是只是沒票單認領」。**每一條以票號（單號）當作最前面的主要
  * 識別字，票名放在後面**（而不是票名在前、票號縮在括號裡當附註）——使用者要在一堆行裡快速找到「這是
  * 哪張票」，票號才是他們真正用來比對 Asana 的鍵；同時把每個 git root 底下的票單群組依票號自然排序，
- * 不依票單被發現/處理的先後順序或票名字母順序排列。
+ * 不依票單被發現/處理的先後順序或票名字母順序排列。這個區塊沒有勾選框——沒有對應的 MCP 工具能「標記
+ * 已 commit」，那本來就是使用者自己跑 git commit 的事，這裡純粹唯讀提醒。
  */
-function renderUncommittedSection(
+function renderUncommittedSectionHtml(
   uncommitted: PendingActionsReportInput["uncommittedChanges"],
   numberMap: Map<string, string>
 ): string {
-  const title = "Git 尚未 commit 的變更";
   if (!uncommitted.registered) {
-    return `## ${title}\n\n（這個專案還沒登記 git 版控根目錄，呼叫 register_git_roots 之後才能檢查）\n`;
+    return `<p class="empty">這個專案還沒登記 git 版控根目錄，呼叫 <code>register_git_roots</code> 之後才能檢查。</p>`;
   }
-  const lines = uncommitted.roots.flatMap((r) => {
-    if (r.error) return [`${r.label}（${r.path}）— git status 執行失敗：${r.error}`];
-    if (r.ticketGroups.length === 0) return [`${r.label}（${r.path}）— 沒有票單點名的檔案還沒 commit`];
+  const items = uncommitted.roots.flatMap((r) => {
+    if (r.error) {
+      return [`<li class="readonly-row neutral"><span class="row-title">${escapeHtml(r.label)}（${escapeHtml(r.path)}）</span><p class="row-detail">git status 執行失敗：${escapeHtml(r.error)}</p></li>`];
+    }
+    if (r.ticketGroups.length === 0) {
+      return [`<li class="readonly-row neutral"><span class="row-title">${escapeHtml(r.label)}（${escapeHtml(r.path)}）</span><p class="row-detail">沒有票單點名的檔案還沒 commit。</p></li>`];
+    }
     const sortedGroups = [...r.ticketGroups].sort((a, b) =>
       compareTicketNumbers(numberMap.get(a.taskGid) ?? a.taskGid, numberMap.get(b.taskGid) ?? b.taskGid)
     );
     return sortedGroups.map((g) => {
-      const fileList = g.files.map((f) => `  - ${f}`).join("\n");
       const number = numberMap.get(g.taskGid) ?? g.taskGid;
-      return `${r.label}（${r.path}）— \`${number}\`：${g.name}（${g.files.length} 個檔案有異動未 commit）\n${fileList}`;
+      const fileList = g.files.map((f) => `<li>${escapeHtml(f)}</li>`).join("");
+      return `<li class="readonly-row neutral"><span class="row-title">${escapeHtml(r.label)} — <code>${escapeHtml(number)}</code>：${escapeHtml(g.name)}</span><p class="row-detail">${g.files.length} 個檔案有異動未 commit：</p><ul class="file-list">${fileList}</ul></li>`;
     });
   });
-  return `## ${title}\n\n${lines.length > 0 ? lines.map((l) => `- [ ] ${l}`).join("\n") : "（無）"}\n`;
+  return items.length > 0 ? `<ul class="readonly-list">${items.join("")}</ul>` : `<p class="empty">（無）</p>`;
+}
+
+function renderManualActionsSection(
+  manualActions: PendingActionsReportInput["manualActions"],
+  numberMap: Map<string, string>
+): string {
+  const rows = manualActions.flatMap((t) =>
+    t.actions.map((a) => {
+      const number = numberMap.get(t.taskGid) ?? t.taskGid;
+      return `<li class="action-row accent">
+        <label>
+          <input type="checkbox" data-manual-checkbox data-taskgid="${escapeHtml(t.taskGid)}" data-filename="${escapeHtml(a.filename)}" data-action="${escapeHtml(a.text)}">
+          <span class="row-title">${escapeHtml(t.name)}（<code>${escapeHtml(number)}</code>）</span>
+        </label>
+        <p class="row-detail">${escapeHtml(a.text)}</p>
+        <p class="row-error" hidden></p>
+      </li>`;
+    })
+  );
+  return rows.length > 0 ? `<ul class="action-list">${rows.join("")}</ul>` : `<p class="empty">（無）</p>`;
+}
+
+/** awaitingConfirmation（record_confirmation）跟 awaitingSpecConfirmation（record_spec_confirmation）共用同一種「確認/打回＋打回要填原因」卡片形狀，只有文案跟打的 endpoint 不同。 */
+function renderConfirmSection(
+  items: { taskGid: string; name: string }[],
+  numberMap: Map<string, string>,
+  opts: { endpoint: string; tone: "warn" | "accent"; yesLabel: string; noLabel: string; notePlaceholder: string }
+): string {
+  const rows = items.map((t) => {
+    const number = numberMap.get(t.taskGid) ?? t.taskGid;
+    return `<li class="confirm-row ${opts.tone}">
+      <span class="row-title">${escapeHtml(t.name)}（<code>${escapeHtml(number)}</code>）</span>
+      <div class="confirm-actions">
+        <button type="button" class="btn btn-yes" data-confirm-yes data-endpoint="${opts.endpoint}" data-taskgid="${escapeHtml(t.taskGid)}">${escapeHtml(opts.yesLabel)}</button>
+        <button type="button" class="btn btn-no" data-confirm-no>${escapeHtml(opts.noLabel)}</button>
+      </div>
+      <div class="reject-note-panel" hidden>
+        <textarea placeholder="${escapeHtml(opts.notePlaceholder)}" rows="2"></textarea>
+        <button type="button" class="btn btn-reject-submit" data-confirm-reject-submit data-endpoint="${opts.endpoint}" data-taskgid="${escapeHtml(t.taskGid)}">送出</button>
+      </div>
+      <p class="row-error" hidden></p>
+    </li>`;
+  });
+  return rows.length > 0 ? `<ul class="action-list">${rows.join("")}</ul>` : `<p class="empty">（無）</p>`;
+}
+
+function renderReadonlySection(items: string[], tone: "stale" | "neutral"): string {
+  if (items.length === 0) return `<p class="empty">（無）</p>`;
+  return `<ul class="readonly-list">${items.map((html) => `<li class="readonly-row ${tone}">${html}</li>`).join("")}</ul>`;
+}
+
+const HTML_HEAD = `<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #f5f2ea; --surface: #ede8db; --surface-2: #e3dcc9; --ink: #2a2620; --ink-muted: #6b6558; --line: #cdc4ae;
+    --accent: #2b6777; --accent-ink: #17414c; --accent-soft: #dbe9ea;
+    --warn: #b9782e; --warn-soft: #f1e2c8;
+    --stale: #a84b36; --stale-soft: #f2dbd2;
+    --good: #4c7a52; --good-soft: #dfe9dd;
+    --font-body: "Noto Sans TC", "Noto Sans", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1c1913; --surface: #262218; --surface-2: #322c1e; --ink: #f0ebde; --ink-muted: #b3ab98; --line: #4a4335;
+      --accent: #74bcc7; --accent-ink: #bfe4ea; --accent-soft: #223a3d;
+      --warn: #e4a962; --warn-soft: #3b2e19;
+      --stale: #e08a70; --stale-soft: #3d271f;
+      --good: #93bd8f; --good-soft: #263323;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1c1913; --surface: #262218; --surface-2: #322c1e; --ink: #f0ebde; --ink-muted: #b3ab98; --line: #4a4335;
+    --accent: #74bcc7; --accent-ink: #bfe4ea; --accent-soft: #223a3d;
+    --warn: #e4a962; --warn-soft: #3b2e19;
+    --stale: #e08a70; --stale-soft: #3d271f;
+    --good: #93bd8f; --good-soft: #263323;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.6; }
+  main { max-width: 880px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 1.5rem; margin: 0 0 6px; }
+  .meta { color: var(--ink-muted); font-size: 0.86rem; margin: 2px 0; }
+  code { font-family: var(--font-mono); font-size: 0.92em; }
+  section.block { margin-top: 32px; }
+  section.block h2 { font-size: 1.05rem; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .count-badge { font-family: var(--font-mono); font-size: 0.78rem; padding: 1px 8px; border-radius: 999px; background: var(--surface-2); color: var(--ink-muted); }
+  .empty { color: var(--ink-muted); font-size: 0.9rem; margin: 6px 0; }
+  ul.action-list, ul.readonly-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  li.action-row, li.confirm-row, li.readonly-row { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; background: var(--surface); }
+  li.accent, li.confirm-row.accent { border-color: var(--accent); background: var(--accent-soft); }
+  li.warn, li.confirm-row.warn { border-color: var(--warn); background: var(--warn-soft); }
+  li.stale { border-color: var(--stale); background: var(--stale-soft); }
+  li.neutral { border-color: var(--line); background: var(--surface); }
+  .action-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; }
+  .action-row input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
+  .row-title { font-weight: 600; }
+  .row-detail { margin: 6px 0 0; color: var(--ink-muted); font-size: 0.9rem; white-space: pre-wrap; }
+  .row-error { margin: 6px 0 0; color: var(--stale); font-size: 0.85rem; }
+  .file-list { margin: 4px 0 0; padding-left: 18px; font-family: var(--font-mono); font-size: 0.82rem; color: var(--ink-muted); }
+  .confirm-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+  .confirm-row .row-title { flex: 1 1 auto; }
+  .confirm-actions { display: flex; gap: 8px; }
+  .reject-note-panel { flex-basis: 100%; display: flex; gap: 8px; margin-top: 4px; }
+  .reject-note-panel[hidden] { display: none; }
+  .reject-note-panel textarea { flex: 1; font-family: var(--font-body); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; resize: vertical; background: var(--bg); color: var(--ink); }
+  .btn { font-family: var(--font-body); font-size: 0.86rem; font-weight: 600; border-radius: 8px; padding: 6px 14px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  .btn:hover:not(:disabled) { filter: brightness(0.96); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-yes { border-color: var(--good); color: var(--good); }
+  .btn-no { border-color: var(--stale); color: var(--stale); }
+  .btn-reject-submit { border-color: var(--accent); color: var(--accent-ink); }
+  li.is-done { opacity: 0.5; }
+  li.is-done .row-title::after { content: " ✓ 已完成"; color: var(--good); font-weight: 700; }
+  #bridge-banner { display: none; border: 1px solid var(--warn); background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 16px; margin-top: 16px; font-size: 0.88rem; }
+  #bridge-banner a { color: inherit; font-weight: 700; }
+  #bridge-banner.show { display: block; }
+</style>`;
+
+/**
+ * 產生的頁面不管是直接 file:// 雙擊打開，還是透過本機 bridge（`npm run start:http`）用
+ * `http://127.0.0.1:<port>/...` 開，長得完全一樣——差別只在互動元件（勾選框/確認按鈕）是否可用。
+ * 一載入就對 bridge 的 `/health` 發一次請求：連得到就啟用互動元件；連不到就整批 disable、
+ * 顯示頂端的提示條，告訴使用者要怎麼啟動 bridge 才能勾選。勾選/確認成功後不會整頁重新整理——
+ * 直接在畫面上把那一列標成「已完成」，重新整理瀏覽器（F5）才會拿到磁碟上剛剛被
+ * `syncPendingActionsReport` 重寫過的最新版本。
+ */
+function buildInteractiveScript(port: number): string {
+  return `<script>
+(function () {
+  var BRIDGE_ORIGIN = "http://127.0.0.1:${port}";
+  var banner = document.getElementById("bridge-banner");
+
+  function setInteractive(enabled) {
+    var controls = document.querySelectorAll("[data-manual-checkbox], [data-confirm-yes], [data-confirm-no], [data-confirm-reject-submit]");
+    controls.forEach(function (el) { el.disabled = !enabled; });
+    if (banner) banner.classList.toggle("show", !enabled);
+  }
+
+  fetch(BRIDGE_ORIGIN + "/health", { method: "GET", mode: "cors" })
+    .then(function (res) { setInteractive(res.ok); })
+    .catch(function () { setInteractive(false); });
+
+  function callBridge(path, payload) {
+    return fetch(BRIDGE_ORIGIN + path, {
+      method: "POST",
+      mode: "cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok || data.success === false) {
+          throw new Error(data.message || ("請求失敗（HTTP " + res.status + "）"));
+        }
+        return data;
+      });
+    });
+  }
+
+  function markDone(row) {
+    row.classList.add("is-done");
+    row.querySelectorAll("button, input, textarea").forEach(function (el) { el.disabled = true; });
+  }
+
+  function showError(row, message) {
+    var err = row.querySelector(".row-error");
+    if (err) { err.hidden = false; err.textContent = message; }
+  }
+
+  document.querySelectorAll("[data-manual-checkbox]").forEach(function (cb) {
+    cb.addEventListener("change", function () {
+      if (!cb.checked) return;
+      var row = cb.closest("li");
+      cb.disabled = true;
+      callBridge("/resolve-manual-action", {
+        taskGid: cb.dataset.taskgid,
+        filename: cb.dataset.filename,
+        action: cb.dataset.action,
+      }).then(function () {
+        markDone(row);
+      }).catch(function (e) {
+        cb.checked = false;
+        cb.disabled = false;
+        showError(row, e.message);
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-confirm-yes]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var row = btn.closest("li");
+      var noBtn = row.querySelector("[data-confirm-no]");
+      btn.disabled = true;
+      if (noBtn) noBtn.disabled = true;
+      callBridge(btn.dataset.endpoint, { taskGid: btn.dataset.taskgid, confirmed: true }).then(function () {
+        markDone(row);
+      }).catch(function (e) {
+        btn.disabled = false;
+        if (noBtn) noBtn.disabled = false;
+        showError(row, e.message);
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-confirm-no]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var row = btn.closest("li");
+      row.querySelector(".reject-note-panel").hidden = false;
+    });
+  });
+
+  document.querySelectorAll("[data-confirm-reject-submit]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var row = btn.closest("li");
+      var note = row.querySelector("textarea").value.trim();
+      if (!note) { showError(row, "請簡短說明發現了什麼問題再送出"); return; }
+      btn.disabled = true;
+      callBridge(btn.dataset.endpoint, { taskGid: btn.dataset.taskgid, confirmed: false, note: note }).then(function () {
+        markDone(row);
+      }).catch(function (e) {
+        btn.disabled = false;
+        showError(row, e.message);
+      });
+    });
+  });
+})();
+</script>`;
 }
 
 export async function writePendingActionsReport(
@@ -1006,7 +1256,11 @@ export async function writePendingActionsReport(
 ): Promise<string> {
   const dir = path.join(projectDir, ".asana-pipeline", sanitizeSegment(projectName));
   await mkdir(dir, { recursive: true });
-  const filePath = path.join(dir, "PENDING_HUMAN_ACTIONS.md");
+  const filePath = path.join(dir, "PENDING_HUMAN_ACTIONS.html");
+
+  // 這份報告曾經是純文字 Markdown（`PENDING_HUMAN_ACTIONS.md`），改成互動版 HTML 後舊檔案
+  // 會變成一份不會再更新的過期快照，容易被誤讀——直接刪掉，不留兩份格式共存造成混淆。
+  await rm(path.join(dir, "PENDING_HUMAN_ACTIONS.md"), { force: true });
 
   const allGids = [
     ...input.awaitingSpecConfirmation.map((t) => t.taskGid),
@@ -1019,39 +1273,81 @@ export async function writePendingActionsReport(
   const numberMap = await buildTicketNumberMap(allGids);
   const number = (taskGid: string) => numberMap.get(taskGid) ?? taskGid;
 
-  const section = (title: string, lines: string[]): string =>
-    `## ${title}\n\n${lines.length > 0 ? lines.map((l) => `- [ ] ${l}`).join("\n") : "（無）"}\n`;
+  const manualActionsCount = input.manualActions.reduce((sum, t) => sum + t.actions.length, 0);
+  const bridgePort = resolveHttpBridgePort();
 
-  const content = [
-    `# 待人工處理清單 — ${projectName}`,
-    "",
-    `> 由 \`dev-pipeline-mcp\` 的 \`list_pending_tickets\` 自動產生/覆寫，最後更新：${nowIso()}`,
-    `> 每次執行 pipeline 都會用當下最新狀態整份重寫這個檔案——不要手動編輯，改動不會被保留。`,
-    `> 括號裡是票號（對照 Asana 上的單號用），偵測不到票號的極少數情況會退回顯示內部 taskGid。`,
-    "",
-    section(
-      "待確認規格草稿（規格撰寫者已產出，確認/打回後工程師才能開始寫程式碼）",
-      input.awaitingSpecConfirmation.map((t) => `${t.name}（\`${number(t.taskGid)}\`）`)
-    ),
-    section(
-      "待確認（AI 驗證師判 PASS，等你自己實測＋審視程式碼品質）",
-      input.awaitingConfirmation.map((t) => `${t.name}（\`${number(t.taskGid)}\`）`)
-    ),
-    section(
-      "卡住需要你介入（連續 FAIL 已達門檻，AI 不會再自動重跑）",
-      input.needsHumanReview.map((t) => `${t.name}（\`${number(t.taskGid)}\`，已連續 FAIL ${t.consecutiveFailCount} 次）`)
-    ),
-    section(
-      "Asana 內容已被異動，待重新確認（先前已處理過，但票單內容後來又被改了）",
-      input.contentChanged.map((t) => `${t.name}（\`${number(t.taskGid)}\`，目前階段：${t.stage}）`)
-    ),
-    section(
-      "需要你手動處理的事項（例如 SQL 只能由你到 Database 工具執行）",
-      input.manualActions.flatMap((t) => t.actions.map((a) => `${t.name}（\`${number(t.taskGid)}\`）— ${a}`))
-    ),
-    renderUncommittedSection(input.uncommittedChanges, numberMap),
-  ].join("\n");
+  const html = `<!doctype html>
+<html lang="zh-Hant">
+<head>
+<title>待人工處理清單 — ${escapeHtml(projectName)}</title>
+${HTML_HEAD}
+</head>
+<body>
+<main>
+  <h1>待人工處理清單 — ${escapeHtml(projectName)}</h1>
+  <p class="meta">由 <code>dev-pipeline-mcp</code> 自動產生/覆寫，最後更新：${escapeHtml(nowIso())}</p>
+  <p class="meta">每次執行 pipeline 都會用當下最新狀態整份重寫這個檔案——不要手動編輯 HTML 原始碼，改動不會被保留；下面的勾選/確認按鈕才是正式的操作入口。</p>
+  <p class="meta">括號裡是票號（對照 Asana 上的單號用），偵測不到票號的極少數情況會退回顯示內部 taskGid。</p>
+  <div id="bridge-banner">⚠ 連不到本機的 dev-pipeline-mcp HTTP bridge（<code>http://127.0.0.1:${bridgePort}</code>），下面的勾選／確認按鈕暫時無法使用（內容仍然是最新的，純唯讀）。在 <code>dev-pipeline-mcp</code> 目錄下執行 <code>npm run start:http</code> 啟動 bridge 後，重新整理這個頁面即可。</div>
 
-  await writeFile(filePath, content, "utf-8");
+  <section class="block">
+    <h2>待確認規格草稿 <span class="count-badge">${input.awaitingSpecConfirmation.length}</span></h2>
+    <p class="meta">規格撰寫者已產出草稿，確認後工程師才能開始寫程式碼；打回的話請簡短說明哪裡要改。</p>
+    ${renderConfirmSection(input.awaitingSpecConfirmation, numberMap, {
+      endpoint: "/record-spec-confirmation",
+      tone: "accent",
+      yesLabel: "✅ 規格沒問題，可以開始寫程式碼",
+      noLabel: "❌ 打回，需要修改",
+      notePlaceholder: "規格草稿哪裡需要修改？",
+    })}
+  </section>
+
+  <section class="block">
+    <h2>待確認 <span class="count-badge">${input.awaitingConfirmation.length}</span></h2>
+    <p class="meta">AI 驗證師／測試工程師都判過了，等你自己實測＋審視程式碼品質。</p>
+    ${renderConfirmSection(input.awaitingConfirmation, numberMap, {
+      endpoint: "/record-confirmation",
+      tone: "warn",
+      yesLabel: "✅ 沒問題，結案",
+      noLabel: "❌ 有問題，回報",
+      notePlaceholder: "實測時發現了什麼問題？",
+    })}
+  </section>
+
+  <section class="block">
+    <h2>卡住需要你介入 <span class="count-badge">${input.needsHumanReview.length}</span></h2>
+    <p class="meta">連續 FAIL 已達門檻，AI 不會再自動重跑——這個狀態沒有對應的「標記已處理」按鈕，請直接請 AI 繼續處理這張票，之後 PASS 會自動清除。</p>
+    ${renderReadonlySection(
+      input.needsHumanReview.map((t) => `<span class="row-title">${escapeHtml(t.name)}（<code>${escapeHtml(number(t.taskGid))}</code>，已連續 FAIL ${t.consecutiveFailCount} 次）</span>`),
+      "stale"
+    )}
+  </section>
+
+  <section class="block">
+    <h2>Asana 內容已被異動，待重新確認 <span class="count-badge">${input.contentChanged.length}</span></h2>
+    <p class="meta">先前已處理過，但票單內容後來又被改了——這一項會在 AI 重新分析這張票之後自動消失，沒有對應的「標記已處理」按鈕。</p>
+    ${renderReadonlySection(
+      input.contentChanged.map((t) => `<span class="row-title">${escapeHtml(t.name)}（<code>${escapeHtml(number(t.taskGid))}</code>，目前階段：${escapeHtml(t.stage)}）</span>`),
+      "stale"
+    )}
+  </section>
+
+  <section class="block">
+    <h2>需要你手動處理的事項 <span class="count-badge">${manualActionsCount}</span></h2>
+    <p class="meta">例如 SQL 只能由你到 Database 工具執行——處理完直接勾起來，會即時通知 AI 從追蹤清單移除這一項。</p>
+    ${renderManualActionsSection(input.manualActions, numberMap)}
+  </section>
+
+  <section class="block">
+    <h2>Git 尚未 commit 的變更</h2>
+    ${renderUncommittedSectionHtml(input.uncommittedChanges, numberMap)}
+  </section>
+</main>
+${buildInteractiveScript(bridgePort)}
+</body>
+</html>
+`;
+
+  await writeFile(filePath, html, "utf-8");
   return filePath;
 }

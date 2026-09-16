@@ -15,6 +15,7 @@ import {
   writePendingActionsReport,
   readArtifact,
   type TicketStatus,
+  type ManualActionItem,
 } from "./pipeline-store.js";
 import { syncPendingActionsReport, getPipelineAsanaUserGid, getUncommittedChangesSummary, filterOutGitCommitActions } from "./pending-actions-sync.js";
 import { textResult } from "./shared.js";
@@ -28,11 +29,12 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       "AI 自己判定 PASS 不等於這張票真的結案，呼叫端每次執行這個工具都必須把這份清單完整秀給使用者看（不能因為這次是來處理別的新票就略過），直到每一張都呼叫過 record_confirmation 為止，才會從清單消失。" +
       "**另外還有 `awaitingSpecConfirmation`**——只有 sdMode 為 \"self-generated\" 的專案才會出現：規格撰寫者已產出/更新 SD 草稿（stage: \"sd_drafted\"），等使用者呼叫 record_spec_confirmation 表態。specOrder 是 \"spec_first\" 的話，確認過工程師階段才能開始寫程式碼；specOrder 是 \"code_first\" 的話，這份草稿是工程師寫完 code 之後才反推補上的，確認過驗證師階段才能繼續往下驗證——不管哪一種，都要主動秀給使用者看。`tickets` 裡標記 `specRejected: true` 的票，代表使用者已經打回這份草稿（confirmed: false），交給規格撰寫者依 note 修改。" +
       "**`tickets`（一般待處理清單）裡如果某張票標記 `humanRejected: true`，代表這不是一張全新沒驗證過的票，而是使用者事後回報有問題、被重新丟回來的票**（`record_confirmation` 帶 `confirmed:false` 時會把這張票的 verdict 重設回 null，讓它重新出現在這裡）——處理這種票要當作跟 AI 驗證師自己判 FAIL 完全一樣的情況，套用同一套根因分流機制（見 get_role_prompt({role:\"verifier\"})/advance_ticket_stage 的 rootCause 說明），不要另外發明一套「人工打回」流程。" +
-      "**帶 `projectName` 時，這次算出來的六類「需要人工處理」項目（待確認規格草稿／待確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更）會整份覆寫進一份持久化的 `PENDING_HUMAN_ACTIONS.md`**（放在 `<projectDir>/.asana-pipeline/<projectName>/` 底下，跟每張票自己的追蹤目錄同一層）——這是為了取代「只在聊天視窗提醒一次，換個 session 就找不到」的做法，不需要任何人記得手動維護。強烈建議每次呼叫都帶上 `projectName`（跟步驟 0 拿到的 Asana 專案全名稱一致）。" +
+      "**帶 `projectName` 時，這次算出來的六類「需要人工處理」項目（待確認規格草稿／待確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更）會整份覆寫進一份持久化的 `PENDING_HUMAN_ACTIONS.html`**（放在 `<projectDir>/.asana-pipeline/<projectName>/` 底下，跟每張票自己的追蹤目錄同一層）——這是為了取代「只在聊天視窗提醒一次，換個 session 就找不到」的做法，不需要任何人記得手動維護。強烈建議每次呼叫都帶上 `projectName`（跟步驟 0 拿到的 Asana 專案全名稱一致）。" +
+      "**`PENDING_HUMAN_ACTIONS.html` 是可以互動的**：待確認規格草稿／待確認／需要你手動處理的事項這三類都有勾選框或確認按鈕，使用者在瀏覽器打開這個檔案直接點，就能即時呼叫 `resolve_manual_action`/`record_confirmation`/`record_spec_confirmation`，不需要透過你——但要先在 `dev-pipeline-mcp` 目錄下執行 `npm run start:http` 啟動本機 HTTP bridge（獨立長駐行程，預設監聽 `http://127.0.0.1:8097`），沒啟動的話頁面會顯示唯讀提示、按鈕整批停用。第一次幫使用者產出這份報告時，提醒他們這個啟動步驟。" +
       "**這份報告不再需要呼叫端手動維護同步時機**——advance_ticket_stage/write_ticket_artifact/resolve_manual_action/record_confirmation/resync_ticket_artifact 這幾個會改動票單狀態的工具，現在每次呼叫完都會自動局部重寫這份報告（純本機運算，不重查 Asana），呼叫這裡的 list_pending_tickets 主要是用來發現「全新、還沒被任何一次 get_ticket_snapshot 摸過」的票單，不是同步這份報告的唯一時機。" +
-      "**`PENDING_HUMAN_ACTIONS.md` 的「Asana 內容已被異動，待重新確認」這個分類，只有這張票目前的指派人剛好是這個 pipeline 帳號本人（透過 asana_me 取得）時才會列進去**——單純內容變了、但沒有人特地把它指派回這個帳號的票單不會出現在這裡，避免大量雜訊。這個過濾條件只影響這份報告要不要顯示，不影響 `tickets`/`contentChangedList` 這兩個回傳欄位本身（那兩個仍然只看內容有沒有變，讓呼叫端知道「這份舊分析可能過期了」）。" +
+      "**`PENDING_HUMAN_ACTIONS.html` 的「Asana 內容已被異動，待重新確認」這個分類，只有這張票目前的指派人剛好是這個 pipeline 帳號本人（透過 asana_me 取得）時才會列進去**——單純內容變了、但沒有人特地把它指派回這個帳號的票單不會出現在這裡，避免大量雜訊。這個過濾條件只影響這份報告要不要顯示，不影響 `tickets`/`contentChangedList` 這兩個回傳欄位本身（那兩個仍然只看內容有沒有變，讓呼叫端知道「這份舊分析可能過期了」）。" +
       "**`uncommittedChanges` 依票單分組，只列出「git status 真的還沒 commit、又有某張票的 manualActions 點名說是它改的」檔案**——跟這次 pipeline 無關的其他未 commit 檔案不在清單裡（要查全部異動請自己跑 git status）。是否真的還沒 commit 仍然以 git 的真實狀態為準，manualActions 文字只用來標出「這個檔案屬於哪張票」。`registered: false` 代表這個專案還沒呼叫過 `register_git_roots`。" +
-      "**`manualActions`/`manualActionsCount`（回傳 JSON 跟 `PENDING_HUMAN_ACTIONS.md` 都一樣）已經濾掉純粹是「尚未 commit」且點得出具體檔名的項目**——那類事項改由上面的 `uncommittedChanges`/「Git 尚未 commit 的變更」區塊負責呈現（跟真實 git status 核對過，比自由文字準確），不會在這裡重複出現造成雜訊。真的還沒 commit 完的檔案永遠看得到（在 Git 區塊），只是不會在這個區塊也出現一次。",
+      "**`manualActions`/`manualActionsCount`（回傳 JSON 跟 `PENDING_HUMAN_ACTIONS.html` 都一樣）已經濾掉純粹是「尚未 commit」且點得出具體檔名的項目**——那類事項改由上面的 `uncommittedChanges`/「Git 尚未 commit 的變更」區塊負責呈現（跟真實 git status 核對過，比自由文字準確），不會在這裡重複出現造成雜訊。真的還沒 commit 完的檔案永遠看得到（在 Git 區塊），只是不會在這個區塊也出現一次。",
     {
       projectGid: z.string().describe("Asana 專案 gid"),
       sectionFilter: z.string().nullable().optional().describe("只取這個 section 名稱底下的任務，不指定就取全部"),
@@ -40,7 +42,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         .string()
         .nullable()
         .optional()
-        .describe("這個 Asana 專案的「全名稱」。有帶的話會把這次算出的待處理項目寫進 PENDING_HUMAN_ACTIONS.md；不帶就只回傳 JSON，不寫檔案。"),
+        .describe("這個 Asana 專案的「全名稱」。有帶的話會把這次算出的待處理項目寫進 PENDING_HUMAN_ACTIONS.html；不帶就只回傳 JSON，不寫檔案。"),
     },
     async ({ projectGid, sectionFilter, projectName }) => {
       const board = await callAsanaTool("asana_board", { projectGid, refresh: true });
@@ -64,10 +66,11 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         const status = await peekStatus(task.gid);
 
         // 人工手動待辦跟連續 FAIL 安全閥，不管這張票目前卡在哪個分流，都要獨立檢查一次——不能只在某個分支裡順便處理。
-        const manualActions = [
-          ...status.implementation_manual_actions,
-          ...status.verification_manual_actions,
-          ...status.test_manual_actions,
+        // 每一項要帶上它是哪一份文件宣告的（filename），resolve_manual_action／互動版報告的勾選按鈕都要靠這個精準比對。
+        const manualActions: ManualActionItem[] = [
+          ...status.implementation_manual_actions.map((text: string) => ({ filename: "02-implementation.md" as const, text })),
+          ...status.verification_manual_actions.map((text: string) => ({ filename: "03-verification.md" as const, text })),
+          ...status.test_manual_actions.map((text: string) => ({ filename: "04-test.md" as const, text })),
         ];
         if (manualActions.length > 0) {
           manualActionsList.push({ taskGid: task.gid, name: task.name, actions: manualActions });
@@ -200,7 +203,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       "AI 判 PASS 只代表「AI 自己檢查過、可以交給人測了」，不是真正結案；只有呼叫這個工具記錄 confirmed: true，這張票才會從 list_pending_tickets 的 awaitingConfirmation 清單裡消失、真正算結案。" +
       "只能在這張票已經跑到 tested 階段之後才能呼叫（代表至少走過一次分析/實作/驗證/測試），否則會被拒絕。" +
       "confirmed: false 代表使用者實際測過、發現有問題——會記錄下 note，並把這張票的 verdict 重設回 null，重新丟回 list_pending_tickets 的一般待處理清單（標記 humanRejected: true），讓 AI 用跟自己判 FAIL 完全一樣的根因分流機制去處理，不是丟給人工事後自己決定。" +
-      "**呼叫完會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.md`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
+      "**呼叫完會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.html`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
       confirmed: z.boolean().describe("使用者自己實測＋審視程式碼品質是否通過：true = 沒問題、真正結案，false = 發現問題"),
@@ -230,7 +233,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       "**confirmed: true**：這張票才會解鎖，繼續往下推進——specOrder 是 \"spec_first\" 的話解鎖工程師階段的 advance_ticket_stage 推進到 \"implemented\"；specOrder 是 \"code_first\" 的話（規格是工程師寫完 code 之後才反推補上的）解鎖驗證師階段推進到 \"verified\"。" +
       "**confirmed: false**：代表這份草稿有問題，記錄下 note 說明哪裡要改，stage 不會變動（還停在 \"sd_drafted\"），這張票會重新出現在 list_pending_tickets 的一般 tickets 清單裡並標記 specRejected: true，交給規格撰寫者依 note 修改後重新呼叫 advance_ticket_stage({ stage: \"sd_drafted\" }) 送出新版本（那次呼叫會自動清空這裡的紀錄，不需要另外呼叫任何清空工具）。" +
       "跟 record_confirmation（結案前那關）是完全獨立的兩個確認點，欄位分開存放，不要混用。" +
-      "**呼叫完會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.md`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
+      "**呼叫完會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.html`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
       confirmed: z.boolean().describe("是否確認這份規格草稿可以動手寫程式碼：true = 沒問題、可以開始，false = 有問題要修改"),
@@ -272,10 +275,10 @@ export function registerTicketLifecycleTools(server: McpServer): void {
 
   server.tool(
     "resolve_manual_action",
-    "把 `implementation_manual_actions`／`verification_manual_actions` 裡『使用者確認已經處理完』的一項移除，其餘保留，讓它不再出現在 `PENDING_HUMAN_ACTIONS.md`。" +
+    "把 `implementation_manual_actions`／`verification_manual_actions` 裡『使用者確認已經處理完』的一項移除，其餘保留，讓它不再出現在 `PENDING_HUMAN_ACTIONS.html`。" +
       "**用在：使用者跟你說某個票單的某項手動待辦（例如某段 SQL、某份多國語系匯入）已經做完了**——不用整份陣列重新宣告一次，只要指出這一項，其餘事項會原封不動保留。" +
       "**`action` 用完整文字精確比對**（前後空白會自動忽略）——文字必須跟 `get_ticket_status`/`list_pending_tickets` 回傳的 `manualActions` 內容一字不差，找不到完全對應的項目時，會回傳 `success: false` 跟這份文件目前的完整清單，讓你核對正確文字後再重試，不要憑印象猜測。" +
-      "移除之後這個工具會自動局部重寫 `PENDING_HUMAN_ACTIONS.md`（純本機運算，不用等下次呼叫 `list_pending_tickets`），不需要呼叫端額外做任何事。",
+      "移除之後這個工具會自動局部重寫 `PENDING_HUMAN_ACTIONS.html`（純本機運算，不用等下次呼叫 `list_pending_tickets`），不需要呼叫端額外做任何事。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
       filename: z
@@ -309,7 +312,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       "**\"tested\" 是 \"verified\" 之後、使用者最終確認之前新增的一關（測試工程師），verdict/rootCause 的規則跟 \"verified\" 完全一樣，兩者共用同一組 consecutive_fail_count/needs_human_review 安全閥**——判斷依據見 get_role_prompt({role:\"tester\"})：只有測試項目裡出現 AI 有把握判定的 verified_fail 才算 FAIL，AI 沒把握判定、只能列出來提醒使用者的項目（needs_manual_check）不影響這裡的 verdict。" +
       "**verdict 設成 \"FAIL\" 時，rootCause 是必填參數**（\"analysis\" 或 \"implementation\"）——判斷這次 FAIL 的根因在分析階段還是實作階段，供下一輪處理這張票時決定要自動跳回分析師還是工程師，不能省略。verdict 不是 \"FAIL\"（PASS，或這次沒有更新 verdict）時，不需要也不應該帶 rootCause，帶了會被拒絕。" +
       "**這個呼叫只要有更新 verdict，就會自動清空 confirmation**（這個人類確認是對上一輪程式碼/結論表態的，新 verdict 出爐代表結論已經更新，舊確認一律作廢，不能沿用）、並機械式維護 consecutive_fail_count（FAIL 累加、PASS 歸零，累加到 3 之後回傳的 needs_human_review 會是 true）。" +
-      "**呼叫完會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.md`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
+      "**呼叫完會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.html`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
       stage: z

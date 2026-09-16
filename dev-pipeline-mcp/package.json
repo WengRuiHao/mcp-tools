@@ -1,7 +1,7 @@
 {
   "name": "dev-pipeline-mcp",
   "version": "0.1.0",
-  "description": "Standalone MCP server that runs the Asana ticket pipeline (analyst -> engineer -> verifier) without depending on Claude Code's Agent/AskUserQuestion tools. Calls the Anthropic API directly for the reasoning stages.",
+  "description": "Standalone MCP server that runs the Asana ticket pipeline (analyst -> engineer -> verifier -> tester). Exposes an MCP (stdio) interface for AI-driven callers and a small persistent HTTP bridge (dist/http-server.js) so PENDING_HUMAN_ACTIONS.html's checkboxes/buttons can resolve manual actions and record confirmations directly.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
+    "start:http": "node dist/http-server.js",
     "dev": "tsc -p tsconfig.json --watch"
   },
   "dependencies": {

@@ -113,7 +113,7 @@ async function ensureSnapshotted(
   }
 
   const dir = await assignTicketDir(projectDir, taskGid, projectName, ticketNumber, parentTaskGid);
-  // 記錄 project_dir/project_name/name/指派人，讓之後這張票任何一次狀態異動都能局部重建 PENDING_HUMAN_ACTIONS.md
+  // 記錄 project_dir/project_name/name/指派人，讓之後這張票任何一次狀態異動都能局部重建 PENDING_HUMAN_ACTIONS.html
   // （見 syncPendingActionsReport），不用每次都額外傳 projectGid/projectName 或重新查一次 Asana。
   await recordProjectContext(
     taskGid,
@@ -197,8 +197,8 @@ export function registerTicketSnapshotTools(server: McpServer): void {
       "get_ticket_snapshot 時因為索引還指著舊路徑，在舊路徑生出一份全新空白的追蹤紀錄，蓋掉/岔開原本的進度。" +
       "務必只透過這個工具搬移。" +
       "成功後回傳 oldDir/newDir/movedDescendants（一併被搬動的子任務 taskGid 清單），並自動局部重建新舊兩個" +
-      "專案資料夾各自的 PENDING_HUMAN_ACTIONS.md（新的會補上這張票，舊的會拿掉——但只有舊專案底下還有其他已" +
-      "追蹤票單時才補得到，如果這是舊專案底下唯一一張已追蹤的票，舊的 PENDING_HUMAN_ACTIONS.md 不會自動清空，" +
+      "專案資料夾各自的 PENDING_HUMAN_ACTIONS.html（新的會補上這張票，舊的會拿掉——但只有舊專案底下還有其他已" +
+      "追蹤票單時才補得到，如果這是舊專案底下唯一一張已追蹤的票，舊的 PENDING_HUMAN_ACTIONS.html 不會自動清空，" +
       "需要人工檢查是否要一併處理/刪除那份檔案）。",
     {
       taskGid: z.string().describe("要修正資料夾歸屬的 Asana 任務 gid（如果它有子任務，會一併搬動）"),
@@ -234,8 +234,8 @@ export function registerTicketSnapshotTools(server: McpServer): void {
         movedDescendants: result.movedDescendants,
         oldProjectReportRefreshed,
         message: oldProjectReportRefreshed
-          ? "搬移完成，新舊兩個專案的 PENDING_HUMAN_ACTIONS.md 都已更新。"
-          : "搬移完成。舊專案底下已經沒有其他已追蹤票單，它的 PENDING_HUMAN_ACTIONS.md 沒有自動更新（可能需要人工檢查是否要一併清理那份檔案）。",
+          ? "搬移完成，新舊兩個專案的 PENDING_HUMAN_ACTIONS.html 都已更新。"
+          : "搬移完成。舊專案底下已經沒有其他已追蹤票單，它的 PENDING_HUMAN_ACTIONS.html 沒有自動更新（可能需要人工檢查是否要一併清理那份檔案）。",
       });
     }
   );
