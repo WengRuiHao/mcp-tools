@@ -1073,7 +1073,7 @@ function renderReadonlySection(items: string[], tone: "stale" | "neutral"): stri
 const HTML_HEAD = `<meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
   :root {
     --bg: #f5f2ea; --surface: #ede8db; --surface-2: #e3dcc9; --ink: #2a2620; --ink-muted: #6b6558; --line: #cdc4ae;
@@ -1081,6 +1081,7 @@ const HTML_HEAD = `<meta charset="utf-8">
     --warn: #b9782e; --warn-soft: #f1e2c8;
     --stale: #a84b36; --stale-soft: #f2dbd2;
     --good: #4c7a52; --good-soft: #dfe9dd;
+    --font-display: "Noto Serif TC", "Noto Serif", serif;
     --font-body: "Noto Sans TC", "Noto Sans", sans-serif;
     --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
   }
@@ -1103,7 +1104,10 @@ const HTML_HEAD = `<meta charset="utf-8">
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.6; }
   main { max-width: 880px; margin: 0 auto; padding: 32px 20px 64px; }
-  h1 { font-size: 1.5rem; margin: 0 0 6px; }
+  header.hero { display: flex; flex-direction: column; gap: 10px; padding-bottom: 22px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+  .eyebrow { font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-ink); margin: 0; }
+  header.hero h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.5rem, 4vw, 2.1rem); text-wrap: balance; margin: 0; }
+  .lede { color: var(--ink-muted); font-size: 0.95rem; max-width: 62ch; margin: 0; }
   .meta { color: var(--ink-muted); font-size: 0.86rem; margin: 2px 0; }
   code { font-family: var(--font-mono); font-size: 0.92em; }
   section.block { margin-top: 32px; }
@@ -1286,9 +1290,12 @@ ${HTML_HEAD}
 </head>
 <body>
 <main>
-  <h1>待人工處理清單 — ${escapeHtml(projectName)}</h1>
-  <p class="meta">由 <code>dev-pipeline-mcp</code> 自動產生/覆寫，最後更新：${escapeHtml(nowIso())}</p>
-  <p class="meta">每次執行 pipeline 都會用當下最新狀態整份重寫這個檔案——不要手動編輯 HTML 原始碼，改動不會被保留；下面的勾選/確認按鈕才是正式的操作入口。</p>
+  <header class="hero">
+    <p class="eyebrow">待人工處理清單 · dev-pipeline-mcp</p>
+    <h1>${escapeHtml(projectName)}</h1>
+    <p class="lede">每次執行 pipeline 都會用當下最新狀態整份重寫這個檔案——不要手動編輯 HTML 原始碼，改動不會被保留；下面的勾選/確認按鈕才是正式的操作入口。</p>
+  </header>
+  <p class="meta">最後更新：${escapeHtml(nowIso())}</p>
   <p class="meta">括號裡是票號（對照 Asana 上的單號用），偵測不到票號的極少數情況會退回顯示內部 taskGid。</p>
   <div id="bridge-banner">⚠ 連不到本機的 dev-pipeline-mcp HTTP bridge（<code>http://127.0.0.1:${bridgePort}</code>），下面的勾選／確認按鈕暫時無法使用（內容仍然是最新的，純唯讀）。在 <code>dev-pipeline-mcp</code> 目錄下執行 <code>npm run start:http</code> 啟動 bridge 後，重新整理這個頁面即可。</div>
 
