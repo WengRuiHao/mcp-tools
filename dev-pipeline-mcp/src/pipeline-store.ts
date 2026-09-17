@@ -1,4 +1,5 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { access, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { getTicketsIndexFile } from "./config-store.js";
@@ -1070,189 +1071,26 @@ function renderReadonlySection(items: string[], tone: "stale" | "neutral"): stri
   return `<ul class="readonly-list">${items.map((html) => `<li class="readonly-row ${tone}">${html}</li>`).join("")}</ul>`;
 }
 
-const HTML_HEAD = `<meta charset="utf-8">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<style>
-  :root {
-    --bg: #f5f2ea; --surface: #ede8db; --surface-2: #e3dcc9; --ink: #2a2620; --ink-muted: #6b6558; --line: #cdc4ae;
-    --accent: #2b6777; --accent-ink: #17414c; --accent-soft: #dbe9ea;
-    --warn: #b9782e; --warn-soft: #f1e2c8;
-    --stale: #a84b36; --stale-soft: #f2dbd2;
-    --good: #4c7a52; --good-soft: #dfe9dd;
-    --font-display: "Noto Serif TC", "Noto Serif", serif;
-    --font-body: "Noto Sans TC", "Noto Sans", sans-serif;
-    --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #1c1913; --surface: #262218; --surface-2: #322c1e; --ink: #f0ebde; --ink-muted: #b3ab98; --line: #4a4335;
-      --accent: #74bcc7; --accent-ink: #bfe4ea; --accent-soft: #223a3d;
-      --warn: #e4a962; --warn-soft: #3b2e19;
-      --stale: #e08a70; --stale-soft: #3d271f;
-      --good: #93bd8f; --good-soft: #263323;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #1c1913; --surface: #262218; --surface-2: #322c1e; --ink: #f0ebde; --ink-muted: #b3ab98; --line: #4a4335;
-    --accent: #74bcc7; --accent-ink: #bfe4ea; --accent-soft: #223a3d;
-    --warn: #e4a962; --warn-soft: #3b2e19;
-    --stale: #e08a70; --stale-soft: #3d271f;
-    --good: #93bd8f; --good-soft: #263323;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.6; }
-  main { max-width: 880px; margin: 0 auto; padding: 32px 20px 64px; }
-  header.hero { display: flex; flex-direction: column; gap: 10px; padding-bottom: 22px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
-  .eyebrow { font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-ink); margin: 0; }
-  header.hero h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.5rem, 4vw, 2.1rem); text-wrap: balance; margin: 0; }
-  .lede { color: var(--ink-muted); font-size: 0.95rem; max-width: 62ch; margin: 0; }
-  .meta { color: var(--ink-muted); font-size: 0.86rem; margin: 2px 0; }
-  code { font-family: var(--font-mono); font-size: 0.92em; }
-  section.block { margin-top: 32px; }
-  section.block h2 { font-size: 1.05rem; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
-  .count-badge { font-family: var(--font-mono); font-size: 0.78rem; padding: 1px 8px; border-radius: 999px; background: var(--surface-2); color: var(--ink-muted); }
-  .empty { color: var(--ink-muted); font-size: 0.9rem; margin: 6px 0; }
-  ul.action-list, ul.readonly-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-  li.action-row, li.confirm-row, li.readonly-row { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; background: var(--surface); }
-  li.accent, li.confirm-row.accent { border-color: var(--accent); background: var(--accent-soft); }
-  li.warn, li.confirm-row.warn { border-color: var(--warn); background: var(--warn-soft); }
-  li.stale { border-color: var(--stale); background: var(--stale-soft); }
-  li.neutral { border-color: var(--line); background: var(--surface); }
-  .action-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; }
-  .action-row input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
-  .row-title { font-weight: 600; }
-  .row-detail { margin: 6px 0 0; color: var(--ink-muted); font-size: 0.9rem; white-space: pre-wrap; }
-  .row-error { margin: 6px 0 0; color: var(--stale); font-size: 0.85rem; }
-  .file-list { margin: 4px 0 0; padding-left: 18px; font-family: var(--font-mono); font-size: 0.82rem; color: var(--ink-muted); }
-  .confirm-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
-  .confirm-row .row-title { flex: 1 1 auto; }
-  .confirm-actions { display: flex; gap: 8px; }
-  .reject-note-panel { flex-basis: 100%; display: flex; gap: 8px; margin-top: 4px; }
-  .reject-note-panel[hidden] { display: none; }
-  .reject-note-panel textarea { flex: 1; font-family: var(--font-body); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; resize: vertical; background: var(--bg); color: var(--ink); }
-  .btn { font-family: var(--font-body); font-size: 0.86rem; font-weight: 600; border-radius: 8px; padding: 6px 14px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
-  .btn:hover:not(:disabled) { filter: brightness(0.96); }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-yes { border-color: var(--good); color: var(--good); }
-  .btn-no { border-color: var(--stale); color: var(--stale); }
-  .btn-reject-submit { border-color: var(--accent); color: var(--accent-ink); }
-  li.is-done { opacity: 0.5; }
-  li.is-done .row-title::after { content: " ✓ 已完成"; color: var(--good); font-weight: 700; }
-  #bridge-banner { display: none; border: 1px solid var(--warn); background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 16px; margin-top: 16px; font-size: 0.88rem; }
-  #bridge-banner a { color: inherit; font-weight: 700; }
-  #bridge-banner.show { display: block; }
-</style>`;
-
 /**
- * 產生的頁面不管是直接 file:// 雙擊打開，還是透過本機 bridge（`npm run start:http`）用
- * `http://127.0.0.1:<port>/...` 開，長得完全一樣——差別只在互動元件（勾選框/確認按鈕）是否可用。
- * 一載入就對 bridge 的 `/health` 發一次請求：連得到就啟用互動元件；連不到就整批 disable、
- * 顯示頂端的提示條，告訴使用者要怎麼啟動 bridge 才能勾選。勾選/確認成功後不會整頁重新整理——
- * 直接在畫面上把那一列標成「已完成」，重新整理瀏覽器（F5）才會拿到磁碟上剛剛被
- * `syncPendingActionsReport` 重寫過的最新版本。
+ * `templates/pending-actions.html` 是這份報告樣式/骨架唯一的來源（見該檔案開頭說明）。
+ * 這裡只做一輪 `{{TOKEN}}` 全域替換，不重掃替換後的內容，所以某個票單標題/備註裡就算剛好包含
+ * 字面上的 `{{...}}` 也不會被誤當成佔位符繼續替換。
+ *
+ * 路徑用 import.meta.url 反推，而不是寫死相對於 process.cwd() 的路徑——這樣不管呼叫端從哪個
+ * 工作目錄啟動這個 MCP 都能正確定位到 `dev-pipeline-mcp/templates/`（跟 dist/pipeline-store.js
+ * 或 src/pipeline-store.ts 同一層的上一層）。
  */
-function buildInteractiveScript(port: number): string {
-  return `<script>
-(function () {
-  var BRIDGE_ORIGIN = "http://127.0.0.1:${port}";
-  var banner = document.getElementById("bridge-banner");
+let cachedTemplate: string | null = null;
+async function loadPendingActionsTemplate(): Promise<string> {
+  if (cachedTemplate) return cachedTemplate;
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const templatePath = path.join(here, "..", "templates", "pending-actions.html");
+  cachedTemplate = await readFile(templatePath, "utf-8");
+  return cachedTemplate;
+}
 
-  function setInteractive(enabled) {
-    var controls = document.querySelectorAll("[data-manual-checkbox], [data-confirm-yes], [data-confirm-no], [data-confirm-reject-submit]");
-    controls.forEach(function (el) { el.disabled = !enabled; });
-    if (banner) banner.classList.toggle("show", !enabled);
-  }
-
-  fetch(BRIDGE_ORIGIN + "/health", { method: "GET", mode: "cors" })
-    .then(function (res) { setInteractive(res.ok); })
-    .catch(function () { setInteractive(false); });
-
-  function callBridge(path, payload) {
-    return fetch(BRIDGE_ORIGIN + path, {
-      method: "POST",
-      mode: "cors",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }).then(function (res) {
-      return res.json().catch(function () { return {}; }).then(function (data) {
-        if (!res.ok || data.success === false) {
-          throw new Error(data.message || ("請求失敗（HTTP " + res.status + "）"));
-        }
-        return data;
-      });
-    });
-  }
-
-  function markDone(row) {
-    row.classList.add("is-done");
-    row.querySelectorAll("button, input, textarea").forEach(function (el) { el.disabled = true; });
-  }
-
-  function showError(row, message) {
-    var err = row.querySelector(".row-error");
-    if (err) { err.hidden = false; err.textContent = message; }
-  }
-
-  document.querySelectorAll("[data-manual-checkbox]").forEach(function (cb) {
-    cb.addEventListener("change", function () {
-      if (!cb.checked) return;
-      var row = cb.closest("li");
-      cb.disabled = true;
-      callBridge("/resolve-manual-action", {
-        taskGid: cb.dataset.taskgid,
-        filename: cb.dataset.filename,
-        action: cb.dataset.action,
-      }).then(function () {
-        markDone(row);
-      }).catch(function (e) {
-        cb.checked = false;
-        cb.disabled = false;
-        showError(row, e.message);
-      });
-    });
-  });
-
-  document.querySelectorAll("[data-confirm-yes]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var row = btn.closest("li");
-      var noBtn = row.querySelector("[data-confirm-no]");
-      btn.disabled = true;
-      if (noBtn) noBtn.disabled = true;
-      callBridge(btn.dataset.endpoint, { taskGid: btn.dataset.taskgid, confirmed: true }).then(function () {
-        markDone(row);
-      }).catch(function (e) {
-        btn.disabled = false;
-        if (noBtn) noBtn.disabled = false;
-        showError(row, e.message);
-      });
-    });
-  });
-
-  document.querySelectorAll("[data-confirm-no]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var row = btn.closest("li");
-      row.querySelector(".reject-note-panel").hidden = false;
-    });
-  });
-
-  document.querySelectorAll("[data-confirm-reject-submit]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var row = btn.closest("li");
-      var note = row.querySelector("textarea").value.trim();
-      if (!note) { showError(row, "請簡短說明發現了什麼問題再送出"); return; }
-      btn.disabled = true;
-      callBridge(btn.dataset.endpoint, { taskGid: btn.dataset.taskgid, confirmed: false, note: note }).then(function () {
-        markDone(row);
-      }).catch(function (e) {
-        btn.disabled = false;
-        showError(row, e.message);
-      });
-    });
-  });
-})();
-</script>`;
+function renderTemplate(template: string, tokens: Record<string, string | number>): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (match, key) => (key in tokens ? String(tokens[key]) : match));
 }
 
 export async function writePendingActionsReport(
@@ -1282,80 +1120,42 @@ export async function writePendingActionsReport(
   const manualActionsCount = input.manualActions.reduce((sum, t) => sum + t.actions.length, 0);
   const bridgePort = resolveHttpBridgePort();
 
-  const html = `<!doctype html>
-<html lang="zh-Hant">
-<head>
-<title>待人工處理清單 — ${escapeHtml(projectName)}</title>
-${HTML_HEAD}
-</head>
-<body>
-<main>
-  <header class="hero">
-    <p class="eyebrow">待人工處理清單 · dev-pipeline-mcp</p>
-    <h1>${escapeHtml(projectName)}</h1>
-    <p class="lede">每次執行 pipeline 都會用當下最新狀態整份重寫這個檔案——不要手動編輯 HTML 原始碼，改動不會被保留；下面的勾選/確認按鈕才是正式的操作入口。</p>
-  </header>
-  <p class="meta">最後更新：${escapeHtml(nowIso())}</p>
-  <p class="meta">括號裡是票號（對照 Asana 上的單號用），偵測不到票號的極少數情況會退回顯示內部 taskGid。</p>
-  <div id="bridge-banner">⚠ 連不到本機的 dev-pipeline-mcp HTTP bridge（<code>http://127.0.0.1:${bridgePort}</code>），下面的勾選／確認按鈕暫時無法使用（內容仍然是最新的，純唯讀）。這個 bridge 會跟著任一個連上 <code>dev-pipeline-mcp</code> 的 Claude Code session 自動啟動——開一個 Claude Code session 連上這個 MCP（或在 <code>dev-pipeline-mcp</code> 目錄下手動執行 <code>npm run start:http</code>）後，重新整理這個頁面即可。</div>
-
-  <section class="block">
-    <h2>待確認規格草稿 <span class="count-badge">${input.awaitingSpecConfirmation.length}</span></h2>
-    <p class="meta">規格撰寫者已產出草稿，確認後工程師才能開始寫程式碼；打回的話請簡短說明哪裡要改。</p>
-    ${renderConfirmSection(input.awaitingSpecConfirmation, numberMap, {
+  const template = await loadPendingActionsTemplate();
+  const html = renderTemplate(template, {
+    TITLE: `待人工處理清單 — ${escapeHtml(projectName)}`,
+    PROJECT_NAME: escapeHtml(projectName),
+    LAST_UPDATED: escapeHtml(nowIso()),
+    BRIDGE_PORT: bridgePort,
+    SPEC_DRAFT_COUNT: input.awaitingSpecConfirmation.length,
+    SPEC_DRAFT_SECTION: renderConfirmSection(input.awaitingSpecConfirmation, numberMap, {
       endpoint: "/record-spec-confirmation",
       tone: "accent",
       yesLabel: "✅ 規格沒問題，可以開始寫程式碼",
       noLabel: "❌ 打回，需要修改",
       notePlaceholder: "規格草稿哪裡需要修改？",
-    })}
-  </section>
-
-  <section class="block">
-    <h2>待確認 <span class="count-badge">${input.awaitingConfirmation.length}</span></h2>
-    <p class="meta">AI 驗證師／測試工程師都判過了，等你自己實測＋審視程式碼品質。</p>
-    ${renderConfirmSection(input.awaitingConfirmation, numberMap, {
+    }),
+    AWAITING_COUNT: input.awaitingConfirmation.length,
+    AWAITING_SECTION: renderConfirmSection(input.awaitingConfirmation, numberMap, {
       endpoint: "/record-confirmation",
       tone: "warn",
       yesLabel: "✅ 沒問題，結案",
       noLabel: "❌ 有問題，回報",
       notePlaceholder: "實測時發現了什麼問題？",
-    })}
-  </section>
-
-  <section class="block">
-    <h2>卡住需要你介入 <span class="count-badge">${input.needsHumanReview.length}</span></h2>
-    <p class="meta">連續 FAIL 已達門檻，AI 不會再自動重跑——這個狀態沒有對應的「標記已處理」按鈕，請直接請 AI 繼續處理這張票，之後 PASS 會自動清除。</p>
-    ${renderReadonlySection(
+    }),
+    STUCK_COUNT: input.needsHumanReview.length,
+    STUCK_SECTION: renderReadonlySection(
       input.needsHumanReview.map((t) => `<span class="row-title">${escapeHtml(t.name)}（<code>${escapeHtml(number(t.taskGid))}</code>，已連續 FAIL ${t.consecutiveFailCount} 次）</span>`),
       "stale"
-    )}
-  </section>
-
-  <section class="block">
-    <h2>Asana 內容已被異動，待重新確認 <span class="count-badge">${input.contentChanged.length}</span></h2>
-    <p class="meta">先前已處理過，但票單內容後來又被改了——這一項會在 AI 重新分析這張票之後自動消失，沒有對應的「標記已處理」按鈕。</p>
-    ${renderReadonlySection(
+    ),
+    CHANGED_COUNT: input.contentChanged.length,
+    CHANGED_SECTION: renderReadonlySection(
       input.contentChanged.map((t) => `<span class="row-title">${escapeHtml(t.name)}（<code>${escapeHtml(number(t.taskGid))}</code>，目前階段：${escapeHtml(t.stage)}）</span>`),
       "stale"
-    )}
-  </section>
-
-  <section class="block">
-    <h2>需要你手動處理的事項 <span class="count-badge">${manualActionsCount}</span></h2>
-    <p class="meta">例如 SQL 只能由你到 Database 工具執行——處理完直接勾起來，會即時通知 AI 從追蹤清單移除這一項。</p>
-    ${renderManualActionsSection(input.manualActions, numberMap)}
-  </section>
-
-  <section class="block">
-    <h2>Git 尚未 commit 的變更</h2>
-    ${renderUncommittedSectionHtml(input.uncommittedChanges, numberMap)}
-  </section>
-</main>
-${buildInteractiveScript(bridgePort)}
-</body>
-</html>
-`;
+    ),
+    MANUAL_COUNT: manualActionsCount,
+    MANUAL_SECTION: renderManualActionsSection(input.manualActions, numberMap),
+    GIT_SECTION: renderUncommittedSectionHtml(input.uncommittedChanges, numberMap),
+  });
 
   await writeFile(filePath, html, "utf-8");
   return filePath;

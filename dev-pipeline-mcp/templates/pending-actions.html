@@ -1,0 +1,241 @@
+<!--
+  PENDING_HUMAN_ACTIONS.html 的唯一範本。
+
+  這份檔案是「待人工處理清單」報告的樣式與骨架真正的來源——不管是哪個 Asana 專案（GV、SCSB 的
+  115年增修／客戶用……），也不管是以後新加進 dev-pipeline-mcp 的任何專案，`writePendingActionsReport`
+  (src/pipeline-store.ts) 都是讀這同一份檔案、替換掉 {{TOKEN}} 佔位符後寫出對應專案的報告。
+
+  新增/修改樣式、排版、文案，一律改這裡，不要跑去某個專案的 PENDING_HUMAN_ACTIONS.html 手改
+  ——那份檔案下次 pipeline 執行就會被整份覆寫，改動不會被保留。
+
+  佔位符只做一輪 regex 全域替換（不會遞迴重掃替換後的內容），所以：
+  - {{TOKEN}} 一定要維持雙大括號＋全大寫蛇形命名，不要跟票單的真實內容搞混
+  - 帶動態資料的 SECTION 類佔位符（如 {{AWAITING_SECTION}}）本身已經是 pipeline-store.ts 算好的
+    完整 HTML 字串，這裡只是插入點，不要在這份範本裡重複寫該區塊的內部結構
+-->
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<title>{{TITLE}}</title>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #f5f2ea; --surface: #ede8db; --surface-2: #e3dcc9; --ink: #2a2620; --ink-muted: #6b6558; --line: #cdc4ae;
+    --accent: #2b6777; --accent-ink: #17414c; --accent-soft: #dbe9ea;
+    --warn: #b9782e; --warn-soft: #f1e2c8;
+    --stale: #a84b36; --stale-soft: #f2dbd2;
+    --good: #4c7a52; --good-soft: #dfe9dd;
+    --font-display: "Noto Serif TC", "Noto Serif", serif;
+    --font-body: "Noto Sans TC", "Noto Sans", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1c1913; --surface: #262218; --surface-2: #322c1e; --ink: #f0ebde; --ink-muted: #b3ab98; --line: #4a4335;
+      --accent: #74bcc7; --accent-ink: #bfe4ea; --accent-soft: #223a3d;
+      --warn: #e4a962; --warn-soft: #3b2e19;
+      --stale: #e08a70; --stale-soft: #3d271f;
+      --good: #93bd8f; --good-soft: #263323;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1c1913; --surface: #262218; --surface-2: #322c1e; --ink: #f0ebde; --ink-muted: #b3ab98; --line: #4a4335;
+    --accent: #74bcc7; --accent-ink: #bfe4ea; --accent-soft: #223a3d;
+    --warn: #e4a962; --warn-soft: #3b2e19;
+    --stale: #e08a70; --stale-soft: #3d271f;
+    --good: #93bd8f; --good-soft: #263323;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.6; }
+  main { max-width: 880px; margin: 0 auto; padding: 32px 20px 64px; }
+  header.hero { display: flex; flex-direction: column; gap: 10px; padding-bottom: 22px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+  .eyebrow { font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-ink); margin: 0; }
+  header.hero h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.5rem, 4vw, 2.1rem); text-wrap: balance; margin: 0; }
+  .lede { color: var(--ink-muted); font-size: 0.95rem; max-width: 62ch; margin: 0; }
+  .meta { color: var(--ink-muted); font-size: 0.86rem; margin: 2px 0; }
+  code { font-family: var(--font-mono); font-size: 0.92em; }
+  section.block { margin-top: 32px; }
+  section.block h2 { font-size: 1.05rem; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .count-badge { font-family: var(--font-mono); font-size: 0.78rem; padding: 1px 8px; border-radius: 999px; background: var(--surface-2); color: var(--ink-muted); }
+  .empty { color: var(--ink-muted); font-size: 0.9rem; margin: 6px 0; }
+  ul.action-list, ul.readonly-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  li.action-row, li.confirm-row, li.readonly-row { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; background: var(--surface); }
+  li.accent, li.confirm-row.accent { border-color: var(--accent); background: var(--accent-soft); }
+  li.warn, li.confirm-row.warn { border-color: var(--warn); background: var(--warn-soft); }
+  li.stale { border-color: var(--stale); background: var(--stale-soft); }
+  li.neutral { border-color: var(--line); background: var(--surface); }
+  .action-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; }
+  .action-row input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
+  .row-title { font-weight: 600; }
+  .row-detail { margin: 6px 0 0; color: var(--ink-muted); font-size: 0.9rem; white-space: pre-wrap; }
+  .row-error { margin: 6px 0 0; color: var(--stale); font-size: 0.85rem; }
+  .file-list { margin: 4px 0 0; padding-left: 18px; font-family: var(--font-mono); font-size: 0.82rem; color: var(--ink-muted); }
+  .confirm-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+  .confirm-row .row-title { flex: 1 1 auto; }
+  .confirm-actions { display: flex; gap: 8px; }
+  .reject-note-panel { flex-basis: 100%; display: flex; gap: 8px; margin-top: 4px; }
+  .reject-note-panel[hidden] { display: none; }
+  .reject-note-panel textarea { flex: 1; font-family: var(--font-body); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; resize: vertical; background: var(--bg); color: var(--ink); }
+  .btn { font-family: var(--font-body); font-size: 0.86rem; font-weight: 600; border-radius: 8px; padding: 6px 14px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  .btn:hover:not(:disabled) { filter: brightness(0.96); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-yes { border-color: var(--good); color: var(--good); }
+  .btn-no { border-color: var(--stale); color: var(--stale); }
+  .btn-reject-submit { border-color: var(--accent); color: var(--accent-ink); }
+  li.is-done { opacity: 0.5; }
+  li.is-done .row-title::after { content: " ✓ 已完成"; color: var(--good); font-weight: 700; }
+  #bridge-banner { display: none; border: 1px solid var(--warn); background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 16px; margin-top: 16px; font-size: 0.88rem; }
+  #bridge-banner a { color: inherit; font-weight: 700; }
+  #bridge-banner.show { display: block; }
+</style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <p class="eyebrow">待人工處理清單 · dev-pipeline-mcp</p>
+    <h1>{{PROJECT_NAME}}</h1>
+    <p class="lede">每次執行 pipeline 都會用當下最新狀態整份重寫這個檔案——不要手動編輯 HTML 原始碼，改動不會被保留；下面的勾選/確認按鈕才是正式的操作入口。</p>
+  </header>
+  <p class="meta">最後更新：{{LAST_UPDATED}}</p>
+  <p class="meta">括號裡是票號（對照 Asana 上的單號用），偵測不到票號的極少數情況會退回顯示內部 taskGid。</p>
+  <div id="bridge-banner">⚠ 連不到本機的 dev-pipeline-mcp HTTP bridge（<code>http://127.0.0.1:{{BRIDGE_PORT}}</code>），下面的勾選／確認按鈕暫時無法使用（內容仍然是最新的，純唯讀）。這個 bridge 會跟著任一個連上 <code>dev-pipeline-mcp</code> 的 Claude Code session 自動啟動——開一個 Claude Code session 連上這個 MCP（或在 <code>dev-pipeline-mcp</code> 目錄下手動執行 <code>npm run start:http</code>）後，重新整理這個頁面即可。</div>
+
+  <section class="block">
+    <h2>待確認規格草稿 <span class="count-badge">{{SPEC_DRAFT_COUNT}}</span></h2>
+    <p class="meta">規格撰寫者已產出草稿，確認後工程師才能開始寫程式碼；打回的話請簡短說明哪裡要改。</p>
+    {{SPEC_DRAFT_SECTION}}
+  </section>
+
+  <section class="block">
+    <h2>待確認 <span class="count-badge">{{AWAITING_COUNT}}</span></h2>
+    <p class="meta">AI 驗證師／測試工程師都判過了，等你自己實測＋審視程式碼品質。</p>
+    {{AWAITING_SECTION}}
+  </section>
+
+  <section class="block">
+    <h2>卡住需要你介入 <span class="count-badge">{{STUCK_COUNT}}</span></h2>
+    <p class="meta">連續 FAIL 已達門檻，AI 不會再自動重跑——這個狀態沒有對應的「標記已處理」按鈕，請直接請 AI 繼續處理這張票，之後 PASS 會自動清除。</p>
+    {{STUCK_SECTION}}
+  </section>
+
+  <section class="block">
+    <h2>Asana 內容已被異動，待重新確認 <span class="count-badge">{{CHANGED_COUNT}}</span></h2>
+    <p class="meta">先前已處理過，但票單內容後來又被改了——這一項會在 AI 重新分析這張票之後自動消失，沒有對應的「標記已處理」按鈕。</p>
+    {{CHANGED_SECTION}}
+  </section>
+
+  <section class="block">
+    <h2>需要你手動處理的事項 <span class="count-badge">{{MANUAL_COUNT}}</span></h2>
+    <p class="meta">例如 SQL 只能由你到 Database 工具執行——處理完直接勾起來，會即時通知 AI 從追蹤清單移除這一項。</p>
+    {{MANUAL_SECTION}}
+  </section>
+
+  <section class="block">
+    <h2>Git 尚未 commit 的變更</h2>
+    {{GIT_SECTION}}
+  </section>
+</main>
+<script>
+(function () {
+  var BRIDGE_ORIGIN = "http://127.0.0.1:{{BRIDGE_PORT}}";
+  var banner = document.getElementById("bridge-banner");
+
+  function setInteractive(enabled) {
+    var controls = document.querySelectorAll("[data-manual-checkbox], [data-confirm-yes], [data-confirm-no], [data-confirm-reject-submit]");
+    controls.forEach(function (el) { el.disabled = !enabled; });
+    if (banner) banner.classList.toggle("show", !enabled);
+  }
+
+  fetch(BRIDGE_ORIGIN + "/health", { method: "GET", mode: "cors" })
+    .then(function (res) { setInteractive(res.ok); })
+    .catch(function () { setInteractive(false); });
+
+  function callBridge(path, payload) {
+    return fetch(BRIDGE_ORIGIN + path, {
+      method: "POST",
+      mode: "cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok || data.success === false) {
+          throw new Error(data.message || ("請求失敗（HTTP " + res.status + "）"));
+        }
+        return data;
+      });
+    });
+  }
+
+  function markDone(row) {
+    row.classList.add("is-done");
+    row.querySelectorAll("button, input, textarea").forEach(function (el) { el.disabled = true; });
+  }
+
+  function showError(row, message) {
+    var err = row.querySelector(".row-error");
+    if (err) { err.hidden = false; err.textContent = message; }
+  }
+
+  document.querySelectorAll("[data-manual-checkbox]").forEach(function (cb) {
+    cb.addEventListener("change", function () {
+      if (!cb.checked) return;
+      var row = cb.closest("li");
+      cb.disabled = true;
+      callBridge("/resolve-manual-action", {
+        taskGid: cb.dataset.taskgid,
+        filename: cb.dataset.filename,
+        action: cb.dataset.action,
+      }).then(function () {
+        markDone(row);
+      }).catch(function (e) {
+        cb.checked = false;
+        cb.disabled = false;
+        showError(row, e.message);
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-confirm-yes]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var row = btn.closest("li");
+      var noBtn = row.querySelector("[data-confirm-no]");
+      btn.disabled = true;
+      if (noBtn) noBtn.disabled = true;
+      callBridge(btn.dataset.endpoint, { taskGid: btn.dataset.taskgid, confirmed: true }).then(function () {
+        markDone(row);
+      }).catch(function (e) {
+        btn.disabled = false;
+        if (noBtn) noBtn.disabled = false;
+        showError(row, e.message);
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-confirm-no]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var row = btn.closest("li");
+      row.querySelector(".reject-note-panel").hidden = false;
+    });
+  });
+
+  document.querySelectorAll("[data-confirm-reject-submit]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var row = btn.closest("li");
+      var note = row.querySelector("textarea").value.trim();
+      if (!note) { showError(row, "請簡短說明發現了什麼問題再送出"); return; }
+      btn.disabled = true;
+      callBridge(btn.dataset.endpoint, { taskGid: btn.dataset.taskgid, confirmed: false, note: note }).then(function () {
+        markDone(row);
+      }).catch(function (e) {
+        btn.disabled = false;
+        showError(row, e.message);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
