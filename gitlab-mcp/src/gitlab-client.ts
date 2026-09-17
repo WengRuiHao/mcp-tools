@@ -40,6 +40,12 @@ export async function listConnections(): Promise<GitlabResult> {
   }
 }
 
+/** Exposes just the resolved connection's id (never the token) — for callers like branch-role tools that need to know which connection a project/branch belongs to without making a GitLab API call themselves. */
+export async function resolveConnectionId(connectionId?: string): Promise<string> {
+  const conn = await resolveConnection(connectionId);
+  return conn.id;
+}
+
 async function resolveConnection(connectionId?: string): Promise<GitlabConnection> {
   const target = connectionId?.trim() || getDefaultConnectionId();
   const conns = await loadConnections();

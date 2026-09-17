@@ -1,6 +1,6 @@
 # gitlab-mcp
 
-讓 Claude 幫你查 GitLab 上「屬於你自己」的東西：有哪些專案、專案裡有哪些分支、每個分支改過什麼、程式內容長怎樣。只能看、不會幫你改動或刪除任何東西。
+讓 Claude 幫你查 GitLab 上「屬於你自己」的東西：有哪些專案、專案裡有哪些分支、每個分支改過什麼、程式內容長怎樣。**對 GitLab 本身完全唯讀**，不會幫你改動或刪除任何東西；另外有一組本地端「分支用途標記」工具，會寫入這支 MCP 自己的本地檔案（不是 GitLab 上的東西），用來記錄「哪條分支是個人開發用、哪條是測試機上版、哪條是正式機上版」。
 
 公司原本共用帳號查到的專案是共用視角，不是你自己真正參與的專案。這個小工具用**你自己申請的通行證**登入，看到的才是你個人帳號實際看得到的東西。
 
@@ -44,7 +44,19 @@
 - 設定兩筆以上時，工具呼叫要帶 `connectionId`（值是上面的 `id` 或 `name`，例如 `gitlab`/`gitlab2`），不確定有哪些連線可以先呼叫 `gitlab_list_connections` 查。也可以用環境變數 `GITLAB_CONNECTION_ID` 設一個預設值，省得每次都要指定。
 - 連線清單檔案路徑預設是這個目錄下的 `info/gitlab-connections.json`，也可以用環境變數 `GITLAB_CONNECTIONS_FILE` 指到別的路徑。
 
-## 工具（全部唯讀）
+## 分支用途標記（本地端功能）
+
+GitLab 本身沒有「這條分支是拿來幹嘛的」欄位，這支 MCP 額外維護一份本地清單（`info/branch-roles.json`，同樣 gitignore，不進版控——因為裡面會出現真實的專案路徑），記錄每個專案底下哪條分支扮演什麼角色：
+
+- **`production`**：正式機上版用。同一個專案只能有一條，重新標記會自動把舊的那條解除標記。
+- **`staging`**：測試機上版用。同一個專案只能有一條，規則跟 `production` 一樣。
+- **`personal`**：個人開發/寫文件用。同一個專案可以有很多條（每個人各自的分支），標記時必須附上 `owner`（帳號名稱），方便多人共用這支 MCP 時分辨這是誰的分支。
+
+`gitlab_set_branch_role` 標記前會先真的呼叫 GitLab 確認該分支存在，避免打錯字誤標。之後想知道「正式機該用哪條分支」，直接呼叫 `gitlab_get_deployment_branches` 查詢即可，不用重新問人或翻 commit 猜。
+
+## 工具
+
+除了「分支用途標記」這組會寫入本地檔案，其餘全部對 GitLab 唯讀。
 
 | 分類 | 工具 | 說明 |
 |---|---|---|
@@ -70,6 +82,10 @@
 | Pipeline | `gitlab_list_pipelines` | 列出 CI/CD pipeline 執行紀錄，可依分支/狀態篩選 |
 | Pipeline | `gitlab_get_pipeline` | 單一 pipeline 整體狀態 |
 | Pipeline | `gitlab_list_pipeline_jobs` | 單一 pipeline 底下每個 job 的狀態，用來抓「卡在哪個 stage」 |
+| 分支用途標記（本地端） | `gitlab_set_branch_role` | 標記某條分支是 personal/staging/production，會先向 GitLab 確認分支存在 |
+| 分支用途標記（本地端） | `gitlab_get_deployment_branches` | 一次查出某專案的 production/staging 分支各是哪條、personal 分支有哪些人在用 |
+| 分支用途標記（本地端） | `gitlab_list_branch_roles` | 列出已標記過的分支紀錄，可依連線/專案/分類篩選 |
+| 分支用途標記（本地端） | `gitlab_remove_branch_role` | 取消某條分支的標記 |
 
 常見查詢鏈：不知道專案路徑 → `gitlab_list_projects` 找到 `id`/`path_with_namespace` → 帶進其他工具的 `projectId`。MR/Issue 的編號一律是 `iid`（專案內編號，網址上看到的那個數字），不是全域 ID；Pipeline 則相反，是全域數字 ID。設定了多組連線時，每個工具都多一個可選的 `connectionId` 參數，決定要查哪個帳號/站台。
 

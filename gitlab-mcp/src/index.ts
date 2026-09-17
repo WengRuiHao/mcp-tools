@@ -9,10 +9,11 @@ import { registerFileTools } from "./file-tools.js";
 import { registerMergeRequestTools } from "./merge-request-tools.js";
 import { registerIssueTools } from "./issue-tools.js";
 import { registerPipelineTools } from "./pipeline-tools.js";
+import { registerBranchRoleTools } from "./branch-role-tools.js";
 
 const server = new McpServer({
   name: "gitlab-mcp",
-  version: "0.3.0",
+  version: "0.4.0",
 });
 
 registerConnectionTools(server);
@@ -23,6 +24,7 @@ registerFileTools(server);
 registerMergeRequestTools(server);
 registerIssueTools(server);
 registerPipelineTools(server);
+registerBranchRoleTools(server);
 
 async function main() {
   const transport = new StdioServerTransport();
