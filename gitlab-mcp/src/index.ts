@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { registerConnectionTools } from "./connection-tools.js";
 import { registerProjectTools } from "./project-tools.js";
 import { registerBranchTools } from "./branch-tools.js";
 import { registerCommitTools } from "./commit-tools.js";
@@ -11,9 +12,10 @@ import { registerPipelineTools } from "./pipeline-tools.js";
 
 const server = new McpServer({
   name: "gitlab-mcp",
-  version: "0.2.0",
+  version: "0.3.0",
 });
 
+registerConnectionTools(server);
 registerProjectTools(server);
 registerBranchTools(server);
 registerCommitTools(server);

@@ -20,21 +20,35 @@
 
 ## 設定
 
-在這支 MCP 自己目錄下的 `info/gitlab.json`（已 gitignore，個人專屬，不進版控）：
+在這支 MCP 自己目錄下的 `info/gitlab-connections.json`（已 gitignore，個人專屬，不進版控），是一個**連線清單**，可以同時登記多組帳號/站台（例如公司內部 GitLab 跟 gitlab.com 各一組）：
 
 ```json
-{
-  "token": "你的 Personal Access Token（scope 只需要 read_api）",
-  "baseUrl": "https://gitlab.universalec.com.tw"
-}
+[
+  {
+    "id": "gitlab",
+    "name": "gitlab",
+    "token": "你的 Personal Access Token（scope 只需要 read_api）",
+    "baseUrl": "https://gitlab.universalec.com.tw"
+  },
+  {
+    "id": "gitlab2",
+    "name": "gitlab2",
+    "token": "另一組帳號/站台的 Personal Access Token",
+    "baseUrl": "https://gitlab.com"
+  }
+]
 ```
 
-`baseUrl` 可省略，預設就是上面這個站台。也可以用環境變數 `GITLAB_MCP_CONFIG_PATH` 指定其他設定檔路徑。
+- `baseUrl` 每筆都可省略，省略時預設 `https://gitlab.universalec.com.tw`。
+- 只設定一筆連線時，所有工具都可以不用帶 `connectionId`，自動用那一筆。
+- 設定兩筆以上時，工具呼叫要帶 `connectionId`（值是上面的 `id` 或 `name`，例如 `gitlab`/`gitlab2`），不確定有哪些連線可以先呼叫 `gitlab_list_connections` 查。也可以用環境變數 `GITLAB_CONNECTION_ID` 設一個預設值，省得每次都要指定。
+- 連線清單檔案路徑預設是這個目錄下的 `info/gitlab-connections.json`，也可以用環境變數 `GITLAB_CONNECTIONS_FILE` 指到別的路徑。
 
 ## 工具（全部唯讀）
 
 | 分類 | 工具 | 說明 |
 |---|---|---|
+| 連線 | `gitlab_list_connections` | 列出登記的 GitLab 連線（不含 token），設定多組連線時先查這個 |
 | 專案 | `gitlab_whoami` | 確認 token 有效，回傳登入的個人帳號 |
 | 專案 | `gitlab_list_projects` | 列出自己參與/擁有的專案 |
 | 專案 | `gitlab_get_project` | 單一專案詳細資訊 |
@@ -57,7 +71,7 @@
 | Pipeline | `gitlab_get_pipeline` | 單一 pipeline 整體狀態 |
 | Pipeline | `gitlab_list_pipeline_jobs` | 單一 pipeline 底下每個 job 的狀態，用來抓「卡在哪個 stage」 |
 
-常見查詢鏈：不知道專案路徑 → `gitlab_list_projects` 找到 `id`/`path_with_namespace` → 帶進其他工具的 `projectId`。MR/Issue 的編號一律是 `iid`（專案內編號，網址上看到的那個數字），不是全域 ID；Pipeline 則相反，是全域數字 ID。
+常見查詢鏈：不知道專案路徑 → `gitlab_list_projects` 找到 `id`/`path_with_namespace` → 帶進其他工具的 `projectId`。MR/Issue 的編號一律是 `iid`（專案內編號，網址上看到的那個數字），不是全域 ID；Pipeline 則相反，是全域數字 ID。設定了多組連線時，每個工具都多一個可選的 `connectionId` 參數，決定要查哪個帳號/站台。
 
 ## 安裝
 
