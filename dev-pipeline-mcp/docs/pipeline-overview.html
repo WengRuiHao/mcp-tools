@@ -25,6 +25,12 @@
     --good: #4c7a52;
     --good-soft: #dfe9dd;
 
+    --changed: #6d4c8a;
+    --changed-soft: #e6ddef;
+
+    --manual: #a3572a;
+    --manual-soft: #f0dfc9;
+
     --font-display: "Noto Serif TC", "Noto Serif", serif;
     --font-body: "Noto Sans TC", "Noto Sans", sans-serif;
     --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
@@ -51,6 +57,12 @@
 
       --good: #93bd8f;
       --good-soft: #263323;
+
+      --changed: #c3a8e6;
+      --changed-soft: #332a41;
+
+      --manual: #e0a06a;
+      --manual-soft: #3a2c1c;
     }
   }
 
@@ -74,6 +86,12 @@
 
     --good: #93bd8f;
     --good-soft: #263323;
+
+    --changed: #c3a8e6;
+    --changed-soft: #332a41;
+
+    --manual: #e0a06a;
+    --manual-soft: #3a2c1c;
   }
 
   * { box-sizing: border-box; }
@@ -921,6 +939,87 @@
       </svg>
       </div>
       <figcaption><code class="mono">manualActions</code>（<code class="mono">write_ticket_artifact</code> 寫 02/03/04 時必填，可以是空陣列）逼工程師/驗證師/測試工程師把「這個 SQL 只能你手動執行」「這項要你親自測」這類事項明確宣告出來，不能只埋在全文內容裡指望使用者重讀才發現；六類項目彙整後整份覆寫進磁碟上的互動 HTML，不依賴聊天記錄留存。寫入前會自動掃描是否夾帶完整 SQL 全文或憑證/連線字串，抓到直接拒絕寫入——只能留技術性描述。「Asana 內容已變更」區塊的勾選按鈕背後是 <code class="mono">request_reanalysis</code> 工具，純資料操作、不觸發分析，見上方段落說明。</figcaption>
+    </figure>
+
+    <figure class="diagram">
+      <div class="diagram-scroll">
+      <svg viewBox="0 0 1040 420" role="img" aria-label="六類項目個別說明：待確認規格草稿（可互動，record_spec_confirmation，僅 self-generated 專案）、待確認（可互動，record_confirmation）、卡住需要你介入（唯讀，needs_human_review 門檻已達）、Asana 內容已變更（可互動，request_reanalysis 寫入 human_requested_reanalysis 旗標，純資料操作不觸發分析）、需要你手動處理的事項（可互動，resolve_manual_action）、Git 尚未 commit 的變更（唯讀，比對 git status --porcelain）">
+        <g font-family="'Noto Sans TC',sans-serif" font-size="11.5">
+          <!-- card 1: spec draft (accent) -->
+          <rect x="20" y="20" width="320" height="180" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
+          <rect x="266" y="34" width="60" height="20" rx="10" fill="var(--accent)"/>
+          <text x="296" y="48" text-anchor="middle" font-size="9" fill="var(--bg)">可互動</text>
+          <text x="36" y="52" font-size="13" font-weight="700" fill="var(--accent-ink)">待確認規格草稿</text>
+          <text x="36" y="76" fill="var(--accent-ink)">規格撰寫者產出草稿，等你</text>
+          <text x="36" y="94" fill="var(--accent-ink)">確認可以開始寫程式碼、</text>
+          <text x="36" y="112" fill="var(--accent-ink)">或打回並簡短說明哪裡要改。</text>
+          <text x="36" y="140" class="mono-label" font-size="9.5" fill="var(--accent-ink)" opacity="0.8">record_spec_confirmation</text>
+          <text x="36" y="158" font-size="9.5" fill="var(--accent-ink)" opacity="0.75">僅 sdMode:"self-generated"</text>
+          <text x="36" y="174" font-size="9.5" fill="var(--accent-ink)" opacity="0.75">的專案會出現</text>
+
+          <!-- card 2: awaiting confirmation (warn) -->
+          <rect x="360" y="20" width="320" height="180" rx="10" fill="var(--warn-soft)" stroke="var(--warn)"/>
+          <rect x="606" y="34" width="60" height="20" rx="10" fill="var(--warn)"/>
+          <text x="636" y="48" text-anchor="middle" font-size="9" fill="var(--bg)">可互動</text>
+          <text x="376" y="52" font-size="13" font-weight="700" fill="var(--warn)">待確認</text>
+          <text x="376" y="76" fill="var(--warn)">AI 驗證師／測試工程師都</text>
+          <text x="376" y="94" fill="var(--warn)">判過 PASS 了，但這不算真</text>
+          <text x="376" y="112" fill="var(--warn)">正結案——要等你自己實測</text>
+          <text x="376" y="130" fill="var(--warn)">＋審視程式碼品質才算數。</text>
+          <text x="376" y="156" class="mono-label" font-size="9.5" fill="var(--warn)" opacity="0.8">record_confirmation</text>
+          <text x="376" y="174" font-size="9.5" fill="var(--warn)" opacity="0.75">確認/打回都要主動秀給使用者看</text>
+
+          <!-- card 3: stuck (stale) -->
+          <rect x="700" y="20" width="320" height="180" rx="10" fill="var(--stale-soft)" stroke="var(--stale)"/>
+          <rect x="946" y="34" width="60" height="20" rx="10" fill="var(--stale)"/>
+          <text x="976" y="48" text-anchor="middle" font-size="9" fill="var(--bg)">唯讀</text>
+          <text x="716" y="52" font-size="13" font-weight="700" fill="var(--stale)">卡住需要你介入</text>
+          <text x="716" y="76" fill="var(--stale)">連續 FAIL 已達門檻</text>
+          <text x="716" y="94" class="mono-label" font-size="9.5" fill="var(--stale)" opacity="0.8">needs_human_review</text>
+          <text x="716" y="118" fill="var(--stale)">，AI 不會再自動重跑。</text>
+          <text x="716" y="136" fill="var(--stale)">沒有對應按鈕——直接請</text>
+          <text x="716" y="154" fill="var(--stale)">AI 繼續處理，PASS 後</text>
+          <text x="716" y="172" fill="var(--stale)">會自動清除。</text>
+
+          <!-- card 4: content changed (changed) -->
+          <rect x="20" y="220" width="320" height="180" rx="10" fill="var(--changed-soft)" stroke="var(--changed)"/>
+          <rect x="266" y="234" width="60" height="20" rx="10" fill="var(--changed)"/>
+          <text x="296" y="248" text-anchor="middle" font-size="9" fill="var(--bg)">可互動</text>
+          <text x="36" y="252" font-size="13" font-weight="700" fill="var(--changed)">Asana 內容已變更</text>
+          <text x="36" y="276" fill="var(--changed)">先前處理過（甚至 PASS 過）</text>
+          <text x="36" y="294" fill="var(--changed)">的票，內容後來又被改了。</text>
+          <text x="36" y="312" fill="var(--changed)">勾「請 AI 優先處理」只是</text>
+          <text x="36" y="330" fill="var(--changed)">標記旗標，不會立即觸發分析。</text>
+          <text x="36" y="356" class="mono-label" font-size="9.5" fill="var(--changed)" opacity="0.8">request_reanalysis →</text>
+          <text x="36" y="374" class="mono-label" font-size="9.5" fill="var(--changed)" opacity="0.8">human_requested_reanalysis</text>
+
+          <!-- card 5: manual actions (manual) -->
+          <rect x="360" y="220" width="320" height="180" rx="10" fill="var(--manual-soft)" stroke="var(--manual)"/>
+          <rect x="606" y="234" width="60" height="20" rx="10" fill="var(--manual)"/>
+          <text x="636" y="248" text-anchor="middle" font-size="9" fill="var(--bg)">可互動</text>
+          <text x="376" y="252" font-size="13" font-weight="700" fill="var(--manual)">需要你手動處理的事項</text>
+          <text x="376" y="276" fill="var(--manual)">工程師/驗證師/測試工程師</text>
+          <text x="376" y="294" fill="var(--manual)">宣告的一次性提醒（例如</text>
+          <text x="376" y="312" fill="var(--manual)">某段 SQL 只能你手動執行）。</text>
+          <text x="376" y="338" class="mono-label" font-size="9.5" fill="var(--manual)" opacity="0.8">resolve_manual_action</text>
+          <text x="376" y="356" font-size="9.5" fill="var(--manual)" opacity="0.75">精準移除單一項目，</text>
+          <text x="376" y="374" font-size="9.5" fill="var(--manual)" opacity="0.75">不用整份陣列重新宣告</text>
+
+          <!-- card 6: git uncommitted (neutral) -->
+          <rect x="700" y="220" width="320" height="180" rx="10" fill="var(--surface-2)" stroke="currentColor" opacity="0.9"/>
+          <rect x="946" y="234" width="60" height="20" rx="10" fill="var(--ink-muted)"/>
+          <text x="976" y="248" text-anchor="middle" font-size="9" fill="var(--bg)">唯讀</text>
+          <text x="716" y="252" font-size="13" font-weight="700" fill="currentColor">Git 尚未 commit 的變更</text>
+          <text x="716" y="276" fill="currentColor" opacity="0.85">依票單分組，只列「git</text>
+          <text x="716" y="294" fill="currentColor" opacity="0.85">真的還沒 commit、又有</text>
+          <text x="716" y="312" fill="currentColor" opacity="0.85">票單認領」的檔案。</text>
+          <text x="716" y="338" class="mono-label" font-size="9.5" fill="currentColor" opacity="0.7">git status --porcelain</text>
+          <text x="716" y="356" fill="currentColor" opacity="0.75" font-size="9.5">commit 之後自動消失，</text>
+          <text x="716" y="374" fill="currentColor" opacity="0.75" font-size="9.5">沒有對應按鈕</text>
+        </g>
+      </svg>
+      </div>
+      <figcaption>「可互動」的四類（規格草稿／待確認／內容已變更／手動待辦）在網頁上勾選/按按鈕會即時呼叫對應工具寫回票單狀態；「唯讀」的兩類（卡住需要你介入／Git 尚未 commit）沒有按鈕，是純粹的狀態提醒。「Asana 內容已變更」比較特殊——勾選只是留下請求紀錄，實際處理仍然要等有 AI 呼叫 <code class="mono">list_pending_tickets</code> 才會發生。</figcaption>
     </figure>
   </section>
 
