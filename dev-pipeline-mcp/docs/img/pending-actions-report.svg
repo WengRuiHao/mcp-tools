@@ -1,47 +1,147 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 240" role="img" aria-label="待人工處理清單持久化機制：呼叫 list_pending_tickets 並帶上 projectName 時，會掃描這個 Asana 專案所有票單、彙整待確認規格草稿（僅 self-generated 專案）／待確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更六類項目，整份覆寫進一份互動網頁 PENDING_HUMAN_ACTIONS.html；這份檔案落在磁碟上，任何 session、甚至不開 AI 都能直接打開看，勾選/確認按鈕會即時呼叫本機 HTTP bridge 寫回票單狀態，不會因為聊天記錄被清掉或壓縮就遺失">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 860" role="img" aria-label="待人工處理清單 PENDING_HUMAN_ACTIONS.html 說明圖：這是一份 AI 自動幫你整理「目前有哪些事需要你看一下、確認一下、或動手做」的檢查清單，存成一個網頁檔案放在你的電腦上，不用開著 Claude Code 也能打開看，部分項目還能直接在網頁上打勾生效。流程：你請 AI 處理票單時，AI 會自動檢查目前狀態，把需要你注意的事分成六種情況，整理成這份網頁，你打開瀏覽器就能操作。六種情況：待確認規格草稿（AI寫好需求規格草稿等你同意或退回，可打勾，只有少數專案會用到）、待確認（AI測過覺得沒問題但還要你自己也確認過才算真的做完，可打勾）、卡住需要你介入（AI試了很多次都沒成功需要你直接告訴AI怎麼做，唯讀）、Asana內容已被異動（你在Asana上改了說明或留言AI可能還不知道，可以勾選請AI優先處理，不會馬上執行但不會忘記）、需要你手動處理的事項（有些事AI做不到只能提醒你自己做，做完打勾這項就消失，可打勾）、Git尚未commit的變更（工程師改的程式碼還沒正式存檔提醒你請工程師存檔，唯讀）。要打勾生效，電腦上要有一個小幫手程式在背景執行，工程師會事先設定好；沒開的話網頁上方會出現提醒，內容仍然是最新的，只是按了沒有用。">
   <defs>
-    <marker id="arrowReport" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+    <marker id="paArrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
-    </marker>
-    <marker id="arrowReportWarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#b9782e"/>
-    </marker>
-    <marker id="arrowReportGood" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#4c7a52"/>
     </marker>
   </defs>
 
-  <rect x="0" y="0" width="1080" height="240" fill="#f5f2ea"/>
+  <rect x="0" y="0" width="1200" height="860" fill="#f5f2ea"/>
 
   <g font-family="'Noto Sans TC',sans-serif">
-    <rect x="20" y="60" width="190" height="116" rx="9" fill="none" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="115" y="112" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">每次處理票單時</text>
-    <text x="115" y="130" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9.5" fill="#6b6558">list_pending_tickets</text>
-
-    <rect x="248" y="60" width="230" height="116" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
-    <text x="363" y="86" text-anchor="middle" font-size="12.5" fill="#2a2620">掃描所有票單</text>
-    <text x="363" y="104" text-anchor="middle" font-size="11" fill="#6b6558">整理出六種你該注意的事：</text>
-    <text x="363" y="122" text-anchor="middle" font-size="10.5" fill="#6b6558">規格待確認／結果待確認／</text>
-    <text x="363" y="140" text-anchor="middle" font-size="10.5" fill="#6b6558">卡住需要你／內容變了／</text>
-    <text x="363" y="158" text-anchor="middle" font-size="10.5" fill="#6b6558">待手動處理／忘記存檔</text>
-
-    <rect x="548" y="60" width="230" height="116" rx="9" fill="#f1e2c8" stroke="#b9782e"/>
-    <text x="663" y="98" text-anchor="middle" font-size="13" font-weight="700" fill="#b9782e">寫成一份互動網頁</text>
-    <text x="663" y="118" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9.5" fill="#b9782e" opacity="0.85">PENDING_HUMAN_ACTIONS.html</text>
-    <text x="663" y="138" text-anchor="middle" font-size="10.5" fill="#b9782e">每次整份重寫，不是累加</text>
-    <text x="663" y="154" text-anchor="middle" font-size="10.5" fill="#b9782e">存在硬碟上，不是聊天記錄</text>
-
-    <rect x="838" y="60" width="220" height="116" rx="9" fill="#dfe9dd" stroke="#4c7a52"/>
-    <text x="948" y="98" text-anchor="middle" font-size="13" font-weight="700" fill="#4c7a52">你在瀏覽器直接操作</text>
-    <text x="948" y="118" text-anchor="middle" font-size="10.5" fill="#4c7a52">勾選/確認即時寫回票單狀態</text>
-    <text x="948" y="136" text-anchor="middle" font-size="10.5" fill="#4c7a52">（要先啟動本機 HTTP bridge）</text>
-    <text x="948" y="154" text-anchor="middle" font-size="10.5" fill="#4c7a52">不會因對話結束就找不到</text>
+    <text x="30" y="42" font-size="20" font-weight="700" fill="#2a2620">待人工處理清單</text>
+    <text x="185" y="42" font-family="'IBM Plex Mono',monospace" font-size="15" fill="#6b6558">（PENDING_HUMAN_ACTIONS.html）</text>
+    <text x="30" y="68" font-size="12.5" fill="#6b6558">AI 自動幫你整理「目前有哪些事需要你看一下、確認一下、或動手做」的檢查清單，做成一個網頁檔案放在你的電腦上——</text>
+    <text x="30" y="86" font-size="12.5" fill="#6b6558">不用開著 Claude Code 也能打開看，其中好幾類項目還能直接在網頁上打勾，AI 就會立刻記住你做了什麼。</text>
   </g>
 
-  <line x1="210" y1="118" x2="244" y2="118" stroke="#2a2620" stroke-width="1.6" marker-end="url(#arrowReport)"/>
-  <line x1="478" y1="118" x2="544" y2="118" stroke="#2a2620" stroke-width="1.6" marker-end="url(#arrowReportWarn)"/>
-  <line x1="778" y1="118" x2="834" y2="118" stroke="#4c7a52" stroke-width="1.6" marker-end="url(#arrowReportGood)"/>
+  <!-- top flow: 4 steps -->
+  <g font-family="'Noto Sans TC',sans-serif">
+    <rect x="30" y="118" width="260" height="118" rx="10" fill="none" stroke="#2a2620" stroke-opacity="0.85"/>
+    <circle cx="56" cy="144" r="13" fill="#2a2620"/>
+    <text x="56" y="148" text-anchor="middle" font-weight="700" font-size="12" fill="#f5f2ea">1</text>
+    <text x="160" y="150" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">你請 AI 處理票單</text>
+    <text x="160" y="172" text-anchor="middle" font-size="11" fill="#6b6558">（例如「處理今天的問題單」）</text>
+    <text x="160" y="196" text-anchor="middle" font-size="11" fill="#6b6558">這件事每次都會自動發生，</text>
+    <text x="160" y="214" text-anchor="middle" font-size="11" fill="#6b6558">不用你特別交代或提醒</text>
 
-  <text x="363" y="202" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#6b6558">這條 pipeline 每次執行本來就一定會呼叫這個工具（步驟 1）——</text>
-  <text x="363" y="218" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#6b6558">寫檔案是它的副作用，不是一個容易被忘記呼叫的額外步驟</text>
+    <rect x="310" y="118" width="260" height="118" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <circle cx="336" cy="144" r="13" fill="#2a2620"/>
+    <text x="336" y="148" text-anchor="middle" font-weight="700" font-size="12" fill="#f5f2ea">2</text>
+    <text x="440" y="150" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">AI 檢查目前狀態</text>
+    <text x="440" y="172" text-anchor="middle" font-size="11" fill="#6b6558">把所有需要留意的事，</text>
+    <text x="440" y="190" text-anchor="middle" font-size="11" fill="#6b6558">分成六種情況</text>
+    <text x="440" y="214" text-anchor="middle" font-size="11" fill="#6b6558">（見下方六張卡片）</text>
+
+    <rect x="590" y="118" width="260" height="118" rx="10" fill="#f1e2c8" stroke="#b9782e"/>
+    <circle cx="616" cy="144" r="13" fill="#b9782e"/>
+    <text x="616" y="148" text-anchor="middle" font-weight="700" font-size="12" fill="#f1e2c8">3</text>
+    <text x="720" y="150" text-anchor="middle" font-size="13" font-weight="700" fill="#8a5a20">整理成一份網頁</text>
+    <text x="720" y="172" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#8a5a20">PENDING_HUMAN_ACTIONS.html</text>
+    <text x="720" y="194" text-anchor="middle" font-size="11" fill="#8a5a20">存在你電腦的硬碟上，</text>
+    <text x="720" y="212" text-anchor="middle" font-size="11" fill="#8a5a20">每次都整份更新成最新狀態</text>
+
+    <rect x="870" y="118" width="300" height="118" rx="10" fill="#dfe9dd" stroke="#4c7a52"/>
+    <circle cx="896" cy="144" r="13" fill="#4c7a52"/>
+    <text x="896" y="148" text-anchor="middle" font-weight="700" font-size="12" fill="#dfe9dd">4</text>
+    <text x="1020" y="150" text-anchor="middle" font-size="13" font-weight="700" fill="#345c39">你打開瀏覽器操作</text>
+    <text x="1020" y="172" text-anchor="middle" font-size="11" fill="#345c39">雙擊這個檔案，用瀏覽器打開就好</text>
+    <text x="1020" y="194" text-anchor="middle" font-size="11" fill="#345c39">好幾類項目打勾／按按鈕就立刻生效</text>
+    <text x="1020" y="212" text-anchor="middle" font-size="11" fill="#345c39">不用回頭跟 AI 講一次</text>
+  </g>
+
+  <line x1="290" y1="177" x2="306" y2="177" stroke="#2a2620" stroke-width="1.6" marker-end="url(#paArrow)"/>
+  <line x1="570" y1="177" x2="586" y2="177" stroke="#2a2620" stroke-width="1.6" marker-end="url(#paArrow)"/>
+  <line x1="850" y1="177" x2="866" y2="177" stroke="#2a2620" stroke-width="1.6" marker-end="url(#paArrow)"/>
+
+  <text x="600" y="264" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12.5" font-weight="700" fill="#2a2620">六種情況——每張卡片是網頁上的一個區塊</text>
+
+  <!-- 6 category cards, 3 cols x 2 rows -->
+  <g font-family="'Noto Sans TC',sans-serif">
+    <!-- card 1: spec draft (accent/teal) -->
+    <rect x="40" y="286" width="360" height="192" rx="10" fill="#dbe9ea" stroke="#2b6777"/>
+    <rect x="40" y="286" width="6" height="192" fill="#2b6777"/>
+    <rect x="308" y="300" width="76" height="22" rx="11" fill="#2b6777"/>
+    <text x="346" y="315" text-anchor="middle" font-size="9.5" fill="#dbe9ea">可以打勾</text>
+    <text x="60" y="316" font-size="13" font-weight="700" fill="#17414c">待確認規格草稿</text>
+    <text x="60" y="340" font-size="11" fill="#17414c">AI 先寫好一份「打算怎麼</text>
+    <text x="60" y="358" font-size="11" fill="#17414c">做」的規格草稿，你看過</text>
+    <text x="60" y="376" font-size="11" fill="#17414c">同意才會真正開始寫程式；</text>
+    <text x="60" y="394" font-size="11" fill="#17414c">不同意可以打回、留言說明</text>
+    <text x="60" y="412" font-size="11" fill="#17414c">哪裡要改。</text>
+    <text x="60" y="440" font-size="10" fill="#17414c" opacity="0.75">（只有少數專案會用到</text>
+    <text x="60" y="456" font-size="10" fill="#17414c" opacity="0.75">這個功能，大多數情況下</text>
+    <text x="60" y="472" font-size="10" fill="#17414c" opacity="0.75">這裡都是空的）</text>
+
+    <!-- card 2: awaiting confirmation (warn/amber) -->
+    <rect x="420" y="286" width="360" height="192" rx="10" fill="#f1e2c8" stroke="#b9782e"/>
+    <rect x="420" y="286" width="6" height="192" fill="#b9782e"/>
+    <rect x="688" y="300" width="76" height="22" rx="11" fill="#b9782e"/>
+    <text x="726" y="315" text-anchor="middle" font-size="9.5" fill="#f1e2c8">可以打勾</text>
+    <text x="440" y="316" font-size="13" font-weight="700" fill="#8a5a20">待確認</text>
+    <text x="440" y="340" font-size="11" fill="#8a5a20">AI 已經測過、覺得沒問題</text>
+    <text x="440" y="358" font-size="11" fill="#8a5a20">了——但這不算真的做完，</text>
+    <text x="440" y="376" font-size="11" fill="#8a5a20">還要等你自己也操作看看、</text>
+    <text x="440" y="394" font-size="11" fill="#8a5a20">確認真的沒問題才算數。</text>
+    <text x="440" y="418" font-size="10.5" font-weight="700" fill="#8a5a20">按「沒問題」或「有問題」</text>
+    <text x="440" y="436" font-size="10.5" font-weight="700" fill="#8a5a20">兩個按鈕擇一即可</text>
+
+    <!-- card 3: stuck (critical/red) -->
+    <rect x="800" y="286" width="360" height="192" rx="10" fill="#f2dbd2" stroke="#a84b36"/>
+    <rect x="800" y="286" width="6" height="192" fill="#a84b36"/>
+    <rect x="1068" y="300" width="76" height="22" rx="11" fill="#a84b36"/>
+    <text x="1106" y="315" text-anchor="middle" font-size="9.5" fill="#f2dbd2">唯讀</text>
+    <text x="820" y="316" font-size="13" font-weight="700" fill="#7a2f20">卡住需要你介入</text>
+    <text x="820" y="340" font-size="11" fill="#7a2f20">AI 自己試了好幾次都沒</text>
+    <text x="820" y="358" font-size="11" fill="#7a2f20">成功，已經先暫停自動</text>
+    <text x="820" y="376" font-size="11" fill="#7a2f20">重試，需要你直接告訴 AI</text>
+    <text x="820" y="394" font-size="11" fill="#7a2f20">「這裡應該怎麼做」。</text>
+    <text x="820" y="418" font-size="10.5" fill="#7a2f20" opacity="0.85">沒有按鈕可以按——</text>
+    <text x="820" y="436" font-size="10.5" fill="#7a2f20" opacity="0.85">直接跟 AI 講話即可</text>
+
+    <!-- card 4: content changed (changed/purple) -->
+    <rect x="40" y="498" width="360" height="192" rx="10" fill="#e6ddef" stroke="#6d4c8a"/>
+    <rect x="40" y="498" width="6" height="192" fill="#6d4c8a"/>
+    <rect x="308" y="512" width="76" height="22" rx="11" fill="#6d4c8a"/>
+    <text x="346" y="527" text-anchor="middle" font-size="9.5" fill="#e6ddef">可以打勾</text>
+    <text x="60" y="528" font-size="13" font-weight="700" fill="#4a3361">Asana 內容已被異動</text>
+    <text x="60" y="552" font-size="11" fill="#4a3361">你在 Asana 上改了這張票</text>
+    <text x="60" y="570" font-size="11" fill="#4a3361">的說明或留言，AI 可能</text>
+    <text x="60" y="588" font-size="11" fill="#4a3361">還不知道要重新確認一次。</text>
+    <text x="60" y="612" font-size="10.5" font-weight="700" fill="#4a3361">勾「請 AI 優先處理」</text>
+    <text x="60" y="630" font-size="10.5" fill="#4a3361">——不會馬上執行，但下次</text>
+    <text x="60" y="648" font-size="10.5" fill="#4a3361">有 AI 上線時不會被忘記</text>
+
+    <!-- card 5: manual actions (manual/copper) -->
+    <rect x="420" y="498" width="360" height="192" rx="10" fill="#f0dfc9" stroke="#a3572a"/>
+    <rect x="420" y="498" width="6" height="192" fill="#a3572a"/>
+    <rect x="688" y="512" width="76" height="22" rx="11" fill="#a3572a"/>
+    <text x="726" y="527" text-anchor="middle" font-size="9.5" fill="#f0dfc9">可以打勾</text>
+    <text x="440" y="528" font-size="13" font-weight="700" fill="#7a3d1a">需要你手動處理的事項</text>
+    <text x="440" y="552" font-size="11" fill="#7a3d1a">有些事 AI 做不到，只能</text>
+    <text x="440" y="570" font-size="11" fill="#7a3d1a">提醒你自己動手（例如某段</text>
+    <text x="440" y="588" font-size="11" fill="#7a3d1a">資料庫指令只能你親自執行）。</text>
+    <text x="440" y="612" font-size="10.5" font-weight="700" fill="#7a3d1a">做完了就打勾——</text>
+    <text x="440" y="630" font-size="10.5" fill="#7a3d1a">這一項會立刻消失</text>
+
+    <!-- card 6: git uncommitted (neutral/gray) -->
+    <rect x="800" y="498" width="360" height="192" rx="10" fill="#ece6d6" stroke="#6d6558"/>
+    <rect x="800" y="498" width="6" height="192" fill="#6d6558"/>
+    <rect x="1068" y="512" width="76" height="22" rx="11" fill="#6d6558"/>
+    <text x="1106" y="527" text-anchor="middle" font-size="9.5" fill="#ece6d6">唯讀</text>
+    <text x="820" y="528" font-size="13" font-weight="700" fill="#2a2620">Git 尚未 commit 的變更</text>
+    <text x="820" y="552" font-size="11" fill="#4a453a">工程師改好的程式碼，還</text>
+    <text x="820" y="570" font-size="11" fill="#4a453a">存在「暫時」狀態，還沒</text>
+    <text x="820" y="588" font-size="11" fill="#4a453a">正式「存檔」進版本紀錄。</text>
+    <text x="820" y="612" font-size="10.5" fill="#4a453a" opacity="0.85">提醒你請工程師記得存檔，</text>
+    <text x="820" y="630" font-size="10.5" fill="#4a453a" opacity="0.85">存檔後這裡會自動消失</text>
+  </g>
+
+  <!-- bottom note -->
+  <rect x="40" y="722" width="1120" height="106" rx="10" fill="#ede8db" stroke="#cdc4ae"/>
+  <g font-family="'Noto Sans TC',sans-serif">
+    <text x="60" y="750" font-size="12" font-weight="700" fill="#2a2620">想打勾生效，電腦上要有一個「小幫手程式」在背景默默執行——這件事工程師會事先設定好，你不用自己管。</text>
+    <text x="60" y="772" font-size="11.5" fill="#6b6558">如果小幫手程式剛好沒在跑，網頁最上面會出現一條黃色提醒，這時候「內容還是最新的、只是按了沒有用」——</text>
+    <text x="60" y="792" font-size="11.5" fill="#6b6558">不是壞掉，找工程師幫你重新啟動一下就好。這份網頁每次都會整份重新產生，不要自己手動修改網頁的原始碼，改了也不會被保留。</text>
+    <text x="60" y="812" font-size="11.5" fill="#6b6558">整份檔案存在你電腦的硬碟裡，不是聊天記錄的一部分——就算換一台電腦、關掉對話視窗，這份清單也還在。</text>
+  </g>
 </svg>
