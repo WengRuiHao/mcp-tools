@@ -117,7 +117,7 @@
 
   <section class="block">
     <h2>卡住需要你介入 <span class="count-badge">{{STUCK_COUNT}}</span></h2>
-    <p class="meta">連續 FAIL 已達門檻，AI 不會再自動重跑——這個狀態沒有對應的「標記已處理」按鈕，請直接請 AI 繼續處理這張票，之後 PASS 會自動清除。</p>
+    <p class="meta">連續 FAIL 已達門檻，AI 不會再自動重跑。這個狀態沒有對應的「標記已處理」按鈕——但<strong>不要只跟 AI 說「繼續處理」，那很可能只是重複同一套失敗的邏輯再失敗一次</strong>：先看清楚下面（或聊天記錄裡）AI 列出的這幾輪失敗原因，想清楚問題出在哪、給出新的判斷或方向，再請 AI 繼續。之後 PASS 會自動清除這一項。</p>
     {{STUCK_SECTION}}
   </section>
 
