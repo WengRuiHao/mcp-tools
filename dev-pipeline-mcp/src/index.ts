@@ -11,6 +11,7 @@ import { registerBridgeTools } from "./bridge-tools.js";
 import { registerProjectFsTools } from "./project-fs-tools.js";
 import { registerTicketLifecycleTools } from "./ticket-lifecycle-tools.js";
 import { registerTicketArtifactTools } from "./ticket-artifact-tools.js";
+import { startHttpBridge } from "./http-server.js";
 
 const server = new McpServer({
   name: "dev-pipeline-mcp",
@@ -28,6 +29,12 @@ registerTicketLifecycleTools(server);
 registerTicketArtifactTools(server);
 
 async function main() {
+  // 跟著這個 MCP 行程一起帶起 PENDING_HUMAN_ACTIONS.html 用的 HTTP bridge（2026-09-17 起，見
+  // http-server.ts 開頭說明的取捨）。同一台機器上通常會有好幾個 Claude Code session 各自啟動一份
+  // index.js，只有第一個搶到 port 的會真的提供服務，其餘的 exitOnConflict:false 讓它們安靜略過、
+  // 不影響這個 session 自己的 MCP 功能。
+  startHttpBridge({ exitOnConflict: false });
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

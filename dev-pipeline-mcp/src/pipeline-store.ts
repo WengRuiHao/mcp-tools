@@ -1297,7 +1297,7 @@ ${HTML_HEAD}
   </header>
   <p class="meta">最後更新：${escapeHtml(nowIso())}</p>
   <p class="meta">括號裡是票號（對照 Asana 上的單號用），偵測不到票號的極少數情況會退回顯示內部 taskGid。</p>
-  <div id="bridge-banner">⚠ 連不到本機的 dev-pipeline-mcp HTTP bridge（<code>http://127.0.0.1:${bridgePort}</code>），下面的勾選／確認按鈕暫時無法使用（內容仍然是最新的，純唯讀）。在 <code>dev-pipeline-mcp</code> 目錄下執行 <code>npm run start:http</code> 啟動 bridge 後，重新整理這個頁面即可。</div>
+  <div id="bridge-banner">⚠ 連不到本機的 dev-pipeline-mcp HTTP bridge（<code>http://127.0.0.1:${bridgePort}</code>），下面的勾選／確認按鈕暫時無法使用（內容仍然是最新的，純唯讀）。這個 bridge 會跟著任一個連上 <code>dev-pipeline-mcp</code> 的 Claude Code session 自動啟動——開一個 Claude Code session 連上這個 MCP（或在 <code>dev-pipeline-mcp</code> 目錄下手動執行 <code>npm run start:http</code>）後，重新整理這個頁面即可。</div>
 
   <section class="block">
     <h2>待確認規格草稿 <span class="count-badge">${input.awaitingSpecConfirmation.length}</span></h2>

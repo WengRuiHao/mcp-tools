@@ -1,9 +1,16 @@
 #!/usr/bin/env node
 /**
- * 獨立、長駐的 HTTP bridge，給 PENDING_HUMAN_ACTIONS.html 的勾選/回報按鈕呼叫——跟 svn-mcp 的
- * `dist/http-server.js` 同一個模式（見那個檔案開頭說明）：跟 stdio 版 MCP 入口（`dist/index.js`，
- * 由 host 依 session 啟動/關閉）是完全獨立的第二個進程，不會因為 AI session 結束就跟著斷線——
- * 使用者想單純打開報告勾一勾待辦事項，不需要開著 Claude Code。
+ * HTTP bridge，給 PENDING_HUMAN_ACTIONS.html 的勾選/回報按鈕呼叫。
+ *
+ * 2026-09-17 起改為預設「跟著 stdio 版 MCP 入口（`dist/index.js`）同一個行程啟動」——使用者評估過
+ * 「獨立長駐、不開 Claude Code 也能用」這個原始設計優點後，決定改成每次 Claude Code 連上
+ * dev-pipeline-mcp 就自動帶起 bridge，換取不用每天手動 `npm run start:http` 的方便；代價是 bridge
+ * 的存活期限變成跟著 Claude Code 的 MCP 連線走，session 斷線/結束時 bridge 也會跟著斷。
+ * `startHttpBridge()` 是這個檔案的可重用進入點，`main()`／獨立執行入口仍保留，供想繼續用舊的
+ * 「獨立長駐行程」模式（`npm run start:http`）的情境使用——這時多個行程搶同一個 port 純屬預期，
+ * 用 `exitOnConflict` 控制：獨立執行時搶不到 port 就直接結束行程（原行為）；被 index.ts 內嵌呼叫時
+ * 搶不到 port 只記一行 log 不結束行程（因為 index.ts 本身是正在跑的 MCP，不能因為 bridge 綁不到
+ * port 就整個死掉——通常代表另一個 session 的 index.js 已經先綁走了，沿用那一份即可）。
  *
  * 只做三件事：解除某個 manualAction、記錄使用者確認（record_confirmation／record_spec_confirmation），
  * 完全重用 stdio 版工具背後同一組 pipeline-store.ts／pending-actions-sync.ts 函式，跟真正的 MCP 工具
@@ -16,12 +23,11 @@
  * 因為呼叫端就是使用者自己在瀏覽器裡開的那份報告，不是要防外部網站呼叫。
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { pathToFileURL } from "node:url";
 import { readStatus, recordConfirmation, recordSpecConfirmation, resolveManualAction } from "./pipeline-store.js";
 import { syncPendingActionsReport } from "./pending-actions-sync.js";
 import { resolveHttpBridgeHost, resolveHttpBridgePort } from "./http-bridge-config.js";
 
-const PORT = resolveHttpBridgePort();
-const HOST = resolveHttpBridgeHost();
 const MAX_BODY_BYTES = 256 * 1024; // 請求本體都是單一票單的一筆勾選/確認，不會太大
 
 function readJsonBody(req: IncomingMessage): Promise<any> {
@@ -141,41 +147,56 @@ const ROUTES: Record<string, Handler> = {
   "/record-spec-confirmation": handleRecordSpecConfirmation,
 };
 
-const server = createServer((req, res) => {
-  if (req.method === "OPTIONS") {
-    res.writeHead(204, {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+/**
+ * 啟動 HTTP bridge。`exitOnConflict:true`（獨立行程模式）搶不到 port 就直接結束行程；
+ * `false`（被 index.ts 內嵌呼叫）搶不到 port 只記一行 log、不影響呼叫端繼續跑下去。
+ */
+export function startHttpBridge(opts: { exitOnConflict: boolean } = { exitOnConflict: true }): void {
+  const PORT = resolveHttpBridgePort();
+  const HOST = resolveHttpBridgeHost();
+
+  const server = createServer((req, res) => {
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      });
+      res.end();
+      return;
+    }
+    if (req.method === "GET" && req.url === "/health") {
+      sendJson(res, 200, { ok: true, service: "dev-pipeline-mcp-http" });
+      return;
+    }
+    const handler = req.method === "POST" && req.url ? ROUTES[req.url] : undefined;
+    if (!handler) {
+      sendJson(res, 404, { success: false, message: "not found" });
+      return;
+    }
+    handler(req, res).catch((e) => {
+      console.error(`[dev-pipeline-mcp-http] ${req.url} failed: ${e?.message ?? e}`);
+      sendJson(res, 500, { success: false, message: e instanceof Error ? e.message : String(e) });
     });
-    res.end();
-    return;
-  }
-  if (req.method === "GET" && req.url === "/health") {
-    sendJson(res, 200, { ok: true, service: "dev-pipeline-mcp-http" });
-    return;
-  }
-  const handler = req.method === "POST" && req.url ? ROUTES[req.url] : undefined;
-  if (!handler) {
-    sendJson(res, 404, { success: false, message: "not found" });
-    return;
-  }
-  handler(req, res).catch((e) => {
-    console.error(`[dev-pipeline-mcp-http] ${req.url} failed: ${e?.message ?? e}`);
-    sendJson(res, 500, { success: false, message: e instanceof Error ? e.message : String(e) });
   });
-});
 
-server.on("error", (err: any) => {
-  if (err?.code === "EADDRINUSE") {
-    console.error(
-      `[dev-pipeline-mcp-http] port ${PORT} 已經被佔用（可能是另一個 dev-pipeline-mcp bridge 行程已經在跑）——這個行程不會啟動，PENDING_HUMAN_ACTIONS.html 會沿用已經在跑的那一份。`
-    );
-    process.exit(1);
-  }
-  console.error(`[dev-pipeline-mcp-http] server error: ${err?.message ?? err}`);
-});
+  server.on("error", (err: any) => {
+    if (err?.code === "EADDRINUSE") {
+      console.error(
+        `[dev-pipeline-mcp-http] port ${PORT} 已經被佔用（另一個 dev-pipeline-mcp bridge 已經在跑）——沿用已經在跑的那一份，PENDING_HUMAN_ACTIONS.html 不受影響。`
+      );
+      if (opts.exitOnConflict) process.exit(1);
+      return;
+    }
+    console.error(`[dev-pipeline-mcp-http] server error: ${err?.message ?? err}`);
+  });
 
-server.listen(PORT, HOST, () => {
-  console.error(`dev-pipeline-mcp HTTP bridge listening on http://${HOST}:${PORT} (POST /resolve-manual-action, /record-confirmation, /record-spec-confirmation, GET /health)`);
-});
+  server.listen(PORT, HOST, () => {
+    console.error(`dev-pipeline-mcp HTTP bridge listening on http://${HOST}:${PORT} (POST /resolve-manual-action, /record-confirmation, /record-spec-confirmation, GET /health)`);
+  });
+}
+
+const isMainModule = process.argv[1] ? import.meta.url === pathToFileURL(process.argv[1]).href : false;
+if (isMainModule) {
+  startHttpBridge({ exitOnConflict: true });
+}
