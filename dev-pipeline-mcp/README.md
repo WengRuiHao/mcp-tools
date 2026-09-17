@@ -157,7 +157,7 @@ npm run build
 
 追蹤狀態落地在磁碟，不是活在對話記憶裡。每個角色開始前先看 `get_ticket_status` 摘要，只有漏掉關鍵細節才多花一次 tool call 呼叫 `read_ticket_artifact` 讀全文。
 
-> 想看跟著系統亮/暗主題切換、可縮放的互動版：clone 這個 repo 後用瀏覽器打開 [`docs/pipeline-overview.html`](docs/pipeline-overview.html)（GitHub 網頁只顯示 `.html` 原始碼，不會渲染）。
+> 想看跟著系統亮/暗主題切換、非技術人員也看得懂的完整手冊：clone 這個 repo 後用瀏覽器打開 [`docs/MANUAL.html`](docs/MANUAL.html)（GitHub 網頁只顯示 `.html` 原始碼，不會渲染）。
 
 ---
 
