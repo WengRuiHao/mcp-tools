@@ -6,21 +6,7 @@
 
 ## 這是怎麼運作的
 
-```mermaid
-%%{init: {"theme": "base", "themeVariables": {
-  "primaryColor": "#e4efee",
-  "primaryTextColor": "#123a3f",
-  "primaryBorderColor": "#1d5c63",
-  "lineColor": "#1d5c63",
-  "fontFamily": "IBM Plex Sans, Noto Sans TC, sans-serif"
-}}}%%
-flowchart LR
-    A["🙋 你<br/>提出問題"] --> B["🤖 AI 助理<br/>聽懂你的意思"]
-    B --> C["🔧 gitlab-mcp<br/>決定要查哪個工具"]
-    C --> D["🦊 GitLab<br/>回傳原始資料"]
-    D --> E["🤖 AI 助理<br/>整理成白話文"]
-    E --> F["🙋 你<br/>看到答案"]
-```
+![運作方式：你提出問題 → AI 助理聽懂你的意思 → gitlab-mcp 決定要查哪個工具 → GitLab 回傳原始資料 → AI 助理整理成白話文 → 你看到答案](docs/img/how-it-works.png)
 
 小幫手（gitlab-mcp）用你自己申請的通行證登入，所以只看得到你個人帳號實際有權限看的東西，不是公司共用帳號那份視角。還沒設定通行證時，工具會回覆提醒，不會憑空生資料。
 
@@ -28,33 +14,7 @@ flowchart LR
 
 這是額外的本地端功能（詳見下方「分支用途標記」一節），把同一個專案的分支分成三種角色，`production`/`staging` 同專案只能各留一條、`personal` 可以多人並存：
 
-```mermaid
-%%{init: {"theme": "base", "themeVariables": {
-  "primaryColor": "#f6f4ef",
-  "primaryTextColor": "#1f2430",
-  "primaryBorderColor": "#dedad0",
-  "lineColor": "#8a8272",
-  "fontFamily": "IBM Plex Sans, Noto Sans TC, sans-serif"
-}}}%%
-flowchart TB
-    subgraph proj["某個專案的分支"]
-        M[main]
-        R["release/test"]
-        D1["dev/alice"]
-        D2["dev/bob"]
-    end
-    M -.標記.-> P(("production<br/>限一條"))
-    R -.標記.-> S(("staging<br/>限一條"))
-    D1 -.標記 owner=alice.-> Pe(("personal<br/>可多條"))
-    D2 -.標記 owner=bob.-> Pe
-
-    classDef prod fill:#f8e6e3,stroke:#b23a2e,color:#b23a2e,stroke-width:2px;
-    classDef staging fill:#f7ecd6,stroke:#a5720a,color:#a5720a,stroke-width:2px;
-    classDef personal fill:#e6ebf6,stroke:#3c5a99,color:#3c5a99,stroke-width:2px;
-    class P prod
-    class S staging
-    class Pe personal
-```
+![分支用途標記示意圖：main 分支標記為 production（限一條）、release/test 標記為 staging（限一條）、dev/alice 與 dev/bob 各自標記為 personal 並記錄 owner](docs/img/branch-roles.png)
 
 ---
 
