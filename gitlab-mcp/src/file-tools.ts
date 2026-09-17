@@ -1,9 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { gitlabGetRepositoryTree, gitlabGetFileContents, gitlabSearchCode } from "./gitlab-client.js";
-import { toolResult, type GitlabResult } from "./shared.js";
-
-const projectIdParam = z.string().describe("專案的數字 ID，或 URL 路徑（例如 group/subgroup/project）");
+import { toolResult, projectIdParam, type GitlabResult } from "./shared.js";
 
 /** GitLab returns file content base64-encoded; decode it here so callers get readable text directly instead of having to decode it themselves. */
 function decodeFileContent(result: GitlabResult): GitlabResult {
@@ -22,7 +20,7 @@ function decodeFileContent(result: GitlabResult): GitlabResult {
 export function registerFileTools(server: McpServer): void {
   server.tool(
     "gitlab_get_repository_tree",
-    "【唯讀】瀏覽指定分支底下的目錄結構（檔案與資料夾清單）。",
+    "【唯讀】瀏覽指定分支底下的目錄結構（檔案與資料夾清單）。想找特定功能寫在哪個檔案，優先用 gitlab_search_code 直接搜關鍵字，比逐層瀏覽目錄快；只有在需要確認目錄結構本身（例如專案整體怎麼分模組）時才用這個。",
     {
       projectId: projectIdParam,
       ref: z.string().nullable().optional().describe("分支名稱、tag 或 commit SHA，預設專案的預設分支"),
@@ -35,11 +33,11 @@ export function registerFileTools(server: McpServer): void {
 
   server.tool(
     "gitlab_get_file_contents",
-    "【唯讀】讀取指定分支上某個檔案的內容（自動從 base64 解碼成文字）。",
+    "【唯讀】讀取指定分支上某個檔案的內容（自動從 base64 解碼成文字）。二進位檔案（圖片等）解碼後不會是可讀文字，不適合用這個工具檢視。",
     {
       projectId: projectIdParam,
-      filePath: z.string().describe("檔案在 repo 內的完整路徑，例如 src/index.ts"),
-      ref: z.string().describe("分支名稱、tag 或 commit SHA"),
+      filePath: z.string().describe("檔案在 repo 內的完整路徑，例如 src/index.ts，不要加開頭的斜線"),
+      ref: z.string().describe("分支名稱、tag 或 commit SHA，必填——不確定的話先用 gitlab_get_project 查預設分支，或用 gitlab_list_branches 查分支名稱"),
     },
     async ({ projectId, filePath, ref }) => toolResult(decodeFileContent(await gitlabGetFileContents(projectId, filePath, ref)))
   );

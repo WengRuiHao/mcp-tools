@@ -31,6 +31,17 @@ export function encodeProjectId(id: string): string {
   return /^\d+$/.test(id) ? id : encodeURIComponent(id);
 }
 
+/** Turns a bare HTTP status into an actionable next-step hint for whichever caller (human or AI) is reading the error message — GitLab's own error bodies rarely explain what to actually do about it. */
+function errorHint(status: number): string {
+  if (status === 404) {
+    return "（找不到——常見原因是 projectId 格式錯誤，或 MR/Issue/Pipeline 用了全域 ID 而不是專案內編號 iid；建議先用 gitlab_list_projects/gitlab_list_merge_requests/gitlab_list_issues 這類列表工具查出正確值，不要用猜的）";
+  }
+  if (status === 401 || status === 403) {
+    return "（權限不足——請確認 info/gitlab.json 裡的 Personal Access Token 還沒過期、scope 至少要有 read_api，且這個帳號本人在 GitLab 上真的有權限存取此專案）";
+  }
+  return "";
+}
+
 async function call(method: string, pathSuffix: string, body?: unknown): Promise<CallResult> {
   const settings = await getGitlabSettings();
   if (!settings) {
@@ -50,7 +61,11 @@ async function call(method: string, pathSuffix: string, body?: unknown): Promise
     const parsed = text ? JSON.parse(text) : null;
     if (!res.ok) {
       const msg = (parsed && (parsed.message as string)) || `GitLab API 回傳 ${res.status}`;
-      return { success: false, message: `${typeof msg === "string" ? msg : JSON.stringify(msg)}（HTTP ${res.status}）` };
+      const hint = errorHint(res.status);
+      return {
+        success: false,
+        message: `${typeof msg === "string" ? msg : JSON.stringify(msg)}（HTTP ${res.status}）${hint}`,
+      };
     }
     return { success: true, data: parsed, nextPage: res.headers.get("x-next-page") };
   } catch (e) {
@@ -164,4 +179,90 @@ export function gitlabSearchCode(projectId: string, search: string, ref?: string
   if (ref) params.set("ref", ref);
   params.set("per_page", String(perPage ?? 20));
   return callList("GET", `/projects/${encodeProjectId(projectId)}/search?${params.toString()}`);
+}
+
+export function gitlabListMergeRequests(
+  projectId: string,
+  opts: {
+    state?: "opened" | "closed" | "merged" | "all";
+    targetBranch?: string;
+    sourceBranch?: string;
+    search?: string;
+    perPage?: number;
+    page?: number;
+  }
+): Promise<GitlabResult> {
+  const params = new URLSearchParams();
+  params.set("state", opts.state ?? "opened");
+  if (opts.targetBranch) params.set("target_branch", opts.targetBranch);
+  if (opts.sourceBranch) params.set("source_branch", opts.sourceBranch);
+  if (opts.search) params.set("search", opts.search);
+  params.set("order_by", "updated_at");
+  params.set("per_page", String(opts.perPage ?? 30));
+  params.set("page", String(opts.page ?? 1));
+  return callList("GET", `/projects/${encodeProjectId(projectId)}/merge_requests?${params.toString()}`);
+}
+
+export function gitlabGetMergeRequest(projectId: string, mrIid: number): Promise<GitlabResult> {
+  return call("GET", `/projects/${encodeProjectId(projectId)}/merge_requests/${mrIid}`);
+}
+
+/** "changes" is GitLab's endpoint name for an MR's file diffs — kept as get_merge_request_changes to match GitLab's own terminology instead of inventing a different name for the same thing. */
+export function gitlabGetMergeRequestChanges(projectId: string, mrIid: number): Promise<GitlabResult> {
+  return call("GET", `/projects/${encodeProjectId(projectId)}/merge_requests/${mrIid}/changes`);
+}
+
+export function gitlabListMergeRequestDiscussions(projectId: string, mrIid: number, perPage?: number, page?: number): Promise<GitlabResult> {
+  const params = new URLSearchParams();
+  params.set("per_page", String(perPage ?? 20));
+  params.set("page", String(page ?? 1));
+  return callList("GET", `/projects/${encodeProjectId(projectId)}/merge_requests/${mrIid}/discussions?${params.toString()}`);
+}
+
+export function gitlabListIssues(
+  projectId: string,
+  opts: { state?: "opened" | "closed" | "all"; search?: string; labels?: string; perPage?: number; page?: number }
+): Promise<GitlabResult> {
+  const params = new URLSearchParams();
+  params.set("state", opts.state ?? "opened");
+  if (opts.search) params.set("search", opts.search);
+  if (opts.labels) params.set("labels", opts.labels);
+  params.set("order_by", "updated_at");
+  params.set("per_page", String(opts.perPage ?? 30));
+  params.set("page", String(opts.page ?? 1));
+  return callList("GET", `/projects/${encodeProjectId(projectId)}/issues?${params.toString()}`);
+}
+
+export function gitlabGetIssue(projectId: string, issueIid: number): Promise<GitlabResult> {
+  return call("GET", `/projects/${encodeProjectId(projectId)}/issues/${issueIid}`);
+}
+
+export function gitlabListPipelines(
+  projectId: string,
+  opts: {
+    ref?: string;
+    status?: "created" | "waiting_for_resource" | "preparing" | "pending" | "running" | "success" | "failed" | "canceled" | "skipped" | "manual" | "scheduled";
+    perPage?: number;
+    page?: number;
+  }
+): Promise<GitlabResult> {
+  const params = new URLSearchParams();
+  if (opts.ref) params.set("ref", opts.ref);
+  if (opts.status) params.set("status", opts.status);
+  params.set("order_by", "id");
+  params.set("sort", "desc");
+  params.set("per_page", String(opts.perPage ?? 20));
+  params.set("page", String(opts.page ?? 1));
+  return callList("GET", `/projects/${encodeProjectId(projectId)}/pipelines?${params.toString()}`);
+}
+
+export function gitlabGetPipeline(projectId: string, pipelineId: number): Promise<GitlabResult> {
+  return call("GET", `/projects/${encodeProjectId(projectId)}/pipelines/${pipelineId}`);
+}
+
+/** Per-job status/stage within one pipeline run — this is what actually answers "which stage failed", since the pipeline object itself only has one overall status. */
+export function gitlabListPipelineJobs(projectId: string, pipelineId: number, perPage?: number): Promise<GitlabResult> {
+  const params = new URLSearchParams();
+  params.set("per_page", String(perPage ?? 50));
+  return callList("GET", `/projects/${encodeProjectId(projectId)}/pipelines/${pipelineId}/jobs?${params.toString()}`);
 }

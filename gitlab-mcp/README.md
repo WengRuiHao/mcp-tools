@@ -33,20 +33,31 @@
 
 ## 工具（全部唯讀）
 
-| 工具 | 說明 |
-|---|---|
-| `gitlab_whoami` | 確認 token 有效，回傳登入的個人帳號 |
-| `gitlab_list_projects` | 列出自己參與/擁有的專案 |
-| `gitlab_get_project` | 單一專案詳細資訊 |
-| `gitlab_list_branches` | 列出專案的分支 |
-| `gitlab_get_branch` | 單一分支詳情 |
-| `gitlab_list_commits` | 指定分支的 commit 歷史 |
-| `gitlab_get_commit` | 單一 commit 詳情 |
-| `gitlab_get_commit_diff` | 單一 commit 的 diff |
-| `gitlab_compare_branches` | 兩分支/tag/SHA 之間的差異 |
-| `gitlab_get_repository_tree` | 瀏覽分支底下的目錄結構 |
-| `gitlab_get_file_contents` | 讀取分支上某檔案的內容（自動 base64 解碼） |
-| `gitlab_search_code` | 在專案裡搜尋關鍵字/函式名稱，快速鎖定相關檔案 |
+| 分類 | 工具 | 說明 |
+|---|---|---|
+| 專案 | `gitlab_whoami` | 確認 token 有效，回傳登入的個人帳號 |
+| 專案 | `gitlab_list_projects` | 列出自己參與/擁有的專案 |
+| 專案 | `gitlab_get_project` | 單一專案詳細資訊 |
+| 分支 | `gitlab_list_branches` | 列出專案的分支 |
+| 分支 | `gitlab_get_branch` | 單一分支詳情 |
+| Commit | `gitlab_list_commits` | 指定分支的 commit 歷史 |
+| Commit | `gitlab_get_commit` | 單一 commit 詳情 |
+| Commit | `gitlab_get_commit_diff` | 單一 commit 的 diff |
+| Commit | `gitlab_compare_branches` | 兩分支/tag/SHA 之間的差異 |
+| 檔案 | `gitlab_get_repository_tree` | 瀏覽分支底下的目錄結構 |
+| 檔案 | `gitlab_get_file_contents` | 讀取分支上某檔案的內容（自動 base64 解碼） |
+| 檔案 | `gitlab_search_code` | 在專案裡搜尋關鍵字/函式名稱，快速鎖定相關檔案 |
+| Merge Request | `gitlab_list_merge_requests` | 列出專案的 MR，可依狀態/分支/關鍵字篩選 |
+| Merge Request | `gitlab_get_merge_request` | 單一 MR 詳細資訊 |
+| Merge Request | `gitlab_get_merge_request_changes` | 單一 MR 的檔案 diff |
+| Merge Request | `gitlab_list_merge_request_discussions` | 單一 MR 上的討論串/review 留言 |
+| Issue | `gitlab_list_issues` | 列出專案的 Issue，可依狀態/標籤/關鍵字篩選 |
+| Issue | `gitlab_get_issue` | 單一 Issue 詳細資訊 |
+| Pipeline | `gitlab_list_pipelines` | 列出 CI/CD pipeline 執行紀錄，可依分支/狀態篩選 |
+| Pipeline | `gitlab_get_pipeline` | 單一 pipeline 整體狀態 |
+| Pipeline | `gitlab_list_pipeline_jobs` | 單一 pipeline 底下每個 job 的狀態，用來抓「卡在哪個 stage」 |
+
+常見查詢鏈：不知道專案路徑 → `gitlab_list_projects` 找到 `id`/`path_with_namespace` → 帶進其他工具的 `projectId`。MR/Issue 的編號一律是 `iid`（專案內編號，網址上看到的那個數字），不是全域 ID；Pipeline 則相反，是全域數字 ID。
 
 ## 安裝
 
