@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>svn-mcp 使用手冊</title>
+<meta name="description" content="給非技術人員也看得懂的 svn-mcp 操作說明與流程圖">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Noto+Serif+TC:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #f6f4ef;
+    --bg-raised: #ffffff;
+    --ink: #1f2430;
+    --ink-soft: #565f70;
+    --line: #dedad0;
+    --accent: #1d5c63;
+    --accent-2: #c9603c;
+    --accent-soft: #e4efee;
+    --accent-ink: #123a3f;
+    --step1: #b23a2e;
+    --step1-soft: #f8e6e3;
+    --step2: #a5720a;
+    --step2-soft: #f7ecd6;
+    --step3: #3c5a99;
+    --step3-soft: #e6ebf6;
+    --mono-bg: #eee9df;
+    --code-ink: #3a4352;
+    --shadow: 0 1px 2px rgba(31,36,48,0.06), 0 8px 24px rgba(31,36,48,0.08);
+    --shadow-lg: 0 4px 10px rgba(31,36,48,0.08), 0 20px 48px rgba(31,36,48,0.12);
+    --grain-op: 0.05;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161b;
+      --bg-raised: #1b2026;
+      --ink: #e9ecf1;
+      --ink-soft: #a6afc0;
+      --line: #2b323c;
+      --accent: #5fb3ba;
+      --accent-2: #e08a63;
+      --accent-soft: #1b3033;
+      --accent-ink: #bfe7e9;
+      --step1: #e08b7f;
+      --step1-soft: #362320;
+      --step2: #e0b45c;
+      --step2-soft: #362c15;
+      --step3: #93aee0;
+      --step3-soft: #212a3f;
+      --mono-bg: #232830;
+      --code-ink: #cfd6e2;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.4);
+      --shadow-lg: 0 4px 10px rgba(0,0,0,0.4), 0 24px 56px rgba(0,0,0,0.5);
+      --grain-op: 0.08;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161b;
+    --bg-raised: #1b2026;
+    --ink: #e9ecf1;
+    --ink-soft: #a6afc0;
+    --line: #2b323c;
+    --accent: #5fb3ba;
+    --accent-2: #e08a63;
+    --accent-soft: #1b3033;
+    --accent-ink: #bfe7e9;
+    --step1: #e08b7f;
+    --step1-soft: #362320;
+    --step2: #e0b45c;
+    --step2-soft: #362c15;
+    --step3: #93aee0;
+    --step3-soft: #212a3f;
+    --mono-bg: #232830;
+    --code-ink: #cfd6e2;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.4);
+    --shadow-lg: 0 4px 10px rgba(0,0,0,0.4), 0 24px 56px rgba(0,0,0,0.5);
+    --grain-op: 0.08;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    margin: 0;
+    padding-inline: 20px;
+    padding-block: 0 80px;
+    font-family: "IBM Plex Sans", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+    line-height: 1.65;
+    font-size: 16px;
+    position: relative;
+    overflow-x: hidden;
+  }
+  h1, h2, h3 { font-family: "Fraunces", "Noto Serif TC", Georgia, serif; text-wrap: balance; color: var(--ink); }
+  code, .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; }
+
+  .wrap { max-width: 880px; margin: 0 auto; position: relative; }
+
+  .ambient {
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background-image: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ink) 14%, transparent) 1px, transparent 0);
+    background-size: 22px 22px;
+    opacity: var(--grain-op);
+  }
+  .blob { position: absolute; border-radius: 50%; filter: blur(60px); pointer-events: none; z-index: -1; }
+  .blob.one { top: -120px; right: -100px; width: 340px; height: 340px; background: color-mix(in srgb, var(--accent) 30%, transparent); }
+  .blob.two { top: 420px; left: -140px; width: 300px; height: 300px; background: color-mix(in srgb, var(--accent-2) 22%, transparent); }
+
+  .hero { text-align: center; padding-block: 56px 20px; position: relative; }
+  .hero-lines { position: absolute; inset: -10px auto auto 50%; transform: translateX(-50%); width: min(720px, 100%); height: 220px; z-index: -1; opacity: .55; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent-ink); background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    border-radius: 999px; padding: 6px 14px; margin-bottom: 22px;
+    animation: rise .6s ease-out both;
+  }
+  h1 { font-size: clamp(2.1rem, 1.6rem + 2.6vw, 3.1rem); margin: 0 0 14px; letter-spacing: -0.01em; animation: rise .7s .05s ease-out both; }
+  .lede { font-size: 1.12rem; color: var(--ink-soft); max-width: 46ch; margin: 0 auto; animation: rise .7s .12s ease-out both; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) { .eyebrow, h1, .lede { animation: none; } }
+
+  nav.toc { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 30px 0 8px; padding: 0; list-style: none; }
+  nav.toc a {
+    font-size: 13px; color: var(--ink-soft); text-decoration: none;
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px;
+    background: var(--bg-raised); transition: color .15s, border-color .15s, transform .15s;
+  }
+  nav.toc a:hover { color: var(--accent-ink); border-color: var(--accent); transform: translateY(-1px); }
+
+  section { margin-top: 68px; scroll-margin-top: 24px; }
+  section > h2 { font-size: 1.55rem; margin: 0 0 6px; display: flex; align-items: baseline; gap: 10px; }
+  section > h2 .num { font-family: "IBM Plex Mono", monospace; font-size: .82rem; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 2px 7px; }
+  section > .kicker { color: var(--ink-soft); margin: 0 0 24px; max-width: 62ch; }
+
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity .55s ease-out, transform .55s ease-out; }
+  .reveal.in { opacity: 1; transform: translateY(0); }
+  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
+
+  .diagram-card { background: var(--bg-raised); border: 1px solid var(--line); border-radius: 18px; padding: 28px 20px; box-shadow: var(--shadow-lg); overflow-x: auto; }
+
+  .flow-steps { display: flex; align-items: stretch; gap: 0; min-width: 640px; justify-content: center; }
+  .flow-step { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 130px; flex-shrink: 0; }
+  .flow-step .badge {
+    width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; background: var(--accent-soft); border: 2px solid var(--accent); box-shadow: var(--shadow);
+  }
+  .flow-step .label { font-size: .82rem; text-align: center; color: var(--ink-soft); font-weight: 600; line-height: 1.35; }
+  .flow-connector { flex: 1; display: flex; align-items: center; margin-top: -34px; min-width: 20px; }
+  .flow-connector svg { width: 100%; height: 14px; overflow: visible; }
+  .flow-connector path { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 6; }
+  .flow-connector.animate path { animation: dash 1.4s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  @media (prefers-reduced-motion: reduce) { .flow-connector.animate path { animation: none; } }
+
+  .conn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 720px) { .conn-grid { grid-template-columns: 1fr; } }
+  .conn-card { background: var(--bg-raised); border: 1px solid var(--line); border-radius: 16px; padding: 22px; box-shadow: var(--shadow); transition: transform .18s, box-shadow .18s; }
+  .conn-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+  .conn-card .id { display: inline-block; font-family: "IBM Plex Mono", monospace; font-size: .85rem; background: var(--accent-soft); color: var(--accent-ink); border-radius: 8px; padding: 3px 10px; margin-bottom: 12px; }
+  .conn-card h3 { margin: 0 0 6px; font-size: 1.1rem; }
+  .conn-card p { margin: 0; color: var(--ink-soft); font-size: .95rem; }
+
+  .cat-list { display: flex; flex-direction: column; gap: 14px; }
+  details.cat { background: var(--bg-raised); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; transition: box-shadow .2s; }
+  details.cat:hover { box-shadow: var(--shadow-lg); }
+  details.cat summary { cursor: pointer; list-style: none; padding: 18px 20px; display: flex; align-items: center; gap: 14px; outline-offset: 4px; }
+  details.cat summary:focus-visible { outline: 2px solid var(--accent); }
+  details.cat summary::-webkit-details-marker { display: none; }
+  details.cat summary .emoji { font-size: 1.4rem; flex-shrink: 0; }
+  details.cat summary .title-block { flex: 1; min-width: 0; }
+  details.cat summary h3 { margin: 0; font-size: 1.05rem; font-family: "IBM Plex Sans","Noto Sans TC",sans-serif; font-weight: 600; }
+  details.cat summary .sub { margin: 2px 0 0; color: var(--ink-soft); font-size: .88rem; }
+  details.cat summary .chev { color: var(--ink-soft); transition: transform .2s; flex-shrink: 0; }
+  details.cat[open] summary .chev { transform: rotate(90deg); }
+  .cat-body { padding: 0 20px 20px; border-top: 1px solid var(--line); }
+  .cat-body .example { margin: 16px 0 18px; padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); color: var(--accent-ink); font-size: .92rem; }
+  .cat-body .example b { font-weight: 600; }
+  .tool-row { display: flex; gap: 12px; padding: 10px 0; border-top: 1px dashed var(--line); }
+  .tool-row:first-of-type { border-top: none; }
+  .tool-row code { flex-shrink: 0; font-size: .82rem; background: var(--mono-bg); color: var(--code-ink); padding: 4px 8px; border-radius: 6px; height: fit-content; white-space: nowrap; }
+  .tool-row span { color: var(--ink-soft); font-size: .92rem; }
+
+  details.cat.feature { border-color: var(--accent); border-width: 1.5px; }
+
+  .scenario { background: var(--bg-raised); border: 1px solid var(--line); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); margin-bottom: 16px; transition: transform .18s, box-shadow .18s; }
+  .scenario:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .scenario h3 { margin: 0 0 14px; font-size: 1rem; font-family: "IBM Plex Sans","Noto Sans TC",sans-serif; color: var(--ink-soft); font-weight: 600; }
+  .bubble { max-width: 80%; padding: 10px 14px; border-radius: 14px; margin-bottom: 10px; font-size: .95rem; }
+  .bubble.user { background: var(--accent); color: #fff; margin-left: auto; border-bottom-right-radius: 4px; }
+  .bubble.ai { background: var(--mono-bg); color: var(--ink); border-bottom-left-radius: 4px; }
+  .bubble .steps { display: block; margin-top: 8px; font-size: .82rem; opacity: .8; }
+  .bubble .steps code { font-family: "IBM Plex Mono", monospace; background: rgba(0,0,0,0.08); padding: 1px 6px; border-radius: 5px; }
+
+  .faq-item { border-top: 1px solid var(--line); padding: 16px 0; }
+  .faq-item:first-child { border-top: none; }
+  .faq-item h3 { margin: 0 0 6px; font-size: 1rem; font-family: "IBM Plex Sans","Noto Sans TC",sans-serif; font-weight: 600; }
+  .faq-item p { margin: 0; color: var(--ink-soft); font-size: .95rem; }
+
+  footer { margin-top: 76px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: .85rem; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="ambient"></div>
+<div class="blob one"></div>
+<div class="blob two"></div>
+
+<div class="wrap">
+
+  <div class="hero">
+    <svg class="hero-lines" viewBox="0 0 720 220" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <g fill="none" stroke="var(--accent)" stroke-width="2" opacity="0.5">
+        <path d="M40 190 C 160 190, 160 120, 260 120 S 360 60, 460 60"/>
+        <path d="M40 190 C 120 190, 140 160, 220 160 S 320 180, 400 180"/>
+        <circle cx="40" cy="190" r="5" fill="var(--accent)" stroke="none"/>
+        <circle cx="260" cy="120" r="4" fill="var(--accent)" stroke="none"/>
+        <circle cx="460" cy="60" r="5" fill="var(--accent-2)" stroke="none"/>
+        <circle cx="400" cy="180" r="4" fill="var(--accent-2)" stroke="none"/>
+      </g>
+      <g fill="none" stroke="var(--accent-2)" stroke-width="2" opacity="0.35">
+        <path d="M680 30 C 560 30, 540 90, 460 90 S 380 130, 300 130"/>
+      </g>
+    </svg>
+    <span class="eyebrow">🗂️ svn-mcp 使用手冊</span>
+    <h1>SVN 裡的答案，用問的就好</h1>
+    <p class="lede">這是給 AI 助理用的一個小工具，讓它能幫你查 SVN 上的程式碼跟規格文件。這份手冊用白話文說明它怎麼運作、能查什麼、什麼時候該用哪一種問法。</p>
+  </div>
+
+  <nav class="toc">
+    <a href="#what">這是什麼</a>
+    <a href="#flow">運作方式</a>
+    <a href="#connections">多組連線</a>
+    <a href="#tools">工具總覽</a>
+    <a href="#docflow">讀規格書的流程</a>
+    <a href="#scenarios">實際範例</a>
+    <a href="#faq">常見問題</a>
+  </nav>
+
+  <section id="what" class="reveal">
+    <h2><span class="num">01</span> 這是什麼？</h2>
+    <p class="kicker">
+      SVN 是公司存放程式碼跟規格文件的地方——每個檔案、每一次修改都記錄在上面。過去要查這些東西，得自己開 SVN 用戶端一層一層點。
+      現在你可以直接用中文跟 AI 助理說「幫我看某份規格書寫了什麼」，AI 助理會透過 <b>svn-mcp</b> 這個工具直接執行電腦上的 <code>svn</code> 指令把資料抓回來，整理成看得懂的白話文回答你。
+    </p>
+    <p class="kicker" style="margin-top:-6px">
+      這個工具<b>對 SVN 完全唯讀</b>，不會幫你改動或刪除任何東西，也不依賴任何額外的網站服務——直接呼叫電腦上已經裝好的 <code>svn</code> 程式，斷網、斷服務都不影響它查資料。
+    </p>
+  </section>
+
+  <section id="flow" class="reveal">
+    <h2><span class="num">02</span> 運作方式</h2>
+    <p class="kicker">一次查詢，經過這六個步驟。你完全不需要知道中間發生了什麼，只是說明給你聽：</p>
+    <div class="diagram-card">
+      <div class="flow-steps">
+        <div class="flow-step"><div class="badge">🙋</div><div class="label">你<br/>提出問題</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🤖</div><div class="label">AI 助理<br/>聽懂你的意思</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🗂️</div><div class="label">svn-mcp<br/>執行本機 svn 指令</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">📚</div><div class="label">SVN 伺服器<br/>回傳原始資料</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🤖</div><div class="label">AI 助理<br/>整理成白話文</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🙋</div><div class="label">你<br/>看到答案</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="connections" class="reveal">
+    <h2><span class="num">03</span> 可以同時登記多組連線</h2>
+    <p class="kicker">
+      這支工具可以同時登記好幾組 SVN 連線，每組給一個好記的名字。問問題時如果沒講清楚要查哪一個，AI 助理會先跟你確認可用的連線有哪些，不會亂猜。
+    </p>
+    <div class="conn-grid">
+      <div class="conn-card"><span class="id">連線 A</span><h3>例如某個專案的規格庫</h3><p>存放這個專案的 SA/SD 規格文件。</p></div>
+      <div class="conn-card"><span class="id">連線 B</span><h3>例如某個專案的程式碼庫</h3><p>存放這個專案實際的程式原始碼。</p></div>
+      <div class="conn-card"><span class="id">連線 C</span><h3>可以視需要再新增</h3><p>連線數量不限，各自獨立、互不影響。</p></div>
+    </div>
+  </section>
+
+  <section id="tools" class="reveal">
+    <h2><span class="num">04</span> 工具總覽</h2>
+    <p class="kicker">總共 3 大類、7 個工具。每一類點開來看，裡面有實際的工具名稱（給負責設定的 IT 人員對照用）跟白話說明。</p>
+
+    <div class="cat-list">
+
+      <details class="cat" open>
+        <summary>
+          <span class="emoji">🔌</span>
+          <span class="title-block">
+            <h3>連線管理</h3>
+            <p class="sub">目前登記了哪些連線、連不連得上</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <div class="example"><b>可以這樣問：</b>「現在有設定哪些 SVN 連線？」</div>
+          <div class="tool-row"><code>svn_list_connections</code><span>列出登記的連線（不含帳號密碼）</span></div>
+          <div class="tool-row"><code>svn_test_connection</code><span>實際測試某個連線連不連得上（真的執行一次查詢，不是只看設定檔有沒有資料）</span></div>
+        </div>
+      </details>
+
+      <details class="cat">
+        <summary>
+          <span class="emoji">🔍</span>
+          <span class="title-block">
+            <h3>瀏覽與讀取</h3>
+            <p class="sub">看有哪些檔案、讀檔案內容</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <div class="example"><b>可以這樣問：</b>「這個路徑底下有哪些檔案？」</div>
+          <div class="tool-row"><code>svn_browse</code><span>列出某個路徑底下的檔案/資料夾清單</span></div>
+          <div class="tool-row"><code>svn_cat</code><span>讀取某個檔案的內容——純文字檔直接讀出來；Word/Excel/PDF 這類文件會先存成暫存檔，交給既有的文件讀取流程處理</span></div>
+          <div class="tool-row"><code>svn_doc_images</code><span>把 Word/Excel 文件存成暫存檔，交給既有流程抽取裡面的圖片——規格書的畫面設計、流程圖常常藏在圖片裡</span></div>
+        </div>
+      </details>
+
+      <details class="cat">
+        <summary>
+          <span class="emoji">🕘</span>
+          <span class="title-block">
+            <h3>修改歷史</h3>
+            <p class="sub">誰、什麼時候、改了什麼</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <div class="example"><b>可以這樣問：</b>「這個檔案最近改過什麼？」</div>
+          <div class="tool-row"><code>svn_log</code><span>查詢修訂記錄（作者、時間、說明）</span></div>
+          <div class="tool-row"><code>svn_diff</code><span>比較兩個版本之間差了什麼</span></div>
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  <section id="docflow" class="reveal">
+    <h2><span class="num">05</span> 讀規格書的完整流程</h2>
+    <p class="kicker">
+      規格書（SA/SD）常常用 Word 文件撰寫，畫面設計、流程圖多半是用圖片貼進去的——只讀文字內容會漏掉這些關鍵資訊。
+      這支工具會提醒連圖片一起讀，走完整流程：
+    </p>
+    <div class="diagram-card">
+      <div class="flow-steps">
+        <div class="flow-step"><div class="badge">📄</div><div class="label">SVN 上的<br/>規格書（.docx）</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">💾</div><div class="label">svn_cat<br/>存成本機暫存檔</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🖼️</div><div class="label">svn_doc_images<br/>抓出內嵌圖片</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🤖</div><div class="label">AI 助理<br/>讀到完整文字＋圖片</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="scenarios" class="reveal">
+    <h2><span class="num">06</span> 實際範例</h2>
+    <p class="kicker">幾個常見情境，示範怎麼問、AI 助理在背後做了什麼。</p>
+
+    <div class="scenario">
+      <h3>情境一：看某份規格書寫了什麼</h3>
+      <div class="bubble user">幫我看一下這份規格書裡的畫面設計長怎樣</div>
+      <div class="bubble ai">這份規格書除了文字說明，我也把裡面附的畫面設計截圖抓出來看過了，整理如下……
+        <span class="steps">背後呼叫：<code>svn_cat</code> → <code>svn_doc_images</code></span>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <h3>情境二：知道某支程式最近改了什麼</h3>
+      <div class="bubble user">這支程式最近改過什麼？跟上一版差在哪？</div>
+      <div class="bubble ai">最近一次修改是三天前，改了驗證邏輯的部分，這是兩個版本的差異……
+        <span class="steps">背後呼叫：<code>svn_log</code> → <code>svn_diff</code></span>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <h3>情境三：不確定要查哪個連線</h3>
+      <div class="bubble user">幫我查一下規格書在哪裡</div>
+      <div class="bubble ai">目前登記了兩組連線，你是要查「連線 A」還是「連線 B」？
+        <span class="steps">背後呼叫：<code>svn_list_connections</code></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" class="reveal">
+    <h2><span class="num">07</span> 常見問題</h2>
+
+    <div class="faq-item">
+      <h3>這個工具會不會不小心改到或刪除 SVN 上的東西？</h3>
+      <p>不會。所有工具都只查詢、不寫入，SVN 上的檔案、修訂紀錄都不會被更動。</p>
+    </div>
+    <div class="faq-item">
+      <h3>為什麼有時候 AI 助理會問我要用哪個連線？</h3>
+      <p>因為可能登記了不只一組連線，同一個路徑在不同連線底下可能是完全不同的內容。AI 助理不會用猜的，會先跟你確認要查哪一個。</p>
+    </div>
+    <div class="faq-item">
+      <h3>讀 docx 規格書時，為什麼要額外呼叫抓圖片的工具？</h3>
+      <p>因為規格書的畫面設計、流程圖常常是用圖片貼進文件裡的，只讀文字內容會漏掉這些重點，這支工具會提醒連圖片一起讀，避免看漏。</p>
+    </div>
+    <div class="faq-item">
+      <h3>如果連不上 SVN 或指令逾時怎麼辦？</h3>
+      <p>可以先用「測試連線連不連得上」這個工具確認，常見原因是網路/VPN 沒開、帳號密碼過期，或連線設定的網址打錯。</p>
+    </div>
+  </section>
+
+  <footer>svn-mcp 使用手冊 · 最後更新 2026-09-17</footer>
+</div>
+
+<script>
+  (function () {
+    var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var items = document.querySelectorAll("details.cat");
+
+    items.forEach(function (el) {
+      if (reduceMotion) return;
+
+      var summary = el.querySelector("summary");
+      var animation = null;
+      var isClosing = false;
+      var isExpanding = false;
+
+      summary.addEventListener("click", function (e) {
+        e.preventDefault();
+        el.style.overflow = "hidden";
+        if (isClosing || !el.open) {
+          openPanel();
+        } else if (isExpanding || el.open) {
+          shrink();
+        }
+      });
+
+      function shrink() {
+        isClosing = true;
+        var startHeight = el.offsetHeight + "px";
+        var endHeight = summary.offsetHeight + "px";
+        if (animation) animation.cancel();
+        animation = el.animate({ height: [startHeight, endHeight] }, { duration: 220, easing: "ease-out" });
+        animation.onfinish = function () { onFinish(false); };
+        animation.oncancel = function () { isClosing = false; };
+      }
+
+      function openPanel() {
+        el.style.height = el.offsetHeight + "px";
+        el.open = true;
+        window.requestAnimationFrame(function () { expand(); });
+      }
+
+      function expand() {
+        isExpanding = true;
+        var startHeight = el.offsetHeight + "px";
+        var body = el.querySelector(".cat-body");
+        var endHeight = summary.offsetHeight + body.offsetHeight + "px";
+        if (animation) animation.cancel();
+        animation = el.animate({ height: [startHeight, endHeight] }, { duration: 220, easing: "ease-out" });
+        animation.onfinish = function () { onFinish(true); };
+        animation.oncancel = function () { isExpanding = false; };
+      }
+
+      function onFinish(openState) {
+        el.open = openState;
+        animation = null;
+        isClosing = false;
+        isExpanding = false;
+        el.style.height = "";
+        el.style.overflow = "";
+      }
+    });
+  })();
+
+  (function () {
+    var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion || !("IntersectionObserver" in window)) return;
+
+    var sections = document.querySelectorAll(".reveal");
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("in");
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
+
+    sections.forEach(function (s) { io.observe(s); });
+  })();
+</script>
+</body>
+</html>
