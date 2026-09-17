@@ -310,8 +310,8 @@
       </g>
     </svg>
     <span class="eyebrow">🦊 gitlab-mcp 使用手冊</span>
-    <h1>不用會寫程式，也看得懂這個工具在做什麼</h1>
-    <p class="lede">這是給 Claude（AI 助理）用的一個小工具，讓它能幫你查 GitLab 上的專案資料。這份手冊用白話文說明它怎麼運作、能查什麼、什麼時候該用哪一種問法。</p>
+    <h1>GitLab 裡的答案，用問的就好</h1>
+    <p class="lede">這是給 AI 助理用的一個小工具，讓它能幫你查 GitLab 上的專案資料。這份手冊用白話文說明它怎麼運作、能查什麼、什麼時候該用哪一種問法。</p>
   </div>
 
   <nav class="toc">
@@ -328,7 +328,7 @@
     <h2><span class="num">01</span> 這是什麼？</h2>
     <p class="kicker">
       GitLab 是公司存放程式碼的地方——每個專案、每一次修改、每一條分支都記錄在上面。過去要查這些東西，得自己登入 GitLab 網站一層一層點。
-      現在你可以直接用中文跟 Claude 說「幫我查某個專案最近改了什麼」，Claude 會透過 <b>gitlab-mcp</b> 這個工具去 GitLab 上把資料抓回來，整理成看得懂的白話文回答你。
+      現在你可以直接用中文跟 AI 助理說「幫我查某個專案最近改了什麼」，AI 助理會透過 <b>gitlab-mcp</b> 這個工具去 GitLab 上把資料抓回來，整理成看得懂的白話文回答你。
     </p>
     <p class="kicker" style="margin-top:-6px">
       這個工具用的是<b>你自己申請的個人通行證</b>登入，看到的是你個人帳號實際有權限看的東西，不是某個共用帳號的視角。除了「分支用途標記」這個額外功能會記錄一些筆記在本機，其他一律只讀不寫——不會幫你改動或刪除 GitLab 上任何東西。
@@ -342,13 +342,13 @@
       <div class="flow-steps">
         <div class="flow-step"><div class="badge">🙋</div><div class="label">你<br/>提出問題</div></div>
         <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
-        <div class="flow-step"><div class="badge">🤖</div><div class="label">Claude<br/>聽懂你的意思</div></div>
+        <div class="flow-step"><div class="badge">🤖</div><div class="label">AI 助理<br/>聽懂你的意思</div></div>
         <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
         <div class="flow-step"><div class="badge">🔧</div><div class="label">gitlab-mcp<br/>決定要查哪個工具</div></div>
         <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
         <div class="flow-step"><div class="badge">🦊</div><div class="label">GitLab<br/>回傳原始資料</div></div>
         <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
-        <div class="flow-step"><div class="badge">🤖</div><div class="label">Claude<br/>整理成白話文</div></div>
+        <div class="flow-step"><div class="badge">🤖</div><div class="label">AI 助理<br/>整理成白話文</div></div>
         <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
         <div class="flow-step"><div class="badge">🙋</div><div class="label">你<br/>看到答案</div></div>
       </div>
@@ -358,7 +358,7 @@
   <section id="connections" class="reveal">
     <h2><span class="num">03</span> 兩個帳號，兩個站台</h2>
     <p class="kicker">
-      目前這支工具登記了兩組通行證，因為有兩個不同的內部 GitLab 站台。問問題時如果沒講清楚要查哪一個，Claude 會先跟你確認，不會亂猜。
+      目前這支工具登記了兩組通行證，因為有兩個不同的內部 GitLab 站台。問問題時如果沒講清楚要查哪一個，AI 助理會先跟你確認，不會亂猜。
     </p>
     <div class="conn-grid">
       <div class="conn-card">
@@ -570,7 +570,7 @@
 
   <section id="scenarios" class="reveal">
     <h2><span class="num">05</span> 實際範例</h2>
-    <p class="kicker">幾個常見情境，示範怎麼問、Claude 在背後做了什麼。</p>
+    <p class="kicker">幾個常見情境，示範怎麼問、AI 助理在背後做了什麼。</p>
 
     <div class="scenario">
       <h3>情境一：確認正式機用哪條分支</h3>
@@ -605,8 +605,8 @@
       <p>不會。除了「分支用途標記」是寫進本機的一份筆記檔案，其餘所有工具都只查詢、不寫入，GitLab 上的專案、分支、程式碼都不會被更動。</p>
     </div>
     <div class="faq-item">
-      <h3>為什麼有時候 Claude 會問我要查 gitlab 還是 gitlab2？</h3>
-      <p>因為目前登記了兩組不同站台的帳號，同一個專案名稱在兩邊可能都存在但內容不同。Claude 不會用猜的，會先跟你確認要查哪一邊。</p>
+      <h3>為什麼有時候 AI 助理會問我要查 gitlab 還是 gitlab2？</h3>
+      <p>因為目前登記了兩組不同站台的帳號，同一個專案名稱在兩邊可能都存在但內容不同。AI 助理不會用猜的，會先跟你確認要查哪一邊。</p>
     </div>
     <div class="faq-item">
       <h3>「分支用途標記」跟 GitLab 官方功能有什麼不一樣？</h3>
