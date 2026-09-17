@@ -138,16 +138,16 @@ npm run build
 
 過去「這張票需要你確認」「這個 SQL 只能你手動執行」這類提醒，只會在當次聊天回覆裡講一次——換個 session、關掉對話視窗，這份清單就沒了，只能重新問 AI 才會再看到一次。
 
-現在 `list_pending_tickets({ projectGid, projectName, sectionFilter? })` **只要帶 `projectName`**，每次呼叫都會把當下算出來的六類「需要人工處理」項目整份覆寫進 `<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.html`——**不是純文字，是一份可以互動的網頁**，其中三類直接在頁面上點就能生效，不用回頭問 AI：
+現在 `list_pending_tickets({ projectGid, projectName, sectionFilter? })` **只要帶 `projectName`**，每次呼叫都會把當下算出來的六類「需要人工處理」項目整份覆寫進 `<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.html`——**不是純文字，是一份可以互動的網頁**，其中四類直接在頁面上點就能生效，不用回頭問 AI：
 
 1. **待確認規格草稿**（可互動 ✅／❌）——只有 `sdMode: "self-generated"` 的專案會出現：規格撰寫者已產出草稿，等你確認可以開始寫程式碼，或打回並簡短說明哪裡要改。按鈕即時呼叫 `record_spec_confirmation`。
 2. **待確認**（可互動 ✅／❌）——AI 驗證師／測試工程師都判過了，等你自己實測＋審視程式碼品質；按「沒問題，結案」或「有問題，回報」（要填一句原因）即時呼叫 `record_confirmation`。
 3. **卡住需要你介入**（唯讀）——連續 `FAIL` 已經達到門檻（`needs_human_review`），AI 不會再自動重跑。這個狀態沒有對應的「標記已處理」按鈕，直接請 AI 繼續處理這張票，之後 PASS 會自動清除。
-4. **Asana 內容已被異動，待重新確認**（唯讀）——先前已經處理過（甚至已經 PASS）的票單，Asana 上的內容後來又被改過（用 `modified_at`／`needs_reanalysis` 判斷），不能因為之前處理過就跳過。這一項會在 AI 重新分析這張票之後自動消失，同樣沒有按鈕。
+4. **Asana 內容已被異動，待重新確認**（可互動 ☑️，2026-09-17 起）——先前已經處理過（甚至已經 PASS）的票單，Asana 上的內容後來又被改過（用 `modified_at`／`needs_reanalysis` 判斷），不能因為之前處理過就跳過。勾選「請 AI 優先處理」會呼叫 `request_reanalysis({ taskGid })`，寫入 `human_requested_reanalysis` 旗標——**這個勾選只是標記請求，bridge 沒有 LLM 能力，不會、也不能立即觸發任何分析**，要等下一個呼叫 `list_pending_tickets` 的 AI（任何 session、任何廠牌，見 `tickets[].humanRequestedReanalysis`）主動對這張票呼叫 `get_ticket_snapshot`，旗標才會被清掉。已經勾過的項目會顯示成唯讀提示，避免重複勾選。這一項會在 AI 真的重新分析這張票之後自動消失。
 5. **需要你手動處理的事項**（可互動 ☑️）——來自 `write_ticket_artifact` 寫 02/03/04 時**必填**的 `manualActions` 參數（可以是空陣列，代表明確確認這次沒有）。典型例子是「已產出 SQL，只能由你到 Database 工具手動執行」——這類一次性提醒過去只寫在全文或聊天視窗裡，換個 session、或沒仔細重讀全文就會被漏掉，現在強制工程師/驗證師/測試工程師每次都要明確宣告一次。**勾選框即時呼叫 `resolve_manual_action({ taskGid, filename, action })`，精準移除那一項**，不用整份重新宣告，也不用回頭問 AI。`manualActions` 只能寫技術性描述，寫入前會自動掃描是否夾帶完整 SQL 語句全文或憑證/連線字串，抓到會直接拒絕寫入（見 `detectSensitiveManualActions`）。
 6. **Git 尚未 commit 的變更**（唯讀）——對每個已登記的 git 版控根目錄實際跑一次 `git status --porcelain`，再用每張票 `manualActions` 裡點名「尚未 commit」的檔名去篩選、依票單分組，只列出「git 真的還沒 commit、又有票單認領」的檔案；跟這次 pipeline 無關的其他未 commit 檔案整份省略。還沒呼叫過 `register_git_roots` 的專案，這一項會顯示「還沒登記」。commit 之後這一項會自動消失，沒有對應的按鈕——那本來就是你自己跑 `git commit` 的事。
 
-**互動按鈕要先啟動本機 HTTP bridge 才會生效**：在 `dev-pipeline-mcp` 目錄下執行 `npm run start:http`（獨立長駐行程，預設監聽 `http://127.0.0.1:8097`，可用 `DEV_PIPELINE_MCP_HTTP_PORT`/`DEV_PIPELINE_MCP_HTTP_HOST` 環境變數覆寫），跟 svn-mcp 的 `dist/http-server.js` 同一個模式——**跟 stdio 版 MCP 入口是完全獨立的第二個進程，不會因為 AI session 結束就跟著斷線**，你可以單純打開報告勾一勾待辦事項，不需要開著 Claude Code。頁面一載入就會偵測 bridge 在不在：連得到，互動元件正常可用；連不到，頁面頂端會出現黃色提示條，所有勾選框/按鈕整批停用（內容仍然是最新的，純唯讀），不會讓你以為勾了卻其實沒生效。bridge 直接重用 stdio 版工具背後同一組函式，跟真正呼叫 `resolve_manual_action`/`record_confirmation`/`record_spec_confirmation` 走同一條資料路徑、同一套驗證規則（例如還沒跑到 `tested` 階段就想結案一樣會被擋下），不是另外做一套繞過驗證的捷徑。只接受本機呼叫（bind `127.0.0.1`），沒有身分驗證，信任邊界是「只有這台機器上的人碰得到」。
+**互動按鈕要先有本機 HTTP bridge 在跑才會生效**（2026-09-17 起預設跟著 stdio 版 MCP 入口 `dist/index.js` 一起自動啟動——任一個 Claude Code session 連上 `dev-pipeline-mcp` 就會自動帶起，預設監聽 `http://127.0.0.1:8097`，可用 `DEV_PIPELINE_MCP_HTTP_PORT`/`DEV_PIPELINE_MCP_HTTP_HOST` 環境變數覆寫；同一台機器上多個 session 各自的行程搶同一個 port 時只有第一個會真的綁定，其餘安靜略過，不影響各自的 MCP 功能）。想繼續用舊版「獨立長駐、完全不開 Claude Code 也能用」的模式，仍然可以在 `dev-pipeline-mcp` 目錄下手動執行 `npm run start:http`（跟 svn-mcp 的 `dist/http-server.js` 同一個模式）。頁面一載入就會偵測 bridge 在不在：連得到，互動元件正常可用；連不到，頁面頂端會出現黃色提示條，所有勾選框/按鈕整批停用（內容仍然是最新的，純唯讀），不會讓你以為勾了卻其實沒生效。bridge 直接重用 stdio 版工具背後同一組函式，跟真正呼叫 `resolve_manual_action`/`record_confirmation`/`record_spec_confirmation`/`request_reanalysis` 走同一條資料路徑、同一套驗證規則（例如還沒跑到 `tested` 階段就想結案一樣會被擋下），不是另外做一套繞過驗證的捷徑。只接受本機呼叫（bind `127.0.0.1`），沒有身分驗證，信任邊界是「只有這台機器上的人碰得到」。
 
 這份檔案不需要任何人記得手動維護——它是 `list_pending_tickets`（以及任何會改動票單狀態的工具）呼叫的**副作用**，不是一個容易被忘記呼叫的額外步驟。檔案本身會被整份覆寫，不要手動編輯 HTML 原始碼。
 
@@ -183,7 +183,7 @@ npm run build
 | `get_pipeline_overview` | 取得整條流程說明（第一步一定先呼叫） |
 | `get_role_prompt` | 取得分析師／規格撰寫者／工程師／驗證師／測試工程師其中一個角色的職責說明（`spec-writer` 只有 `sdMode: "self-generated"` 才需要；`tester` 每張票都會經過，是 `verifier` 判 PASS 之後、人類最終確認之前新增的一階） |
 | `resolve_default_project` / `register_default_project` | 查詢/登記「今天的問題單」預設 Asana 專案 |
-| `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；附上 `awaitingConfirmation`（AI 已 PASS、還卡在使用者自測這關的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）。**帶 `projectName` 會把這六類整份寫進互動網頁 `PENDING_HUMAN_ACTIONS.html`**（見下方說明） |
+| `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；附上 `awaitingConfirmation`（AI 已 PASS、還卡在使用者自測這關的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過**或使用者主動要求重新確認**的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）、`humanRequestedReanalysis: true`（使用者在網頁上勾了「請 AI 優先處理」，這次批次一定要處理，見 `request_reanalysis`）。**帶 `projectName` 會把這六類整份寫進互動網頁 `PENDING_HUMAN_ACTIONS.html`**（見下方說明） |
 | `get_ticket_snapshot` | 抓票單內容＋留言，寫入追蹤檔案；子任務自動偵測（讀 Asana `parent` 欄位） |
 | `relocate_ticket_project` | 修正 `get_ticket_snapshot` 第一次呼叫 `projectName` 傳錯時，這張票（連同巢狀子任務）的本機追蹤資料夾要一併搬到正確的專案名稱底下；只改本機資料夾標籤，不會也不能改 Asana 上這張票實際所屬的專案 |
 | `get_ticket_activity` | 取得票單完整活動時間軸（留言＋系統事件＋附件，依時間排序）；使用者說「查看測試員回報的測試狀況」時用這個 |
@@ -208,6 +208,7 @@ npm run build
 | `record_sasd_check` | 記錄這張票有沒有對應 SA/SD；沒呼叫過會擋下 `01-analysis.md` 的寫入 |
 | `record_confirmation` | 記錄結案前唯一一關人類確認——使用者自己的實測＋程式碼品質審視結果（`confirmed`/`note`），只能在 `tested` 階段之後呼叫；`confirmed: true` 才會讓票單真正離開 `awaitingConfirmation`、算結案 |
 | `record_spec_confirmation` | 記錄「規格草稿定案」關卡的確認結果（僅 `sdMode: "self-generated"`），只能在 `sd_drafted` 階段之後呼叫；`confirmed: true` 才會解鎖 `advance_ticket_stage` 繼續推進——`specOrder: "spec_first"` 解鎖推進到 `implemented`，`"code_first"` 解鎖推進到 `verified`；`confirmed: false` 打回、清空紀錄等重新產出 |
+| `request_reanalysis` | 標記某張票「使用者要求優先重新確認」（`human_requested_reanalysis`），2026-09-17 新增。純資料操作，**不會觸發任何實際分析**——旗標會在下一次任何 AI 對這張票呼叫 `get_ticket_snapshot` 時自動清除；你自己呼叫這個工具之後應該直接接著處理這張票，不要把旗標留給別人 |
 
 </details>
 

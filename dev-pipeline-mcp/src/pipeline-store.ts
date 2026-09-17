@@ -63,6 +63,15 @@ export interface TicketStatus {
   last_seen_modified_at: string | null;
   /** true 代表這張票已經有 analyzed/implemented/verified 之類的既有進度，但 Asana 上的內容後來又變了，需要重新走一次分析——即使 verdict 曾經是 PASS 也一樣。分析師重新寫入 01-analysis.md 後會自動清掉。 */
   needs_reanalysis: boolean;
+  /**
+   * true 代表使用者在 PENDING_HUMAN_ACTIONS.html 上主動勾了「請 AI 優先重新確認」——跟 needs_reanalysis
+   * 是不同軸向：needs_reanalysis 是 AI 自己比對雜湊偵測到內容真的變了；這個欄位純粹是使用者的請求，
+   * 不代表內容真的變了（也可能是使用者自己不確定、想保險起見要求 AI 主動去查一次）。任何一次
+   * get_ticket_snapshot 真的被呼叫（不管結果是不是真的偵測到變動）就會清掉，代表請求已經被兌現。
+   * 因為 bridge 只能做純資料操作、沒有 LLM 能力，這個欄位本身不會觸發任何分析——真正的處理要等下一個
+   * 呼叫 list_pending_tickets 的 AI（不限定廠牌）看到並主動處理。
+   */
+  human_requested_reanalysis: boolean;
   /** 分析師/工程師/驗證師各自產出的精簡摘要（2-4 條重點，非全文），供接手的 session/AI 用 get_ticket_status 就能低成本掌握進度，不必每次都整份讀 01/02/03 全文。 */
   summaries: TicketSummaries;
   /** 結案前唯一一關人類確認：使用者自己的實測＋程式碼品質審視結果。null = 尚未確認（不管 verdict 是不是 PASS，都還不算真正結案）。見 recordConfirmation。 */
@@ -346,6 +355,7 @@ const NEW_STATUS: TicketStatus = {
   content_hash: null,
   last_seen_modified_at: null,
   needs_reanalysis: false,
+  human_requested_reanalysis: false,
   summaries: { analysis: null, implementation: null, verification: null, test: null },
   confirmation: null,
   spec_confirmation: null,
@@ -527,7 +537,8 @@ export async function recordSnapshotContent(
 
     if (status.content_hash === newHash) {
       changed = false;
-      return applyStageIfForward(status, "snapshot", { last_seen_modified_at: modifiedAt });
+      // 不管有沒有偵測到變動，只要真的重新抓過一次內容，使用者「請優先處理」的請求就算兌現了。
+      return applyStageIfForward(status, "snapshot", { last_seen_modified_at: modifiedAt, human_requested_reanalysis: false });
     }
 
     changed = true;
@@ -535,6 +546,7 @@ export async function recordSnapshotContent(
     return applyStageIfForward(status, "snapshot", {
       content_hash: newHash,
       last_seen_modified_at: modifiedAt,
+      human_requested_reanalysis: false,
       needs_reanalysis: hadPriorProgress ? true : status.needs_reanalysis,
       verdict: hadPriorProgress ? null : status.verdict,
       // 票單內容真的變了、且之前有進度：舊的人類確認一併作廢，不能讓「測過的是舊版內容」被誤認成這一版也測過。
@@ -846,6 +858,16 @@ export async function recordConfirmation(
 }
 
 /**
+ * 使用者在 PENDING_HUMAN_ACTIONS.html 上對「Asana 內容已被異動」清單裡的某張票勾了「請 AI 優先處理」。
+ * 純資料操作，只是把 human_requested_reanalysis 設成 true——不會、也不能觸發任何實際分析（bridge 沒有
+ * LLM 能力）。真正的處理要等下一個呼叫 list_pending_tickets 的 AI 看到並主動對這張票呼叫
+ * get_ticket_snapshot；那次呼叫（見 recordSnapshotContent）會自動清掉這個旗標，代表請求已兌現。
+ */
+export async function requestReanalysis(ticketGid: string): Promise<TicketStatus> {
+  return updateStatus(ticketGid, (status) => ({ ...status, human_requested_reanalysis: true }));
+}
+
+/**
  * 記錄「先產規格、使用者確認、才動手寫程式碼」這道關卡的確認結果（只有 sdMode 為 "self-generated" 的專案會
  * 走到這裡）。跟 recordConfirmation（結案前那關）是完全獨立的兩個確認點，欄位分開存放。
  * confirmed: false 時只記錄 note，不動 stage——這張票的 stage 本來就還停在 "sd_drafted"（還沒推進到
@@ -915,8 +937,12 @@ export interface PendingActionsReportInput {
   awaitingSpecConfirmation: { taskGid: string; name: string }[];
   awaitingConfirmation: { taskGid: string; name: string }[];
   needsHumanReview: { taskGid: string; name: string; consecutiveFailCount: number }[];
-  /** 已經判過 PASS（或先前分析過）的票單，Asana 上的內容後來又被改過——不能因為之前處理過就跳過，需要重新看內容決定要不要重新分析。 */
-  contentChanged: { taskGid: string; name: string; stage: string }[];
+  /**
+   * 已經判過 PASS（或先前分析過）的票單，Asana 上的內容後來又被改過——不能因為之前處理過就跳過，需要重新看內容決定要不要重新分析。
+   * `humanRequested: true` 代表使用者在網頁上主動勾了「請 AI 優先處理」（見 human_requested_reanalysis），
+   * 不是 AI 自己偵測到的——這種列成唯讀提示（已經送出請求，等下一個 AI 處理），沒有偵測到的列成可勾選（讓使用者主動要求）。
+   */
+  contentChanged: { taskGid: string; name: string; stage: string; humanRequested?: boolean }[];
   manualActions: { taskGid: string; name: string; actions: ManualActionItem[] }[];
   /**
    * 每個已登記 git 版控根目錄的未 commit 檔案，已依票單分組、且只保留「git status 真的還沒 commit、
@@ -1072,6 +1098,37 @@ function renderReadonlySection(items: string[], tone: "stale" | "neutral"): stri
 }
 
 /**
+ * 「Asana 內容已被異動」清單：還沒被使用者要求優先處理的票，列成可勾選（勾了就呼叫
+ * `/request-reanalysis`，寫入 human_requested_reanalysis，等下一個連上這個專案的 AI 主動處理——
+ * bridge 沒有 LLM 能力，勾選本身不會立刻觸發任何分析）；已經勾過的票，改列成唯讀提示，避免重複勾選。
+ */
+function renderChangedSection(
+  items: PendingActionsReportInput["contentChanged"],
+  numberMap: Map<string, string>
+): string {
+  if (items.length === 0) return `<p class="empty">（無）</p>`;
+  const rows = items.map((t) => {
+    const number = numberMap.get(t.taskGid) ?? t.taskGid;
+    const title = `<span class="row-title">${escapeHtml(t.name)}（<code>${escapeHtml(number)}</code>，目前階段：${escapeHtml(t.stage)}）</span>`;
+    if (t.humanRequested) {
+      return `<li class="readonly-row stale">
+        ${title}
+        <p class="row-detail">✓ 已標記「請 AI 優先處理」，等下一個連上這個專案的 AI 主動重新確認。</p>
+      </li>`;
+    }
+    return `<li class="action-row stale">
+      <label>
+        <input type="checkbox" data-request-reanalysis data-taskgid="${escapeHtml(t.taskGid)}">
+        ${title}
+      </label>
+      <p class="row-detail">勾選＝請 AI 優先處理，不會立刻執行——會等下一個連上這個專案的 AI 主動重新確認。</p>
+      <p class="row-error" hidden></p>
+    </li>`;
+  });
+  return `<ul class="action-list">${rows.join("")}</ul>`;
+}
+
+/**
  * `templates/pending-actions.html` 是這份報告樣式/骨架唯一的來源（見該檔案開頭說明）。
  * 這裡只做一輪 `{{TOKEN}}` 全域替換，不重掃替換後的內容，所以某個票單標題/備註裡就算剛好包含
  * 字面上的 `{{...}}` 也不會被誤當成佔位符繼續替換。
@@ -1148,10 +1205,7 @@ export async function writePendingActionsReport(
       "stale"
     ),
     CHANGED_COUNT: input.contentChanged.length,
-    CHANGED_SECTION: renderReadonlySection(
-      input.contentChanged.map((t) => `<span class="row-title">${escapeHtml(t.name)}（<code>${escapeHtml(number(t.taskGid))}</code>，目前階段：${escapeHtml(t.stage)}）</span>`),
-      "stale"
-    ),
+    CHANGED_SECTION: renderChangedSection(input.contentChanged, numberMap),
     MANUAL_COUNT: manualActionsCount,
     MANUAL_SECTION: renderManualActionsSection(input.manualActions, numberMap),
     GIT_SECTION: renderUncommittedSectionHtml(input.uncommittedChanges, numberMap),

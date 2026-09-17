@@ -12,6 +12,7 @@ import {
   computeSyncFlags,
   detectExternalChanges,
   resolveManualAction,
+  requestReanalysis,
   writePendingActionsReport,
   readArtifact,
   type TicketStatus,
@@ -25,11 +26,11 @@ export function registerTicketLifecycleTools(server: McpServer): void {
     "list_pending_tickets",
     "列出指定 Asana 專案裡尚未完成的票單，並在帶 projectName 時把「需要人工處理」的項目整份覆寫進互動網頁 PENDING_HUMAN_ACTIONS.html。\n\n" +
       "**回傳欄位速查**：\n" +
-      "- `tickets`：一般待處理清單。`contentChanged:true` = 先前已處理過（甚至 PASS 過），但 Asana 內容後來又變了，不能因為之前處理過就跳過，下一步 get_ticket_snapshot 會確認要不要重新分析；`humanRejected:true` = 使用者用 record_confirmation({confirmed:false}) 打回的票，**套用跟 AI 驗證師自己判 FAIL 完全一樣的根因分流機制**（見 advance_ticket_stage 的 rootCause 說明），不要另開一套「人工打回」流程；`specRejected:true` = 規格草稿被使用者打回。\n" +
+      "- `tickets`：一般待處理清單。`contentChanged:true` = 先前已處理過（甚至 PASS 過），但 Asana 內容後來又變了（或使用者主動要求重新確認），不能因為之前處理過就跳過，下一步 get_ticket_snapshot 會確認要不要重新分析；`humanRequestedReanalysis:true` = 使用者在 PENDING_HUMAN_ACTIONS.html 上主動勾了「請 AI 優先處理」——**這張票即使沒有其他理由要處理，也要在這次批次裡優先呼叫 get_ticket_snapshot**，不能因為使用者這次是要處理別的票就略過，處理完（不管有沒有真的偵測到內容變動）這個旗標會自動清掉；`humanRejected:true` = 使用者用 record_confirmation({confirmed:false}) 打回的票，**套用跟 AI 驗證師自己判 FAIL 完全一樣的根因分流機制**（見 advance_ticket_stage 的 rootCause 說明），不要另開一套「人工打回」流程；`specRejected:true` = 規格草稿被使用者打回。\n" +
       "- `awaitingConfirmation`：AI 驗證師/測試工程師已判 PASS、Asana 內容也沒再變，只等使用者自己實測＋審視程式碼品質。**每次呼叫都要把這份清單完整秀給使用者看**（不能因為這次是處理別的新票就略過），直到每一張都呼叫過 record_confirmation 才會消失。\n" +
       "- `awaitingSpecConfirmation`：只有 sdMode:\"self-generated\" 的專案會出現，等使用者呼叫 record_spec_confirmation 表態，同樣要主動秀給使用者看。\n" +
       "- `manualActions`/`manualActionsCount`、`uncommittedChanges`：兩者互斥——「尚未 commit」且點得出具體檔名的事項只會出現在 `uncommittedChanges`（跟真實 git status 核對過，`registered:false` 代表還沒呼叫過 register_git_roots），不會在 `manualActions` 重複出現。\n\n" +
-      "**`PENDING_HUMAN_ACTIONS.html`**（只有帶 `projectName` 才會寫，放在 `<projectDir>/.asana-pipeline/<projectName>/`，取代「只在聊天視窗提醒一次、換個 session 就找不到」的做法，強烈建議每次都帶）：待確認規格草稿／待確認／需要你手動處理的事項這三類可以直接在瀏覽器勾選/確認（即時呼叫 record_spec_confirmation/record_confirmation/resolve_manual_action，要先在 dev-pipeline-mcp 目錄下執行 `npm run start:http` 啟動本機 HTTP bridge，第一次產出報告時記得提醒使用者這個步驟）；卡住需要你介入／Asana 內容已變更（只有指派人剛好是這個 pipeline 帳號本人才會列入，見 asana_me）／Git 尚未 commit 這三類唯讀。**不需要手動維護同步時機**——任何會改動票單狀態的工具（advance_ticket_stage/write_ticket_artifact/resolve_manual_action/record_confirmation/resync_ticket_artifact）呼叫完都會自動局部重寫這份報告，呼叫這裡的 list_pending_tickets 主要是為了發現「全新、還沒被 get_ticket_snapshot 摸過」的票單。",
+      "**`PENDING_HUMAN_ACTIONS.html`**（只有帶 `projectName` 才會寫，放在 `<projectDir>/.asana-pipeline/<projectName>/`，取代「只在聊天視窗提醒一次、換個 session 就找不到」的做法，強烈建議每次都帶）：待確認規格草稿／待確認／需要你手動處理的事項／Asana 內容已變更（還沒被要求優先處理的票）這四類可以直接在瀏覽器勾選/確認（即時呼叫 record_spec_confirmation/record_confirmation/resolve_manual_action/request_reanalysis，要先在 dev-pipeline-mcp 目錄下執行 `npm run start:http` 啟動本機 HTTP bridge，第一次產出報告時記得提醒使用者這個步驟）；卡住需要你介入／Git 尚未 commit 這兩類唯讀。**「Asana 內容已變更」的勾選只是標記請求，bridge 沒有 LLM 能力、不會真的觸發分析**——要等下一個呼叫這個工具的 AI 看到 `humanRequestedReanalysis:true` 才會真的處理，見上面 `tickets` 欄位說明。**不需要手動維護同步時機**——任何會改動票單狀態的工具（advance_ticket_stage/write_ticket_artifact/resolve_manual_action/record_confirmation/resync_ticket_artifact/request_reanalysis）呼叫完都會自動局部重寫這份報告，呼叫這裡的 list_pending_tickets 主要是為了發現「全新、還沒被 get_ticket_snapshot 摸過」的票單，以及發現使用者主動標記要優先處理的票。",
     {
       projectGid: z.string().describe("Asana 專案 gid"),
       sectionFilter: z.string().nullable().optional().describe("只取這個 section 名稱底下的任務，不指定就取全部"),
@@ -108,25 +109,32 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         }
 
         const isContentChanged = contentChanged || status.needs_reanalysis;
+        // 使用者在網頁上主動勾了「請 AI 優先處理」——跟 isContentChanged 是不同軸向（那是 AI 自己偵測到
+        // 的），這個純粹是使用者的請求，即使 needs_reanalysis 還是 false 也要顯示、也要被當作優先事項。
+        const humanRequested = !!status.human_requested_reanalysis;
+        const showAsChanged = isContentChanged || humanRequested;
         pending.push({
           taskGid: task.gid,
           name: task.name,
           dueOn: task.due_on,
           stage: status.stage,
-          ...(isContentChanged ? { contentChanged: true } : {}),
+          ...(showAsChanged ? { contentChanged: true } : {}),
+          ...(humanRequested ? { humanRequestedReanalysis: true } : {}),
           ...(status.confirmation?.confirmed === false ? { humanRejected: true } : {}),
           ...(status.stage === "sd_drafted" && status.spec_confirmation?.confirmed === false ? { specRejected: true } : {}),
         });
-        if (isContentChanged) {
-          contentChangedList.push({ taskGid: task.gid, name: task.name, stage: status.stage });
+        if (showAsChanged) {
+          contentChangedList.push({ taskGid: task.gid, name: task.name, stage: status.stage, ...(humanRequested ? { humanRequested: true } : {}) });
         }
-        // 「Asana 內容已被異動，待重新確認」這個持久化報告區塊，額外要求指派人剛好是這個 pipeline 帳號本人——
-        // 單純內容變了但沒指派給這個帳號的票單不冒出來打擾使用者。上面的 `contentChangedList`（回傳給呼叫端的
-        // JSON 欄位，`pending[].contentChanged` 也是）不受這條限制，用途不同（提醒 AI「這份舊分析可能已經過期，
+        // 「Asana 內容已被異動，待重新確認」這個持久化報告區塊，一般情況下額外要求指派人剛好是這個
+        // pipeline 帳號本人——單純內容變了但沒指派給這個帳號的票單不冒出來打擾使用者。但使用者自己在
+        // 網頁上主動勾了「請 AI 優先處理」的票，不管指派人是誰都一定要顯示（是使用者自己要求的，不能
+        // 因為指派人條件被過濾掉）。上面的 `contentChangedList`（回傳給呼叫端的 JSON 欄位，
+        // `pending[].contentChanged` 也是）不受這條限制，用途不同（提醒 AI「這份舊分析可能已經過期，
         // 用之前先看一眼」，跟該不該寫進報告通知人類是兩回事）。
         const assigneeGid: string | null = task.assignee?.gid ?? null;
-        if (isContentChanged && pipelineUserGid !== null && assigneeGid === pipelineUserGid) {
-          contentChangedForReport.push({ taskGid: task.gid, name: task.name, stage: status.stage });
+        if (showAsChanged && (humanRequested || (pipelineUserGid !== null && assigneeGid === pipelineUserGid))) {
+          contentChangedForReport.push({ taskGid: task.gid, name: task.name, stage: status.stage, ...(humanRequested ? { humanRequested: true } : {}) });
         }
       }
 
@@ -295,6 +303,22 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       }
       await syncPendingActionsReport(taskGid);
       return textResult({ success: true, taskGid, filename, remaining: result.remaining });
+    }
+  );
+
+  server.tool(
+    "request_reanalysis",
+    "標記某張票單「使用者要求優先重新確認」（human_requested_reanalysis）。" +
+      "**用在：使用者直接跟你說『幫我標記 XX 票要優先重新確認』，或你在 PENDING_HUMAN_ACTIONS.html 對應的勾選按鈕背後看到這個呼叫**——純資料操作，不會、也不能自己觸發分析。" +
+      "**這個工具呼叫完之後，你自己就應該直接接著呼叫 get_ticket_snapshot 處理這張票**（不用等旗標被清掉再等下一次批次）；旗標存在的意義是給*其他*之後才連上這個專案的 AI/session 看到，不是給你自己延後處理的藉口。" +
+      "呼叫完會自動局部重寫 `PENDING_HUMAN_ACTIONS.html`。",
+    {
+      taskGid: z.string().describe("Asana 任務 gid"),
+    },
+    async ({ taskGid }) => {
+      const status = await requestReanalysis(taskGid);
+      await syncPendingActionsReport(taskGid);
+      return textResult({ success: true, taskGid, status });
     }
   );
 

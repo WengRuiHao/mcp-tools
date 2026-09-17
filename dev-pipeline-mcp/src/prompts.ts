@@ -27,6 +27,8 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 
 **清單裡如果某張票標記 \`contentChanged: true\`，代表這張票之前已經驗證 PASS 過，但 Asana 上的內容後來又被改過**——不能因為它「之前是 PASS」就跳過，一樣要走一次步驟 2（下一步 \`get_ticket_snapshot\` 會確認內容是不是真的變了、需不需要重新分析）。
 
+**如果同一張票還標記 \`humanRequestedReanalysis: true\`，代表使用者在 \`PENDING_HUMAN_ACTIONS.html\` 上主動勾了「請 AI 優先處理」**——這是使用者的明確請求，不是 AI 自己判斷要不要做，**這次批次一定要把這張票排進去處理，不能因為使用者這次是要你處理別的票就略過**。這個旗標是純資料操作寫入的（bridge 沒有 LLM 能力，勾選當下不會有任何 AI 真的在分析），你可能是第一個看到這個請求、真正動手處理的 AI——處理方式跟其他 \`contentChanged\` 的票完全一樣（呼叫 \`get_ticket_snapshot\`），旗標會在那次呼叫之後自動清除，不需要你額外呼叫任何工具清除它。
+
 **硬性規定：回傳裡的 \`awaitingConfirmation\` 一定要主動列給使用者看，不能因為這次是來處理別的新票就略過不提**。一張票結案前有一關人類確認，走完才算真正結案：AI 驗證師＋測試工程師都判過 PASS（見下面步驟 2 之 6／6.5），但『使用者自己』還沒實際測過＋審視過程式碼品質。使用者對某張票明確回覆「我測過了、code 也看過沒問題」或「有問題，如下」之後，呼叫 \`record_confirmation({ taskGid, confirmed, note? })\` 記錄下來——**\`confirmed: true\`，票單才算真正結案**，從清單消失；\`confirmed: false\` 重新丟回 \`tickets\`（標記 \`humanRejected: true\`），交給 AI 用跟自己判 FAIL 一樣的方式處理（見下方「\`humanRejected\`」說明）。
 
 **同樣要主動列給使用者看的還有 \`awaitingSpecConfirmation\`**——只有 \`sdMode\` 為 \`"self-generated"\` 的專案才會出現：規格撰寫者已產出/更新 SD 草稿，等使用者呼叫 \`record_spec_confirmation\` 表態。\`specOrder\` 是 \`"spec_first"\`（見下面步驟 2 之 4.5）的話，確認過工程師階段才能開始寫程式碼；\`specOrder\` 是 \`"code_first"\`（見步驟 2 之 5.5）的話，這份草稿是工程師寫完程式碼之後才反推補上的，確認過驗證師階段才能繼續往下走。使用者確認或打回之後，比照上面 \`awaitingConfirmation\` 的方式處理（打回的票會標記 \`specRejected: true\`，回到對應那一步依打回意見修改）。

@@ -12,10 +12,13 @@
  * 搶不到 port 只記一行 log 不結束行程（因為 index.ts 本身是正在跑的 MCP，不能因為 bridge 綁不到
  * port 就整個死掉——通常代表另一個 session 的 index.js 已經先綁走了，沿用那一份即可）。
  *
- * 只做三件事：解除某個 manualAction、記錄使用者確認（record_confirmation／record_spec_confirmation），
- * 完全重用 stdio 版工具背後同一組 pipeline-store.ts／pending-actions-sync.ts 函式，跟真正的 MCP 工具
- * 呼叫走同一條資料路徑、同一份 status.json、同一套驗證規則（例如 record_confirmation 一樣要求
- * stage === "tested" 才放行）——不是另外做一套繞過驗證的捷徑。
+ * 只做幾件事：解除某個 manualAction、記錄使用者確認（record_confirmation／record_spec_confirmation）、
+ * 標記「請 AI 優先重新確認」（request_reanalysis），完全重用 stdio 版工具背後同一組
+ * pipeline-store.ts／pending-actions-sync.ts 函式，跟真正的 MCP 工具呼叫走同一條資料路徑、同一份
+ * status.json、同一套驗證規則（例如 record_confirmation 一樣要求 stage === "tested" 才放行）——不是
+ * 另外做一套繞過驗證的捷徑。**`/request-reanalysis` 純粹是寫一個旗標，這座橋沒有 LLM 能力，不會、
+ * 也不能真的觸發分析**——真正的重新分析要等下一個呼叫 list_pending_tickets 的 AI（不限定廠牌/session）
+ * 看到這個旗標主動處理，這是刻意的設計取捨，換取不綁定任何特定 AI CLI 就能共用。
  *
  * 這座橋只接受本機呼叫（預設 bind 127.0.0.1），沒有身分驗證——跟這個 repo 其他本機工具（svn-mcp
  * 的 bridge、claudeweb 的 DB 執行 API）同一個信任模型：安全邊界是「只有這台機器上的人碰得到」，
@@ -24,7 +27,7 @@
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { pathToFileURL } from "node:url";
-import { readStatus, recordConfirmation, recordSpecConfirmation, resolveManualAction } from "./pipeline-store.js";
+import { readStatus, recordConfirmation, recordSpecConfirmation, resolveManualAction, requestReanalysis } from "./pipeline-store.js";
 import { syncPendingActionsReport } from "./pending-actions-sync.js";
 import { resolveHttpBridgeHost, resolveHttpBridgePort } from "./http-bridge-config.js";
 
@@ -140,11 +143,20 @@ async function handleRecordSpecConfirmation(req: IncomingMessage, res: ServerRes
   sendJson(res, 200, { success: true, taskGid, confirmed });
 }
 
+async function handleRequestReanalysis(req: IncomingMessage, res: ServerResponse) {
+  const body = await readJsonBody(req);
+  const taskGid = requireString(body, "taskGid");
+  await requestReanalysis(taskGid);
+  await syncPendingActionsReport(taskGid);
+  sendJson(res, 200, { success: true, taskGid });
+}
+
 type Handler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 const ROUTES: Record<string, Handler> = {
   "/resolve-manual-action": handleResolveManualAction,
   "/record-confirmation": handleRecordConfirmation,
   "/record-spec-confirmation": handleRecordSpecConfirmation,
+  "/request-reanalysis": handleRequestReanalysis,
 };
 
 /**

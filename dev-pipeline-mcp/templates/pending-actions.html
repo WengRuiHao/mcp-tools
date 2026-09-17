@@ -123,7 +123,7 @@
 
   <section class="block">
     <h2>Asana 內容已被異動，待重新確認 <span class="count-badge">{{CHANGED_COUNT}}</span></h2>
-    <p class="meta">先前已處理過，但票單內容後來又被改了——這一項會在 AI 重新分析這張票之後自動消失，沒有對應的「標記已處理」按鈕。</p>
+    <p class="meta">先前已處理過，但票單內容後來又被改了。勾選「請 AI 優先處理」只會標記請求，<strong>不會立刻執行</strong>——bridge 沒有 AI 能力，要等下一個連上這個專案的 AI（不限任何 session）主動重新確認才會真的處理，處理完這一項會自動消失。</p>
     {{CHANGED_SECTION}}
   </section>
 
@@ -189,6 +189,22 @@
         filename: cb.dataset.filename,
         action: cb.dataset.action,
       }).then(function () {
+        markDone(row);
+      }).catch(function (e) {
+        cb.checked = false;
+        cb.disabled = false;
+        showError(row, e.message);
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-request-reanalysis]").forEach(function (cb) {
+    cb.addEventListener("change", function () {
+      if (!cb.checked) return;
+      var row = cb.closest("li");
+      cb.disabled = true;
+      callBridge("/request-reanalysis", { taskGid: cb.dataset.taskgid }).then(function () {
+        row.querySelector(".row-detail").textContent = "✓ 已標記「請 AI 優先處理」，等下一個連上這個專案的 AI 主動重新確認。";
         markDone(row);
       }).catch(function (e) {
         cb.checked = false;
