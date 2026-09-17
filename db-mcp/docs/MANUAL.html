@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>db-mcp 使用手冊</title>
+<meta name="description" content="給非技術人員也看得懂的 db-mcp 操作說明與流程圖">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Noto+Serif+TC:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #f6f4ef;
+    --bg-raised: #ffffff;
+    --ink: #1f2430;
+    --ink-soft: #565f70;
+    --line: #dedad0;
+    --accent: #1d5c63;
+    --accent-2: #c9603c;
+    --accent-soft: #e4efee;
+    --accent-ink: #123a3f;
+    --allow: #2e7d4f;
+    --allow-soft: #e1f3e8;
+    --block: #b23a2e;
+    --block-soft: #f8e6e3;
+    --mono-bg: #eee9df;
+    --code-ink: #3a4352;
+    --shadow: 0 1px 2px rgba(31,36,48,0.06), 0 8px 24px rgba(31,36,48,0.08);
+    --shadow-lg: 0 4px 10px rgba(31,36,48,0.08), 0 20px 48px rgba(31,36,48,0.12);
+    --grain-op: 0.05;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161b;
+      --bg-raised: #1b2026;
+      --ink: #e9ecf1;
+      --ink-soft: #a6afc0;
+      --line: #2b323c;
+      --accent: #5fb3ba;
+      --accent-2: #e08a63;
+      --accent-soft: #1b3033;
+      --accent-ink: #bfe7e9;
+      --allow: #7fd9a5;
+      --allow-soft: #1e3327;
+      --block: #e08b7f;
+      --block-soft: #362320;
+      --mono-bg: #232830;
+      --code-ink: #cfd6e2;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.4);
+      --shadow-lg: 0 4px 10px rgba(0,0,0,0.4), 0 24px 56px rgba(0,0,0,0.5);
+      --grain-op: 0.08;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161b;
+    --bg-raised: #1b2026;
+    --ink: #e9ecf1;
+    --ink-soft: #a6afc0;
+    --line: #2b323c;
+    --accent: #5fb3ba;
+    --accent-2: #e08a63;
+    --accent-soft: #1b3033;
+    --accent-ink: #bfe7e9;
+    --allow: #7fd9a5;
+    --allow-soft: #1e3327;
+    --block: #e08b7f;
+    --block-soft: #362320;
+    --mono-bg: #232830;
+    --code-ink: #cfd6e2;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.4);
+    --shadow-lg: 0 4px 10px rgba(0,0,0,0.4), 0 24px 56px rgba(0,0,0,0.5);
+    --grain-op: 0.08;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    margin: 0;
+    padding-inline: 20px;
+    padding-block: 0 80px;
+    font-family: "IBM Plex Sans", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+    line-height: 1.65;
+    font-size: 16px;
+    position: relative;
+    overflow-x: hidden;
+  }
+  h1, h2, h3 { font-family: "Fraunces", "Noto Serif TC", Georgia, serif; text-wrap: balance; color: var(--ink); }
+  code, .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; }
+
+  .wrap { max-width: 880px; margin: 0 auto; position: relative; }
+
+  /* ---------- Ambient background ---------- */
+  .ambient {
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background-image:
+      radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ink) 14%, transparent) 1px, transparent 0);
+    background-size: 22px 22px;
+    opacity: var(--grain-op);
+  }
+  .blob {
+    position: absolute; border-radius: 50%; filter: blur(60px); pointer-events: none; z-index: -1;
+  }
+  .blob.one { top: -120px; right: -100px; width: 340px; height: 340px; background: color-mix(in srgb, var(--accent) 30%, transparent); }
+  .blob.two { top: 420px; left: -140px; width: 300px; height: 300px; background: color-mix(in srgb, var(--accent-2) 22%, transparent); }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    text-align: center;
+    padding-block: 56px 20px;
+    position: relative;
+  }
+  .hero-lines {
+    position: absolute; inset: -10px auto auto 50%; transform: translateX(-50%);
+    width: min(720px, 100%); height: 220px; z-index: -1; opacity: .55;
+  }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent-ink); background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    border-radius: 999px; padding: 6px 14px; margin-bottom: 22px;
+    animation: rise .6s ease-out both;
+  }
+  h1 {
+    font-size: clamp(2.1rem, 1.6rem + 2.6vw, 3.1rem); margin: 0 0 14px; letter-spacing: -0.01em;
+    animation: rise .7s .05s ease-out both;
+  }
+  .lede { font-size: 1.12rem; color: var(--ink-soft); max-width: 46ch; margin: 0 auto; animation: rise .7s .12s ease-out both; }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .eyebrow, h1, .lede { animation: none; }
+  }
+
+  /* ---------- TOC ---------- */
+  nav.toc {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 30px 0 8px; padding: 0; list-style: none;
+  }
+  nav.toc a {
+    font-size: 13px; color: var(--ink-soft); text-decoration: none;
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px;
+    background: var(--bg-raised); transition: color .15s, border-color .15s, transform .15s;
+  }
+  nav.toc a:hover { color: var(--accent-ink); border-color: var(--accent); transform: translateY(-1px); }
+
+  section { margin-top: 68px; scroll-margin-top: 24px; }
+  section > h2 {
+    font-size: 1.55rem; margin: 0 0 6px;
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  section > h2 .num {
+    font-family: "IBM Plex Mono", monospace; font-size: .82rem; color: var(--accent);
+    background: var(--accent-soft); border-radius: 6px; padding: 2px 7px;
+  }
+  section > .kicker { color: var(--ink-soft); margin: 0 0 24px; max-width: 62ch; }
+
+  /* scroll reveal */
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity .55s ease-out, transform .55s ease-out; }
+  .reveal.in { opacity: 1; transform: translateY(0); }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+  }
+
+  /* ---------- Diagram card ---------- */
+  .diagram-card {
+    background: var(--bg-raised); border: 1px solid var(--line); border-radius: 18px;
+    padding: 28px 20px; box-shadow: var(--shadow-lg); overflow-x: auto;
+  }
+
+  /* custom step flow */
+  .flow-steps {
+    display: flex; align-items: stretch; gap: 0; min-width: 640px; justify-content: center;
+  }
+  .flow-step {
+    display: flex; flex-direction: column; align-items: center; gap: 10px; width: 118px; flex-shrink: 0;
+  }
+  .flow-step .badge {
+    width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; background: var(--accent-soft); border: 2px solid var(--accent);
+    box-shadow: var(--shadow);
+  }
+  .flow-step .label { font-size: .82rem; text-align: center; color: var(--ink-soft); font-weight: 600; line-height: 1.35; }
+  .flow-connector { flex: 1; display: flex; align-items: center; margin-top: -34px; min-width: 24px; }
+  .flow-connector svg { width: 100%; height: 14px; overflow: visible; }
+  .flow-connector path { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 6; }
+  .flow-connector.animate path { animation: dash 1.4s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  @media (prefers-reduced-motion: reduce) { .flow-connector.animate path { animation: none; } }
+
+  /* ---------- Data model diagram ---------- */
+  .model-diagram { display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; min-width: 420px; }
+  .model-project { font-weight: 600; font-size: 1.1rem; }
+  .model-envs { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .env-chip {
+    font-family: "IBM Plex Mono", monospace; font-size: .85rem; background: var(--mono-bg); color: var(--code-ink);
+    border-radius: 999px; padding: 7px 18px;
+  }
+  .env-chip.prod { background: var(--block-soft); color: var(--block); font-weight: 600; }
+  .model-cache { color: var(--ink-soft); font-size: .88rem; line-height: 1.7; }
+  .model-cache strong { color: var(--ink); }
+
+  /* ---------- Tool category cards ---------- */
+  .cat-list { display: flex; flex-direction: column; gap: 14px; }
+  details.cat {
+    background: var(--bg-raised); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: var(--shadow); overflow: hidden; transition: box-shadow .2s;
+  }
+  details.cat:hover { box-shadow: var(--shadow-lg); }
+  details.cat summary {
+    cursor: pointer; list-style: none; padding: 18px 20px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  details.cat summary::-webkit-details-marker { display: none; }
+  details.cat summary .emoji { font-size: 1.4rem; flex-shrink: 0; }
+  details.cat summary .title-block { flex: 1; min-width: 0; }
+  details.cat summary h3 { margin: 0; font-size: 1.05rem; font-family: "IBM Plex Sans","Noto Sans TC",sans-serif; font-weight: 600; }
+  details.cat summary .sub { margin: 2px 0 0; color: var(--ink-soft); font-size: .88rem; }
+  details.cat summary .chev { color: var(--ink-soft); transition: transform .2s; flex-shrink: 0; }
+  details.cat[open] summary .chev { transform: rotate(90deg); }
+  .cat-body { padding: 0 20px 20px; border-top: 1px solid var(--line); }
+  .cat-body .example {
+    margin: 16px 0 18px; padding: 12px 14px; border-radius: 12px;
+    background: var(--accent-soft); color: var(--accent-ink); font-size: .92rem;
+  }
+  .cat-body .example b { font-weight: 600; }
+  .tool-row { display: flex; gap: 12px; padding: 10px 0; border-top: 1px dashed var(--line); }
+  .tool-row:first-of-type { border-top: none; }
+  .tool-row code {
+    flex-shrink: 0; font-size: .82rem; background: var(--mono-bg); color: var(--code-ink);
+    padding: 4px 8px; border-radius: 6px; height: fit-content; white-space: nowrap;
+  }
+  .tool-row span { color: var(--ink-soft); font-size: .92rem; }
+  .tool-row .rw {
+    flex-shrink: 0; font-size: .72rem; font-weight: 600; border-radius: 999px; padding: 2px 9px; height: fit-content;
+    background: var(--allow-soft); color: var(--allow);
+  }
+  .tool-row .rw.write { background: var(--block-soft); color: var(--block); }
+  .tool-row .rw.gate { background: var(--accent-soft); color: var(--accent-ink); }
+
+  details.cat.gate { border-color: var(--accent); border-width: 1.5px; }
+
+  /* read-only gate diagram */
+  .gate-diagram { display: flex; flex-direction: column; gap: 12px; min-width: 560px; }
+  .gate-row { display: flex; align-items: center; gap: 14px; }
+  .sql-chip {
+    font-family: "IBM Plex Mono", monospace; font-size: .8rem; background: var(--mono-bg); color: var(--code-ink);
+    border-radius: 8px; padding: 8px 12px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .gate-arrow { flex: 0 0 36px; height: 2px; background: repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 12px); position: relative; color: var(--line); }
+  .gate-arrow::after { content: "→"; position: absolute; right: -4px; top: -11px; font-size: 1rem; }
+  .gate-row.allow .gate-arrow { color: var(--allow); }
+  .gate-row.block .gate-arrow { color: var(--block); }
+  .gate-result { flex-shrink: 0; border-radius: 999px; padding: 6px 14px; font-size: .82rem; font-weight: 600; white-space: nowrap; }
+  .gate-result.allow { background: var(--allow-soft); color: var(--allow); }
+  .gate-result.block { background: var(--block-soft); color: var(--block); }
+
+  /* ---------- Scenario chat mock ---------- */
+  .scenario { background: var(--bg-raised); border: 1px solid var(--line); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); margin-bottom: 16px; transition: transform .18s, box-shadow .18s; }
+  .scenario:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .scenario h3 { margin: 0 0 14px; font-size: 1rem; font-family: "IBM Plex Sans","Noto Sans TC",sans-serif; color: var(--ink-soft); font-weight: 600; }
+  .bubble { max-width: 80%; padding: 10px 14px; border-radius: 14px; margin-bottom: 10px; font-size: .95rem; }
+  .bubble.user { background: var(--accent); color: #fff; margin-left: auto; border-bottom-right-radius: 4px; }
+  .bubble.ai { background: var(--mono-bg); color: var(--ink); border-bottom-left-radius: 4px; }
+  .bubble .steps { display: block; margin-top: 8px; font-size: .82rem; opacity: .8; }
+  .bubble .steps code { font-family: "IBM Plex Mono", monospace; background: rgba(0,0,0,0.08); padding: 1px 6px; border-radius: 5px; }
+
+  /* ---------- FAQ ---------- */
+  .faq-item { border-top: 1px solid var(--line); padding: 16px 0; }
+  .faq-item:first-child { border-top: none; }
+  .faq-item h3 { margin: 0 0 6px; font-size: 1rem; font-family: "IBM Plex Sans","Noto Sans TC",sans-serif; font-weight: 600; }
+  .faq-item p { margin: 0; color: var(--ink-soft); font-size: .95rem; }
+
+  footer { margin-top: 76px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: .85rem; text-align: center; }
+
+  details.cat summary { outline-offset: 4px; }
+  details.cat summary:focus-visible { outline: 2px solid var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="ambient"></div>
+<div class="blob one"></div>
+<div class="blob two"></div>
+
+<div class="wrap">
+
+  <div class="hero">
+    <svg class="hero-lines" viewBox="0 0 720 220" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <g stroke="var(--accent)" stroke-width="2" opacity="0.4">
+        <line x1="60" y1="40" x2="660" y2="40"/>
+        <line x1="60" y1="80" x2="600" y2="80"/>
+        <line x1="60" y1="120" x2="640" y2="120"/>
+        <line x1="60" y1="160" x2="560" y2="160"/>
+      </g>
+      <circle cx="300" cy="80" r="5" fill="var(--accent)" stroke="none"/>
+      <circle cx="480" cy="160" r="5" fill="var(--accent-2)" stroke="none"/>
+      <g stroke="var(--accent-2)" stroke-width="2" opacity="0.3">
+        <line x1="60" y1="200" x2="500" y2="200"/>
+      </g>
+    </svg>
+    <span class="eyebrow">🗄️ db-mcp 使用手冊</span>
+    <h1>資料庫裡的答案，用問的就好</h1>
+    <p class="lede">這是給 AI 助理用的一個小工具，讓它能幫你查資料庫裡的表格結構、抓資料、比對環境差異。這份手冊用白話文說明它怎麼運作、能查什麼、什麼時候該用哪一種問法。</p>
+  </div>
+
+  <nav class="toc">
+    <a href="#what">這是什麼</a>
+    <a href="#flow">運作方式</a>
+    <a href="#model">資料模型</a>
+    <a href="#tools">工具總覽</a>
+    <a href="#gate">唯讀把關</a>
+    <a href="#scenarios">實際範例</a>
+    <a href="#faq">常見問題</a>
+  </nav>
+
+  <section id="what" class="reveal">
+    <h2><span class="num">01</span> 這是什麼？</h2>
+    <p class="kicker">
+      公司的系統背後都有資料庫存著實際的資料——客戶、訂單、設定值，任何東西。過去要查一張表長什麼樣子、資料庫裡到底存了什麼，得自己開資料庫工具、寫 SQL 一步步查。
+      現在你可以直接用中文跟 AI 助理說「幫我看某張表的結構」「這張表裡有哪些資料」，AI 助理會透過 <b>db-mcp</b> 這個工具去資料庫把資料抓回來，整理成看得懂的白話文回答你。
+    </p>
+    <p class="kicker" style="margin-top:-6px">
+      這個工具**只能查詢、不能亂改資料**——真的會執行 SQL 的工具內建了寫死在程式碼裡的把關規則（見下方「唯讀把關」），不是靠 AI 自己記得小心，想繞都繞不過去。
+    </p>
+  </section>
+
+  <section id="flow" class="reveal">
+    <h2><span class="num">02</span> 運作方式</h2>
+    <p class="kicker">一次查詢，經過這五個步驟。你完全不需要知道中間發生了什麼，只是說明給你聽：</p>
+    <div class="diagram-card">
+      <div class="flow-steps">
+        <div class="flow-step"><div class="badge">🙋</div><div class="label">你<br/>提出問題</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🤖</div><div class="label">AI 助理<br/>聽懂你的意思</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🔧</div><div class="label">db-mcp<br/>決定要查哪個工具</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🗄️</div><div class="label">資料庫<br/>回傳原始資料</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🤖</div><div class="label">AI 助理<br/>整理成白話文</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🙋</div><div class="label">你<br/>看到答案</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="model" class="reveal">
+    <h2><span class="num">03</span> 資料模型</h2>
+    <p class="kicker">
+      每個資料庫連線都掛在某個「建置案」底下。同一個建置案的 dev/test/staging/正式機各自是一條獨立連線，但共用同一份結構快取——不用每個環境都重新摸一次資料庫，查詢速度也快很多。
+    </p>
+    <div class="diagram-card">
+      <div class="model-diagram">
+        <div class="model-project">📁 某個建置案</div>
+        <div class="model-envs">
+          <span class="env-chip">dev</span>
+          <span class="env-chip">test</span>
+          <span class="env-chip">staging</span>
+          <span class="env-chip prod">prod ⚠️</span>
+        </div>
+        <div class="model-cache">↓ 各自同步進 ↓<br/><strong>同一份 schema 快取</strong>（表 / 欄位 / 主鍵外鍵 / 索引 / 你寫的筆記）</div>
+      </div>
+    </div>
+    <p class="kicker" style="margin-top:18px; margin-bottom:0">
+      連到標記為 <code>prod</code>（正式機）的連線時，查詢結果會多附一句警示，提醒這是正式環境；其他環境沒有這個額外提醒。
+    </p>
+  </section>
+
+  <section id="tools" class="reveal">
+    <h2><span class="num">04</span> 工具總覽</h2>
+    <p class="kicker">總共五大類、15 個工具。每一類點開來看，裡面有實際的工具名稱（給負責設定的 IT 人員對照用）跟白話說明。</p>
+
+    <div class="cat-list">
+
+      <details class="cat" open>
+        <summary>
+          <span class="emoji">📁</span>
+          <span class="title-block">
+            <h3>專案</h3>
+            <p class="sub">建置案/翻修案的分組管理</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <div class="example"><b>可以這樣問：</b>「目前登記了哪些專案？」</div>
+          <div class="tool-row"><span class="rw write">寫入</span><code>db_project_create</code><span>建立新的專案分組</span></div>
+          <div class="tool-row"><span class="rw">唯讀</span><code>db_project_list</code><span>列出所有已登記的專案</span></div>
+          <div class="tool-row"><span class="rw">唯讀</span><code>db_project_get</code><span>看單一專案的詳細資料 + 底下所有連線（不含密碼）</span></div>
+        </div>
+      </details>
+
+      <details class="cat">
+        <summary>
+          <span class="emoji">🔌</span>
+          <span class="title-block">
+            <h3>連線</h3>
+            <p class="sub">每個環境的資料庫帳密怎麼登記</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <div class="example"><b>可以這樣問：</b>「這個專案底下有哪些資料庫連線？」</div>
+          <div class="tool-row"><span class="rw write">寫入</span><code>db_add_connection</code><span>在某個專案底下新增一筆連線設定</span></div>
+          <div class="tool-row"><span class="rw">唯讀</span><code>db_list_connections</code><span>列出連線（不含密碼）</span></div>
+          <div class="tool-row"><span class="rw">唯讀</span><code>db_test_connection</code><span>實際連一次資料庫，確認連線設定真的可用</span></div>
+        </div>
+      </details>
+
+      <details class="cat">
+        <summary>
+          <span class="emoji">🧩</span>
+          <span class="title-block">
+            <h3>Schema 結構</h3>
+            <p class="sub">表、欄位、主鍵外鍵長什麼樣子</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <div class="example"><b>可以這樣問：</b>「這張表有哪些欄位？」</div>
+          <div class="tool-row"><span class="rw">唯讀</span><code>db_schema</code><span>取得某個連線的完整結構（表/欄位/PK/FK/索引/VIEW/FUNCTION/PROCEDURE）</span></div>
+          <div class="tool-row"><span class="rw">唯讀</span><code>db_search_tables</code><span>關鍵字搜尋表名/欄位名，不用整包結構一次全塞進對話</span></div>
+          <div class="tool-row"><span class="rw">唯讀</span><code>db_diff_schema</code><span>比對同一專案底下兩個環境的結構差異</span></div>
+          <div class="tool-row"><span class="rw">唯讀</span><code>db_export_ddl</code><span>把結構匯出成 DDL 文字，留存文件用</span></div>
+        </div>
+      </details>
+
+      <details class="cat">
+        <summary>
+          <span class="emoji">📝</span>
+          <span class="title-block">
+            <h3>表格筆記</h3>
+            <p class="sub">AI 分析出來的表格用途，記下來以後不用重查</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <div class="example"><b>可以這樣問：</b>「這張表之前有沒有留下什麼筆記？」</div>
+          <div class="tool-row"><span class="rw write">寫入</span><code>db_annotate_table</code><span>把表格用途寫成筆記，跨 dev/test/prod 環境共用</span></div>
+          <div class="tool-row"><span class="rw">唯讀</span><code>db_list_notes</code><span>列出某個專案目前所有的表格筆記</span></div>
+        </div>
+      </details>
+
+      <details class="cat gate" id="gate">
+        <summary>
+          <span class="emoji">🛡️</span>
+          <span class="title-block">
+            <h3>查詢執行（唯讀把關）</h3>
+            <p class="sub">真的會執行 SQL 的工具，內建硬性安全規則</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <p style="color:var(--ink-soft); font-size:.92rem; margin-top:16px">
+            這一組工具會真的對資料庫送出 SQL，所以內建了寫死在程式碼裡的把關——不是靠 AI 自己記得小心，偵測到寫入/刪除類語句一律拒絕執行。
+          </p>
+
+          <div class="diagram-card" style="margin: 4px 0 18px; overflow-x:auto">
+            <div class="gate-diagram">
+              <div class="gate-row allow">
+                <span class="sql-chip">SELECT * FROM users WHERE id = 1</span>
+                <span class="gate-arrow"></span>
+                <span class="gate-result allow">✅ 放行執行</span>
+              </div>
+              <div class="gate-row block">
+                <span class="sql-chip">UPDATE users SET name = 'x'</span>
+                <span class="gate-arrow"></span>
+                <span class="gate-result block">❌ 拒絕，退回請你手動執行</span>
+              </div>
+              <div class="gate-row block">
+                <span class="sql-chip">WITH cte AS (DELETE ... RETURNING *) SELECT * FROM cte</span>
+                <span class="gate-arrow"></span>
+                <span class="gate-result block">❌ 拒絕（藏在子查詢裡也擋得住）</span>
+              </div>
+            </div>
+          </div>
+
+          <p style="color:var(--ink-soft); font-size:.88rem; margin:0 0 16px">
+            只要偵測到 <code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code>/<code>DROP</code>/<code>ALTER</code>/<code>CREATE</code> 等寫入或結構異動關鍵字，就算包在 CTE 或子查詢裡也一樣擋下來——寧可誤擋，不會誤放。真的要寫入時，工具會請你把 SQL 轉交給負責設定的人手動執行。
+          </p>
+          <div class="example"><b>可以這樣問：</b>「幫我查一下這張表裡的前 20 筆資料」</div>
+          <div class="tool-row"><span class="rw gate">把關</span><code>db_query</code><span>執行唯讀 SQL，只放行 SELECT/WITH/SHOW/DESCRIBE/EXPLAIN</span></div>
+          <div class="tool-row"><span class="rw">唯讀</span><code>db_sample_rows</code><span>免寫 SQL，直接看某張表前 N 筆資料長什麼樣子</span></div>
+          <div class="tool-row"><span class="rw gate">把關</span><code>db_explain</code><span>對 SQL 跑 EXPLAIN 分析執行計畫，同一套把關規則</span></div>
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  <section id="scenarios" class="reveal">
+    <h2><span class="num">05</span> 實際範例</h2>
+    <p class="kicker">幾個常見情境，示範怎麼問、AI 助理在背後做了什麼。</p>
+
+    <div class="scenario">
+      <h3>情境一：了解一張表的結構</h3>
+      <div class="bubble user">會員資料表裡有哪些欄位？</div>
+      <div class="bubble ai">這張表有 12 個欄位，主鍵是 <code>member_id</code>，跟訂單表之間有一個外鍵關聯……（附上完整欄位清單）
+        <span class="steps">背後呼叫：<code>db_schema</code></span>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <h3>情境二：不小心問了會改資料的問題</h3>
+      <div class="bubble user">幫我把這個帳號的狀態改成停用。</div>
+      <div class="bubble ai">這需要執行 UPDATE，我不能直接跑寫入語句。我幫你把 SQL 準備好了，麻煩你自己在資料庫工具裡手動執行：<code>UPDATE accounts SET status = 'disabled' WHERE id = ...</code>
+        <span class="steps">背後呼叫：<code>db_query</code>（被唯讀把關拒絕，回傳待手動執行的 SQL）</span>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <h3>情境三：比對兩個環境的資料庫差異</h3>
+      <div class="bubble user">測試機跟正式機的資料庫結構有差嗎？</div>
+      <div class="bubble ai">有 2 張表只在測試機出現，另外有 1 張表在兩邊都有但欄位型別不一樣……（附上詳細差異清單）
+        <span class="steps">背後呼叫：<code>db_diff_schema</code></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" class="reveal">
+    <h2><span class="num">06</span> 常見問題</h2>
+
+    <div class="faq-item">
+      <h3>AI 助理會不會不小心改到或刪除資料庫裡的資料？</h3>
+      <p>不會。真的會執行 SQL 的工具內建寫死在程式碼裡的把關，偵測到任何寫入/刪除/結構異動語句一律拒絕執行，就算藏在子查詢裡也擋得住。真的需要寫入時，工具只會準備好 SQL 交給你自己手動執行。</p>
+    </div>
+    <div class="faq-item">
+      <h3>查詢結果為什麼有時候會多一句警示？</h3>
+      <p>連到標記為 <code>prod</code>（正式機）的連線時，回應會多附一句「這是標記為 prod 的連線，請小心操作」的提醒，其他環境（dev/test/staging）沒有這個額外提醒。</p>
+    </div>
+    <div class="faq-item">
+      <h3>第一次用某個資料庫連線要先做什麼？</h3>
+      <p>建議先確認連得上，再建立結構快取——之後查表格、搜關鍵字、看資料範例都會快很多，也不用每次都重新連線摸一次資料庫。</p>
+    </div>
+    <div class="faq-item">
+      <h3>如果我需要真的修改資料庫裡的東西怎麼辦？</h3>
+      <p>請 AI 助理把需要的 SQL 準備好，交給負責設定的人在資料庫工具裡自己手動執行——這支工具設計上刻意不讓 AI 自己動手寫入，是有意的安全邊界，不是還沒做完的功能。</p>
+    </div>
+  </section>
+
+  <footer>db-mcp 使用手冊 · 最後更新 2026-09-17</footer>
+</div>
+
+<script>
+  // Smooth expand/collapse for the tool-category <details> accordions, instead of the
+  // browser's instant snap-open. Keeps native <details>/<summary> semantics (keyboard,
+  // screen readers) intact — only the transition is custom.
+  (function () {
+    var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var items = document.querySelectorAll("details.cat");
+
+    items.forEach(function (el) {
+      if (reduceMotion) return; // let the browser's native instant toggle handle it
+
+      var summary = el.querySelector("summary");
+      var animation = null;
+      var isClosing = false;
+      var isExpanding = false;
+
+      summary.addEventListener("click", function (e) {
+        e.preventDefault();
+        el.style.overflow = "hidden";
+        if (isClosing || !el.open) {
+          openPanel();
+        } else if (isExpanding || el.open) {
+          shrink();
+        }
+      });
+
+      function shrink() {
+        isClosing = true;
+        var startHeight = el.offsetHeight + "px";
+        var endHeight = summary.offsetHeight + "px";
+        if (animation) animation.cancel();
+        animation = el.animate({ height: [startHeight, endHeight] }, { duration: 220, easing: "ease-out" });
+        animation.onfinish = function () { onFinish(false); };
+        animation.oncancel = function () { isClosing = false; };
+      }
+
+      function openPanel() {
+        el.style.height = el.offsetHeight + "px";
+        el.open = true;
+        window.requestAnimationFrame(function () { expand(); });
+      }
+
+      function expand() {
+        isExpanding = true;
+        var startHeight = el.offsetHeight + "px";
+        var body = el.querySelector(".cat-body");
+        var endHeight = summary.offsetHeight + body.offsetHeight + "px";
+        if (animation) animation.cancel();
+        animation = el.animate({ height: [startHeight, endHeight] }, { duration: 220, easing: "ease-out" });
+        animation.onfinish = function () { onFinish(true); };
+        animation.oncancel = function () { isExpanding = false; };
+      }
+
+      function onFinish(openState) {
+        el.open = openState;
+        animation = null;
+        isClosing = false;
+        isExpanding = false;
+        el.style.height = "";
+        el.style.overflow = "";
+      }
+    });
+  })();
+
+  // Fade-and-rise each section in as it scrolls into view.
+  (function () {
+    var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion || !("IntersectionObserver" in window)) return;
+
+    var sections = document.querySelectorAll(".reveal");
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("in");
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
+
+    sections.forEach(function (s) { io.observe(s); });
+  })();
+</script>
+</body>
+</html>
