@@ -19,12 +19,17 @@ interface GitlabConnection {
   baseUrl: string;
 }
 
-const DEFAULT_BASE_URL = "https://gitlab.universalec.com.tw";
-
+/** No hardcoded fallback host on purpose — this is an open-source-able repo, so it must not bake in
+ * any particular company's internal GitLab domain. Every connection has to name its own baseUrl. */
 async function loadConnections(): Promise<GitlabConnection[]> {
   const raw = await readFile(getConnectionsFilePath(), "utf-8");
   const parsed = JSON.parse(raw) as GitlabConnection[];
-  return parsed.map((c) => ({ ...c, baseUrl: (c.baseUrl?.trim() || DEFAULT_BASE_URL).replace(/\/+$/, "") }));
+  return parsed.map((c) => {
+    if (!c.baseUrl || !c.baseUrl.trim()) {
+      throw new Error(`連線「${c.name || c.id}」缺少 baseUrl，這一項為必填，不會使用任何預設站台`);
+    }
+    return { ...c, baseUrl: c.baseUrl.trim().replace(/\/+$/, "") };
+  });
 }
 
 /** Lists connections with tokens stripped — safe to hand back to whatever's driving this MCP. */

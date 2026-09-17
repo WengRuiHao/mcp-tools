@@ -13,7 +13,7 @@ import { registerBranchRoleTools } from "./branch-role-tools.js";
 
 const server = new McpServer({
   name: "gitlab-mcp",
-  version: "0.4.0",
+  version: "0.4.1",
 });
 
 registerConnectionTools(server);

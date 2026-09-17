@@ -37,11 +37,11 @@ flowchart TB
 
 ---
 
-想要更完整、連非技術人員都看得懂的說明（含使用情境範例、常見問題），請見 **[docs/MANUAL.md](docs/MANUAL.md)**。以下是給負責設定的人看的技術細節。
+想要更完整、連非技術人員都看得懂的說明（含使用情境範例、常見問題），請見 **[docs/MANUAL.html](docs/MANUAL.html)**（排版過的網頁，GitHub 網頁上點開只會看到原始碼，要下載下來用瀏覽器打開才看得到排版後的樣子）。以下是給負責設定的人看的技術細節。
 
 ## 設定
 
-在這支 MCP 自己目錄下的 `info/gitlab-connections.json`（已 gitignore，個人專屬，不進版控），是一個**連線清單**，可以同時登記多組帳號/站台（例如公司內部 GitLab 跟 gitlab.com 各一組）：
+在這支 MCP 自己目錄下的 `info/gitlab-connections.json`（已 gitignore，個人專屬，不進版控），是一個**連線清單**，可以同時登記多組帳號/站台：
 
 ```json
 [
@@ -49,18 +49,20 @@ flowchart TB
     "id": "gitlab",
     "name": "gitlab",
     "token": "你的 Personal Access Token（scope 只需要 read_api）",
-    "baseUrl": "https://gitlab.universalec.com.tw"
+    "baseUrl": "https://gitlab.example.com"
   },
   {
     "id": "gitlab2",
     "name": "gitlab2",
     "token": "另一組帳號/站台的 Personal Access Token",
-    "baseUrl": "https://gitlab.com"
+    "baseUrl": "https://gitlab2.example.com"
   }
 ]
 ```
 
-- `baseUrl` 每筆都可省略，省略時預設 `https://gitlab.universalec.com.tw`。
+（上面的 `https://gitlab.example.com` 只是示範格式，換成你實際要連的站台網址。）
+
+- `baseUrl` 每一筆都**必填**，這支工具沒有內建任何預設站台——沒填會直接被拒絕並提示是哪一筆連線缺這個欄位。
 - 只設定一筆連線時，所有工具都可以不用帶 `connectionId`，自動用那一筆。
 - 設定兩筆以上時，工具呼叫要帶 `connectionId`（值是上面的 `id` 或 `name`，例如 `gitlab`/`gitlab2`），不確定有哪些連線可以先呼叫 `gitlab_list_connections` 查。也可以用環境變數 `GITLAB_CONNECTION_ID` 設一個預設值，省得每次都要指定。
 - 連線清單檔案路徑預設是這個目錄下的 `info/gitlab-connections.json`，也可以用環境變數 `GITLAB_CONNECTIONS_FILE` 指到別的路徑。

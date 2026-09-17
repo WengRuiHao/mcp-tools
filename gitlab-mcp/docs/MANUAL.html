@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>gitlab-mcp 使用手冊</title>
+<meta name="description" content="給非技術人員也看得懂的 gitlab-mcp 操作說明與流程圖">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Noto+Serif+TC:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #f6f4ef;
+    --bg-raised: #ffffff;
+    --ink: #1f2430;
+    --ink-soft: #565f70;
+    --line: #dedad0;
+    --accent: #1d5c63;
+    --accent-2: #c9603c;
+    --accent-soft: #e4efee;
+    --accent-ink: #123a3f;
+    --prod: #b23a2e;
+    --prod-soft: #f8e6e3;
+    --staging: #a5720a;
+    --staging-soft: #f7ecd6;
+    --personal: #3c5a99;
+    --personal-soft: #e6ebf6;
+    --mono-bg: #eee9df;
+    --code-ink: #3a4352;
+    --shadow: 0 1px 2px rgba(31,36,48,0.06), 0 8px 24px rgba(31,36,48,0.08);
+    --shadow-lg: 0 4px 10px rgba(31,36,48,0.08), 0 20px 48px rgba(31,36,48,0.12);
+    --grain-op: 0.05;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161b;
+      --bg-raised: #1b2026;
+      --ink: #e9ecf1;
+      --ink-soft: #a6afc0;
+      --line: #2b323c;
+      --accent: #5fb3ba;
+      --accent-2: #e08a63;
+      --accent-soft: #1b3033;
+      --accent-ink: #bfe7e9;
+      --prod: #e08b7f;
+      --prod-soft: #362320;
+      --staging: #e0b45c;
+      --staging-soft: #362c15;
+      --personal: #93aee0;
+      --personal-soft: #212a3f;
+      --mono-bg: #232830;
+      --code-ink: #cfd6e2;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.4);
+      --shadow-lg: 0 4px 10px rgba(0,0,0,0.4), 0 24px 56px rgba(0,0,0,0.5);
+      --grain-op: 0.08;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161b;
+    --bg-raised: #1b2026;
+    --ink: #e9ecf1;
+    --ink-soft: #a6afc0;
+    --line: #2b323c;
+    --accent: #5fb3ba;
+    --accent-2: #e08a63;
+    --accent-soft: #1b3033;
+    --accent-ink: #bfe7e9;
+    --prod: #e08b7f;
+    --prod-soft: #362320;
+    --staging: #e0b45c;
+    --staging-soft: #362c15;
+    --personal: #93aee0;
+    --personal-soft: #212a3f;
+    --mono-bg: #232830;
+    --code-ink: #cfd6e2;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.4);
+    --shadow-lg: 0 4px 10px rgba(0,0,0,0.4), 0 24px 56px rgba(0,0,0,0.5);
+    --grain-op: 0.08;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    margin: 0;
+    padding-inline: 20px;
+    padding-block: 0 80px;
+    font-family: "IBM Plex Sans", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+    line-height: 1.65;
+    font-size: 16px;
+    position: relative;
+    overflow-x: hidden;
+  }
+  h1, h2, h3 { font-family: "Fraunces", "Noto Serif TC", Georgia, serif; text-wrap: balance; color: var(--ink); }
+  code, .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; }
+
+  .wrap { max-width: 880px; margin: 0 auto; position: relative; }
+
+  /* ---------- Ambient background ---------- */
+  .ambient {
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background-image:
+      radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ink) 14%, transparent) 1px, transparent 0);
+    background-size: 22px 22px;
+    opacity: var(--grain-op);
+  }
+  .blob {
+    position: absolute; border-radius: 50%; filter: blur(60px); pointer-events: none; z-index: -1;
+  }
+  .blob.one { top: -120px; right: -100px; width: 340px; height: 340px; background: color-mix(in srgb, var(--accent) 30%, transparent); }
+  .blob.two { top: 420px; left: -140px; width: 300px; height: 300px; background: color-mix(in srgb, var(--accent-2) 22%, transparent); }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    text-align: center;
+    padding-block: 56px 20px;
+    position: relative;
+  }
+  .hero-lines {
+    position: absolute; inset: -10px auto auto 50%; transform: translateX(-50%);
+    width: min(720px, 100%); height: 220px; z-index: -1; opacity: .55;
+  }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent-ink); background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    border-radius: 999px; padding: 6px 14px; margin-bottom: 22px;
+    animation: rise .6s ease-out both;
+  }
+  h1 {
+    font-size: clamp(2.1rem, 1.6rem + 2.6vw, 3.1rem); margin: 0 0 14px; letter-spacing: -0.01em;
+    animation: rise .7s .05s ease-out both;
+  }
+  .lede { font-size: 1.12rem; color: var(--ink-soft); max-width: 46ch; margin: 0 auto; animation: rise .7s .12s ease-out both; }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .eyebrow, h1, .lede { animation: none; }
+  }
+
+  /* ---------- TOC ---------- */
+  nav.toc {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 30px 0 8px; padding: 0; list-style: none;
+  }
+  nav.toc a {
+    font-size: 13px; color: var(--ink-soft); text-decoration: none;
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px;
+    background: var(--bg-raised); transition: color .15s, border-color .15s, transform .15s;
+  }
+  nav.toc a:hover { color: var(--accent-ink); border-color: var(--accent); transform: translateY(-1px); }
+
+  section { margin-top: 68px; scroll-margin-top: 24px; }
+  section > h2 {
+    font-size: 1.55rem; margin: 0 0 6px;
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  section > h2 .num {
+    font-family: "IBM Plex Mono", monospace; font-size: .82rem; color: var(--accent);
+    background: var(--accent-soft); border-radius: 6px; padding: 2px 7px;
+  }
+  section > .kicker { color: var(--ink-soft); margin: 0 0 24px; max-width: 62ch; }
+
+  /* scroll reveal */
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity .55s ease-out, transform .55s ease-out; }
+  .reveal.in { opacity: 1; transform: translateY(0); }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+  }
+
+  /* ---------- Diagram card ---------- */
+  .diagram-card {
+    background: var(--bg-raised); border: 1px solid var(--line); border-radius: 18px;
+    padding: 28px 20px; box-shadow: var(--shadow-lg); overflow-x: auto;
+  }
+
+  /* custom step flow */
+  .flow-steps {
+    display: flex; align-items: stretch; gap: 0; min-width: 640px; justify-content: center;
+  }
+  .flow-step {
+    display: flex; flex-direction: column; align-items: center; gap: 10px; width: 118px; flex-shrink: 0;
+  }
+  .flow-step .badge {
+    width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; background: var(--accent-soft); border: 2px solid var(--accent);
+    box-shadow: var(--shadow);
+  }
+  .flow-step .label { font-size: .82rem; text-align: center; color: var(--ink-soft); font-weight: 600; line-height: 1.35; }
+  .flow-connector { flex: 1; display: flex; align-items: center; margin-top: -34px; min-width: 24px; }
+  .flow-connector svg { width: 100%; height: 14px; overflow: visible; }
+  .flow-connector path { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 6; }
+  .flow-connector.animate path { animation: dash 1.4s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  @media (prefers-reduced-motion: reduce) { .flow-connector.animate path { animation: none; } }
+
+  /* ---------- Connection cards ---------- */
+  .conn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  @media (max-width: 640px) { .conn-grid { grid-template-columns: 1fr; } }
+  .conn-card {
+    background: var(--bg-raised); border: 1px solid var(--line); border-radius: 16px;
+    padding: 22px; box-shadow: var(--shadow); transition: transform .18s, box-shadow .18s;
+  }
+  .conn-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+  .conn-card .id { display: inline-block; font-family: "IBM Plex Mono", monospace; font-size: .85rem;
+    background: var(--accent-soft); color: var(--accent-ink); border-radius: 8px; padding: 3px 10px; margin-bottom: 12px; }
+  .conn-card h3 { margin: 0 0 6px; font-size: 1.1rem; }
+  .conn-card p { margin: 0; color: var(--ink-soft); font-size: .95rem; }
+
+  /* ---------- Tool category cards ---------- */
+  .cat-list { display: flex; flex-direction: column; gap: 14px; }
+  details.cat {
+    background: var(--bg-raised); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: var(--shadow); overflow: hidden; transition: box-shadow .2s;
+  }
+  details.cat:hover { box-shadow: var(--shadow-lg); }
+  details.cat summary {
+    cursor: pointer; list-style: none; padding: 18px 20px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  details.cat summary::-webkit-details-marker { display: none; }
+  details.cat summary .emoji { font-size: 1.4rem; flex-shrink: 0; }
+  details.cat summary .title-block { flex: 1; min-width: 0; }
+  details.cat summary h3 { margin: 0; font-size: 1.05rem; font-family: "IBM Plex Sans","Noto Sans TC",sans-serif; font-weight: 600; }
+  details.cat summary .sub { margin: 2px 0 0; color: var(--ink-soft); font-size: .88rem; }
+  details.cat summary .chev { color: var(--ink-soft); transition: transform .2s; flex-shrink: 0; }
+  details.cat[open] summary .chev { transform: rotate(90deg); }
+  .cat-body { padding: 0 20px 20px; border-top: 1px solid var(--line); }
+  .cat-body .example {
+    margin: 16px 0 18px; padding: 12px 14px; border-radius: 12px;
+    background: var(--accent-soft); color: var(--accent-ink); font-size: .92rem;
+  }
+  .cat-body .example b { font-weight: 600; }
+  .tool-row { display: flex; gap: 12px; padding: 10px 0; border-top: 1px dashed var(--line); }
+  .tool-row:first-of-type { border-top: none; }
+  .tool-row code {
+    flex-shrink: 0; font-size: .82rem; background: var(--mono-bg); color: var(--code-ink);
+    padding: 4px 8px; border-radius: 6px; height: fit-content; white-space: nowrap;
+  }
+  .tool-row span { color: var(--ink-soft); font-size: .92rem; }
+
+  details.cat.roles { border-color: var(--accent); border-width: 1.5px; }
+  .role-tags { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 18px; }
+  .role-tag { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600; }
+  .role-tag.production { background: var(--prod-soft); color: var(--prod); }
+  .role-tag.staging { background: var(--staging-soft); color: var(--staging); }
+  .role-tag.personal { background: var(--personal-soft); color: var(--personal); }
+  .role-tag .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* branch-role diagram */
+  .branch-diagram { display: flex; flex-direction: column; gap: 14px; min-width: 560px; }
+  .branch-row { display: flex; align-items: center; gap: 14px; }
+  .branch-chip {
+    font-family: "IBM Plex Mono", monospace; font-size: .85rem; background: var(--mono-bg); color: var(--code-ink);
+    border-radius: 8px; padding: 7px 12px; width: 150px; text-align: center; flex-shrink: 0;
+  }
+  .branch-arrow { flex: 1; height: 2px; background: repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 12px); position: relative; }
+  .branch-arrow::after { content: "→"; position: absolute; right: -4px; top: -11px; font-size: 1rem; }
+  .branch-row.production .branch-arrow, .branch-row.production .branch-arrow::after { color: var(--prod); }
+  .branch-row.staging .branch-arrow, .branch-row.staging .branch-arrow::after { color: var(--staging); }
+  .branch-row.personal .branch-arrow, .branch-row.personal .branch-arrow::after { color: var(--personal); }
+  .branch-target { flex-shrink: 0; }
+
+  /* ---------- Scenario chat mock ---------- */
+  .scenario { background: var(--bg-raised); border: 1px solid var(--line); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); margin-bottom: 16px; transition: transform .18s, box-shadow .18s; }
+  .scenario:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .scenario h3 { margin: 0 0 14px; font-size: 1rem; font-family: "IBM Plex Sans","Noto Sans TC",sans-serif; color: var(--ink-soft); font-weight: 600; }
+  .bubble { max-width: 80%; padding: 10px 14px; border-radius: 14px; margin-bottom: 10px; font-size: .95rem; }
+  .bubble.user { background: var(--accent); color: #fff; margin-left: auto; border-bottom-right-radius: 4px; }
+  .bubble.ai { background: var(--mono-bg); color: var(--ink); border-bottom-left-radius: 4px; }
+  .bubble .steps { display: block; margin-top: 8px; font-size: .82rem; opacity: .8; }
+  .bubble .steps code { font-family: "IBM Plex Mono", monospace; background: rgba(0,0,0,0.08); padding: 1px 6px; border-radius: 5px; }
+
+  /* ---------- FAQ ---------- */
+  .faq-item { border-top: 1px solid var(--line); padding: 16px 0; }
+  .faq-item:first-child { border-top: none; }
+  .faq-item h3 { margin: 0 0 6px; font-size: 1rem; font-family: "IBM Plex Sans","Noto Sans TC",sans-serif; font-weight: 600; }
+  .faq-item p { margin: 0; color: var(--ink-soft); font-size: .95rem; }
+
+  footer { margin-top: 76px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: .85rem; text-align: center; }
+
+  details.cat summary { outline-offset: 4px; }
+  details.cat summary:focus-visible { outline: 2px solid var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="ambient"></div>
+<div class="blob one"></div>
+<div class="blob two"></div>
+
+<div class="wrap">
+
+  <div class="hero">
+    <svg class="hero-lines" viewBox="0 0 720 220" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <g fill="none" stroke="var(--accent)" stroke-width="2" opacity="0.5">
+        <path d="M40 190 C 160 190, 160 120, 260 120 S 360 60, 460 60"/>
+        <path d="M40 190 C 120 190, 140 160, 220 160 S 320 180, 400 180"/>
+        <circle cx="40" cy="190" r="5" fill="var(--accent)" stroke="none"/>
+        <circle cx="260" cy="120" r="4" fill="var(--accent)" stroke="none"/>
+        <circle cx="460" cy="60" r="5" fill="var(--accent-2)" stroke="none"/>
+        <circle cx="400" cy="180" r="4" fill="var(--accent-2)" stroke="none"/>
+      </g>
+      <g fill="none" stroke="var(--accent-2)" stroke-width="2" opacity="0.35">
+        <path d="M680 30 C 560 30, 540 90, 460 90 S 380 130, 300 130"/>
+      </g>
+    </svg>
+    <span class="eyebrow">🦊 gitlab-mcp 使用手冊</span>
+    <h1>不用會寫程式，也看得懂這個工具在做什麼</h1>
+    <p class="lede">這是給 Claude（AI 助理）用的一個小工具，讓它能幫你查 GitLab 上的專案資料。這份手冊用白話文說明它怎麼運作、能查什麼、什麼時候該用哪一種問法。</p>
+  </div>
+
+  <nav class="toc">
+    <a href="#what">這是什麼</a>
+    <a href="#flow">運作方式</a>
+    <a href="#connections">兩個帳號</a>
+    <a href="#tools">工具總覽</a>
+    <a href="#roles">分支用途標記</a>
+    <a href="#scenarios">實際範例</a>
+    <a href="#faq">常見問題</a>
+  </nav>
+
+  <section id="what" class="reveal">
+    <h2><span class="num">01</span> 這是什麼？</h2>
+    <p class="kicker">
+      GitLab 是公司存放程式碼的地方——每個專案、每一次修改、每一條分支都記錄在上面。過去要查這些東西，得自己登入 GitLab 網站一層一層點。
+      現在你可以直接用中文跟 Claude 說「幫我查某個專案最近改了什麼」，Claude 會透過 <b>gitlab-mcp</b> 這個工具去 GitLab 上把資料抓回來，整理成看得懂的白話文回答你。
+    </p>
+    <p class="kicker" style="margin-top:-6px">
+      這個工具用的是<b>你自己申請的個人通行證</b>登入，看到的是你個人帳號實際有權限看的東西，不是某個共用帳號的視角。除了「分支用途標記」這個額外功能會記錄一些筆記在本機，其他一律只讀不寫——不會幫你改動或刪除 GitLab 上任何東西。
+    </p>
+  </section>
+
+  <section id="flow" class="reveal">
+    <h2><span class="num">02</span> 運作方式</h2>
+    <p class="kicker">一次查詢，經過這五個步驟。你完全不需要知道中間發生了什麼，只是說明給你聽：</p>
+    <div class="diagram-card">
+      <div class="flow-steps">
+        <div class="flow-step"><div class="badge">🙋</div><div class="label">你<br/>提出問題</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🤖</div><div class="label">Claude<br/>聽懂你的意思</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🔧</div><div class="label">gitlab-mcp<br/>決定要查哪個工具</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🦊</div><div class="label">GitLab<br/>回傳原始資料</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🤖</div><div class="label">Claude<br/>整理成白話文</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🙋</div><div class="label">你<br/>看到答案</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="connections" class="reveal">
+    <h2><span class="num">03</span> 兩個帳號，兩個站台</h2>
+    <p class="kicker">
+      目前這支工具登記了兩組通行證，因為有兩個不同的內部 GitLab 站台。問問題時如果沒講清楚要查哪一個，Claude 會先跟你確認，不會亂猜。
+    </p>
+    <div class="conn-grid">
+      <div class="conn-card">
+        <span class="id">gitlab</span>
+        <h3>主要站台</h3>
+        <p>日常最常用的那組帳號，多數專案都掛在這裡。</p>
+      </div>
+      <div class="conn-card">
+        <span class="id">gitlab2</span>
+        <h3>第二站台</h3>
+        <p>另一組獨立帳號，專案跟主要站台是分開的，不會互相看到彼此的資料。</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="tools" class="reveal">
+    <h2><span class="num">04</span> 工具總覽</h2>
+    <p class="kicker">總共九大類、25 個工具。每一類點開來看，裡面有實際的工具名稱（給負責設定的 IT 人員對照用）跟白話說明。</p>
+
+    <div class="cat-list">
+
+      <details class="cat" open>
+        <summary>
+          <span class="emoji">📂</span>
+          <span class="title-block">
+            <h3>帳號與專案</h3>
+            <p class="sub">我有哪些專案、專案的基本資料</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <div class="example"><b>可以這樣問：</b>「我在 GitLab 上有哪些專案？」</div>
+          <div class="tool-row"><code>gitlab_whoami</code><span>確認通行證還有效，順便看目前是哪個帳號登入的</span></div>
+          <div class="tool-row"><code>gitlab_list_projects</code><span>列出你實際參與或擁有的專案</span></div>
+          <div class="tool-row"><code>gitlab_get_project</code><span>看單一專案的詳細資料</span></div>
+        </div>
+      </details>
+
+      <details class="cat">
+        <summary>
+          <span class="emoji">🌿</span>
+          <span class="title-block">
+            <h3>分支</h3>
+            <p class="sub">專案底下的各條開發線</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <div class="example"><b>可以這樣問：</b>「這個專案有哪些分支？」</div>
+          <div class="tool-row"><code>gitlab_list_branches</code><span>列出專案的所有分支</span></div>
+          <div class="tool-row"><code>gitlab_get_branch</code><span>看單一分支的細節，例如最新改到哪裡</span></div>
+        </div>
+      </details>
+
+      <details class="cat">
+        <summary>
+          <span class="emoji">🕘</span>
+          <span class="title-block">
+            <h3>修改紀錄</h3>
+            <p class="sub">誰、什麼時候、改了什麼</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <div class="example"><b>可以這樣問：</b>「這個檔案最近被誰改過？」</div>
+          <div class="tool-row"><code>gitlab_list_commits</code><span>列出修改歷史，由新到舊</span></div>
+          <div class="tool-row"><code>gitlab_get_commit</code><span>看單一次修改的作者、時間、說明</span></div>
+          <div class="tool-row"><code>gitlab_get_commit_diff</code><span>看單一次修改實際改了哪些程式碼</span></div>
+          <div class="tool-row"><code>gitlab_compare_branches</code><span>比較兩條分支之間差了多少</span></div>
+        </div>
+      </details>
+
+      <details class="cat">
+        <summary>
+          <span class="emoji">🔍</span>
+          <span class="title-block">
+            <h3>檔案與搜尋</h3>
+            <p class="sub">找檔案、看內容、搜關鍵字</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <div class="example"><b>可以這樣問：</b>「這個功能寫在哪個檔案？」</div>
+          <div class="tool-row"><code>gitlab_get_repository_tree</code><span>瀏覽專案的資料夾結構</span></div>
+          <div class="tool-row"><code>gitlab_get_file_contents</code><span>讀取某個檔案的內容</span></div>
+          <div class="tool-row"><code>gitlab_search_code</code><span>直接搜尋關鍵字，快速找到相關檔案</span></div>
+        </div>
+      </details>
+
+      <details class="cat">
+        <summary>
+          <span class="emoji">🔀</span>
+          <span class="title-block">
+            <h3>合併請求（Merge Request）</h3>
+            <p class="sub">別人提出的改動，等著被審核</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <div class="example"><b>可以這樣問：</b>「現在有哪些改動在等審核？」</div>
+          <div class="tool-row"><code>gitlab_list_merge_requests</code><span>列出目前的合併請求</span></div>
+          <div class="tool-row"><code>gitlab_get_merge_request</code><span>看單一筆的詳細狀態</span></div>
+          <div class="tool-row"><code>gitlab_get_merge_request_changes</code><span>看這次改動實際改了什麼</span></div>
+          <div class="tool-row"><code>gitlab_list_merge_request_discussions</code><span>看審核過程中的留言與意見</span></div>
+        </div>
+      </details>
+
+      <details class="cat">
+        <summary>
+          <span class="emoji">🐞</span>
+          <span class="title-block">
+            <h3>問題單（Issue）</h3>
+            <p class="sub">記錄中的問題與待辦</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <div class="example"><b>可以這樣問：</b>「有哪些待處理的問題？」</div>
+          <div class="tool-row"><code>gitlab_list_issues</code><span>列出問題單，可依狀態、標籤篩選</span></div>
+          <div class="tool-row"><code>gitlab_get_issue</code><span>看單一問題單的詳細內容</span></div>
+        </div>
+      </details>
+
+      <details class="cat">
+        <summary>
+          <span class="emoji">⚙️</span>
+          <span class="title-block">
+            <h3>建置與部署紀錄（Pipeline）</h3>
+            <p class="sub">自動化流程有沒有跑成功</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <div class="example"><b>可以這樣問：</b>「最近一次上版的建置成功了嗎？」</div>
+          <div class="tool-row"><code>gitlab_list_pipelines</code><span>列出建置/部署的執行紀錄</span></div>
+          <div class="tool-row"><code>gitlab_get_pipeline</code><span>看單一次執行的整體結果</span></div>
+          <div class="tool-row"><code>gitlab_list_pipeline_jobs</code><span>看是卡在哪一個步驟失敗的</span></div>
+        </div>
+      </details>
+
+      <details class="cat">
+        <summary>
+          <span class="emoji">🔌</span>
+          <span class="title-block">
+            <h3>連線清單</h3>
+            <p class="sub">目前登記了哪些帳號可以查</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <div class="example"><b>可以這樣問：</b>「現在有設定哪些 GitLab 帳號？」</div>
+          <div class="tool-row"><code>gitlab_list_connections</code><span>列出登記的帳號（不會顯示密碼/通行證本身）</span></div>
+        </div>
+      </details>
+
+      <details class="cat roles" id="roles">
+        <summary>
+          <span class="emoji">🏷️</span>
+          <span class="title-block">
+            <h3>分支用途標記（本機專屬功能）</h3>
+            <p class="sub">記錄哪條分支是做什麼用的——這不是 GitLab 本身的功能</p>
+          </span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <p style="color:var(--ink-soft); font-size:.92rem; margin-top:16px">
+            GitLab 本身沒有「這條分支是拿來幹嘛」的欄位。這個功能讓你把分支貼上標籤，之後查「正式機該用哪條分支」就不用再翻紀錄用猜的。
+          </p>
+
+          <div class="diagram-card" style="margin: 4px 0 18px; overflow-x:auto">
+            <div class="branch-diagram">
+              <div class="branch-row production">
+                <span class="branch-chip">main</span>
+                <span class="branch-arrow"></span>
+                <span class="branch-target role-tag production"><span class="dot"></span>production · 限一條</span>
+              </div>
+              <div class="branch-row staging">
+                <span class="branch-chip">release/test</span>
+                <span class="branch-arrow"></span>
+                <span class="branch-target role-tag staging"><span class="dot"></span>staging · 限一條</span>
+              </div>
+              <div class="branch-row personal">
+                <span class="branch-chip">dev/alice</span>
+                <span class="branch-arrow"></span>
+                <span class="branch-target role-tag personal"><span class="dot"></span>personal · owner=alice</span>
+              </div>
+              <div class="branch-row personal">
+                <span class="branch-chip">dev/bob</span>
+                <span class="branch-arrow"></span>
+                <span class="branch-target role-tag personal"><span class="dot"></span>personal · owner=bob</span>
+              </div>
+            </div>
+          </div>
+
+          <p style="color:var(--ink-soft); font-size:.88rem; margin:0 0 16px">
+            同一個專案裡，<b>production</b> 跟 <b>staging</b> 各自只能貼在一條分支上——換一條貼，舊的那條會自動被取消標記。
+            <b>personal</b> 沒有這個限制，每個人可以各自標自己的分支，會一併記錄「這是誰的」。
+          </p>
+          <div class="example"><b>可以這樣問：</b>「正式機現在是用哪條分支？」</div>
+          <div class="tool-row"><code>gitlab_set_branch_role</code><span>標記某條分支的用途（會先向 GitLab 確認這條分支真的存在）</span></div>
+          <div class="tool-row"><code>gitlab_get_deployment_branches</code><span>一次查出正式機、測試機各是哪條分支，個人分支有哪些人在用</span></div>
+          <div class="tool-row"><code>gitlab_list_branch_roles</code><span>列出所有已標記過的分支</span></div>
+          <div class="tool-row"><code>gitlab_remove_branch_role</code><span>取消某條分支的標記</span></div>
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  <section id="scenarios" class="reveal">
+    <h2><span class="num">05</span> 實際範例</h2>
+    <p class="kicker">幾個常見情境，示範怎麼問、Claude 在背後做了什麼。</p>
+
+    <div class="scenario">
+      <h3>情境一：確認正式機用哪條分支</h3>
+      <div class="bubble user">正式機現在是用哪個分支上版的？</div>
+      <div class="bubble ai">正式機目前標記的是 <code>main</code> 分支，最後更新在三天前。
+        <span class="steps">背後呼叫：<code>gitlab_get_deployment_branches</code></span>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <h3>情境二：了解這次上版改了什麼</h3>
+      <div class="bubble user">這次要上版的合併請求，實際上改了哪些東西？</div>
+      <div class="bubble ai">這個合併請求改了 3 個檔案：新增了一個驗證流程、修掉一個顯示錯誤的問題……（附上詳細清單）
+        <span class="steps">背後呼叫：<code>gitlab_list_merge_requests</code> → <code>gitlab_get_merge_request_changes</code></span>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <h3>情境三：找某個功能寫在哪裡</h3>
+      <div class="bubble user">請假流程的計算邏輯寫在哪個檔案？</div>
+      <div class="bubble ai">在 <code>leave-calculator.ts</code> 這個檔案裡，我幫你把內容抓出來了。
+        <span class="steps">背後呼叫：<code>gitlab_search_code</code> → <code>gitlab_get_file_contents</code></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" class="reveal">
+    <h2><span class="num">06</span> 常見問題</h2>
+
+    <div class="faq-item">
+      <h3>這個工具會不會不小心改到或刪除 GitLab 上的東西？</h3>
+      <p>不會。除了「分支用途標記」是寫進本機的一份筆記檔案，其餘所有工具都只查詢、不寫入，GitLab 上的專案、分支、程式碼都不會被更動。</p>
+    </div>
+    <div class="faq-item">
+      <h3>為什麼有時候 Claude 會問我要查 gitlab 還是 gitlab2？</h3>
+      <p>因為目前登記了兩組不同站台的帳號，同一個專案名稱在兩邊可能都存在但內容不同。Claude 不會用猜的，會先跟你確認要查哪一邊。</p>
+    </div>
+    <div class="faq-item">
+      <h3>「分支用途標記」跟 GitLab 官方功能有什麼不一樣？</h3>
+      <p>GitLab 官方沒有「這條分支是正式機/測試機/個人用」這種欄位，這是額外做在這支工具裡的本機筆記功能，方便查詢，跟 GitLab 上真正的分支保護、部署環境設定是兩回事。</p>
+    </div>
+    <div class="faq-item">
+      <h3>如果我沒有自己的 GitLab 通行證會怎樣？</h3>
+      <p>工具會回覆「尚未設定通行證」，這時候找負責設定的人（IT 人員）幫忙申請一組唯讀用的個人通行證即可，不需要你自己動手設定任何檔案。</p>
+    </div>
+  </section>
+
+  <footer>gitlab-mcp 使用手冊 · 最後更新 2026-09-17</footer>
+</div>
+
+<script>
+  // Smooth expand/collapse for the tool-category <details> accordions, instead of the
+  // browser's instant snap-open. Keeps native <details>/<summary> semantics (keyboard,
+  // screen readers) intact — only the transition is custom.
+  (function () {
+    var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var items = document.querySelectorAll("details.cat");
+
+    items.forEach(function (el) {
+      if (reduceMotion) return; // let the browser's native instant toggle handle it
+
+      var summary = el.querySelector("summary");
+      var animation = null;
+      var isClosing = false;
+      var isExpanding = false;
+
+      summary.addEventListener("click", function (e) {
+        e.preventDefault();
+        el.style.overflow = "hidden";
+        if (isClosing || !el.open) {
+          openPanel();
+        } else if (isExpanding || el.open) {
+          shrink();
+        }
+      });
+
+      function shrink() {
+        isClosing = true;
+        var startHeight = el.offsetHeight + "px";
+        var endHeight = summary.offsetHeight + "px";
+        if (animation) animation.cancel();
+        animation = el.animate({ height: [startHeight, endHeight] }, { duration: 220, easing: "ease-out" });
+        animation.onfinish = function () { onFinish(false); };
+        animation.oncancel = function () { isClosing = false; };
+      }
+
+      function openPanel() {
+        el.style.height = el.offsetHeight + "px";
+        el.open = true;
+        window.requestAnimationFrame(function () { expand(); });
+      }
+
+      function expand() {
+        isExpanding = true;
+        var startHeight = el.offsetHeight + "px";
+        var body = el.querySelector(".cat-body");
+        var endHeight = summary.offsetHeight + body.offsetHeight + "px";
+        if (animation) animation.cancel();
+        animation = el.animate({ height: [startHeight, endHeight] }, { duration: 220, easing: "ease-out" });
+        animation.onfinish = function () { onFinish(true); };
+        animation.oncancel = function () { isExpanding = false; };
+      }
+
+      function onFinish(openState) {
+        el.open = openState;
+        animation = null;
+        isClosing = false;
+        isExpanding = false;
+        el.style.height = "";
+        el.style.overflow = "";
+      }
+    });
+  })();
+
+  // Fade-and-rise each section in as it scrolls into view.
+  (function () {
+    var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion || !("IntersectionObserver" in window)) return;
+
+    var sections = document.querySelectorAll(".reveal");
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("in");
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
+
+    sections.forEach(function (s) { io.observe(s); });
+  })();
+</script>
+</body>
+</html>

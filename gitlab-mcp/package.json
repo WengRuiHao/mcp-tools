@@ -1,6 +1,6 @@
 {
   "name": "gitlab-mcp",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Personal GitLab MCP server (Personal Access Token) — projects, branches, commits, file browsing, merge requests, issues, pipelines",
   "type": "module",
   "main": "dist/index.js",
