@@ -176,6 +176,15 @@
   .bubble .steps { display: block; margin-top: 8px; font-size: .82rem; opacity: .8; }
   .bubble .steps code { font-family: "IBM Plex Mono", monospace; background: rgba(0,0,0,0.08); padding: 1px 6px; border-radius: 5px; }
 
+  details.tech { margin-top: 16px; border: 1px dashed var(--line); border-radius: 12px; background: var(--bg-raised); }
+  details.tech summary { cursor: pointer; list-style: none; padding: 12px 16px; font-size: .88rem; font-weight: 600; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; }
+  details.tech summary::-webkit-details-marker { display: none; }
+  details.tech summary::before { content: "▶"; font-size: .7rem; color: var(--accent); transition: transform .15s; }
+  details.tech[open] summary::before { transform: rotate(90deg); }
+  details.tech .tech-body { padding: 4px 18px 18px; font-size: .88rem; color: var(--ink-soft); }
+  details.tech .tech-body ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 10px; }
+  details.tech .tech-body strong { color: var(--ink); }
+
   .faq-item { border-top: 1px solid var(--line); padding: 16px 0; }
   .faq-item:first-child { border-top: none; }
   .faq-item h3 { margin: 0 0 6px; font-size: 1rem; font-family: "IBM Plex Sans","Noto Sans TC",sans-serif; font-weight: 600; }
@@ -256,6 +265,18 @@
     <p class="kicker" style="margin-top:16px">
       「AI 驗證結果」或「AI 情境測試」沒通過，AI 會自動回頭修正、重新走一次，<b>不用你操心</b>；只有連續失敗 3 次以上，才會停下來問你——這時候<b>先看清楚 AI 列出的失敗原因、給個新方向，不要只說「繼續處理」</b>，不然很可能只是重複同一套失敗的邏輯再失敗一次。全部通過之後，還要等你自己實測、審視過程式碼，才算真正完成；你回報有問題，一樣會被送回自動修正這條路，不是另開一套人工流程。
     </p>
+
+    <details class="tech">
+      <summary>給工程師/AI 看的技術細節</summary>
+      <div class="tech-body">
+        <ul>
+          <li>七個 <code class="mono">stage</code> 依序是 <code class="mono">new</code>（剛收到）→ <code class="mono">snapshot</code>（抓過內容）→ <code class="mono">project_dir_confirmed</code>（知道程式碼在哪）→ <code class="mono">analyzed</code>（分析完了）→ <code class="mono">implemented</code>（程式碼寫完了）→ <code class="mono">verified</code>（AI 驗證完了）→ <code class="mono">tested</code>（測試工程師也判過了，人類最終確認之前的最後一關）。只會往前走，不會跳過也不會倒退；<code class="mono">snapshot</code> 下的灰圈是省 token 的捷徑（內容沒變就不重寫、不回全文）。</li>
+          <li><strong>只有 <code class="mono">sdMode:"self-generated"</code> 的專案</strong>會多一關 <code class="mono">sd_drafted</code>：規格撰寫者產出草稿，等使用者呼叫 <code class="mono">record_spec_confirmation</code> 表態。專案登記的 <code class="mono">specOrder</code> 決定順序——<code class="mono">spec_first</code>（原本唯一支援的順序）卡在 <code class="mono">analyzed</code> 之後、<code class="mono">implemented</code> 之前——規格先定案，工程師才動手寫程式碼；<code class="mono">code_first</code> 卡在 <code class="mono">implemented</code> 之後、<code class="mono">verified</code> 之前——工程師先直接寫程式碼，規格撰寫者再依實際改動反推補一份草稿。兩種順序共用同一個 <code class="mono">spec_confirmation</code> 欄位跟同一套擋下邏輯，<code class="mono">advance_ticket_stage</code> 只看「目前是不是卡在 <code class="mono">sd_drafted</code> 又沒確認」就擋，不需要額外查 <code class="mono">specOrder</code>。</li>
+          <li><strong>驗證/測試 <code class="mono">verdict: "FAIL"</code> 的根因分流</strong>——<code class="mono">verifier</code> 或 <code class="mono">tester</code> 任一階段判 <code class="mono">FAIL</code> 時必填 <code class="mono">rootCause</code>（<code class="mono">"analysis"</code>/<code class="mono">"implementation"</code>），AI 依此自動跳回分析師或工程師重跑，不用停下來問使用者；兩階共用同一組 <code class="mono">consecutive_fail_count</code>（FAIL 累加、PASS 歸零），達到門檻（<code class="mono">needs_human_review</code>，預設連續 3 次）才停下來問。<code class="mono">tested</code> 階段 AI 沒把握精確判定的測試項目（<code class="mono">needs_manual_check</code>）不算 FAIL，不影響這裡的路由，只會列進待你確認清單。</li>
+          <li><strong>Asana 內容被改過的偵測</strong>——比對票單「描述＋留言」內容的雜湊值（不是單純看 <code class="mono">modified_at</code>，那個連指派人、到期日變動都會跳，不夠精準）。偵測到變了、且這張票已有進度，會標記 <code class="mono">needs_reanalysis: true</code>，把 <code class="mono">verdict</code>／使用者確認／規格確認／根因標記／連續失敗次數／所有待辦事項全部清空重置——因為這些都是針對「上一版內容」推導出來的。分析師重寫 <code class="mono">01-analysis.md</code> 後會自動清掉這個標記。</li>
+        </ul>
+      </div>
+    </details>
   </section>
 
   <section id="actions" class="reveal">
