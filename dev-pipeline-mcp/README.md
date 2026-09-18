@@ -37,11 +37,18 @@ npm run build
 
 </details>
 
-### 建議：在你自己的全域 CLAUDE.md 加一條規則
+### 建議：在你自己使用的 AI 工具的全域規則檔加一條規則
 
 `.asana-pipeline/` 底下的追蹤檔案有機會被使用者或另一個沒有走這條 pipeline 的 AI 直接用一般 Edit/Write 手動改到——這種情況這個 MCP 完全不知情（見下方「外部修改偵測」），而且**只有在有人明確呼叫 `get_ticket_status`/`read_ticket_artifact` 時才會被抓到，不會主動通知**。
 
-比較可靠的做法是把提醒放進**你自己的全域 CLAUDE.md**（例如 `~/.claude/CLAUDE.md`），因為那份檔案不管在哪個專案目錄開新 session 都會被自動讀到，涵蓋範圍比只寫在這個 MCP 的 prompt 裡（只有真的呼叫 `get_pipeline_overview`/`get_role_prompt` 才讀得到）廣很多。建議加一段類似：
+比較可靠的做法是把這條規則放進**你自己使用的 AI 工具的全域規則檔**（不限 Claude Code）——概念上要挑那種「不管在哪個專案目錄開新 session 都會被自動讀到」的設定檔，涵蓋範圍才會比只寫在這個 MCP 的 prompt 裡（只有真的呼叫 `get_pipeline_overview`/`get_role_prompt` 才讀得到）廣。不同 AI 工具這份檔案的名稱、位置都不一樣，要自己對應調整，例如：
+
+| AI 工具 | 對應的全域規則檔 |
+|---|---|
+| Claude Code | `~/.claude/CLAUDE.md` |
+| 其他支援全域系統提示/規則檔的 AI CLI | 該工具說明文件裡「每次啟動都會自動載入」的那份設定檔——沒有的話就只能退回寫在專案層級 |
+
+以 Claude Code 為例，建議加一段類似：
 
 ```markdown
 ## Asana Pipeline 追蹤檔案同步規則
@@ -52,6 +59,8 @@ npm run build
 - 不確定追蹤狀態是不是最新的，先呼叫 get_ticket_status 看 external_changes，
   任一個 _externally_modified 是 true 就重新讀全文，不要只信快取摘要。
 ```
+
+用別的 AI 工具，把上面這段規則內容原封不動搬過去、放進它自己對應的全域規則檔即可——規則本身（呼叫哪個工具、看哪個欄位）是這個 MCP 的行為，跟用哪個 AI 無關，只有「放在哪份檔案」這件事因工具而異。
 
 這終究是提醒 AI 自己記得做，不是工具層級的強制——真正的安全網是「外部修改偵測」那組機制本身（見下方），這段只是提高被看到、被處理的機率。
 
