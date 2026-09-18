@@ -207,7 +207,7 @@ npm run build
 
 **跨 worktree 檔案重疊示警（`activeWarnings`）**：每次呼叫任何 `dev-pipeline-mcp` 工具，回應都會比對其他 active worktree 目前真實改到的檔案，抓到同一個檔案被兩個 worktree 同時碰到就附加在回應裡——刻意不寫進 `PENDING_HUMAN_ACTIONS.html` 那份被動報告，避免「記錄了但沒人看」。**判斷依據是 `git status --porcelain`（還沒 commit 的異動）跟「相對 `baseCommit` 的 diff」（已經 commit 但還沒呼叫 `merge_ticket_worktree` 合併回去的異動）兩者的聯集**——只看前者的話，這輪一旦 commit 起來但還沒合併，工作目錄會變乾淨，重疊偵測會完全瞎掉，這是實際測試後修正過的地方。
 
-**⚠️ 重要：`install_git_hooks`（防繞過核心防線）**——如果直接用 `Edit`/`Write` 或任何不經過這組工具的方式改動受追蹤專案的檔案再自己 `git commit`，`activeWarnings` 的判斷依據跟稽核紀錄都會失準。**不論你用的是哪一個 AI／CLI（Claude Code、其他工具、或人手動操作），只要會直接改動受追蹤專案的檔案，都應該對這個專案的 git 根目錄呼叫一次 `install_git_hooks`**——它會裝 `post-commit`/`post-merge` 這兩個 git 原生 hook（透過 `core.hooksPath` 指到這個 MCP 自己管理的共用資料夾，不會寫進客戶專案版控），不管誰用什麼方式 commit/merge 都躲不掉，即時讓 `activeWarnings` 快取失效重算，並留一筆稽核紀錄在 `data/git-hook-events.log`。**它的邊界**：git hook 只認得出「真的 commit/merge 了」這件事，如果檔案編輯完之後遲遲不 commit，git hook 完全看不到——這不是 bug，是任何 git 原生 hook 天生的觀察範圍（它掛在 git 事件上，不是檔案系統事件上）。這個邊界不影響 `activeWarnings` 本身的即時性（它靠自己 10 秒 TTL 的快取＋每次都重新查一次即時狀態，不是靠 git hook 通知才更新），只會讓 `git-hook-events.log` 這份稽核紀錄裡少一筆——沒 commit 就沒有 commit 事件可記，這點無解。
+**⚠️ 重要：`install_git_hooks`（防繞過核心防線）**——如果直接用 `Edit`/`Write` 或任何不經過這組工具的方式改動受追蹤專案的檔案再自己 `git commit`，`activeWarnings` 的判斷依據跟稽核紀錄都會失準。**不論你用的是哪一個 AI／CLI（Claude Code、其他工具、或人手動操作），只要會直接改動受追蹤專案的檔案，都應該對這個專案的 git 根目錄呼叫一次 `install_git_hooks`**——它會裝 `post-commit`/`post-merge` 這兩個 git 原生 hook（透過 `core.hooksPath` 指到這個 MCP 自己管理的共用資料夾，不會寫進客戶專案版控），不管誰用什麼方式 commit/merge 都躲不掉，即時讓 `activeWarnings` 快取失效重算、留一筆稽核紀錄在 `data/git-hook-events.log`，**還會反查這個 gitRoot 底下追蹤過的每個 Asana 專案，局部重整對應的 `PENDING_HUMAN_ACTIONS.html`**（純本機掃描 `.asana-pipeline/` 資料夾＋既有票單本地狀態，不查 Asana board）——人工手動 commit 之後，「Git 尚未 commit 的變更」這個區塊不用再等有人接著呼叫任何 pipeline 工具才會反映最新狀態。**這條路徑實測會有一次性的冷啟動延遲**：`/mcp` 剛重新連線的行程第一次觸發時，會順帶第一次呼叫一個要問 Asana API 的內部函式（取得這組帳號的 gid，只在行程存活期間查一次、之後全域快取），這次握手可能比 hook 腳本 2 秒逾時還久，導致 hook 那頭斷線離開、伺服器端還在背景繼續跑完才真正寫檔——不會遺失，只是第一次比較慢（實測約 1~2 分鐘），同一個行程之後每次都很快（實測約 10 幾秒內）。**它的邊界**：git hook 只認得出「真的 commit/merge 了」這件事，如果檔案編輯完之後遲遲不 commit，git hook 完全看不到——這不是 bug，是任何 git 原生 hook 天生的觀察範圍（它掛在 git 事件上，不是檔案系統事件上）。這個邊界不影響 `activeWarnings` 本身的即時性（它靠自己 10 秒 TTL 的快取＋每次都重新查一次即時狀態，不是靠 git hook 通知才更新），只會讓 `git-hook-events.log` 這份稽核紀錄裡少一筆——沒 commit 就沒有 commit 事件可記，這點無解。
 
 **輔助層：針對「正在用的 AI 工具」各自設計的 `PostToolUse` 式 hook**——如果想補上「編輯完但可能遲遲不 commit」這段空窗的即時可見度（不等 10 秒 TTL），概念上要對「你現在實際用的那個 AI/CLI」各自設計對應的 hook，**不限定 Claude Code**——不同 AI 工具的 hook 機制、設定位置、觸發時機都不一樣，沒辦法用同一份設定套用到所有工具。下面以 Claude Code 為例，示範可以在專案的 `.claude/settings.json`（或使用者全域設定）加這段，`Edit`/`Write`/`Bash`/`PowerShell` 之後就會主動通知 bridge，換其他 AI/CLI 要照它自己的 hook 語法重寫等效邏輯：
 
@@ -288,7 +288,7 @@ npm run build
 | `abandon_ticket_round` | 中斷一輪還沒合併的 worktree 工作：安全 commit 目前異動後標記中斷，不刪除 worktree/分支 |
 | `finalize_ticket_worktree` | 併入的票單全部確認結案後清除 worktree 資料夾＋分支；`dryRun` 預設 `true` |
 | `list_worktrees` | 列出所有登記中的 worktree，並跟 git 自己的 `worktree list` 交叉比對出對不起來的項目 |
-| `install_git_hooks` | 幫 `projectDir` 已登記的 git 根目錄裝 `post-commit`/`post-merge` 原生 hook（防繞過核心防線），詳見「多票單／多 AI 併行處理」一節 |
+| `install_git_hooks` | 幫 `projectDir` 已登記的 git 根目錄裝 `post-commit`/`post-merge` 原生 hook（防繞過核心防線，觸發時也會局部重整對應的 `PENDING_HUMAN_ACTIONS.html`），詳見「多票單／多 AI 併行處理」一節 |
 
 </details>
 
