@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400" role="img" aria-label="多票單併行 worktree 生命週期：建立 worktree、在裡面工作並 commit、需要才 rebase 再合併回來源分支（只更新本機分支不 push），還有下一輪就回到工作步驟繼續沿用同一個 worktree，全部併入的票單都經使用者確認結案後才清除 worktree；過程中每次呼叫工具都會比對其他 worktree 的真實 git 狀態，發現跨 worktree 改到同一個檔案就在回應附上示警">
+  <defs>
+    <marker id="arrowMain2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
+    </marker>
+    <marker id="arrowAccent2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b6777"/>
+    </marker>
+    <marker id="arrowWarn2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b9782e"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1000" height="400" fill="#f5f2ea"/>
+
+  <g font-family="'Noto Sans TC',sans-serif">
+    <!-- step 1 -->
+    <rect x="15" y="100" width="185" height="96" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <circle cx="38" cy="118" r="13" fill="#2a2620"/>
+    <text x="38" y="123" text-anchor="middle" fill="#f5f2ea" font-weight="700" font-size="13">1</text>
+    <text x="107" y="140" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">建立 worktree</text>
+    <text x="107" y="158" text-anchor="middle" font-size="9.5" fill="#6b6558">從目前分支切出獨立分支</text>
+    <text x="107" y="173" text-anchor="middle" font-size="9.5" fill="#6b6558">＋資料夾（一組票，非單票）</text>
+    <text x="107" y="188" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">create_ticket_worktree</text>
+
+    <!-- step 2 -->
+    <rect x="220" y="100" width="185" height="96" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <circle cx="243" cy="118" r="13" fill="#2a2620"/>
+    <text x="243" y="123" text-anchor="middle" fill="#f5f2ea" font-weight="700" font-size="13">2</text>
+    <text x="312" y="140" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">worktree 內工作</text>
+    <text x="312" y="158" text-anchor="middle" font-size="9.5" fill="#6b6558">改程式碼、自行 commit；</text>
+    <text x="312" y="173" text-anchor="middle" font-size="9.5" fill="#6b6558">可 join_ticket_worktree 併票</text>
+    <text x="312" y="188" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">get_worktree_status 查真實異動</text>
+
+    <!-- step 3 (accent, wider) -->
+    <rect x="425" y="88" width="215" height="120" rx="12" fill="#dbe9ea" stroke="#2b6777"/>
+    <circle cx="449" cy="106" r="13" fill="#17414c"/>
+    <text x="449" y="111" text-anchor="middle" fill="#dbe9ea" font-weight="700" font-size="13">3</text>
+    <text x="532" y="130" text-anchor="middle" font-size="13" font-weight="700" fill="#17414c">合併回來源分支</text>
+    <text x="532" y="148" text-anchor="middle" font-size="9.5" fill="#17414c">來源分支有領先才 rebase，</text>
+    <text x="532" y="163" text-anchor="middle" font-size="9.5" fill="#17414c">沒有就直接快轉合併</text>
+    <text x="532" y="178" text-anchor="middle" font-size="9.5" fill="#17414c" font-weight="700">只更新本機分支，不自動 push</text>
+    <text x="532" y="196" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#17414c">merge_ticket_worktree</text>
+
+    <!-- step 4 -->
+    <rect x="655" y="100" width="165" height="96" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <circle cx="678" cy="118" r="13" fill="#2a2620"/>
+    <text x="678" y="123" text-anchor="middle" fill="#f5f2ea" font-weight="700" font-size="13">4</text>
+    <text x="737" y="140" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">全部票單確認結案</text>
+    <text x="737" y="158" text-anchor="middle" font-size="9.5" fill="#6b6558">併入這組的每張票都</text>
+    <text x="737" y="173" text-anchor="middle" font-size="9.5" fill="#6b6558">使用者自己實測＋確認</text>
+    <text x="737" y="188" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">record_confirmation</text>
+
+    <!-- step 5 -->
+    <rect x="840" y="100" width="145" height="96" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <circle cx="863" cy="118" r="13" fill="#2a2620"/>
+    <text x="863" y="123" text-anchor="middle" fill="#f5f2ea" font-weight="700" font-size="13">5</text>
+    <text x="912" y="140" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">清除 worktree</text>
+    <text x="912" y="158" text-anchor="middle" font-size="9.5" fill="#6b6558">dryRun 預設 true，</text>
+    <text x="912" y="173" text-anchor="middle" font-size="9.5" fill="#6b6558">確認沒問題才真的刪</text>
+    <text x="912" y="188" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">finalize_ticket_worktree</text>
+  </g>
+
+  <line x1="200" y1="148" x2="216" y2="148" stroke="#2a2620" stroke-width="1.8" marker-end="url(#arrowMain2)"/>
+  <line x1="405" y1="148" x2="421" y2="148" stroke="#2a2620" stroke-width="1.8" marker-end="url(#arrowMain2)"/>
+  <line x1="640" y1="148" x2="651" y2="148" stroke="#2a2620" stroke-width="1.8" marker-end="url(#arrowMain2)"/>
+  <line x1="820" y1="148" x2="836" y2="148" stroke="#2a2620" stroke-width="1.8" marker-end="url(#arrowMain2)"/>
+
+  <!-- loop back: worktree 不刪，下一輪回到步驟2 -->
+  <path d="M 500 88 C 500 40, 340 40, 330 96" fill="none" stroke="#2b6777" stroke-width="1.6" marker-end="url(#arrowAccent2)"/>
+  <text x="415" y="34" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#17414c">還有下一輪 → 回到步驟 2（worktree 不刪、沿用，不用重新建置/匯入 Eclipse）</text>
+
+  <!-- rebase/merge conflict note -->
+  <text x="532" y="215" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#8a5a1e">rebase／合併真的衝突：停在中間狀態，不自動選邊，交人工／AI 解決</text>
+
+  <!-- cross-worktree overlap warning branch -->
+  <line x1="532" y1="225" x2="532" y2="252" stroke="#b9782e" stroke-width="1.6" marker-end="url(#arrowWarn2)"/>
+  <rect x="330" y="256" width="404" height="112" rx="12" fill="#f1e2c8" stroke="#b9782e"/>
+  <text x="532" y="280" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" font-weight="700" fill="#b9782e">全程示警：跨 worktree 檔案重疊</text>
+  <text x="532" y="300" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#b9782e">每次呼叫任何工具，都比對其他 active worktree</text>
+  <text x="532" y="317" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#b9782e">的真實 git status，抓到同檔案就附加在回應裡</text>
+  <text x="532" y="334" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#b9782e">（不寫進被動報告，避免「記錄了但沒人看」）</text>
+  <text x="532" y="354" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9.5" fill="#b9782e" opacity="0.8">activeWarnings</text>
+
+  <text x="500" y="392" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#6b6558">另外：install_git_hooks 幫 git 根目錄裝 post-commit／post-merge 原生 hook，不管誰繞過工具直接 commit 都躲不掉；建立 worktree 時也會自動處理 Eclipse .project 撞名問題</text>
+</svg>

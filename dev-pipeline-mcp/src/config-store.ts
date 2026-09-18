@@ -45,3 +45,13 @@ export function getFileWriteStateFile(): string {
 export function getConflictBackupsDir(): string {
   return path.join(getDataDir(), "conflict-backups");
 }
+
+/** Shared git-native hook scripts (post-commit/post-merge) that install_git_hooks points a repo's `core.hooksPath` at. Deliberately outside any client project (never inside projectDir), so the hook script itself can never be tampered with by a commit into the tracked repo — see project_dev_pipeline_worktree_design memory. */
+export function getGitHooksDir(): string {
+  return path.join(getDataDir(), "git-hooks");
+}
+
+/** Append-only audit log of every commit/merge the git-native hooks reported, across every repo that installed them — used to spot commits that didn't go through merge_ticket_worktree (a bypass), by cross-referencing against worktree-store.ts's lastMergeCommit. */
+export function getGitHookEventsLogFile(): string {
+  return path.join(getDataDir(), "git-hook-events.log");
+}

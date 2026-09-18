@@ -351,7 +351,7 @@
 
   <section id="tools" class="reveal">
     <h2><span class="num">06</span> 工具總覽</h2>
-    <p class="kicker">總共 45 個工具，分成幾大類。每一類點開來看，裡面有實際的工具名稱（給負責設定的工程師對照用）跟白話說明——大多數情況下你不需要知道這些名字，AI 助理會自己判斷該呼叫哪一個。</p>
+    <p class="kicker">總共 54 個工具，分成幾大類。每一類點開來看，裡面有實際的工具名稱（給負責設定的工程師對照用）跟白話說明——大多數情況下你不需要知道這些名字，AI 助理會自己判斷該呼叫哪一個。</p>
 
     <div class="cat-list">
       <details class="cat" open>
@@ -439,6 +439,24 @@
           <div class="tool-row"><code>svn_cat</code> / <code>svn_browse</code> / <code>svn_doc_images</code><span>唯讀查詢 SVN 上的規格書（含圖片）</span></div>
           <div class="tool-row"><code>run_project_shell</code><span>執行編譯/測試指令；git 指令會核對版控根目錄</span></div>
           <div class="tool-row"><code>get_recent_commits</code><span>查最近的 git 修改紀錄</span></div>
+        </div>
+      </details>
+
+      <details class="cat">
+        <summary>
+          <span class="emoji">🌳</span>
+          <span class="title-block"><h3>多票單／多 AI 併行（worktree 隔離）</h3><p class="sub">好幾個 AI 同時處理不同票單，互相不干擾</p></span>
+          <span class="chev">▶</span>
+        </summary>
+        <div class="cat-body">
+          <div class="example"><b>可以這樣問：</b>「這張票另外開一個 worktree 處理」／（設定一次即可）</div>
+          <div class="tool-row"><code>create_ticket_worktree</code> / <code>join_ticket_worktree</code><span>為一組票單建立獨立的工作資料夾＋分支，另一張要合併進同一次改動的票用 join 併入</span></div>
+          <div class="tool-row"><code>get_worktree_status</code><span>查這個 worktree 真的改了哪些檔案、要不要先跟主分支同步</span></div>
+          <div class="tool-row"><code>merge_ticket_worktree</code><span>把這輪的改動合併回主分支（只更新本機分支，不會自動上傳），資料夾留著給下一輪繼續用</span></div>
+          <div class="tool-row"><code>abandon_ticket_round</code><span>這輪做到一半想放棄：先安全存檔，資料夾留著當備份</span></div>
+          <div class="tool-row"><code>finalize_ticket_worktree</code><span>票單全部確認結案後才清除資料夾；預設先模擬一次，看沒問題再真的執行</span></div>
+          <div class="tool-row"><code>list_worktrees</code><span>列出目前有哪些併行工作中的資料夾，抓出跟實際狀態對不起來的異常</span></div>
+          <div class="tool-row"><code>install_git_hooks</code><span>幫這個專案裝上防繞過機制——不管用哪個 AI/CLI 或人手動改，都能被偵測到</span></div>
         </div>
       </details>
     </div>

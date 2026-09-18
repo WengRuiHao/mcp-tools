@@ -183,6 +183,25 @@ npm run build
 
 </details>
 
+<details>
+<summary>多票單／多 AI 併行處理（worktree 隔離）</summary>
+
+![多票單併行 worktree 生命週期：建立 worktree、在裡面工作並 commit、需要才 rebase 再合併回來源分支（只更新本機分支不 push），還有下一輪就回到工作步驟繼續沿用同一個 worktree，全部併入的票單都經使用者確認結案後才清除 worktree；過程中每次呼叫工具都會比對其他 worktree 的真實 git 狀態，發現跨 worktree 改到同一個檔案就在回應附上示警](docs/img/worktree-lifecycle.svg)
+
+同一台機器上常態讓好幾個 AI/session 併行處理不同票單，卻共用同一份 git 工作目錄，很容易出現「這輪改了哪些檔案」彼此看不到、甚至互相覆蓋的問題。這組工具用 [git worktree](https://git-scm.com/docs/git-worktree) 把每組票單隔離到獨立的資料夾＋分支：
+
+- **一個 worktree 綁定一組票號，不是單張票**——`create_ticket_worktree` 建立，同一次改動要合併的另一張票用 `join_ticket_worktree` 併進來。worktree 資料夾建在 git 根目錄的上一層 `.worktrees/<票號>/`，會自動處理舊式 `maven-eclipse-plugin` 專案的 `.project` 撞名問題（`<name>` 標籤跟主目錄的專案同名，改掉並用 `git update-index --skip-worktree` 蓋住，不會出現在 git status，也不會被合併回主分支）。
+- **建立一次、跨輪次沿用，不是每輪重開**——`get_worktree_status` 查真實 `git status --porcelain`（不靠 AI 自己宣告哪些檔案動過）跟是否需要 rebase；`merge_ticket_worktree` 判斷來源分支有沒有領先（有才 rebase，沒有直接快轉）、合併回來源分支，**只更新本機分支，絕不自動 push**，worktree 本身不會被刪，下一輪直接接著用。真的衝突時兩者都不自動選邊，停在中間狀態交給人工/AI 解決。
+- **`abandon_ticket_round`** 安全 commit 目前異動後把這個 worktree 標記中斷，不刪除，當備份留著。
+- **`finalize_ticket_worktree`** 要求併入的每張票都已經 `record_confirmation({confirmed:true})` 才能清除，**`dryRun` 預設 `true`**，看過模擬結果沒問題再帶 `false` 真的執行。
+- **`list_worktrees`** 列出所有登記中的 worktree，並跟 git 自己的 `worktree list` 交叉比對，抓出紀錄跟實際狀態對不起來的項目（例如資料夾被人手動刪掉）。
+
+**跨 worktree 檔案重疊示警（`activeWarnings`）**：每次呼叫任何 `dev-pipeline-mcp` 工具，回應都會比對其他 active worktree 目前真實改到的檔案，抓到同一個檔案被兩個 worktree 同時碰到就附加在回應裡——刻意不寫進 `PENDING_HUMAN_ACTIONS.html` 那份被動報告，避免「記錄了但沒人看」。
+
+**⚠️ 重要：`install_git_hooks`（防繞過核心防線）**——如果直接用 `Edit`/`Write` 或任何不經過這組工具的方式改動受追蹤專案的檔案再自己 `git commit`，`activeWarnings` 的判斷依據跟稽核紀錄都會失準。**不論你用的是哪一個 AI／CLI（Claude Code、其他工具、或人手動操作），只要會直接改動受追蹤專案的檔案，都應該對這個專案的 git 根目錄呼叫一次 `install_git_hooks`**——它會裝 `post-commit`/`post-merge` 這兩個 git 原生 hook（透過 `core.hooksPath` 指到這個 MCP 自己管理的共用資料夾，不會寫進客戶專案版控），不管誰用什麼方式 commit/merge 都躲不掉，即時讓 `activeWarnings` 快取失效重算，並留一筆稽核紀錄在 `data/git-hook-events.log`。
+
+</details>
+
 ---
 
 ## 追蹤目錄放在哪裡
@@ -200,7 +219,7 @@ npm run build
 ## 提供的工具
 
 <details>
-<summary>展開完整工具清單（45 個）</summary>
+<summary>展開完整工具清單（54 個）</summary>
 
 | 工具 | 用途 |
 |---|---|
@@ -233,6 +252,14 @@ npm run build
 | `record_confirmation` | 記錄結案前唯一一關人類確認——使用者自己的實測＋程式碼品質審視結果（`confirmed`/`note`），只能在 `tested` 階段之後呼叫；`confirmed: true` 才會讓票單真正離開 `awaitingConfirmation`、算結案 |
 | `record_spec_confirmation` | 記錄「規格草稿定案」關卡的確認結果（僅 `sdMode: "self-generated"`），只能在 `sd_drafted` 階段之後呼叫；`confirmed: true` 才會解鎖 `advance_ticket_stage` 繼續推進——`specOrder: "spec_first"` 解鎖推進到 `implemented`，`"code_first"` 解鎖推進到 `verified`；`confirmed: false` 打回、清空紀錄等重新產出 |
 | `request_reanalysis` | 標記某張票「使用者要求優先重新確認」（`human_requested_reanalysis`），2026-09-17 新增。純資料操作，**不會觸發任何實際分析**——旗標會在下一次任何 AI 對這張票呼叫 `get_ticket_snapshot` 時自動清除；你自己呼叫這個工具之後應該直接接著處理這張票，不要把旗標留給別人 |
+| `create_ticket_worktree` | 為一組票單建立獨立 git worktree（見「多票單／多 AI 併行處理」），已存在對應 worktree 時冪等回傳既有資訊；自動處理 Eclipse `.project` 撞名問題 |
+| `join_ticket_worktree` | 把另一張票單併入既有的 worktree 分組，之後這個 worktree 的合併/清除都要等這些票單全部確認結案 |
+| `get_worktree_status` | 查詢 worktree 真實改動的檔案（`git status --porcelain`）跟來源分支是否領先（決定要不要 rebase） |
+| `merge_ticket_worktree` | 需要才 rebase、合併回來源分支（只更新本機分支，不自動 push），worktree 不會被刪，衝突時停在中間狀態不自動選邊 |
+| `abandon_ticket_round` | 中斷一輪還沒合併的 worktree 工作：安全 commit 目前異動後標記中斷，不刪除 worktree/分支 |
+| `finalize_ticket_worktree` | 併入的票單全部確認結案後清除 worktree 資料夾＋分支；`dryRun` 預設 `true` |
+| `list_worktrees` | 列出所有登記中的 worktree，並跟 git 自己的 `worktree list` 交叉比對出對不起來的項目 |
+| `install_git_hooks` | 幫 `projectDir` 已登記的 git 根目錄裝 `post-commit`/`post-merge` 原生 hook（防繞過核心防線），詳見「多票單／多 AI 併行處理」一節 |
 
 </details>
 

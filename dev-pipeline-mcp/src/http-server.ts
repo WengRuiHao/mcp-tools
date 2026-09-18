@@ -30,6 +30,8 @@ import { pathToFileURL } from "node:url";
 import { readStatus, recordConfirmation, recordSpecConfirmation, resolveManualAction, requestReanalysis } from "./pipeline-store.js";
 import { syncPendingActionsReport } from "./pending-actions-sync.js";
 import { resolveHttpBridgeHost, resolveHttpBridgePort } from "./http-bridge-config.js";
+import { invalidateActiveWarningsCache } from "./active-warnings.js";
+import { appendGitHookLog } from "./git-hook-log.js";
 
 const MAX_BODY_BYTES = 256 * 1024; // 請求本體都是單一票單的一筆勾選/確認，不會太大
 
@@ -151,12 +153,23 @@ async function handleRequestReanalysis(req: IncomingMessage, res: ServerResponse
   sendJson(res, 200, { success: true, taskGid });
 }
 
+/** install_git_hooks 裝好的 git 原生 hook（post-commit/post-merge）打回來的通知——純粹讓跨 worktree 檔案重疊示警立刻失效重算＋留一筆稽核紀錄，不做任何自動判斷或阻擋。 */
+async function handleGitHookEvent(req: IncomingMessage, res: ServerResponse) {
+  const body = await readJsonBody(req);
+  const gitRoot = requireString(body, "gitRoot");
+  const event = requireString(body, "event");
+  invalidateActiveWarningsCache();
+  await appendGitHookLog(gitRoot, event);
+  sendJson(res, 200, { success: true });
+}
+
 type Handler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 const ROUTES: Record<string, Handler> = {
   "/resolve-manual-action": handleResolveManualAction,
   "/record-confirmation": handleRecordConfirmation,
   "/record-spec-confirmation": handleRecordSpecConfirmation,
   "/request-reanalysis": handleRequestReanalysis,
+  "/git-hook-event": handleGitHookEvent,
 };
 
 /**

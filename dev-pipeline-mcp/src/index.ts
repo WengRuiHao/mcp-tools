@@ -11,12 +11,19 @@ import { registerBridgeTools } from "./bridge-tools.js";
 import { registerProjectFsTools } from "./project-fs-tools.js";
 import { registerTicketLifecycleTools } from "./ticket-lifecycle-tools.js";
 import { registerTicketArtifactTools } from "./ticket-artifact-tools.js";
+import { registerWorktreeTools } from "./worktree-tools.js";
+import { registerGitHookTools } from "./git-hooks-tools.js";
+import { installActiveWarnings } from "./active-warnings.js";
 import { startHttpBridge } from "./http-server.js";
 
 const server = new McpServer({
   name: "dev-pipeline-mcp",
   version: "0.1.0",
 });
+
+// 必須在任何 registerXxxTools 之前安裝——它攔截 server.tool 本身，讓之後註冊的每一個工具回應都自動
+// 附加 activeWarnings（跨 worktree 檔案重疊示警），見 active-warnings.ts 開頭說明。
+installActiveWarnings(server);
 
 registerPipelineInfoTools(server);
 registerTicketSnapshotTools(server);
@@ -27,6 +34,8 @@ registerBridgeTools(server);
 registerProjectFsTools(server);
 registerTicketLifecycleTools(server);
 registerTicketArtifactTools(server);
+registerWorktreeTools(server);
+registerGitHookTools(server);
 
 async function main() {
   // 跟著這個 MCP 行程一起帶起 PENDING_HUMAN_ACTIONS.html 用的 HTTP bridge（2026-09-17 起，見
