@@ -457,7 +457,7 @@
           <div class="tool-row"><code>finalize_ticket_worktree</code><span>票單全部確認結案後才清除資料夾；預設先模擬一次，看沒問題再真的執行</span></div>
           <div class="tool-row"><code>list_worktrees</code><span>列出目前有哪些併行工作中的資料夾，抓出跟實際狀態對不起來的異常</span></div>
           <div class="tool-row"><code>install_git_hooks</code><span>幫這個專案裝上防繞過機制——不管用哪個 AI/CLI 或人手動改，都能被偵測到</span></div>
-          <div class="example"><b>小提醒：</b><code>install_git_hooks</code> 裝的機制只認得出「真的存檔進 git（commit/merge）」這件事——如果 AI 改完檔案遲遲不存檔，這個機制看不到，這是它天生的觀察範圍，不是故障。想連「改完但還沒存檔」都能即時被看到，工程師可以另外幫 Claude Code 設定一個輔助用的 hook（見 README 技術版）。</div>
+          <div class="example"><b>小提醒：</b><code>install_git_hooks</code> 裝的機制只認得出「真的存檔進 git（commit/merge）」這件事——如果 AI 改完檔案遲遲不存檔，這個機制看不到，這是它天生的觀察範圍，不是故障。想連「改完但還沒存檔」都能即時被看到，**要針對正在用的那個 AI 工具自己設計對應的輔助 hook**（不限 Claude Code，各家 AI/CLI 的 hook 機制不一樣，要各自處理；README 技術版有 Claude Code 的設定範例可以參考）。</div>
         </div>
       </details>
     </div>
