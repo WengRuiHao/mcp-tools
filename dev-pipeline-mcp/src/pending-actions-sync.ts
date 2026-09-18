@@ -1,11 +1,12 @@
 import path from "node:path";
 import { callAsanaTool } from "./mcp-clients.js";
-import { resolveGitRoots } from "./git-roots-store.js";
+import { resolveGitRoots, findProjectDirsForGitRoot } from "./git-roots-store.js";
 import { runShell } from "./shell-tools.js";
 import {
   peekStatus,
   needsHumanReview,
   listTicketsUnderProject,
+  listTrackedProjectNames,
   writePendingActionsReport,
   resolveTicketDisplayName,
   type ManualActionItem,
@@ -154,9 +155,18 @@ export async function syncPendingActionsReport(ticketGid: string): Promise<void>
   try {
     const status = await peekStatus(ticketGid);
     if (!status.project_dir || !status.project_name) return;
-    const projectDir = status.project_dir;
-    const projectName = status.project_name;
+    await syncPendingActionsReportForProject(status.project_dir, status.project_name);
+  } catch (err: any) {
+    console.error(`[dev-pipeline-mcp] syncPendingActionsReport(${ticketGid}) failed: ${err?.message ?? err}`);
+  }
+}
 
+/**
+ * Core of syncPendingActionsReport, factored out so it can be driven by a bare (projectDir, projectName)
+ * pair instead of a taskGid — needed by syncPendingActionsReportsForGitRoot, which only ever knows a
+ * gitRoot (from a git-native post-commit/post-merge hook event), never a specific ticket.
+ */
+async function syncPendingActionsReportForProject(projectDir: string, projectName: string): Promise<void> {
     const pipelineUserGid = await getPipelineAsanaUserGid();
 
     const ticketGids = await listTicketsUnderProject(projectDir, projectName);
@@ -216,7 +226,26 @@ export async function syncPendingActionsReport(ticketGid: string): Promise<void>
       manualActions: filterOutGitCommitActions(manualActionsList),
       uncommittedChanges,
     });
-  } catch (err: any) {
-    console.error(`[dev-pipeline-mcp] syncPendingActionsReport(${ticketGid}) failed: ${err?.message ?? err}`);
+}
+
+/**
+ * 由 git 原生 hook（post-commit/post-merge，見 git-hooks-tools.ts／http-server.ts 的 /git-hook-event）
+ * 觸發——只知道一個 gitRoot，反查有哪些 projectDir 登記過這個 git 根目錄、底下追蹤過哪些 Asana 專案，
+ * 逐一重新整理它們的 PENDING_HUMAN_ACTIONS.html。**完全重用跟其他呼叫路徑一樣的純本機函式，不會、
+ * 也不能觸發任何 Asana API 呼叫**——人工手動 commit 之後，不用等有人接著呼叫任何 pipeline 工具，
+ * 「Git 尚未 commit 的變更」這個區塊就能反映最新狀態。單一 projectDir/projectName 失敗只記 log、
+ * 不中斷其他 projectDir 的重整。
+ */
+export async function syncPendingActionsReportsForGitRoot(gitRoot: string): Promise<void> {
+  const projectDirs = await findProjectDirsForGitRoot(gitRoot);
+  for (const projectDir of projectDirs) {
+    const projectNames = await listTrackedProjectNames(projectDir);
+    for (const projectName of projectNames) {
+      await syncPendingActionsReportForProject(projectDir, projectName).catch((err: any) => {
+        console.error(
+          `[dev-pipeline-mcp] syncPendingActionsReportsForGitRoot(${gitRoot}) failed for ${projectDir}/${projectName}: ${err?.message ?? err}`
+        );
+      });
+    }
   }
 }

@@ -28,7 +28,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { pathToFileURL } from "node:url";
 import { readStatus, recordConfirmation, recordSpecConfirmation, resolveManualAction, requestReanalysis } from "./pipeline-store.js";
-import { syncPendingActionsReport } from "./pending-actions-sync.js";
+import { syncPendingActionsReport, syncPendingActionsReportsForGitRoot } from "./pending-actions-sync.js";
 import { resolveHttpBridgeHost, resolveHttpBridgePort } from "./http-bridge-config.js";
 import { invalidateActiveWarningsCache } from "./active-warnings.js";
 import { appendGitHookLog } from "./git-hook-log.js";
@@ -153,13 +153,19 @@ async function handleRequestReanalysis(req: IncomingMessage, res: ServerResponse
   sendJson(res, 200, { success: true, taskGid });
 }
 
-/** install_git_hooks 裝好的 git 原生 hook（post-commit/post-merge）打回來的通知——純粹讓跨 worktree 檔案重疊示警立刻失效重算＋留一筆稽核紀錄，不做任何自動判斷或阻擋。 */
+/**
+ * install_git_hooks 裝好的 git 原生 hook（post-commit/post-merge）打回來的通知。做三件事：讓跨 worktree
+ * 檔案重疊示警立刻失效重算、留一筆稽核紀錄、局部重整這個 gitRoot 底下每個已追蹤 Asana 專案的
+ * PENDING_HUMAN_ACTIONS.html（純本機運算，不打 Asana API）——讓人工手動 commit 也能反映在「Git 尚未
+ * commit 的變更」這個區塊，不用等有人接著呼叫任何 pipeline 工具。不做任何自動判斷或阻擋。
+ */
 async function handleGitHookEvent(req: IncomingMessage, res: ServerResponse) {
   const body = await readJsonBody(req);
   const gitRoot = requireString(body, "gitRoot");
   const event = requireString(body, "event");
   invalidateActiveWarningsCache();
   await appendGitHookLog(gitRoot, event);
+  await syncPendingActionsReportsForGitRoot(gitRoot);
   sendJson(res, 200, { success: true });
 }
 

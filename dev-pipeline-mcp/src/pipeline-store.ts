@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import { access, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { getTicketsIndexFile } from "./config-store.js";
 import { readJsonFile, updateJsonFile, withFileLock, writeJsonFileAtomic } from "./atomic-store.js";
 import { resolveHttpBridgePort } from "./http-bridge-config.js";
@@ -328,6 +328,25 @@ export async function listTicketsUnderProject(projectDir: string, projectName: s
   return Object.entries(index)
     .filter(([, dir]) => (dir + path.sep).startsWith(root))
     .map(([taskGid]) => taskGid);
+}
+
+/**
+ * Lists the Asana-project-name subfolders directly under `<projectDir>/.asana-pipeline/` — the git-hook-
+ * triggered local resync (pending-actions-sync.ts's syncPendingActionsReportsForGitRoot) uses this to find
+ * which project(s)' PENDING_HUMAN_ACTIONS.html need refreshing from a bare projectDir, without already
+ * knowing a taskGid. Each folder name IS the sanitizeSegment()-cleaned project name; passing it back in as
+ * `projectName` to listTicketsUnderProject/writePendingActionsReport is safe because sanitizeSegment is
+ * idempotent (re-sanitizing an already-clean string is a no-op).
+ */
+export async function listTrackedProjectNames(projectDir: string): Promise<string[]> {
+  const root = path.join(projectDir, ".asana-pipeline");
+  try {
+    const entries = await readdir(root, { withFileTypes: true });
+    return entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch (err: any) {
+    if (err.code === "ENOENT") return [];
+    throw err;
+  }
 }
 
 /** Resolves a ticket's tracking directory via the index. Throws a clear error if this ticket hasn't gone through assignTicketDir yet (get_ticket_snapshot must always be called first). */

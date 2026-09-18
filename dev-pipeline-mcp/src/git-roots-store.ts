@@ -23,3 +23,18 @@ export async function registerGitRoots(projectDir: string, gitRoots: GitRootEntr
   const value = gitRoots.map((r) => ({ label: r.label, path: path.resolve(r.path) }));
   await updateJsonFile<Record<string, GitRootEntry[]>>(getGitRootsConfigFile(), {}, (config) => ({ ...config, [key]: value }));
 }
+
+/**
+ * Reverse lookup: which registered projectDir(s) reference this exact git root path — used by the
+ * git-native hook (post-commit/post-merge, see git-hooks-tools.ts/http-server.ts) to figure out which
+ * PENDING_HUMAN_ACTIONS.html report(s) to refresh from a bare gitRoot, without already knowing a taskGid.
+ * Returns the normalized (resolved, lowercased) projectDir keys as stored — safe to use directly with
+ * fs/path calls since Windows paths are case-insensitive.
+ */
+export async function findProjectDirsForGitRoot(gitRoot: string): Promise<string[]> {
+  const config = await readJsonFile<Record<string, GitRootEntry[]>>(getGitRootsConfigFile(), {});
+  const target = normalizeKey(gitRoot);
+  return Object.entries(config)
+    .filter(([, roots]) => roots.some((r) => normalizeKey(r.path) === target))
+    .map(([projectDir]) => projectDir);
+}

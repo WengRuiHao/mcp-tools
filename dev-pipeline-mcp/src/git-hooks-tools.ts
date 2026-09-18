@@ -20,14 +20,27 @@ function buildHookScript(): string {
   const port = resolveHttpBridgePort();
   return `#!/bin/sh
 # dev-pipeline-mcp 自動安裝的 git 原生 hook —— 由 install_git_hooks 產生，不要手動編輯，下次安裝會覆寫。
-# 不管透過哪個 AI/CLI 或人手動 commit/merge 都躲不掉，用來讓跨 worktree 檔案重疊示警即時失效重算，
-# 並留下稽核紀錄供事後比對是否繞過了 merge_ticket_worktree。見 project_dev_pipeline_worktree_design 記憶。
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+# 不管透過哪個 AI/CLI 或人手動 commit/merge 都躲不掉，用來讓跨 worktree 檔案重疊示警即時失效重算、
+# 局部重整 PENDING_HUMAN_ACTIONS.html，並留下稽核紀錄供事後比對是否繞過了 merge_ticket_worktree。
+# 用 --show-toplevel + --git-common-dir 手動組出主 repo 絕對路徑（不用 --path-format=absolute——
+# 這個旗標要 git 2.31+，實測這台機器的 git 2.30.1 不認得它，會把旗標本身當純文字印出來，
+# 混進 REPO_ROOT 變成夾雜換行字元的亂碼，讓下面的 JSON 直接壞掉，是被實測抓出來的真實 bug）。
+# 在任何一個 worktree 裡觸發，這樣算出來的都會是同一個 gitRoot（主 repo 目錄本身），不會依觸發時
+# 所在的是哪個 worktree 而回報不同路徑——register_git_roots 登記的一律是主 repo 路徑，gitRoot 要
+# 能對得上才查得到，回報 worktree 自己的路徑會查不到任何登記。
+TOPLEVEL="$(git rev-parse --show-toplevel 2>/dev/null)"
+COMMON_DIR_REL="$(git rev-parse --git-common-dir 2>/dev/null)"
+# pwd -W 是 git-bash(MSYS) 專屬旗標，印出 Windows 磁碟機代號格式（C:/...），
+# 跟 Node.js 在 Windows 上比對已登記 git 根目錄時的路徑格式一致；純 POSIX 環境不認得 -W，
+# 用 || pwd 退回一般 pwd，維持跨平台可攜性。
+REPO_ROOT="$(cd "$TOPLEVEL" 2>/dev/null && cd "$COMMON_DIR_REL" 2>/dev/null && cd .. 2>/dev/null && { pwd -W 2>/dev/null || pwd; })"
 EVENT="$(basename "$0")"
+if [ -n "$REPO_ROOT" ]; then
 curl -s -m 2 -X POST "http://${host}:${port}/git-hook-event" \\
   -H "Content-Type: application/json" \\
   -d "{\\"gitRoot\\":\\"$REPO_ROOT\\",\\"event\\":\\"$EVENT\\"}" \\
   >/dev/null 2>&1 || true
+fi
 exit 0
 `;
 }
