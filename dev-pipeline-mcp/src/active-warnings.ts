@@ -1,7 +1,7 @@
 import path from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { listWorktreeEntries, type WorktreeEntry } from "./worktree-store.js";
-import { getPorcelainStatus } from "./git-utils.js";
+import { getPorcelainStatus, getChangedFilesSince } from "./git-utils.js";
 
 /**
  * 跨 worktree 檔案重疊示警——設計上刻意不寫進被動報告（PENDING_HUMAN_ACTIONS.html），改成每次呼叫
@@ -35,14 +35,23 @@ async function computeOverlaps(): Promise<OverlapWarning[]> {
     if (group.length < 2) continue; // 同一個 git 根目錄底下要有兩個以上的 active worktree 才可能重疊
     const fileToWorktrees = new Map<string, string[]>();
     for (const entry of group) {
-      let touched: { file: string }[];
+      // 只看 git status 有個盲點：這輪一旦 commit 起來但還沒呼叫 merge_ticket_worktree，工作目錄會變乾淨，
+      // status 完全看不到剛剛動過哪些檔案——所以要跟「相對 baseCommit 的 diff」取聯集，兩種狀態都算數。
+      const files = new Set<string>();
       try {
-        touched = await getPorcelainStatus(entry.worktreePath);
+        const touched = await getPorcelainStatus(entry.worktreePath);
+        for (const t of touched) files.add(t.file);
       } catch {
         continue; // worktree 資料夾可能已經被人手動刪除——list_worktrees 的健檢負責抓這個，這裡靜默略過
       }
-      for (const t of touched) {
-        fileToWorktrees.set(t.file, [...(fileToWorktrees.get(t.file) ?? []), entry.id]);
+      try {
+        const committed = await getChangedFilesSince(entry.worktreePath, entry.baseCommit);
+        for (const f of committed) files.add(f);
+      } catch {
+        // baseCommit 理論上不該失效（merge_ticket_worktree 每次成功都會更新它），失效也只降級成只看 status，不中斷整體計算
+      }
+      for (const file of files) {
+        fileToWorktrees.set(file, [...(fileToWorktrees.get(file) ?? []), entry.id]);
       }
     }
     for (const [file, worktreeIds] of fileToWorktrees) {

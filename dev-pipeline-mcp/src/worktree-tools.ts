@@ -12,6 +12,7 @@ import {
   worktreeRemove,
   deleteBranch,
   getPorcelainStatus,
+  getChangedFilesSince,
   rebaseOnto,
   mergeBranchInto,
   listGitWorktrees,
@@ -188,7 +189,8 @@ export function registerWorktreeTools(server: McpServer): void {
 
   server.tool(
     "get_worktree_status",
-    "查詢一個 worktree 目前的真實狀態：實際改動了哪些檔案（直接讀 git status --porcelain，不靠 AI 自己宣告）、來源分支有沒有領先（決定要不要先 rebase）。",
+    "查詢一個 worktree 目前的真實狀態：實際改動了哪些檔案、來源分支有沒有領先（決定要不要先 rebase）。" +
+      "**改動檔案清單是兩個來源的聯集**：`git status --porcelain`（還沒 commit 的異動）＋跟 `baseCommit` 的 diff（已經 commit 但還沒呼叫 merge_ticket_worktree 合併回去的異動）——只看前者的話，這輪一旦 commit 起來但還沒合併，工作目錄會變乾淨，會誤以為這個 worktree 什麼都沒動過。",
     {
       worktreeId: z.string().nullable().optional().describe("worktree id，跟 taskGid 至少帶一個"),
       taskGid: z.string().nullable().optional().describe("這張票所屬的 worktree，跟 worktreeId 至少帶一個"),
@@ -196,12 +198,14 @@ export function registerWorktreeTools(server: McpServer): void {
     async ({ worktreeId, taskGid }) => {
       const entry = await resolveEntryOrThrow(worktreeId, taskGid);
       const touchedFiles = await getPorcelainStatus(entry.worktreePath);
+      const committedSinceBase = await getChangedFilesSince(entry.worktreePath, entry.baseCommit);
       const sourceHead = await revParse(entry.gitRoot, entry.sourceBranch);
       const diverged = sourceHead !== entry.baseCommit;
       return textResult({
         success: true,
         worktree: entry,
         touchedFiles,
+        committedSinceBase,
         sourceBranchHead: sourceHead,
         diverged,
         needsRebase: diverged,

@@ -73,6 +73,19 @@ export async function mergeBase(dir: string, a: string, b: string): Promise<stri
   }
 }
 
+/**
+ * Files changed on HEAD since `baseCommit` — catches the blind spot `getPorcelainStatus` alone has:
+ * once a worktree's round is committed but not yet merged back (merge_ticket_worktree not called yet),
+ * `git status --porcelain` goes clean and shows nothing, even though the commit still holds real,
+ * unmerged changes that could overlap with another worktree. Callers should union this with
+ * getPorcelainStatus's uncommitted files, not use either alone, to see the true "changed since branch-off" set.
+ */
+export async function getChangedFilesSince(dir: string, baseCommit: string): Promise<string[]> {
+  const out = await runGit(["diff", "--name-only", `${baseCommit}..HEAD`], dir);
+  if (!out) return [];
+  return out.split("\n").filter(Boolean);
+}
+
 export async function worktreeAdd(gitRoot: string, worktreePath: string, branch: string, sourceBranch: string): Promise<void> {
   await runGit(["worktree", "add", "-b", branch, worktreePath, sourceBranch], gitRoot);
 }
