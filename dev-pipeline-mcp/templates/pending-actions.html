@@ -87,6 +87,13 @@
   .btn-reject-submit { border-color: var(--accent); color: var(--accent-ink); }
   li.is-done { opacity: 0.5; }
   li.is-done .row-title::after { content: " ✓ 已完成"; color: var(--good); font-weight: 700; }
+  li.has-batch { position: relative; padding-left: 42px; }
+  li.has-batch > input.batch-select { position: absolute; left: 15px; top: 14px; width: 17px; height: 17px; accent-color: var(--warn); cursor: pointer; }
+  .batch-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 10px; padding: 8px 14px; border: 1px dashed var(--line); border-radius: 10px; font-size: 0.86rem; color: var(--ink-muted); }
+  .batch-toolbar label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600; color: var(--ink); }
+  .batch-toolbar input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--warn); cursor: pointer; }
+  .batch-toolbar .btn-batch { border-color: var(--warn); color: var(--warn); }
+  .batch-toolbar .batch-status { flex: 1 1 auto; }
   #bridge-banner { display: none; border: 1px solid var(--warn); background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 16px; margin-top: 16px; font-size: 0.88rem; }
   #bridge-banner a { color: inherit; font-weight: 700; }
   #bridge-banner.show { display: block; }
@@ -144,7 +151,7 @@
   var banner = document.getElementById("bridge-banner");
 
   function setInteractive(enabled) {
-    var controls = document.querySelectorAll("[data-manual-checkbox], [data-confirm-yes], [data-confirm-no], [data-confirm-reject-submit]");
+    var controls = document.querySelectorAll("[data-manual-checkbox], [data-request-reanalysis], [data-confirm-yes], [data-confirm-no], [data-confirm-reject-submit], .batch-select, .batch-all, [data-batch-run]");
     controls.forEach(function (el) { el.disabled = !enabled; });
     if (banner) banner.classList.toggle("show", !enabled);
   }
@@ -179,54 +186,75 @@
     if (err) { err.hidden = false; err.textContent = message; }
   }
 
+  // 每個動作都回傳 Promise<boolean>（true=成功），單筆操作與批次操作共用同一份邏輯
+  function doManual(cb) {
+    var row = cb.closest("li");
+    cb.checked = true;
+    cb.disabled = true;
+    return callBridge("/resolve-manual-action", {
+      taskGid: cb.dataset.taskgid,
+      filename: cb.dataset.filename,
+      action: cb.dataset.action,
+    }).then(function () {
+      markDone(row);
+      return true;
+    }).catch(function (e) {
+      cb.checked = false;
+      cb.disabled = false;
+      showError(row, e.message);
+      return false;
+    });
+  }
+
+  function doReanalysis(cb) {
+    var row = cb.closest("li");
+    cb.checked = true;
+    cb.disabled = true;
+    return callBridge("/request-reanalysis", { taskGid: cb.dataset.taskgid }).then(function () {
+      row.querySelector(".row-detail").textContent = "✓ 已標記「請 AI 優先處理」，等下一個連上這個專案的 AI 主動重新確認。";
+      markDone(row);
+      return true;
+    }).catch(function (e) {
+      cb.checked = false;
+      cb.disabled = false;
+      showError(row, e.message);
+      return false;
+    });
+  }
+
+  function doConfirmYes(btn) {
+    var row = btn.closest("li");
+    var noBtn = row.querySelector("[data-confirm-no]");
+    btn.disabled = true;
+    if (noBtn) noBtn.disabled = true;
+    return callBridge(btn.dataset.endpoint, { taskGid: btn.dataset.taskgid, confirmed: true }).then(function () {
+      markDone(row);
+      return true;
+    }).catch(function (e) {
+      btn.disabled = false;
+      if (noBtn) noBtn.disabled = false;
+      showError(row, e.message);
+      return false;
+    });
+  }
+
   document.querySelectorAll("[data-manual-checkbox]").forEach(function (cb) {
     cb.addEventListener("change", function () {
       if (!cb.checked) return;
-      var row = cb.closest("li");
-      cb.disabled = true;
-      callBridge("/resolve-manual-action", {
-        taskGid: cb.dataset.taskgid,
-        filename: cb.dataset.filename,
-        action: cb.dataset.action,
-      }).then(function () {
-        markDone(row);
-      }).catch(function (e) {
-        cb.checked = false;
-        cb.disabled = false;
-        showError(row, e.message);
-      });
+      doManual(cb);
     });
   });
 
   document.querySelectorAll("[data-request-reanalysis]").forEach(function (cb) {
     cb.addEventListener("change", function () {
       if (!cb.checked) return;
-      var row = cb.closest("li");
-      cb.disabled = true;
-      callBridge("/request-reanalysis", { taskGid: cb.dataset.taskgid }).then(function () {
-        row.querySelector(".row-detail").textContent = "✓ 已標記「請 AI 優先處理」，等下一個連上這個專案的 AI 主動重新確認。";
-        markDone(row);
-      }).catch(function (e) {
-        cb.checked = false;
-        cb.disabled = false;
-        showError(row, e.message);
-      });
+      doReanalysis(cb);
     });
   });
 
   document.querySelectorAll("[data-confirm-yes]").forEach(function (btn) {
     btn.addEventListener("click", function () {
-      var row = btn.closest("li");
-      var noBtn = row.querySelector("[data-confirm-no]");
-      btn.disabled = true;
-      if (noBtn) noBtn.disabled = true;
-      callBridge(btn.dataset.endpoint, { taskGid: btn.dataset.taskgid, confirmed: true }).then(function () {
-        markDone(row);
-      }).catch(function (e) {
-        btn.disabled = false;
-        if (noBtn) noBtn.disabled = false;
-        showError(row, e.message);
-      });
+      doConfirmYes(btn);
     });
   });
 
@@ -250,6 +278,102 @@
         showError(row, e.message);
       });
     });
+  });
+
+  // ---- 批次打勾：每個「有可操作列」的區塊加一條工具列（全選＋批次執行），列首加一個批次選取框 ----
+  // 同一張票的多個待辦會寫回同一份追蹤檔，所以批次一律「依序」送出，不平行，避免互相覆蓋。
+  var BATCH_KINDS = [
+    { selector: "[data-manual-checkbox]", label: "批次標記已處理", confirmText: "確定要把選取的 {n} 項標記為「已處理」嗎？（會即時通知 AI 從追蹤清單移除）", run: doManual },
+    { selector: "[data-request-reanalysis]", label: "批次請 AI 優先處理", confirmText: "確定要把選取的 {n} 張票標記為「請 AI 優先處理」嗎？", run: doReanalysis },
+    { selector: "[data-confirm-yes]", label: "批次確認通過", confirmText: "確定要把選取的 {n} 項一次「確認通過」嗎？（打回需要逐項說明原因，不支援批次）", run: doConfirmYes },
+  ];
+
+  function actionable(row, kind) {
+    var el = row.querySelector(kind.selector);
+    return el && !row.classList.contains("is-done") ? el : null;
+  }
+
+  function setupBatch(section, kind) {
+    var rows = Array.prototype.filter.call(section.querySelectorAll("li"), function (li) {
+      return li.querySelector(kind.selector);
+    });
+    if (rows.length < 2) return; // 只有一項不需要批次
+
+    var list = rows[0].parentNode;
+    rows.forEach(function (row) {
+      var sel = document.createElement("input");
+      sel.type = "checkbox";
+      sel.className = "batch-select";
+      sel.title = "批次選取";
+      row.classList.add("has-batch");
+      row.insertBefore(sel, row.firstChild);
+    });
+
+    var bar = document.createElement("div");
+    bar.className = "batch-toolbar";
+    bar.innerHTML =
+      '<label><input type="checkbox" class="batch-all"> 全選</label>' +
+      '<button type="button" class="btn btn-batch" data-batch-run disabled></button>' +
+      '<span class="batch-status"></span>';
+    list.parentNode.insertBefore(bar, list);
+
+    var all = bar.querySelector(".batch-all");
+    var runBtn = bar.querySelector("[data-batch-run]");
+    var status = bar.querySelector(".batch-status");
+
+    function selected() {
+      return rows.filter(function (row) {
+        var sel = row.querySelector(".batch-select");
+        return sel.checked && actionable(row, kind);
+      });
+    }
+    function refresh() {
+      var n = selected().length;
+      runBtn.textContent = kind.label + "（" + n + "）";
+      runBtn.disabled = n === 0 || runBtn.dataset.busy === "1" || (banner && banner.classList.contains("show"));
+    }
+
+    all.addEventListener("change", function () {
+      rows.forEach(function (row) {
+        var sel = row.querySelector(".batch-select");
+        if (!sel.disabled && actionable(row, kind)) sel.checked = all.checked;
+      });
+      refresh();
+    });
+    rows.forEach(function (row) {
+      row.querySelector(".batch-select").addEventListener("change", refresh);
+    });
+
+    runBtn.addEventListener("click", function () {
+      var targets = selected();
+      if (targets.length === 0) return;
+      if (!window.confirm(kind.confirmText.replace("{n}", String(targets.length)))) return;
+      runBtn.dataset.busy = "1";
+      refresh();
+      var ok = 0, fail = 0, done = 0;
+      targets.reduce(function (chain, row) {
+        return chain.then(function () {
+          status.textContent = "處理中… " + done + " / " + targets.length;
+          return kind.run(actionable(row, kind)).then(function (success) {
+            done++;
+            if (success) ok++; else fail++;
+            var sel = row.querySelector(".batch-select");
+            if (success) { sel.checked = false; sel.disabled = true; }
+          });
+        });
+      }, Promise.resolve()).then(function () {
+        status.textContent = "完成：成功 " + ok + " 項" + (fail ? "，失敗 " + fail + " 項（失敗的列已顯示錯誤訊息，仍可重試）" : "");
+        runBtn.dataset.busy = "0";
+        all.checked = false;
+        refresh();
+      });
+    });
+
+    refresh();
+  }
+
+  document.querySelectorAll("section.block").forEach(function (section) {
+    BATCH_KINDS.forEach(function (kind) { setupBatch(section, kind); });
   });
 })();
 </script>
