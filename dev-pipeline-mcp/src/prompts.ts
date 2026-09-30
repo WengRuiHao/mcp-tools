@@ -41,7 +41,7 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 
 **處理每一張票之前，先看文末「附錄 B：換 session／換 AI 接手」，確認需不需要用低成本方式接上這張票既有的進度。**
 
-1. 呼叫 \`get_ticket_snapshot({ taskGid: T, projectDir: <步驟 0.5 拿到的 projectDir>, projectName: <這個 Asana 專案的「全名稱」>, ticketNumber?: <這張票的業務單號，例如 "PROJ-1234"，不知道可以省略讓工具自動偵測> })\` 取得票單描述 + 留言串，內容也會存進追蹤檔案。追蹤目錄會建在 \`<projectDir>/.asana-pipeline/<Asana 專案全名稱>/<票號>/\`（在目標程式碼專案自己的目錄裡，不是這個 MCP 自己的安裝目錄——這樣分享這個 MCP 工具本身不會夾帶任何客戶票單內容），之後所有工具都繼續用 \`taskGid\` 指定這張票就好，不用管實際目錄長什麼樣子。第一次在某個 \`projectDir\` 底下建立追蹤目錄時，會順便在該專案的 \`CLAUDE.md\` 加一段說明這個目錄的用途，供之後接手的人/AI 參考。
+1. 呼叫 \`get_ticket_snapshot({ taskGid: T, projectDir: <步驟 0.5 拿到的 projectDir>, projectName: <這個 Asana 專案的「全名稱」>, ticketNumber?: <這張票的業務單號，例如 "PROJ-1234"，不知道可以省略讓工具自動偵測> })\` 取得票單描述 + 留言串，內容也會存進追蹤檔案。追蹤目錄會建在 \`<projectDir>/.asana-pipeline/<Asana 專案全名稱>/<票號；偵測不到業務單號時用 Asana 票單標題，同層重名才補 taskGid 後綴>/\`（在目標程式碼專案自己的目錄裡，不是這個 MCP 自己的安裝目錄——這樣分享這個 MCP 工具本身不會夾帶任何客戶票單內容），之後所有工具都繼續用 \`taskGid\` 指定這張票就好，不用管實際目錄長什麼樣子。第一次在某個 \`projectDir\` 底下建立追蹤目錄時，會順便在該專案的 \`CLAUDE.md\` 加一段說明這個目錄的用途，供之後接手的人/AI 參考。
    - **子任務會自動偵測、不需要你自己判斷或傳遞任何參數**：工具內部會讀 Asana 這張任務自己的 \`parent\` 欄位，如果偵測到有父票單，會自動先確保父票單（以及它自己的父票單……往上一路到頂層）都已經建好追蹤目錄，再把這張票巢狀掛在正確的父票單底下（\`.../<父票號>/<子票號>/\`），層數不限。**不要自己假設某張票是不是頂層——就算它是從 \`list_pending_tickets\`／看板資料裡拿到的，也可能其實是別張票的子任務，一律呼叫 \`get_ticket_snapshot\` 讓工具自己去 Asana 查證，不要憑經驗或票號長得像不像來猜。**
    - **回傳 \`unchanged: true\`** 代表這張票的內容跟上次抓的一樣（沒有附全文），直接沿用本機既有的 \`01-analysis.md\`/\`02-implementation.md\` 等追蹤檔案繼續處理即可，不用重新分析。
    - **回傳 \`needsReanalysis: true\`**（一定伴隨 \`unchanged: false\`）代表 Asana 上的內容真的變了、而且這張票之前已經有分析/實作/驗證的進度——**不管 \`get_ticket_status\` 顯示的 \`stage\` 是什麼、\`verdict\` 之前是不是 PASS，都要當作這張票還沒處理過，從下面的第 4 步（分析師）重新開始**，不能沿用舊的 \`01-analysis.md\` 摘要。

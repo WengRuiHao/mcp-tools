@@ -101,14 +101,18 @@ function nowIso(): string {
 
 const STAGE_ORDER: TicketStatus["stage"][] = ["new", "snapshot", "project_dir_confirmed", "analyzed", "sd_drafted", "implemented", "verified", "tested"];
 
-function sanitizeSegment(raw: string): string {
+function sanitizeSegment(raw: string, maxLen = 60): string {
   const cleaned = raw
     .trim()
-    .replace(/[\\/:*?"<>|]/g, " ")
+    .replace(/[\/:*?"<>|]/g, " ")
     .replace(/\s+/g, "_")
-    .slice(0, 60);
+    .slice(0, maxLen)
+    .replace(/[._]+$/, ""); // Windows 資料夾名稱結尾不能是 "."，順手去掉截斷後殘留的底線
   return cleaned || "unknown";
 }
+
+// Asana 標題通常比業務單號長，給比預設更寬的上限，避免標題尾巴（例如「前端開發與SQ」）被截掉、同鏈子任務看起來一樣
+const TITLE_SEGMENT_MAX_LEN = 80;
 
 const CLAUDE_MD_MARKER_START = "<!-- asana-pipeline-mcp:tracking-note:start -->";
 const CLAUDE_MD_MARKER_END = "<!-- asana-pipeline-mcp:tracking-note:end -->";
@@ -118,7 +122,7 @@ const CLAUDE_MD_NOTE = `${CLAUDE_MD_MARKER_START}
 
 這個專案底下的 \`.asana-pipeline/\` 目錄，是 dev-pipeline-mcp 自動處理 Asana 票單時建立的追蹤紀錄，跟這個專案本身的程式碼無關，純粹是紀錄檔案。
 
-結構：\`.asana-pipeline/<Asana 專案全名稱>/<票號>/\`（子任務會巢狀掛在父票號底下，層數不限）。每張票的目錄裡有：
+結構：\`.asana-pipeline/<Asana 專案全名稱>/<票號，沒有業務單號時用 Asana 標題>/\`（子任務會巢狀掛在父票號底下，層數不限）。每張票的目錄裡有：
 - \`ticket.md\` — 從 Asana 抓下來的票單原文（描述 + 留言）
 - \`01-analysis.md\` / \`02-implementation.md\` / \`03-verification.md\` — 分析師/工程師/驗證師三個階段各自的產出
 - \`status.json\` — 這張票目前處理到哪個階段、驗證結果、SA/SD 規格確認狀態等
@@ -147,6 +151,13 @@ export async function getAssignedDir(taskGid: string): Promise<string | null> {
   return index[taskGid] ?? null;
 }
 
+/** 同一層已經有別張票用了同名資料夾（Windows 不分大小寫）就補上 taskGid 後綴避免兩張票共用一個目錄。 */
+function resolveLeafName(index: Record<string, string>, taskGid: string, parentDir: string, leafName: string): string {
+  const candidate = path.join(parentDir, leafName).toLowerCase();
+  const taken = Object.entries(index).some(([gid, dir]) => gid !== taskGid && dir.toLowerCase() === candidate);
+  return taken ? `${leafName}_${taskGid}` : leafName;
+}
+
 /**
  * Assigns (or reuses) a human-readable tracking directory for a ticket, laid
  * out INSIDE the target code project's own directory (not this MCP's install
@@ -171,7 +182,8 @@ export async function assignTicketDir(
   taskGid: string,
   projectName: string,
   ticketNumber?: string | null,
-  parentTaskGid?: string | null
+  parentTaskGid?: string | null,
+  ticketTitle?: string | null
 ): Promise<string> {
   let resultDir = "";
   await updateJsonFile<Record<string, string>>(getTicketsIndexFile(), {}, (index) => {
@@ -181,7 +193,13 @@ export async function assignTicketDir(
       return index;
     }
 
-    const leafName = sanitizeSegment(ticketNumber || taskGid);
+    // 命名優先序：業務單號 → Asana 標題 → taskGid。標題命名是為了讓人在檔案總管一眼認得是哪張票，
+    // 純數字 gid 資料夾完全看不出對應哪張 Asana 票單。
+    const baseLeafName = ticketNumber
+      ? sanitizeSegment(ticketNumber)
+      : ticketTitle?.trim()
+        ? sanitizeSegment(ticketTitle, TITLE_SEGMENT_MAX_LEN)
+        : sanitizeSegment(taskGid);
     let dir: string;
     if (parentTaskGid) {
       const parentDir = index[parentTaskGid];
@@ -190,10 +208,11 @@ export async function assignTicketDir(
           `找不到父票單 ${parentTaskGid} 的追蹤目錄——請先對父票單呼叫過 get_ticket_snapshot（建立好它的目錄），子任務才能掛在它底下。`
         );
       }
-      dir = path.join(parentDir, leafName);
+      dir = path.join(parentDir, resolveLeafName(index, taskGid, parentDir, baseLeafName));
     } else {
       const projectRoot = path.join(projectDir, ".asana-pipeline");
-      dir = path.join(projectRoot, sanitizeSegment(projectName), leafName);
+      const projectFolder = path.join(projectRoot, sanitizeSegment(projectName));
+      dir = path.join(projectFolder, resolveLeafName(index, taskGid, projectFolder, baseLeafName));
     }
 
     resultDir = dir;

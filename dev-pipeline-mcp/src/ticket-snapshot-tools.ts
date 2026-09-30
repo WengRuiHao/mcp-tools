@@ -112,7 +112,7 @@ async function ensureSnapshotted(
     parentTaskGid = parentGid;
   }
 
-  const dir = await assignTicketDir(projectDir, taskGid, projectName, ticketNumber, parentTaskGid);
+  const dir = await assignTicketDir(projectDir, taskGid, projectName, ticketNumber, parentTaskGid, task.name ?? null);
   // 記錄 project_dir/project_name/name/指派人，讓之後這張票任何一次狀態異動都能局部重建 PENDING_HUMAN_ACTIONS.html
   // （見 syncPendingActionsReport），不用每次都額外傳 projectGid/projectName 或重新查一次 Asana。
   await recordProjectContext(
