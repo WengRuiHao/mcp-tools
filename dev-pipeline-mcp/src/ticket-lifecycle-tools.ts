@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { callAsanaTool } from "./mcp-clients.js";
 import { resolveProjectDir } from "./project-registry.js";
+import { readProjectSettings } from "./project-rule-files.js";
 import {
   readStatus,
   peekStatus,
@@ -24,7 +25,7 @@ import { textResult } from "./shared.js";
 export function registerTicketLifecycleTools(server: McpServer): void {
   server.tool(
     "list_pending_tickets",
-    "列出指定 Asana 專案裡尚未完成的票單，並在帶 projectName 時把「需要人工處理」的項目整份覆寫進互動網頁 PENDING_HUMAN_ACTIONS.html。\n\n" +
+    "列出指定 Asana 專案裡尚未完成的票單（可用 onlyAssignedToMe 或專案設定 .pipeline/settings.json 限制只列指派給目前帳號本人的票），並在帶 projectName 時把「需要人工處理」的項目整份覆寫進互動網頁 PENDING_HUMAN_ACTIONS.html。\n\n" +
       "**回傳欄位速查**：\n" +
       "- `tickets`：一般待處理清單。`contentChanged:true` = 先前已處理過（甚至 PASS 過），但 Asana 內容後來又變了（或使用者主動要求重新確認），不能因為之前處理過就跳過，下一步 get_ticket_snapshot 會確認要不要重新分析；`humanRequestedReanalysis:true` = 使用者在 PENDING_HUMAN_ACTIONS.html 上主動勾了「請 AI 優先處理」——**這張票即使沒有其他理由要處理，也要在這次批次裡優先呼叫 get_ticket_snapshot**，不能因為使用者這次是要處理別的票就略過，處理完（不管有沒有真的偵測到內容變動）這個旗標會自動清掉；`humanRejected:true` = 使用者用 record_confirmation({confirmed:false}) 打回的票，**套用跟 AI 驗證師自己判 FAIL 完全一樣的根因分流機制**（見 advance_ticket_stage 的 rootCause 說明），不要另開一套「人工打回」流程；`specRejected:true` = 規格草稿被使用者打回。\n" +
       "- `awaitingConfirmation`：AI 驗證師/測試工程師已判 PASS、Asana 內容也沒再變，只等使用者自己實測＋審視程式碼品質。**每次呼叫都要把這份清單完整秀給使用者看**（不能因為這次是處理別的新票就略過），直到每一張都呼叫過 record_confirmation 才會消失。\n" +
@@ -39,13 +40,36 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         .nullable()
         .optional()
         .describe("這個 Asana 專案的「全名稱」。有帶的話會把這次算出的待處理項目寫進 PENDING_HUMAN_ACTIONS.html；不帶就只回傳 JSON，不寫檔案。"),
+      onlyAssignedToMe: z
+        .boolean()
+        .nullable()
+        .optional()
+        .describe(
+          "true = 只處理指派給目前這個 Asana 帳號本人的票（其他人的票完全不列，也不進 PENDING_HUMAN_ACTIONS.html 這次的內容）；false = 列出所有人的票。" +
+            "沒帶時看專案設定 <projectDir>/.pipeline/settings.json 的 onlyAssignedToMe，都沒有就是 false。"
+        ),
     },
-    async ({ projectGid, sectionFilter, projectName }) => {
+    async ({ projectGid, sectionFilter, projectName, onlyAssignedToMe }) => {
       const board = await callAsanaTool("asana_board", { projectGid, refresh: true });
       if (!board?.success) return textResult(board, true);
 
+      let onlyMine = onlyAssignedToMe ?? null;
+      if (onlyMine === null) {
+        const settingsProjectDir = await resolveProjectDir(projectGid);
+        if (settingsProjectDir) {
+          try {
+            onlyMine = (await readProjectSettings(settingsProjectDir)).onlyAssignedToMe ?? false;
+          } catch (err: any) {
+            return textResult({ success: false, message: err.message }, true);
+          }
+        }
+      }
       const tasks: any[] = Array.isArray(board.tasks) ? board.tasks : [];
       const pipelineUserGid = await getPipelineAsanaUserGid();
+      if (onlyMine && !pipelineUserGid) {
+        return textResult({ success: false, message: "要求只列指派給我的票，但無法判斷目前 Asana 帳號是誰（asana_me 失敗），為避免列出不該處理的票，這次不繼續。" }, true);
+      }
+      let skippedNotMine = 0;
       const pending = [];
       const awaitingConfirmation = [];
       const awaitingSpecConfirmation = [];
@@ -55,6 +79,10 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       const contentChangedForReport = [];
       for (const task of tasks) {
         if (task.completed === true) continue;
+        if (onlyMine && (task.assignee?.gid ?? null) !== pipelineUserGid) {
+          skippedNotMine++;
+          continue;
+        }
         if (sectionFilter) {
           const sectionNames = (task.memberships ?? []).map((m: any) => m.section?.name);
           if (!sectionNames.includes(sectionFilter)) continue;
@@ -161,6 +189,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         success: true,
         projectGid,
         count: pending.length,
+        ...(onlyMine ? { filteredBy: "assignee=me", skippedNotAssignedToMe: skippedNotMine } : {}),
         tickets: pending,
         awaitingConfirmationCount: awaitingConfirmation.length,
         awaitingConfirmation,

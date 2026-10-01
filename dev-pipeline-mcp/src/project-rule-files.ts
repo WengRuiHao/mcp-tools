@@ -43,3 +43,21 @@ export async function resolveProjectDir(projectDir?: string | null, taskGid?: st
     return null;
   }
 }
+
+export interface ProjectSettings {
+  /** list_pending_tickets only lists tickets assigned to the account this pipeline runs as. */
+  onlyAssignedToMe?: boolean;
+}
+
+export const SETTINGS_FILE_CANDIDATES: string[] = [".pipeline/settings.json"];
+
+/** No settings file means defaults. A file that exists but cannot be parsed throws, so a typo never silently widens what the AI works on. */
+export async function readProjectSettings(projectDir: string): Promise<ProjectSettings> {
+  const found = await readFirstExisting(projectDir, SETTINGS_FILE_CANDIDATES);
+  if (!found) return {};
+  try {
+    return JSON.parse(found.content) as ProjectSettings;
+  } catch {
+    throw new Error(`${found.relPath} 不是合法的 JSON，請修正後再呼叫（為避免設定壞掉時悄悄變成列出所有人的票，這次不繼續）`);
+  }
+}

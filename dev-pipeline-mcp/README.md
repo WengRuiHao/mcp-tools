@@ -285,7 +285,17 @@ npm run build
 
 專案可以放 `SD_TEMPLATE.md`（新建規格用）和 `SD_VERSIONING_RULES.md`（修改既有規格用）。`get_sd_spec_template`／`get_sd_spec_versioning_rules` 帶 `projectDir`（或 `taskGid`）時，**有專案版就只回傳專案版、完整取代內建通用版**，沒有才回傳內建版；不帶參數行為跟以前一樣。目的是避免專案檔和內建版兩份高度重疊的內容同時進入 AI 的上下文，也不用再靠角色補充規則叫 AI 另外去讀專案檔。
 
-### 4. 非 Claude 的 AI 怎麼接入
+### 4. 專案設定 `<projectDir>/.pipeline/settings.json`
+
+```json
+{ "onlyAssignedToMe": true }
+```
+
+- `onlyAssignedToMe: true`：`list_pending_tickets` 只列**指派給目前這個 Asana 帳號本人**的票（帳號身分用 `asana_me` 判斷，其他人的票完全不列，回傳裡會附 `filteredBy` 與 `skippedNotAssignedToMe` 數量）。呼叫時也可以直接帶 `onlyAssignedToMe` 參數覆蓋這個設定；兩者都沒有就列出所有人的票。
+- 沒有這個檔案就是預設行為（列出所有人的票）。檔案存在但不是合法 JSON 時，`list_pending_tickets` 會直接報錯，**不會悄悄退回「列出所有人」**；判斷不出目前帳號是誰時也一樣報錯。
+- 注意：帶了過濾之後，這次寫出的 `PENDING_HUMAN_ACTIONS.html` 只包含你自己的票，其他人的待辦事項要等下一次不過濾的呼叫才會回來；各種票單狀態異動後的局部重寫則不受這個設定影響。
+
+### 5. 非 Claude 的 AI 怎麼接入
 - **關卡與補充規則的套用都在 MCP 裡**，AI 只要連上這個 MCP 並照流程呼叫工具就會生效，繞不過去（關卡）或自動附上（補充規則）。
 - **入口**：MCP 連線時會附上一段 `instructions`（處理票單先呼叫 `get_pipeline_overview`、切角色前先呼叫 `get_role_prompt` 並帶 `projectDir`／`taskGid`）。**是否把它顯示給模型由各家 client 決定，不保證每個工具都會用到**，所以這個 MCP 不能只靠它。
 - **不走票單流程、只是要在專案裡寫程式碼**時，AI 開始前呼叫 `get_project_rules` 就能拿到共通規則；專案不需要為每個 AI 工具各放一份入口檔（`CLAUDE.md`／`AGENTS.md` 等），規則只維護 `.pipeline/` 這一份。
@@ -304,7 +314,7 @@ npm run build
 | `get_role_prompt` | 取得分析師／規格撰寫者／工程師／驗證師／測試工程師其中一個角色的職責說明（`spec-writer` 只有 `sdMode: "self-generated"` 才需要；`tester` 每張票都會經過，是 `verifier` 判 PASS 之後、人類最終確認之前新增的一階）。帶 `projectDir`（或 `taskGid` 反查）時，若 `<projectDir>/.pipeline/roles/<role>.md` 存在（舊位置 `.claude/pipeline-roles/` 也讀得到，新位置優先），內容會附加在通用說明後面當作專案專屬補充規則（衝突時以補充規則為準），讓各專案自己的開發步驟、路徑慣例、驗證方式不必改 MCP 程式碼 |
 | `get_project_rules` | 取得專案自己定義的開發規則（`.pipeline/roles/all.md` 共通規則、有哪些角色專屬規則檔、有沒有分析關卡）。**不走票單流程、單純要在某個專案寫程式碼時，開始前先呼叫這個**；走票單流程時 `get_role_prompt` 已自動附上。`projectDir`／`taskGid` 擇一 |
 | `resolve_default_project` / `register_default_project` | 查詢/登記「今天的問題單」預設 Asana 專案。帶 `cwd` 時依工作目錄各自登記（往上找最近一層，不借用別的目錄的預設）；不帶 `cwd` 才讀舊的全域單一值 |
-| `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；附上 `awaitingConfirmation`（AI 已 PASS、還卡在使用者自測這關的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過**或使用者主動要求重新確認**的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）、`humanRequestedReanalysis: true`（使用者在網頁上勾了「請 AI 優先處理」，這次批次一定要處理，見 `request_reanalysis`）。**帶 `projectName` 會把這六類整份寫進互動網頁 `PENDING_HUMAN_ACTIONS.html`**（見下方說明） |
+| `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；可只列指派給自己的票（`onlyAssignedToMe` 參數或 `.pipeline/settings.json`）；附上 `awaitingConfirmation`（AI 已 PASS、還卡在使用者自測這關的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過**或使用者主動要求重新確認**的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）、`humanRequestedReanalysis: true`（使用者在網頁上勾了「請 AI 優先處理」，這次批次一定要處理，見 `request_reanalysis`）。**帶 `projectName` 會把這六類整份寫進互動網頁 `PENDING_HUMAN_ACTIONS.html`**（見下方說明） |
 | `get_ticket_snapshot` | 抓票單內容＋留言，寫入追蹤檔案；子任務自動偵測（讀 Asana `parent` 欄位） |
 | `relocate_ticket_project` | 修正 `get_ticket_snapshot` 第一次呼叫 `projectName` 傳錯時，這張票（連同巢狀子任務）的本機追蹤資料夾要一併搬到正確的專案名稱底下；只改本機資料夾標籤，不會也不能改 Asana 上這張票實際所屬的專案 |
 | `get_ticket_activity` | 取得票單完整活動時間軸（留言＋系統事件＋附件，依時間排序）；使用者說「查看測試員回報的測試狀況」時用這個 |
