@@ -7,12 +7,29 @@ import { fsReadFile, fsWriteFile } from "./fs-tools.js";
 import { resolveSasdConfig } from "./project-registry.js";
 import { textResult } from "./shared.js";
 
+const FILE_NAME_PARAM_DESCRIPTION =
+  "sdOutputPath 登記的是「目錄」（一支功能/報表一份規格檔）時必帶，例如 \"SPEC_a_report_28_預算科目餘額表.md\"，只能是檔名、不可含路徑分隔符號；" +
+  "sdOutputPath 登記的是單一檔案時不要帶。";
+
+/** sdOutputPath is a directory when a fileName is given (one SD file per feature/report); otherwise it is the single SD file itself. */
+function resolveSdFilePath(sdOutputPath: string, fileName?: string | null): { path: string } | { error: string } {
+  if (!fileName) return { path: sdOutputPath };
+  if (fileName !== path.basename(fileName) || fileName.includes("/") || fileName.includes("\\") || fileName === "..") {
+    return { error: `fileName "${fileName}" 只能是檔名，不可含路徑分隔符號或 ..` };
+  }
+  return { path: path.join(sdOutputPath, fileName) };
+}
+
 export function registerSdDocTools(server: McpServer): void {
   server.tool(
     "read_project_sd_doc",
-    "讀取某個 Asana 專案自己維護的 SD 規格文件內容（只適用於 sdMode 是 \"self-generated\" 的專案）。從 register_sasd_config 登記的 sdOutputPath（真實本機檔案）讀取。第一次讀取如果還沒建立過，會回傳空字串。",
-    { projectGid: z.string().describe("Asana 專案 gid"), projectDir: z.string().describe("這個 Asana 專案對應的程式碼專案目錄絕對路徑") },
-    async ({ projectGid, projectDir }) => {
+    "讀取某個 Asana 專案自己維護的 SD 規格文件內容（只適用於 sdMode 是 \"self-generated\" 的專案）。從 register_sasd_config 登記的 sdOutputPath（真實本機檔案；登記的是目錄時搭配 fileName 讀目錄底下那一份）讀取。第一次讀取如果還沒建立過，會回傳空字串。",
+    {
+      projectGid: z.string().describe("Asana 專案 gid"),
+      projectDir: z.string().describe("這個 Asana 專案對應的程式碼專案目錄絕對路徑"),
+      fileName: z.string().nullable().optional().describe(FILE_NAME_PARAM_DESCRIPTION),
+    },
+    async ({ projectGid, projectDir, fileName }) => {
       const config = await resolveSasdConfig(projectGid);
       if (!config?.sdOutputPath) {
         return textResult(
@@ -20,11 +37,20 @@ export function registerSdDocTools(server: McpServer): void {
           true
         );
       }
+      const target = resolveSdFilePath(config.sdOutputPath, fileName);
+      if ("error" in target) return textResult({ success: false, message: target.error }, true);
       try {
-        const { content } = await fsReadFile(projectDir, config.sdOutputPath);
-        return textResult({ success: true, content, sdOutputPath: config.sdOutputPath });
-      } catch {
-        return textResult({ success: true, content: "", sdOutputPath: config.sdOutputPath });
+        const { content } = await fsReadFile(projectDir, target.path);
+        return textResult({ success: true, content, sdOutputPath: target.path });
+      } catch (err: any) {
+        if (err?.code === "ENOENT") return textResult({ success: true, content: "", sdOutputPath: target.path });
+        return textResult(
+          {
+            success: false,
+            message: `讀取 SD 規格失敗（${err?.code ?? err?.message}）。如果 sdOutputPath 登記的是目錄，請帶 fileName 指定要讀哪一份。`,
+          },
+          true
+        );
       }
     }
   );
@@ -38,9 +64,10 @@ export function registerSdDocTools(server: McpServer): void {
       projectGid: z.string().describe("Asana 專案 gid"),
       projectDir: z.string().describe("這個 Asana 專案對應的程式碼專案目錄絕對路徑"),
       content: z.string().describe("SD 規格文件的完整新內容"),
+      fileName: z.string().nullable().optional().describe(FILE_NAME_PARAM_DESCRIPTION),
       acknowledgeExternalChange: z.boolean().optional().describe("這份文件被外部改過、確認要用這次的內容覆蓋掉時才需要帶 true"),
     },
-    async ({ projectGid, projectDir, content, acknowledgeExternalChange }) => {
+    async ({ projectGid, projectDir, content, fileName, acknowledgeExternalChange }) => {
       const config = await resolveSasdConfig(projectGid);
       if (!config?.sdOutputPath) {
         return textResult(
@@ -48,7 +75,9 @@ export function registerSdDocTools(server: McpServer): void {
           true
         );
       }
-      const outcome = await fsWriteFile(projectDir, config.sdOutputPath, content, { acknowledgeExternalChange });
+      const target = resolveSdFilePath(config.sdOutputPath, fileName);
+      if ("error" in target) return textResult({ success: false, message: target.error }, true);
+      const outcome = await fsWriteFile(projectDir, target.path, content, { acknowledgeExternalChange });
       if (outcome.blocked) {
         return textResult(
           {
@@ -64,7 +93,7 @@ export function registerSdDocTools(server: McpServer): void {
           true
         );
       }
-      return textResult({ success: true, projectGid, sdOutputPath: config.sdOutputPath });
+      return textResult({ success: true, projectGid, sdOutputPath: target.path });
     }
   );
 

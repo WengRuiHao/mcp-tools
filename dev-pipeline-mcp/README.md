@@ -253,7 +253,7 @@ npm run build
 | 工具 | 用途 |
 |---|---|
 | `get_pipeline_overview` | 取得整條流程說明（第一步一定先呼叫） |
-| `get_role_prompt` | 取得分析師／規格撰寫者／工程師／驗證師／測試工程師其中一個角色的職責說明（`spec-writer` 只有 `sdMode: "self-generated"` 才需要；`tester` 每張票都會經過，是 `verifier` 判 PASS 之後、人類最終確認之前新增的一階） |
+| `get_role_prompt` | 取得分析師／規格撰寫者／工程師／驗證師／測試工程師其中一個角色的職責說明（`spec-writer` 只有 `sdMode: "self-generated"` 才需要；`tester` 每張票都會經過，是 `verifier` 判 PASS 之後、人類最終確認之前新增的一階）。帶 `projectDir` 時，若 `<projectDir>/.claude/pipeline-roles/<role>.md` 存在，內容會附加在通用說明後面當作專案專屬補充規則（衝突時以補充規則為準），讓各專案自己的開發步驟、路徑慣例、驗證方式不必改 MCP 程式碼 |
 | `resolve_default_project` / `register_default_project` | 查詢/登記「今天的問題單」預設 Asana 專案。帶 `cwd` 時依工作目錄各自登記（往上找最近一層，不借用別的目錄的預設）；不帶 `cwd` 才讀舊的全域單一值 |
 | `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；附上 `awaitingConfirmation`（AI 已 PASS、還卡在使用者自測這關的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過**或使用者主動要求重新確認**的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）、`humanRequestedReanalysis: true`（使用者在網頁上勾了「請 AI 優先處理」，這次批次一定要處理，見 `request_reanalysis`）。**帶 `projectName` 會把這六類整份寫進互動網頁 `PENDING_HUMAN_ACTIONS.html`**（見下方說明） |
 | `get_ticket_snapshot` | 抓票單內容＋留言，寫入追蹤檔案；子任務自動偵測（讀 Asana `parent` 欄位） |
@@ -264,7 +264,7 @@ npm run build
 | `resolve_sasd_config` / `register_sasd_config` | 查詢/登記 SA/SD 規格設定；`external`/`self` 會真的驗證 SVN 連線才登記成功；`self-generated` 還要額外登記 `specOrder`（`spec_first`/`code_first`） |
 | `resolve_legacy_test_profile` / `register_legacy_test_profile` | 查詢/登記這個專案要不要套用測試工程師說明書的「老舊系統測試」章節（JDK6+舊IE這類，預設 `false`，只有使用者明確告知才登記為 `true`，不自動偵測） |
 | `resolve_test_capability` / `register_test_capability` | 查詢/登記這個專案工程師階段能不能寫自動化測試、用哪套工具鏈（`modern`/`legacy_junit4`/`none`）；測試工程師階段會依這個設定決定要不要重跑工程師補的測試當交叉核對證據 |
-| `read_project_sd_doc` / `write_project_sd_doc` | 讀寫「自維護」SD 文件（`self-generated` 專用），寫在 `sdOutputPath` 真實本機檔案 |
+| `read_project_sd_doc` / `write_project_sd_doc` | 讀寫「自維護」SD 文件（`self-generated` 專用），寫在 `sdOutputPath` 真實本機檔案；`sdOutputPath` 登記的是目錄（一支功能一份規格）時帶 `fileName` 指定目錄底下那一份，`fileName` 只能是檔名 |
 | `get_sd_spec_template` / `get_sd_spec_versioning_rules` | SD 規格撰寫範本／版更規範，寫入前應先呼叫其中之一 |
 | `get_test_engineer_guide` | 取得測試工程師說明書：通用測試框架／報表測試／老舊系統測試三章檢查清單，供設計測試案例、跑手動/情境測試時查，跟驗證師角色的規格/程式碼交叉核對是不同用途 |
 | `svn_list_connections` / `svn_test_connection` | 轉呼叫 svn-mcp，列出/測試 SVN 連線 |
