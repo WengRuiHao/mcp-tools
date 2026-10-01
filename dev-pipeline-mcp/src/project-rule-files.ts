@@ -1,6 +1,7 @@
 import path from "node:path";
 import { readFile } from "node:fs/promises";
 import { readStatus } from "./pipeline-store.js";
+import { snapshotIfChanged } from "./rule-history.js";
 
 /**
  * Project-owned rule files live in a tool-neutral directory so any AI client (not just Claude Code) can be pointed at them.
@@ -21,6 +22,7 @@ export async function readFirstExisting(projectDir: string, relPaths: string[]):
   for (const relPath of relPaths) {
     try {
       const content = await readFile(path.join(projectDir, relPath), "utf-8");
+      await snapshotIfChanged(projectDir, relPath, content);
       return { relPath, content };
     } catch (err: any) {
       if (err?.code !== "ENOENT" && err?.code !== "ENOTDIR") throw err;

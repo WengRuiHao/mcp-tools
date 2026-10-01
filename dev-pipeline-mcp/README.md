@@ -164,7 +164,7 @@ npm run build
 <details>
 <summary>待人工處理清單（<code>PENDING_HUMAN_ACTIONS.html</code>）</summary>
 
-![待人工處理清單持久化機制：呼叫 list_pending_tickets 並帶上 projectName 時，會掃描這個 Asana 專案所有票單、彙整待確認規格草稿（僅 self-generated 專案）／待確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更六類項目，整份覆寫進一份互動網頁 PENDING_HUMAN_ACTIONS.html；這份檔案落在磁碟上，任何 session、甚至不開 AI 都能直接打開看，勾選/確認按鈕會即時呼叫本機 HTTP bridge 寫回票單狀態，不會因為聊天記錄被清掉或壓縮就遺失；另一個觸發路徑是 install_git_hooks 裝的 git 原生 hook，人工手動 commit/merge 時也會局部重整這份報告，不用等 AI 呼叫任何 pipeline 工具，第一次觸發有一次性冷啟動延遲，之後很快](docs/img/pending-actions-report.svg)
+![待人工處理清單持久化機制：呼叫 list_pending_tickets 並帶上 projectName 時，會掃描這個 Asana 專案所有票單、彙整待確認規格草稿（僅 self-generated 專案）／待確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更六類項目，整份覆寫進一份互動網頁 PENDING_HUMAN_ACTIONS.html；這份檔案落在磁碟上，任何 session、甚至不開 AI 都能直接打開看，勾選/確認按鈕會即時呼叫本機 HTTP bridge 寫回票單狀態，不會因為聊天記錄被清掉或壓縮就遺失；另一個觸發路徑是 install_git_hooks 裝的 git 原生 hook，人工手動 commit/merge 時也會局部重整這份報告，不用等 AI 呼叫任何 pipeline 工具，第一次觸發有一次性冷啟動延遲，之後很快；同一區塊有 2 項以上時可批次勾選（標記已處理／請 AI 優先處理／確認通過，打回需逐項處理）](docs/img/pending-actions-report.svg)
 
 過去「這張票需要你確認」「這個 SQL 只能你手動執行」這類提醒，只會在當次聊天回覆裡講一次——換個 session、關掉對話視窗，這份清單就沒了，只能重新問 AI 才會再看到一次。
 
@@ -267,7 +267,7 @@ npm run build
     {
       "ticketNamePattern": "RPT|a_report_",
       "heading": "舊碼參考",
-      "pathPrefix": "svn/原始碼/KSBS_Report/src/WebRoot/report/",
+      "pathPrefix": "legacy/src/report/",
       "minPaths": 1,
       "requireSasd": true
     }
@@ -301,18 +301,26 @@ npm run build
 - **不走票單流程、只是要在專案裡寫程式碼**時，AI 開始前呼叫 `get_project_rules` 就能拿到共通規則；專案不需要為每個 AI 工具各放一份入口檔（`CLAUDE.md`／`AGENTS.md` 等），規則只維護 `.pipeline/` 這一份。
 - 實務上，非 Claude 的 AI 要進入流程，最穩的做法是在該工具自己的專案規則檔（例如 Codex 的 `AGENTS.md`）加一句：「處理 Asana 票單前，先呼叫 dev-pipeline-mcp 的 `get_pipeline_overview` 並照著做」。Claude Code 的「處理今天的問題單」關鍵字觸發，是 `~/.claude/skills/` 底下的 skill，屬於 Claude 專用，其他工具不會有。
 
+### 6. 規則檔快照與還原（`<projectDir>/.pipeline/.history/`）
+
+- MCP 每次讀取專案規則檔（角色規則、共通規則、關卡、設定、SD 範本）時，若內容跟最近一份快照不同，就把這個版本存進該專案的 `.pipeline/.history/`，**每個檔案保留最近 10 份**，內容相同不重複存。
+- `list_rule_history` 列出快照、`restore_rule_file` 還原指定版本；還原前會先把目前內容也存一份，還原動作本身可以反悔。還原只允許 `.pipeline/` 底下的規則檔，路徑跳脫、快照檔名不合法都會被拒絕。
+- **限制**：快照是「MCP 讀到時」才建立，不是存檔當下；在任何 AI 流程讀過之前就被改壞或刪掉的版本救不回來。這是安全網，不是正式的版本控制（沒有提交說明、不能比較差異）。專案目錄如果有進 git，記得把 `.pipeline/.history/` 加進忽略清單。
+
 ---
 
 ## 提供的工具
 
 <details>
-<summary>展開完整工具清單（55 個）</summary>
+<summary>展開完整工具清單（57 個）</summary>
 
 | 工具 | 用途 |
 |---|---|
 | `get_pipeline_overview` | 取得整條流程說明（第一步一定先呼叫） |
-| `get_role_prompt` | 取得分析師／規格撰寫者／工程師／驗證師／測試工程師其中一個角色的職責說明（`spec-writer` 只有 `sdMode: "self-generated"` 才需要；`tester` 每張票都會經過，是 `verifier` 判 PASS 之後、人類最終確認之前新增的一階）。帶 `projectDir`（或 `taskGid` 反查）時，若 `<projectDir>/.pipeline/roles/<role>.md` 存在（舊位置 `.claude/pipeline-roles/` 也讀得到，新位置優先），內容會附加在通用說明後面當作專案專屬補充規則（衝突時以補充規則為準），讓各專案自己的開發步驟、路徑慣例、驗證方式不必改 MCP 程式碼 |
+| `get_role_prompt` | 取得分析師／規格撰寫者／工程師／驗證師／測試工程師其中一個角色的職責說明（`spec-writer` 只有 `sdMode: "self-generated"` 才需要；`tester` 每張票都會經過，是 `verifier` 判 PASS 之後、人類最終確認之前新增的一階）。帶 `projectDir`（或 `taskGid` 反查）時，若 `<projectDir>/.pipeline/roles/<role>.md` 存在（舊位置 `.claude/pipeline-roles/` 也讀得到，新位置優先），內容會附加在通用說明後面當作專案專屬補充規則（衝突時以補充規則為準），讓各專案自己的開發步驟、路徑慣例、驗證方式不必改 MCP 程式碼。專案登記的 test capability 為 `none` 時，`engineer` 說明省略自動化測試詳細規則（由 `projectDir` 反查，查不到或設定不一致則維持完整說明） |
 | `get_project_rules` | 取得專案自己定義的開發規則（`.pipeline/roles/all.md` 共通規則、有哪些角色專屬規則檔、有沒有分析關卡）。**不走票單流程、單純要在某個專案寫程式碼時，開始前先呼叫這個**；走票單流程時 `get_role_prompt` 已自動附上。`projectDir`／`taskGid` 擇一 |
+| `list_rule_history` | 列出專案規則檔（`.pipeline/` 底下）的歷史快照；不帶 `file` 列出有快照的檔案，帶 `file` 列出該檔案的快照（新到舊） |
+| `restore_rule_file` | 把規則檔還原成某個快照；還原前會先把目前內容存成快照，所以還原本身也能反悔 |
 | `resolve_default_project` / `register_default_project` | 查詢/登記「今天的問題單」預設 Asana 專案。帶 `cwd` 時依工作目錄各自登記（往上找最近一層，不借用別的目錄的預設）；不帶 `cwd` 才讀舊的全域單一值 |
 | `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；可只列指派給自己的票（`onlyAssignedToMe` 參數或 `.pipeline/settings.json`）；附上 `awaitingConfirmation`（AI 已 PASS、還卡在使用者自測這關的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過**或使用者主動要求重新確認**的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）、`humanRequestedReanalysis: true`（使用者在網頁上勾了「請 AI 優先處理」，這次批次一定要處理，見 `request_reanalysis`）。**帶 `projectName` 會把這六類整份寫進互動網頁 `PENDING_HUMAN_ACTIONS.html`**（見下方說明） |
 | `get_ticket_snapshot` | 抓票單內容＋留言，寫入追蹤檔案；子任務自動偵測（讀 Asana `parent` 欄位） |

@@ -13,6 +13,7 @@ import { registerTicketLifecycleTools } from "./ticket-lifecycle-tools.js";
 import { registerTicketArtifactTools } from "./ticket-artifact-tools.js";
 import { registerWorktreeTools } from "./worktree-tools.js";
 import { registerGitHookTools } from "./git-hooks-tools.js";
+import { registerRuleHistoryTools } from "./rule-history-tools.js";
 import { installActiveWarnings } from "./active-warnings.js";
 import { startHttpBridge } from "./http-server.js";
 
@@ -46,6 +47,7 @@ registerTicketLifecycleTools(server);
 registerTicketArtifactTools(server);
 registerWorktreeTools(server);
 registerGitHookTools(server);
+registerRuleHistoryTools(server);
 
 async function main() {
   // 跟著這個 MCP 行程一起帶起 PENDING_HUMAN_ACTIONS.html 用的 HTTP bridge（2026-09-17 起，見

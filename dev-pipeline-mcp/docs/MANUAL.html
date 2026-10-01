@@ -353,14 +353,14 @@
       <div class="conn-card">
         <span class="id">專案專屬規則</span>
         <h3>這個專案自己的開發習慣與把關</h3>
-        <p>把「開發前先讀哪些規範檔」寫在專案自己的資料夾（<code class="mono">.pipeline/</code>），AI 切換角色時會自動讀到；另外可以設定「某一類票必須先讀過舊系統檔案才能寫分析」之類的關卡。專案也可以放自己的規格撰寫範本，AI 寫規格時只會拿到專案版，不會再同時看到內建的通用版。也可以設定「只處理指派給我的票」，其他人的票就不會出現在待處理清單裡。<b>沒設定的專案完全不受影響。</b></p>
+        <p>把「開發前先讀哪些規範檔」寫在專案自己的資料夾（<code class="mono">.pipeline/</code>），AI 切換角色時會自動讀到；另外可以設定「某一類票必須先讀過舊系統檔案才能寫分析」之類的關卡。專案也可以放自己的規格撰寫範本，AI 寫規格時只會拿到專案版，不會再同時看到內建的通用版。規則檔被改壞時，系統會保留最近 10 個版本可以還原。也可以設定「只處理指派給我的票」，其他人的票就不會出現在待處理清單裡。<b>沒設定的專案完全不受影響。</b></p>
       </div>
     </div>
   </section>
 
   <section id="tools" class="reveal">
     <h2><span class="num">06</span> 工具總覽</h2>
-    <p class="kicker">總共 55 個工具，分成幾大類。每一類點開來看，裡面有實際的工具名稱（給負責設定的工程師對照用）跟白話說明——大多數情況下你不需要知道這些名字，AI 助理會自己判斷該呼叫哪一個。</p>
+    <p class="kicker">總共 57 個工具，分成幾大類。每一類點開來看，裡面有實際的工具名稱（給負責設定的工程師對照用）跟白話說明——大多數情況下你不需要知道這些名字，AI 助理會自己判斷該呼叫哪一個。</p>
 
     <div class="cat-list">
       <details class="cat" open>
@@ -388,6 +388,7 @@
           <div class="example"><b>可以這樣問：</b>不用特別問，AI 依流程自動切換角色</div>
           <div class="tool-row"><code>get_role_prompt</code><span>取得某個角色該做什麼的完整說明；專案有自己的規則時會一併附上</span></div>
           <div class="tool-row"><code>get_project_rules</code><span>取得這個專案自己定義的開發規則（開發前要先讀哪些規範檔）；不走票單流程、單純寫程式時也能用</span></div>
+          <div class="tool-row"><code>list_rule_history</code> / <code>restore_rule_file</code><span>查看與還原專案規則檔的歷史版本（改壞或誤刪時救回來）</span></div>
           <div class="tool-row"><code>get_ticket_snapshot</code><span>抓票單內容＋留言，子任務會自動偵測父票單</span></div>
           <div class="tool-row"><code>advance_ticket_stage</code><span>推進到下一個階段，記錄 PASS/FAIL 跟原因</span></div>
           <div class="tool-row"><code>write_ticket_artifact</code> / <code>read_ticket_artifact</code><span>讀寫分析/實作/驗證/測試四份追蹤文件</span></div>
@@ -536,6 +537,10 @@
     <div class="faq-item">
       <h3>為什麼待處理清單裡看不到同事的票？</h3>
       <p>這個專案設定了「只處理指派給我的票」，所以別人負責的票完全不會列出，也不會被 AI 動到。想看全部時，可以請 AI 這次不要過濾，或把專案設定裡的開關關掉。注意：過濾期間產生的待人工處理清單網頁，只會有你自己的票。</p>
+    </div>
+    <div class="faq-item">
+      <h3>專案規則檔不小心改壞或刪掉了怎麼辦？</h3>
+      <p>系統每次讀到規則檔且內容有變，就會在專案的 <code class="mono">.pipeline/.history/</code> 存一份，每個檔案保留最近 10 版。請 AI 列出該檔案的歷史版本，再選一版還原即可；還原前會先把目前內容也存起來，所以還原也能反悔。注意：只有被系統讀過的版本才有紀錄，從沒被讀過就改壞的版本救不回來。</p>
     </div>
     <div class="faq-item">
       <h3>AI 寫完的程式碼會自動上傳到公司的版本系統嗎？</h3>
