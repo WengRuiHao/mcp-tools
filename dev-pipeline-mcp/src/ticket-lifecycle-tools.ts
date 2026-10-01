@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { callAsanaTool } from "./mcp-clients.js";
-import { resolveProjectDir, resolveSasdConfig } from "./project-registry.js";
+import { resolveProjectDir } from "./project-registry.js";
 import { readProjectSettings } from "./project-rule-files.js";
 import {
   readStatus,
@@ -23,7 +23,7 @@ import { syncPendingActionsReport, getPipelineAsanaUserGid, getUncommittedChange
 import { textResult } from "./shared.js";
 import { filterAndLimitTickets, localDateString, DUE_ON_DATE_PATTERN } from "./ticket-list-filter.js";
 import { computeNextAction } from "./next-action.js";
-import { statusResponse, verboseParam } from "./stage-response.js";
+import { sasdForStatus, statusResponse, verboseParam } from "./stage-response.js";
 import { createBoardFetcher } from "./board-cache.js";
 
 const fetchBoard = createBoardFetcher({ call: callAsanaTool, now: Date.now });
@@ -251,7 +251,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       const status = await readStatus(taskGid);
       const externalChanges = await detectExternalChanges(taskGid, status);
       const syncFlags = computeSyncFlags(status);
-      const sasd = status.project_gid ? await resolveSasdConfig(status.project_gid) : null;
+      const sasd = await sasdForStatus(status);
       return textResult({
         ...status,
         sync_flags: syncFlags,
