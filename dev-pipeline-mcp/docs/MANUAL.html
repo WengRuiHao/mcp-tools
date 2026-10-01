@@ -320,6 +320,10 @@
     <p class="kicker" style="margin-top:16px">
       要打勾生效，電腦上要有一個「小幫手程式」在背景執行（工程師會事先設定好）；沒開的話網頁上方會出現黃色提醒，內容仍然是最新的，只是按了沒有用。
     </p>
+    <p class="kicker" style="margin-top:12px">
+      <b>一次處理很多項：</b>同一個區塊有 2 項以上時，會多一條「全選＋批次執行」工具列，每一列前面也有選取框。可以批次「標記已處理」、批次「請 AI 優先處理」、批次「確認通過」；
+      <b>打回需要逐項寫原因，不能批次</b>。批次會一項一項依序送出（不同時），執行前會先跳出確認視窗。
+    </p>
   </section>
 
   <section id="setup" class="reveal">
@@ -329,7 +333,7 @@
       <div class="conn-card">
         <span class="id">預設專案</span>
         <h3>今天看哪個 Asana 專案</h3>
-        <p>確認要處理的工作區/專案，記住後同樣的觸發語句不會再問。</p>
+        <p>確認要處理的工作區/專案，<b>依你開啟 AI 的工作資料夾各自記住</b>（不同資料夾可以各有各的預設，沒登記過的資料夾會先問你，不會借用別的專案的預設）。記住後在同一個資料夾下，同樣的觸發語句不會再問。</p>
       </div>
       <div class="conn-card">
         <span class="id">程式碼目錄</span>
@@ -345,6 +349,11 @@
         <span class="id">Git 版控根目錄</span>
         <h3>前後端各自的 repo 在哪</h3>
         <p>執行 git 指令前會核對這個，避免在錯誤的資料夾裡誤判版控狀態。</p>
+      </div>
+      <div class="conn-card">
+        <span class="id">專案專屬規則</span>
+        <h3>這個專案自己的開發習慣與把關</h3>
+        <p>把「開發前先讀哪些規範檔」寫在專案自己的資料夾（<code class="mono">.claude/pipeline-roles/</code>），AI 切換角色時會自動讀到；另外可以設定「某一類票必須先讀過舊系統檔案才能寫分析」之類的關卡。<b>沒設定的專案完全不受影響。</b></p>
       </div>
     </div>
   </section>
@@ -377,7 +386,7 @@
         </summary>
         <div class="cat-body">
           <div class="example"><b>可以這樣問：</b>不用特別問，AI 依流程自動切換角色</div>
-          <div class="tool-row"><code>get_role_prompt</code><span>取得某個角色該做什麼的完整說明</span></div>
+          <div class="tool-row"><code>get_role_prompt</code><span>取得某個角色該做什麼的完整說明；專案有自己的補充規則時會一併附上</span></div>
           <div class="tool-row"><code>get_ticket_snapshot</code><span>抓票單內容＋留言，子任務會自動偵測父票單</span></div>
           <div class="tool-row"><code>advance_ticket_stage</code><span>推進到下一個階段，記錄 PASS/FAIL 跟原因</span></div>
           <div class="tool-row"><code>write_ticket_artifact</code> / <code>read_ticket_artifact</code><span>讀寫分析/實作/驗證/測試四份追蹤文件</span></div>
@@ -408,7 +417,7 @@
         <div class="cat-body">
           <div class="example"><b>可以這樣問：</b>（設定一次即可，通常不用主動問）</div>
           <div class="tool-row"><code>resolve_sasd_config</code> / <code>register_sasd_config</code><span>查詢/登記這個專案的規格模式</span></div>
-          <div class="tool-row"><code>read_project_sd_doc</code> / <code>write_project_sd_doc</code><span>讀寫「AI 自己維護」的規格文件</span></div>
+          <div class="tool-row"><code>read_project_sd_doc</code> / <code>write_project_sd_doc</code><span>讀寫「AI 自己維護」的規格文件；規格是一支功能一份檔案時，會用檔名指定要讀寫哪一份</span></div>
           <div class="tool-row"><code>get_sd_spec_template</code><span>規格撰寫範本，AI 寫規格前會先讀這個</span></div>
         </div>
       </details>
@@ -516,12 +525,20 @@
       <p>記得。所有進度都存在硬碟上的追蹤檔案裡，不是活在聊天記錄裡——接手的 AI 會先看濃縮過的摘要，不夠用才讀完整內容，不用你重講一次來龍去脈。</p>
     </div>
     <div class="faq-item">
+      <h3>追蹤資料夾為什麼是票單標題的名字？</h3>
+      <p>資料夾名稱優先用業務單號，沒有業務單號就用 Asana 票單標題（最多 80 字），方便你在檔案總管一眼認出是哪張票；同一層出現同名資料夾時，會自動在後面補上票單編號避免混在一起。</p>
+    </div>
+    <div class="faq-item">
+      <h3>分析文件寫入被擋下來，說缺少「舊碼參考」，是壞掉了嗎？</h3>
+      <p>不是。這個專案設定了「這類票的分析一定要列出實際讀過的舊系統檔案」，AI 沒列或路徑寫錯就會被擋下，訊息裡會說明缺什麼。這個檢查只確認路徑真的存在，確認不了 AI 有沒有真的讀懂，所以重要的票仍然值得你自己看一下分析內容。</p>
+    </div>
+    <div class="faq-item">
       <h3>AI 寫完的程式碼會自動上傳到公司的版本系統嗎？</h3>
       <p>會不會 commit（存進版本紀錄）由 AI 依情況決定，但<b>一律不會自動 push（推上去給別人看到）</b>——推不推上去、什麼時候推，永遠由你自己決定。</p>
     </div>
   </section>
 
-  <footer>dev-pipeline-mcp 使用手冊 · 最後更新 2026-09-17</footer>
+  <footer>dev-pipeline-mcp 使用手冊 · 最後更新 2026-10-01</footer>
 </div>
 
 <script>

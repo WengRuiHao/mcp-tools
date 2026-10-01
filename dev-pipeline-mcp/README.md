@@ -177,6 +177,8 @@ npm run build
 5. **需要你手動處理的事項**（可互動 ☑️）——來自 `write_ticket_artifact` 寫 02/03/04 時**必填**的 `manualActions` 參數（可以是空陣列，代表明確確認這次沒有）。典型例子是「已產出 SQL，只能由你到 Database 工具手動執行」——這類一次性提醒過去只寫在全文或聊天視窗裡，換個 session、或沒仔細重讀全文就會被漏掉，現在強制工程師/驗證師/測試工程師每次都要明確宣告一次。**勾選框即時呼叫 `resolve_manual_action({ taskGid, filename, action })`，精準移除那一項**，不用整份重新宣告，也不用回頭問 AI。`manualActions` 只能寫技術性描述，寫入前會自動掃描是否夾帶完整 SQL 語句全文或憑證/連線字串，抓到會直接拒絕寫入（見 `detectSensitiveManualActions`）。
 6. **Git 尚未 commit 的變更**（唯讀）——對每個已登記的 git 版控根目錄實際跑一次 `git status --porcelain`，再用每張票 `manualActions` 裡點名「尚未 commit」的檔名去篩選、依票單分組，只列出「git 真的還沒 commit、又有票單認領」的檔案；跟這次 pipeline 無關的其他未 commit 檔案整份省略。還沒呼叫過 `register_git_roots` 的專案，這一項會顯示「還沒登記」。commit 之後這一項會自動消失，沒有對應的按鈕——那本來就是你自己跑 `git commit` 的事。
 
+**批次打勾**（2026-09-30 起）：每個有「可操作列」的區塊，只要有 2 項以上，就會多一條工具列（全選＋批次執行），每列開頭多一個批次選取框。支援三種批次動作：批次標記已處理（`resolve_manual_action`）、批次請 AI 優先處理（`request_reanalysis`）、批次確認通過（`record_confirmation` 的 `confirmed: true`）。**打回（`confirmed: false`）需要逐項填原因，不支援批次。** 同一張票的多個待辦會寫回同一份追蹤檔，所以批次一律**依序**送出、不平行，避免互相覆蓋；執行前會跳確認視窗。
+
 **互動按鈕要先有本機 HTTP bridge 在跑才會生效**（2026-09-17 起預設跟著 stdio 版 MCP 入口 `dist/index.js` 一起自動啟動——任一個 Claude Code session 連上 `dev-pipeline-mcp` 就會自動帶起，預設監聽 `http://127.0.0.1:8097`，可用 `DEV_PIPELINE_MCP_HTTP_PORT`/`DEV_PIPELINE_MCP_HTTP_HOST` 環境變數覆寫；同一台機器上多個 session 各自的行程搶同一個 port 時只有第一個會真的綁定，其餘安靜略過，不影響各自的 MCP 功能）。想繼續用舊版「獨立長駐、完全不開 Claude Code 也能用」的模式，仍然可以在 `dev-pipeline-mcp` 目錄下手動執行 `npm run start:http`（跟 svn-mcp 的 `dist/http-server.js` 同一個模式）。頁面一載入就會偵測 bridge 在不在：連得到，互動元件正常可用；連不到，頁面頂端會出現黃色提示條，所有勾選框/按鈕整批停用（內容仍然是最新的，純唯讀），不會讓你以為勾了卻其實沒生效。bridge 直接重用 stdio 版工具背後同一組函式，跟真正呼叫 `resolve_manual_action`/`record_confirmation`/`record_spec_confirmation`/`request_reanalysis` 走同一條資料路徑、同一套驗證規則（例如還沒跑到 `tested` 階段就想結案一樣會被擋下），不是另外做一套繞過驗證的捷徑。只接受本機呼叫（bind `127.0.0.1`），沒有身分驗證，信任邊界是「只有這台機器上的人碰得到」。
 
 這份檔案不需要任何人記得手動維護——它是 `list_pending_tickets`（以及任何會改動票單狀態的工具）呼叫的**副作用**，不是一個容易被忘記呼叫的額外步驟。檔案本身會被整份覆寫，不要手動編輯 HTML 原始碼。
@@ -241,7 +243,41 @@ npm run build
 <projectDir>/.asana-pipeline/<Asana 專案全名稱>/<票號>/<子票號>/...   （子任務巢狀，層數不限，自動偵測）
 ```
 
+資料夾名稱的命名優先序（2026-09-30 起）：**業務單號 → Asana 票單標題 → taskGid**。沒有業務單號時改用標題（上限 80 字，避免「前端開發與SQ」這類結尾被截掉、同一條鏈的子任務看起來一樣；Windows 不允許的字元會被替換、結尾的 `.`／`_` 會去掉）；同一層已經有別張票用了同名資料夾（Windows 不分大小寫）就補上 `_<taskGid>` 後綴。純數字 gid 資料夾在檔案總管裡完全看不出對應哪張票，所以只當最後的保底。
+
 分享/交接這個工具本身不會夾帶任何客戶票單內容——內容全部留在各專案目錄。第一次建立追蹤目錄時會在該專案 `CLAUDE.md` 附加一段說明（不覆蓋既有內容）。`data/tickets-index.json` 只存 `{ taskGid: 目錄路徑 }` 對照表，不含票單內容。
+
+---
+
+## 專案專屬規則與關卡（2026-10-01 起）
+
+流程本身由這個 MCP 統一定義，各專案不再自己維護一套平行的流程文件。專案獨有的要求，放在**該專案自己的目錄**，由 MCP 在對應時機讀取；**沒有這些檔案的專案行為完全不變**。
+
+### 1. 角色補充規則 `<projectDir>/.claude/pipeline-roles/<role>.md`
+`get_role_prompt({ role, projectDir })` 會把對應檔案附加在通用角色說明後面（標題「這個專案的補充規則」，衝突時以補充規則為準）。`role` 為 `analyst`／`spec-writer`／`engineer`／`verifier`／`tester`。適合放「開發前先讀哪些習慣檔」「SD 範本以專案檔為準」這類指示，不需要改 MCP 程式碼。**派子代理人時，`get_role_prompt` 一定要帶 `projectDir`，並把回傳全文（含補充規則段落）原文貼給子代理人。**
+
+### 2. 分析關卡 `<projectDir>/.claude/pipeline-roles/gates.json`
+寫入 `01-analysis.md` 時（`write_ticket_artifact`，在既有的 `record_sasd_check` 檢查之後）檢查。設定格式：
+
+```json
+{
+  "analysisReferences": [
+    {
+      "ticketNamePattern": "RPT|a_report_",
+      "heading": "舊碼參考",
+      "pathPrefix": "svn/原始碼/KSBS_Report/src/WebRoot/report/",
+      "minPaths": 1,
+      "requireSasd": true
+    }
+  ]
+}
+```
+
+- 只有**票名符合 `ticketNamePattern`（正規表示式）**的票才會被檢查，同專案其他票不受影響。
+- 分析文件必須有一節標題含 `heading` 的段落，段落內要列出至少 `minPaths` 個**實際存在**、位於 `pathPrefix`（相對 `projectDir`）底下的檔案路徑，斜線／反斜線皆可，可附 `:行號`。路徑不存在或寫錯會被擋下並列出哪些路徑無效。
+- `requireSasd: true`：`record_sasd_check` 記錄的必須是「找到規格」（`hasSasd: true`），記錄「找不到」會被擋下。
+- **限制**：只能檢查「有沒有寫出實際存在的檔案」，檢查不出代理人是不是真的讀了、讀得對不對。
+- `gates.json` 不是合法 JSON 時，這個專案的分析文件寫入會被擋下並提示修正，不會靜默略過。
 
 ---
 
