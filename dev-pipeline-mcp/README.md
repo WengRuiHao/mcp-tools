@@ -281,7 +281,11 @@ npm run build
 - **限制**：只能檢查「有沒有寫出實際存在的檔案」，檢查不出代理人是不是真的讀了、讀得對不對。
 - `gates.json` 不是合法 JSON 時，這個專案的分析文件寫入會被擋下並提示修正，不會靜默略過。
 
-### 3. 非 Claude 的 AI 怎麼接入
+### 3. 專案自己的 SD 範本與版更規範（`<projectDir>/.pipeline/templates/`）
+
+專案可以放 `SD_TEMPLATE.md`（新建規格用）和 `SD_VERSIONING_RULES.md`（修改既有規格用）。`get_sd_spec_template`／`get_sd_spec_versioning_rules` 帶 `projectDir`（或 `taskGid`）時，**有專案版就只回傳專案版、完整取代內建通用版**，沒有才回傳內建版；不帶參數行為跟以前一樣。目的是避免專案檔和內建版兩份高度重疊的內容同時進入 AI 的上下文，也不用再靠角色補充規則叫 AI 另外去讀專案檔。
+
+### 4. 非 Claude 的 AI 怎麼接入
 - **關卡與補充規則的套用都在 MCP 裡**，AI 只要連上這個 MCP 並照流程呼叫工具就會生效，繞不過去（關卡）或自動附上（補充規則）。
 - **入口**：MCP 連線時會附上一段 `instructions`（處理票單先呼叫 `get_pipeline_overview`、切角色前先呼叫 `get_role_prompt` 並帶 `projectDir`／`taskGid`）。**是否把它顯示給模型由各家 client 決定，不保證每個工具都會用到**，所以這個 MCP 不能只靠它。
 - **不走票單流程、只是要在專案裡寫程式碼**時，AI 開始前呼叫 `get_project_rules` 就能拿到共通規則；專案不需要為每個 AI 工具各放一份入口檔（`CLAUDE.md`／`AGENTS.md` 等），規則只維護 `.pipeline/` 這一份。

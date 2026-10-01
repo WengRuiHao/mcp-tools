@@ -1,8 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { OVERVIEW_PROMPT, getRolePrompt } from "./prompts.js";
-import { readStatus } from "./pipeline-store.js";
-import { COMMON_RULES_FILE_CANDIDATES, GATES_FILE_CANDIDATES, ROLE_FILE_CANDIDATES, readFirstExisting } from "./project-rule-files.js";
+import { COMMON_RULES_FILE_CANDIDATES, GATES_FILE_CANDIDATES, ROLE_FILE_CANDIDATES, readFirstExisting, resolveProjectDir } from "./project-rule-files.js";
 import { textResult } from "./shared.js";
 
 const ALL_ROLES = ["analyst", "spec-writer", "engineer", "verifier", "tester"] as const;
@@ -11,17 +10,6 @@ async function readRuleFile(projectDir: string, candidates: string[]): Promise<{
   try {
     const found = await readFirstExisting(projectDir, candidates);
     return found && found.content.trim() ? found : null;
-  } catch {
-    return null;
-  }
-}
-
-/** projectDir given explicitly wins; otherwise fall back to the one recorded on the ticket so a client that forgets projectDir still gets the project's rules. */
-async function resolveProjectDir(projectDir?: string | null, taskGid?: string | null): Promise<string | null> {
-  if (projectDir) return projectDir;
-  if (!taskGid) return null;
-  try {
-    return (await readStatus(taskGid)).project_dir ?? null;
   } catch {
     return null;
   }

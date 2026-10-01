@@ -1,5 +1,6 @@
 import path from "node:path";
 import { readFile } from "node:fs/promises";
+import { readStatus } from "./pipeline-store.js";
 
 /**
  * Project-owned rule files live in a tool-neutral directory so any AI client (not just Claude Code) can be pointed at them.
@@ -26,4 +27,19 @@ export async function readFirstExisting(projectDir: string, relPaths: string[]):
     }
   }
   return null;
+}
+
+/** Project-owned SD writing rules; when present they replace the built-in generic templates so the AI only ever reads one version. */
+export const SD_TEMPLATE_CANDIDATES: string[] = [".pipeline/templates/SD_TEMPLATE.md"];
+export const SD_VERSIONING_CANDIDATES: string[] = [".pipeline/templates/SD_VERSIONING_RULES.md"];
+
+/** projectDir given explicitly wins; otherwise fall back to the one recorded on the ticket so a client that forgets projectDir still gets the project's rules. */
+export async function resolveProjectDir(projectDir?: string | null, taskGid?: string | null): Promise<string | null> {
+  if (projectDir) return projectDir;
+  if (!taskGid) return null;
+  try {
+    return (await readStatus(taskGid)).project_dir ?? null;
+  } catch {
+    return null;
+  }
 }

@@ -209,7 +209,7 @@ ${PROMPT_DEFENSE_BASELINE}
 
 可以做的事：
 - 呼叫 \`read_project_sd_doc({ projectGid, projectDir })\` 讀取目前這個專案已維護的 SD 內容（第一次可能是空字串）。
-- **動筆之前，一定要先呼叫其中一個工具取得寫作規則**：\`read_project_sd_doc\` 讀回來是空字串（第一次建立）→ 呼叫 \`get_sd_spec_template\`；已經有既有內容（這次是修改/擴充）→ 呼叫 \`get_sd_spec_versioning_rules\`。照裡面的骨架/版更規則產生內容，不要自己隨意排版或跳過版號/修訂說明的規則。
+- **動筆之前，一定要先呼叫其中一個工具取得寫作規則**：\`read_project_sd_doc\` 讀回來是空字串（第一次建立）→ 呼叫 \`get_sd_spec_template({ projectDir })\`；已經有既有內容（這次是修改/擴充）→ 呼叫 \`get_sd_spec_versioning_rules({ projectDir })\`（專案有自己的版本時會回傳專案版，只拿到一份）。照裡面的骨架/版更規則產生內容，不要自己隨意排版或跳過版號/修訂說明的規則。
 - **\`specOrder: "spec_first"\`**：把分析師的分析結果（問題根因、修改方向）轉寫成規格語言——具體的欄位定義、API 輸入輸出、判斷邏輯、資料表結構異動等，讓工程師照著這份文件就能動手實作，不需要自己再回頭猜測設計意圖。
 - **\`specOrder: "code_first"\`**：把工程師實際改動的檔案內容轉寫成規格語言——具體的欄位定義、API 輸入輸出、判斷邏輯、資料表結構異動等，如實對應程式碼目前的行為。**如果核對過程中發現工程師的實作跟分析師原本的分析方向對不上（例如分析師以為要改 A，工程師實際上做了 B），停下來問使用者該以哪個為準，不要自己選一個當作定案**——規格撰寫者沒有 \`write_ticket_artifact\` 的呼叫權限，沒辦法自己把這個落差同步回 \`01-analysis.md\`/\`02-implementation.md\`，只能把疑問攤開來問清楚。
 - 完成後呼叫 \`write_project_sd_doc({ projectGid, projectDir, content: <完整更新後的 SD 內容>, fileName?: <sdOutputPath 登記的是目錄時必帶，檔名依專案補充規則> })\`（\`read_project_sd_doc\` 同理）——這會真的寫進 \`sdOutputPath\` 指定的本機檔案。**如果回傳 \`externally_modified: true\`（這份文件被外部改過），比對 \`currentContent\` 決定怎麼處理，不確定就停下來問使用者，不要直接帶 \`acknowledgeExternalChange: true\` 蓋過去。**
