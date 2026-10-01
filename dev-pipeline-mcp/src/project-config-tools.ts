@@ -16,16 +16,17 @@ import {
   registerTestCapability,
 } from "./project-registry.js";
 import { textResult } from "./shared.js";
+import { SETUP_DEFAULT_PROJECT, SETUP_GIT_ROOTS, SETUP_PROJECT_DIR, SETUP_SASD_CONFIG } from "./overview-prompts.js";
 
 export function registerProjectConfigTools(server: McpServer): void {
   server.tool(
     "resolve_project_dir",
-    "查詢這個 Asana 專案是否已經登記過對應的本機/伺服器程式碼目錄。找到就直接回傳 projectDir，不用再問使用者；找不到則回傳 needsInput，呼叫端要自己想辦法取得目錄後呼叫 register_project_dir。",
+    "查詢這個 Asana 專案是否已經登記過對應的本機/伺服器程式碼目錄。找到就直接回傳 projectDir，不用再問使用者；找不到則回傳 needsInput 與 instructions（要問使用者什麼、問完怎麼登記），照做後呼叫 register_project_dir。",
     { projectGid: z.string().describe("Asana 專案 gid") },
     async ({ projectGid }) => {
       const projectDir = await resolveProjectDir(projectGid);
       if (projectDir) return textResult({ found: true, projectDir });
-      return textResult({ found: false, needsInput: true });
+      return textResult({ found: false, needsInput: true, instructions: SETUP_PROJECT_DIR });
     }
   );
 
@@ -45,12 +46,12 @@ export function registerProjectConfigTools(server: McpServer): void {
 
   server.tool(
     "resolve_sasd_config",
-    "查詢這個 Asana 專案的 SA/SD 規格設定（SA 存放位置、SD 的模式與位置，sdMode 是 \"self-generated\" 時還會附上 specOrder：\"spec_first\" 或 \"code_first\"）。找到就直接用，不用再問使用者；找不到則回傳 needsInput，呼叫端要照 get_pipeline_overview 的說明問完整套問題後呼叫 register_sasd_config。這是每個 Asana 專案只需要設定一次的東西，不是每張票都要問——除非 sdMode 是 \"unregistered\"，那種情況才需要逐票詢問。",
+    "查詢這個 Asana 專案的 SA/SD 規格設定（SA 存放位置、SD 的模式與位置，sdMode 是 \"self-generated\" 時還會附上 specOrder：\"spec_first\" 或 \"code_first\"）。找到就直接用，不用再問使用者；找不到則回傳 needsInput 與 instructions（完整的問答流程與參數決策），照做後呼叫 register_sasd_config。這是每個 Asana 專案只需要設定一次的東西，不是每張票都要問——除非 sdMode 是 \"unregistered\"，那種情況才需要逐票詢問。",
     { projectGid: z.string().describe("Asana 專案 gid") },
     async ({ projectGid }) => {
       const config = await resolveSasdConfig(projectGid);
       if (config) return textResult({ found: true, ...config });
-      return textResult({ found: false, needsInput: true });
+      return textResult({ found: false, needsInput: true, instructions: SETUP_SASD_CONFIG });
     }
   );
 
@@ -149,12 +150,12 @@ export function registerProjectConfigTools(server: McpServer): void {
 
   server.tool(
     "resolve_default_project",
-    "查詢是否已經設定過「今天的問題單」預設要看哪個 Asana workspace/專案。**一律帶 cwd（目前工作目錄的絕對路徑）**，每個工作目錄各自記自己的預設專案（往上找最近一層登記過的目錄），沒登記過的目錄不會借用別的專案的預設。找到就直接用，不用再問；找不到則回傳 needsInput，呼叫端要問使用者一次後呼叫 register_default_project（同樣帶 cwd）。不帶 cwd 只會讀舊的全域單一預設值（向下相容用）。",
+    "查詢是否已經設定過「今天的問題單」預設要看哪個 Asana workspace/專案。**一律帶 cwd（目前工作目錄的絕對路徑）**，每個工作目錄各自記自己的預設專案（往上找最近一層登記過的目錄），沒登記過的目錄不會借用別的專案的預設。找到就直接用，不用再問；找不到則回傳 needsInput 與 instructions，照做問使用者一次後呼叫 register_default_project（同樣帶 cwd）。不帶 cwd 只會讀舊的全域單一預設值（向下相容用）。",
     { cwd: z.string().nullable().optional().describe("目前工作目錄的絕對路徑，用來決定要讀哪個專案目錄登記的預設 Asana 專案") },
     async ({ cwd }) => {
       const project = await resolveDefaultProject(cwd);
       if (project) return textResult({ found: true, ...project });
-      return textResult({ found: false, needsInput: true });
+      return textResult({ found: false, needsInput: true, instructions: SETUP_DEFAULT_PROJECT });
     }
   );
 
@@ -230,11 +231,11 @@ export function registerProjectConfigTools(server: McpServer): void {
 
   server.tool(
     "resolve_git_roots",
-    "查詢這個專案目錄底下有沒有登記過 git 版控根目錄。找到就直接用，不用再問使用者；找不到的話，執行 git 相關指令（run_project_shell 裡的 git 指令）前必須先問使用者「前後端原始碼各自的 git 版控根目錄在哪裡」（分開的 repo 分別提供，共用同一個就提供一個），再呼叫 register_git_roots 登記。",
+    "查詢這個專案目錄底下有沒有登記過 git 版控根目錄。找到就直接用，不用再問使用者；找不到則回傳 needsInput 與 instructions，執行 git 相關指令（run_project_shell 裡的 git 指令）前必須先照做問使用者，再呼叫 register_git_roots 登記。",
     { projectDir: z.string().describe("專案目錄絕對路徑") },
     async ({ projectDir }) => {
       const gitRoots = await resolveGitRoots(projectDir);
-      return textResult(gitRoots ? { found: true, gitRoots } : { found: false, needsInput: true });
+      return textResult(gitRoots ? { found: true, gitRoots } : { found: false, needsInput: true, instructions: SETUP_GIT_ROOTS });
     }
   );
 

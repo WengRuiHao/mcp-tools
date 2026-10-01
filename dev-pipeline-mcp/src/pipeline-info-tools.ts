@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { OVERVIEW_PROMPT, getRolePrompt } from "./prompts.js";
+import { getRolePrompt } from "./prompts.js";
+import { OVERVIEW_SECTIONS, getOverview } from "./overview-prompts.js";
 import { COMMON_RULES_FILE_CANDIDATES, GATES_FILE_CANDIDATES, ROLE_FILE_CANDIDATES, readFirstExisting, resolveProjectDir } from "./project-rule-files.js";
 import { textResult } from "./shared.js";
 import { resolveUniformTestCapabilityMode } from "./project-registry.js";
@@ -19,9 +20,15 @@ async function readRuleFile(projectDir: string, candidates: string[]): Promise<{
 export function registerPipelineInfoTools(server: McpServer): void {
   server.tool(
     "get_pipeline_overview",
-    "取得整條 Asana 票單自動處理 pipeline 的流程說明（步驟、要呼叫哪些工具、安全限制）。任何要驅動這條 pipeline 的 AI，第一步都應該先呼叫這個工具讀懂整體流程。",
-    {},
-    async () => textResult(OVERVIEW_PROMPT)
+    "取得整條 Asana 票單自動處理 pipeline 的流程說明（硬性規則、步驟、要呼叫哪些工具、安全限制）。任何要驅動這條 pipeline 的 AI，第一步都應該先呼叫這個工具（不帶參數即回傳核心流程）讀懂整體流程；" +
+      "其餘情境式章節用 section 另外取：setup（第一次設定的問答流程）、appendix-a（子任務派工）、appendix-b（換 session 接手）、appendix-c（查看測試員回報）、all（全部）。",
+    {
+      section: z
+        .enum(OVERVIEW_SECTIONS)
+        .optional()
+        .describe("要取得的章節，預設 core（硬性規則＋主流程＋安全限制）；all 回傳全部章節。"),
+    },
+    async ({ section }) => textResult(getOverview(section ?? "core"))
   );
 
   server.tool(
