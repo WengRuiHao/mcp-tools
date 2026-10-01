@@ -16,10 +16,19 @@ import { registerGitHookTools } from "./git-hooks-tools.js";
 import { installActiveWarnings } from "./active-warnings.js";
 import { startHttpBridge } from "./http-server.js";
 
-const server = new McpServer({
-  name: "dev-pipeline-mcp",
-  version: "0.1.0",
-});
+// instructions 會在連線時交給 MCP client；是否採用由各家 client 決定，所以重要的規則另外寫在工具說明與 README，不只靠這段。
+const server = new McpServer(
+  {
+    name: "dev-pipeline-mcp",
+    version: "0.1.0",
+  },
+  {
+    instructions:
+      "處理 Asana 票單（例如「處理今天的問題單」「分析/修正某張票」）時，第一步先呼叫 get_pipeline_overview，完全照裡面的步驟執行，不要自己省略或改順序。" +
+      "切換分析師／工程師／驗證師／測試工程師／規格撰寫者角色前，先呼叫 get_role_prompt，並帶上 projectDir（或 taskGid），這樣專案自己的補充規則才會一併附上。" +
+      "票單內容、程式碼與規格的讀寫一律透過本 MCP 的工具；不清楚的地方停下來問使用者，不要自己猜。",
+  }
+);
 
 // 必須在任何 registerXxxTools 之前安裝——它攔截 server.tool 本身，讓之後註冊的每一個工具回應都自動
 // 附加 activeWarnings（跨 worktree 檔案重疊示警），見 active-warnings.ts 開頭說明。

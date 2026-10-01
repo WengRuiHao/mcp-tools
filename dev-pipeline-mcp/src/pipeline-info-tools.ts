@@ -1,15 +1,25 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { OVERVIEW_PROMPT, getRolePrompt } from "./prompts.js";
-import { fsReadFile } from "./fs-tools.js";
+import { readStatus } from "./pipeline-store.js";
+import { ROLE_FILE_CANDIDATES, readFirstExisting } from "./project-rule-files.js";
 import { textResult } from "./shared.js";
 
-const PROJECT_ROLE_ADDENDUM_DIR = ".claude/pipeline-roles";
-
-async function readProjectRoleAddendum(projectDir: string, role: string): Promise<string | null> {
+async function readProjectRoleAddendum(projectDir: string, role: string): Promise<{ relPath: string; content: string } | null> {
   try {
-    const { content } = await fsReadFile(projectDir, `${PROJECT_ROLE_ADDENDUM_DIR}/${role}.md`);
-    return content.trim() ? content : null;
+    const found = await readFirstExisting(projectDir, ROLE_FILE_CANDIDATES(role));
+    return found && found.content.trim() ? found : null;
+  } catch {
+    return null;
+  }
+}
+
+/** projectDir given explicitly wins; otherwise fall back to the one recorded on the ticket so a client that forgets projectDir still gets the project's rules. */
+async function resolveProjectDir(projectDir?: string | null, taskGid?: string | null): Promise<string | null> {
+  if (projectDir) return projectDir;
+  if (!taskGid) return null;
+  try {
+    return (await readStatus(taskGid)).project_dir ?? null;
   } catch {
     return null;
   }
@@ -35,16 +45,22 @@ export function registerPipelineInfoTools(server: McpServer): void {
         .nullable()
         .optional()
         .describe(
-          `**一律帶上這個 Asana 專案的 projectDir**：如果 <projectDir>/${PROJECT_ROLE_ADDENDUM_DIR}/<role>.md 存在，內容會附加在通用角色說明後面，` +
-            "是這個專案自己的補充規則（專案專屬的開發步驟、路徑慣例、驗證方式），衝突時以補充規則為準。沒有這個檔案就只回傳通用說明。"
+          "**一律帶上這個 Asana 專案的 projectDir**（或改帶 taskGid 讓工具自己反查）：如果 <projectDir>/.pipeline/roles/<role>.md 存在（舊位置 .claude/pipeline-roles/<role>.md 也讀得到），" +
+            "內容會附加在通用角色說明後面，是這個專案自己的補充規則（專案專屬的開發步驟、路徑慣例、驗證方式），衝突時以補充規則為準。沒有這個檔案就只回傳通用說明。"
         ),
+      taskGid: z
+        .string()
+        .nullable()
+        .optional()
+        .describe("正在處理的票單 gid。沒帶 projectDir 時用這張票記錄的 project_dir 反查，避免漏帶 projectDir 導致專案補充規則被靜默略過。"),
     },
-    async ({ role, projectDir }) => {
+    async ({ role, projectDir, taskGid }) => {
       const base = getRolePrompt(role);
-      const addendum = projectDir ? await readProjectRoleAddendum(projectDir, role) : null;
+      const dir = await resolveProjectDir(projectDir, taskGid);
+      const addendum = dir ? await readProjectRoleAddendum(dir, role) : null;
       if (!addendum) return textResult(base);
       return textResult(
-        `${base}\n\n---\n\n# 這個專案的補充規則（${PROJECT_ROLE_ADDENDUM_DIR}/${role}.md，與上面通用說明衝突時以這裡為準）\n\n${addendum}`
+        `${base}\n\n---\n\n# 這個專案的補充規則（${addendum.relPath}，與上面通用說明衝突時以這裡為準）\n\n${addendum.content}`
       );
     }
   );

@@ -1,7 +1,7 @@
 import path from "node:path";
-import { readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
+import { GATES_FILE_CANDIDATES, readFirstExisting, type FoundRuleFile } from "./project-rule-files.js";
 
-const GATES_FILE = ".claude/pipeline-roles/gates.json";
 const MAX_REPORTED_PATHS = 5;
 
 /** A project opts in by shipping this config in its own repo; a project without it is never gated. */
@@ -24,17 +24,17 @@ interface GatesConfig {
 export type GateResult = { ok: true } | { ok: false; message: string };
 
 async function loadGates(projectDir: string): Promise<GatesConfig | { error: string } | null> {
-  let raw: string;
+  let found: FoundRuleFile | null;
   try {
-    raw = await readFile(path.join(projectDir, GATES_FILE), "utf-8");
+    found = await readFirstExisting(projectDir, GATES_FILE_CANDIDATES);
   } catch (err: any) {
-    if (err?.code === "ENOENT") return null;
-    return { error: `讀取 ${GATES_FILE} 失敗（${err?.code ?? err?.message}）` };
+    return { error: `讀取 gates.json 失敗（${err?.code ?? err?.message}）` };
   }
+  if (!found) return null;
   try {
-    return JSON.parse(raw) as GatesConfig;
+    return JSON.parse(found.content) as GatesConfig;
   } catch {
-    return { error: `${GATES_FILE} 不是合法的 JSON，請修正後再寫入分析文件` };
+    return { error: `${found.relPath} 不是合法的 JSON，請修正後再寫入分析文件` };
   }
 }
 

@@ -21,7 +21,7 @@ export function registerTicketArtifactTools(server: McpServer): void {
     "把內容寫入某張票單的追蹤目錄底下的一個檔案（例如 01-analysis.md / 02-implementation.md / 03-verification.md / 04-test.md）。" +
       "**content 是整份檔案內容覆寫，不是附加**：如果這份檔案已經有既有內容，寫入前一定要先呼叫 read_ticket_artifact 讀出目前全文，把舊內容＋這一輪新內容組合成完整全文再一次送進來，絕不能只把「這一輪新增的段落」當 content 傳入，否則會把之前所有輪次的內容永久覆蓋掉且無法復原。只有確定這份檔案第一次被寫入（目前必為空）時才可以直接傳新內容。" +
       "寫入 01-analysis.md 之前，這張票必須已經呼叫過 record_sasd_check，否則會被拒絕。" +
-      "如果這個專案的 <projectDir>/.claude/pipeline-roles/gates.json 對這張票有分析關卡（例如報表票必須有一節列出實際讀過的舊碼檔案路徑），內容不符也會被拒絕，訊息會說明缺什麼。" +
+      "如果這個專案的 <projectDir>/.pipeline/gates.json（舊位置 .claude/pipeline-roles/gates.json 也讀得到）對這張票有分析關卡（例如報表票必須有一節列出實際讀過的舊碼檔案路徑），內容不符也會被拒絕，訊息會說明缺什麼。" +
       "**filename 是 01-analysis.md / 02-implementation.md / 03-verification.md / 04-test.md 之一時，一定要附上 summary**（2-4 條重點，控制在幾百字內，不是全文）——這段摘要會存進這張票的追蹤狀態，之後不管是同一個 session 還是換一個 session/AI 接手下一階段，都可以先用 get_ticket_status 用低成本讀到摘要，決定要不要再花額外的 tool call 讀 read_ticket_artifact 的全文。寫入 01-analysis.md 時，也會自動清掉這張票的 needs_reanalysis 標記（代表已經針對最新票單內容重新分析過）。" +
       `**filename 是 02-implementation.md／03-verification.md／04-test.md 時，syncNote 是必填、不能省略**：這次修改/驗證/測試有沒有推翻或補充了上一階段（02 對應 01，03 對應 02，04 對應 03）的結論？有的話把內容寫進 syncNote，會自動附加到上一階段文件尾端；真的沒有，也要明確帶入字串 "${NO_SYNC_NEEDED}"，不能什麼都不填直接跳過——這一步是強制的，逼你對「要不要同步」做一次明確判斷，不能船過水無痕，只是答案可以是「不需要」。沒帶這個參數會直接被拒絕寫入。` +
       "**filename 是 02-implementation.md／03-verification.md／04-test.md 時，manualActions 也是必填**（陣列，可以是空陣列）：這次有沒有任何事項是使用者必須自己手動處理的（例如產出的 SQL 只能交由使用者到 Database 工具執行、後台程式代號/選單/I18N 需自行設定；04-test.md 的話，還包含這次測試裡 AI 沒有精確依據判定、只能列出來提醒使用者親自確認的項目——needs_manual_check 分類的測試項目）？有就列成一條條簡短字串；真的沒有就帶空陣列 []，不能省略——這些項目會被整理進持久化的 PENDING_HUMAN_ACTIONS.html，不能只寫在全文內容裡指望使用者自己重讀全文才發現。" +

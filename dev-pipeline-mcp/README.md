@@ -253,10 +253,12 @@ npm run build
 
 流程本身由這個 MCP 統一定義，各專案不再自己維護一套平行的流程文件。專案獨有的要求，放在**該專案自己的目錄**，由 MCP 在對應時機讀取；**沒有這些檔案的專案行為完全不變**。
 
-### 1. 角色補充規則 `<projectDir>/.claude/pipeline-roles/<role>.md`
-`get_role_prompt({ role, projectDir })` 會把對應檔案附加在通用角色說明後面（標題「這個專案的補充規則」，衝突時以補充規則為準）。`role` 為 `analyst`／`spec-writer`／`engineer`／`verifier`／`tester`。適合放「開發前先讀哪些習慣檔」「SD 範本以專案檔為準」這類指示，不需要改 MCP 程式碼。**派子代理人時，`get_role_prompt` 一定要帶 `projectDir`，並把回傳全文（含補充規則段落）原文貼給子代理人。**
+**檔案放在不分 AI 工具的中性目錄 `<projectDir>/.pipeline/`**，不綁 `.claude/`。舊位置 `<projectDir>/.claude/pipeline-roles/`（`<role>.md`、`gates.json`）仍然讀得到，兩邊都有時**新位置優先**。這些規則都是 MCP 在伺服器端讀取並套用，所以 Claude Code、Codex 或任何能連 MCP 的 AI 都適用，不需要各家工具自己的規則檔（`CLAUDE.md`／`AGENTS.md`）。
 
-### 2. 分析關卡 `<projectDir>/.claude/pipeline-roles/gates.json`
+### 1. 角色補充規則 `<projectDir>/.pipeline/roles/<role>.md`
+`get_role_prompt({ role, projectDir })` 會把對應檔案附加在通用角色說明後面（標題「這個專案的補充規則」，衝突時以補充規則為準）。`role` 為 `analyst`／`spec-writer`／`engineer`／`verifier`／`tester`。適合放「開發前先讀哪些習慣檔」「SD 範本以專案檔為準」這類指示，不需要改 MCP 程式碼。**`projectDir` 沒帶時，可以改帶 `taskGid`，工具會用這張票記錄的 `project_dir` 反查**，避免漏帶導致補充規則被靜默略過；兩個都沒帶才只回傳通用說明。**派子代理人時，`get_role_prompt` 一定要帶 `projectDir`（或 `taskGid`），並把回傳全文（含補充規則段落）原文貼給子代理人。**
+
+### 2. 分析關卡 `<projectDir>/.pipeline/gates.json`
 寫入 `01-analysis.md` 時（`write_ticket_artifact`，在既有的 `record_sasd_check` 檢查之後）檢查。設定格式：
 
 ```json
@@ -279,6 +281,11 @@ npm run build
 - **限制**：只能檢查「有沒有寫出實際存在的檔案」，檢查不出代理人是不是真的讀了、讀得對不對。
 - `gates.json` 不是合法 JSON 時，這個專案的分析文件寫入會被擋下並提示修正，不會靜默略過。
 
+### 3. 非 Claude 的 AI 怎麼接入
+- **關卡與補充規則的套用都在 MCP 裡**，AI 只要連上這個 MCP 並照流程呼叫工具就會生效，繞不過去（關卡）或自動附上（補充規則）。
+- **入口**：MCP 連線時會附上一段 `instructions`（處理票單先呼叫 `get_pipeline_overview`、切角色前先呼叫 `get_role_prompt` 並帶 `projectDir`／`taskGid`）。**是否把它顯示給模型由各家 client 決定，不保證每個工具都會用到**，所以這個 MCP 不能只靠它。
+- 實務上，非 Claude 的 AI 要進入流程，最穩的做法是在該工具自己的專案規則檔（例如 Codex 的 `AGENTS.md`）加一句：「處理 Asana 票單前，先呼叫 dev-pipeline-mcp 的 `get_pipeline_overview` 並照著做」。Claude Code 的「處理今天的問題單」關鍵字觸發，是 `~/.claude/skills/` 底下的 skill，屬於 Claude 專用，其他工具不會有。
+
 ---
 
 ## 提供的工具
@@ -289,7 +296,7 @@ npm run build
 | 工具 | 用途 |
 |---|---|
 | `get_pipeline_overview` | 取得整條流程說明（第一步一定先呼叫） |
-| `get_role_prompt` | 取得分析師／規格撰寫者／工程師／驗證師／測試工程師其中一個角色的職責說明（`spec-writer` 只有 `sdMode: "self-generated"` 才需要；`tester` 每張票都會經過，是 `verifier` 判 PASS 之後、人類最終確認之前新增的一階）。帶 `projectDir` 時，若 `<projectDir>/.claude/pipeline-roles/<role>.md` 存在，內容會附加在通用說明後面當作專案專屬補充規則（衝突時以補充規則為準），讓各專案自己的開發步驟、路徑慣例、驗證方式不必改 MCP 程式碼 |
+| `get_role_prompt` | 取得分析師／規格撰寫者／工程師／驗證師／測試工程師其中一個角色的職責說明（`spec-writer` 只有 `sdMode: "self-generated"` 才需要；`tester` 每張票都會經過，是 `verifier` 判 PASS 之後、人類最終確認之前新增的一階）。帶 `projectDir`（或 `taskGid` 反查）時，若 `<projectDir>/.pipeline/roles/<role>.md` 存在（舊位置 `.claude/pipeline-roles/` 也讀得到，新位置優先），內容會附加在通用說明後面當作專案專屬補充規則（衝突時以補充規則為準），讓各專案自己的開發步驟、路徑慣例、驗證方式不必改 MCP 程式碼 |
 | `resolve_default_project` / `register_default_project` | 查詢/登記「今天的問題單」預設 Asana 專案。帶 `cwd` 時依工作目錄各自登記（往上找最近一層，不借用別的目錄的預設）；不帶 `cwd` 才讀舊的全域單一值 |
 | `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；附上 `awaitingConfirmation`（AI 已 PASS、還卡在使用者自測這關的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過**或使用者主動要求重新確認**的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）、`humanRequestedReanalysis: true`（使用者在網頁上勾了「請 AI 優先處理」，這次批次一定要處理，見 `request_reanalysis`）。**帶 `projectName` 會把這六類整份寫進互動網頁 `PENDING_HUMAN_ACTIONS.html`**（見下方說明） |
 | `get_ticket_snapshot` | 抓票單內容＋留言，寫入追蹤檔案；子任務自動偵測（讀 Asana `parent` 欄位） |
