@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getRolePrompt } from "./prompts.js";
 import { OVERVIEW_SECTIONS, getOverview } from "./overview-prompts.js";
 import { COMMON_RULES_FILE_CANDIDATES, GATES_FILE_CANDIDATES, ROLE_FILE_CANDIDATES, readFirstExisting, resolveProjectDir } from "./project-rule-files.js";
+import { bridgeDisabledNote } from "./toolset-config.js";
 import { textResult } from "./shared.js";
 import { resolveUniformTestCapabilityMode } from "./project-registry.js";
 
@@ -28,7 +29,11 @@ export function registerPipelineInfoTools(server: McpServer): void {
         .optional()
         .describe("要取得的章節，預設 core（硬性規則＋主流程＋安全限制）；all 回傳全部章節。"),
     },
-    async ({ section }) => textResult(getOverview(section ?? "core"))
+    async ({ section }) => {
+      const note = bridgeDisabledNote();
+      const overview = getOverview(section ?? "core");
+      return textResult(note ? `${overview}\n\n${note}` : overview);
+    }
   );
 
   server.tool(
@@ -57,12 +62,15 @@ export function registerPipelineInfoTools(server: McpServer): void {
       // 專案登記為不寫自動化測試時，工程師說明省略整段測試規則；查不到或不一致就維持完整說明。
       const testCapabilityMode = role === "engineer" && dir ? await resolveUniformTestCapabilityMode(dir) : null;
       const base = getRolePrompt(role, { testCapabilityMode });
-      if (!dir) return textResult(base);
-      const common = await readRuleFile(dir, COMMON_RULES_FILE_CANDIDATES);
-      const addendum = await readRuleFile(dir, ROLE_FILE_CANDIDATES(role));
+      const note = bridgeDisabledNote();
       const sections = [base];
-      if (common) sections.push(`# 這個專案的所有角色共通規則（${common.relPath}，與上面通用說明衝突時以這裡為準）\n\n${common.content}`);
-      if (addendum) sections.push(`# 這個專案對「${role}」的補充規則（${addendum.relPath}，與上面通用說明衝突時以這裡為準）\n\n${addendum.content}`);
+      if (dir) {
+        const common = await readRuleFile(dir, COMMON_RULES_FILE_CANDIDATES);
+        const addendum = await readRuleFile(dir, ROLE_FILE_CANDIDATES(role));
+        if (common) sections.push(`# 這個專案的所有角色共通規則（${common.relPath}，與上面通用說明衝突時以這裡為準）\n\n${common.content}`);
+        if (addendum) sections.push(`# 這個專案對「${role}」的補充規則（${addendum.relPath}，與上面通用說明衝突時以這裡為準）\n\n${addendum.content}`);
+      }
+      if (note) sections.push(note);
       return textResult(sections.join("\n\n---\n\n"));
     }
   );

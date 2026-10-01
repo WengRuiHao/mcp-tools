@@ -12,30 +12,10 @@ import { registerWorktreeTools } from "./worktree-tools.js";
 import { registerGitHookTools } from "./git-hooks-tools.js";
 import { registerRuleHistoryTools } from "./rule-history-tools.js";
 import { installActiveWarnings } from "./active-warnings.js";
+import type { ToolsetName } from "./toolset-config.js";
 
-/**
- * 可關閉的工具群組：用環境變數 DEV_PIPELINE_DISABLE_TOOLSETS（逗號分隔）列出不要註冊的群組，
- * 目的是縮小 tools/list 送進 AI 上下文的量。預設全部註冊。
- */
-export const TOOLSET_NAMES = ["worktree", "bridge"] as const;
-export type ToolsetName = (typeof TOOLSET_NAMES)[number];
-
-export interface DisabledToolsets {
-  disabled: Set<ToolsetName>;
-  unknown: string[];
-}
-
-export function parseDisabledToolsets(envValue: string | undefined): DisabledToolsets {
-  const disabled = new Set<ToolsetName>();
-  const unknown: string[] = [];
-  for (const raw of (envValue ?? "").split(",")) {
-    const name = raw.trim().toLowerCase();
-    if (!name) continue;
-    if ((TOOLSET_NAMES as readonly string[]).includes(name)) disabled.add(name as ToolsetName);
-    else if (!unknown.includes(name)) unknown.push(name);
-  }
-  return { disabled, unknown };
-}
+export { TOOLSET_NAMES, parseDisabledToolsets, bridgeDisabledNote } from "./toolset-config.js";
+export type { ToolsetName, DisabledToolsets } from "./toolset-config.js";
 
 /**
  * 註冊所有工具；disabledToolsets 內的群組整組不註冊。
