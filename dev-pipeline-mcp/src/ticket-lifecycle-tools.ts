@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { callAsanaTool } from "./mcp-clients.js";
-import { resolveProjectDir } from "./project-registry.js";
+import { resolveProjectDir, resolveSasdConfig } from "./project-registry.js";
 import { readProjectSettings } from "./project-rule-files.js";
 import {
   readStatus,
@@ -244,12 +244,13 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       const status = await readStatus(taskGid);
       const externalChanges = await detectExternalChanges(taskGid, status);
       const syncFlags = computeSyncFlags(status);
+      const sasd = status.project_gid ? await resolveSasdConfig(status.project_gid) : null;
       return textResult({
         ...status,
         sync_flags: syncFlags,
         needs_human_review: needsHumanReview(status),
         external_changes: externalChanges,
-        nextAction: computeNextAction(status, { syncFlags, externalChanges }),
+        nextAction: computeNextAction(status, { syncFlags, externalChanges, sasd }),
       });
     }
   );

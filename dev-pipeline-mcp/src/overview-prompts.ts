@@ -86,7 +86,7 @@ const OVERVIEW_CORE = `# Asana 票單自動處理 Pipeline — 整體流程說�
 ## 步驟 2：對每一張票單 T 執行
 換 session/換 AI 接手、或不確定是不是從頭跟到尾的同一個 session 時，先用 \`get_ticket_status({ taskGid: T })\` 的摘要低成本接上進度；\`sync_flags\` 有 stale、\`external_changes\` 有 \`_externally_modified\` 時的處理見 \`get_pipeline_overview({ section: "appendix-b" })\`。
 
-1. \`get_ticket_snapshot({ taskGid: T, projectDir, projectName: <Asana 專案全名稱>, ticketNumber?: <業務單號，不知道可省略讓工具自動偵測> })\` 取得票單描述＋留言串並存進追蹤檔案：\`<projectDir>/.asana-pipeline/<Asana 專案全名稱>/<票號；偵測不到用 Asana 標題，同層重名補 taskGid 後綴>/\`（在目標專案目錄，不是 MCP 安裝目錄；首次建立會在專案 \`CLAUDE.md\` 加用途說明）。之後都用 \`taskGid\` 指定。
+1. \`get_ticket_snapshot({ taskGid: T, projectDir, projectName, projectGid, ticketNumber?: <業務單號，不知道可省略讓工具自動偵測> })\` 取得票單描述＋留言串並存進追蹤檔案：\`<projectDir>/.asana-pipeline/<Asana 專案全名稱>/<票號；偵測不到用 Asana 標題，同層重名補 taskGid 後綴>/\`（在目標專案目錄，不是 MCP 安裝目錄；首次建立會在專案 \`CLAUDE.md\` 加用途說明）。之後都用 \`taskGid\` 指定。
    - 子任務自動偵測：工具讀 Asana 的 \`parent\` 欄位，有父票就先確保父票（一路往上）都建好追蹤目錄，再巢狀掛上（\`.../<父票號>/<子票號>/\`，層數不限）。不要自己假設某張票是不是頂層（即使來自 \`list_pending_tickets\`/看板，也可能是子任務），一律呼叫此工具查證。
    - \`unchanged: true\`：內容沒變，沿用既有追蹤檔案，不用重分析。
    - \`needsReanalysis: true\`（必伴隨 \`unchanged: false\`）：Asana 內容真的變了、之前已有進度——不管 \`stage\`/\`verdict\`（含曾經 PASS），都當作沒處理過，從第 4 步（分析師）重來，不能沿用舊摘要。

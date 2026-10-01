@@ -81,10 +81,11 @@ function engineerStep(status: TicketStatus, ctx: NextActionContext): Step {
 function sdDraftedStep(status: TicketStatus, ctx: NextActionContext): Step {
   const confirmation = status.spec_confirmation;
   if (confirmation === null) {
+    const blocked = ctx.sasd?.specOrder === "spec_first" ? "implemented" : ctx.sasd?.specOrder === "code_first" ? "verified" : "implemented／verified";
     return {
       text: "規格草稿等使用者確認，不要自行推進",
       tools: [],
-      blockers: ["spec_confirmation 為 null：advance_ticket_stage 推進到 implemented／verified 會被擋，要等使用者 record_spec_confirmation"],
+      blockers: [`spec_confirmation 為 null：advance_ticket_stage 推進到 ${blocked} 會被擋，要等使用者 record_spec_confirmation`],
     };
   }
   if (!confirmation.confirmed) {
@@ -103,6 +104,14 @@ function sdDraftedStep(status: TicketStatus, ctx: NextActionContext): Step {
         ? `規格已確認：${verifiedStep}`
         : `規格已確認：specOrder 為 spec_first 時${implementedStep}；code_first 時${verifiedStep}`;
   return { text, tools: ["write_ticket_artifact", "advance_ticket_stage"] };
+}
+
+/** code_first：工程師寫完後由規格撰寫者依實作反推 SD 草稿，確認前不能推進到 verified。 */
+function codeFirstSpecStep(): Step {
+  return {
+    text: "規格撰寫者：依工程師實際改動反推 SD 草稿並 advance_ticket_stage sd_drafted，等使用者 record_spec_confirmation 後才能推進到 verified",
+    tools: ["get_role_prompt({role:\"spec-writer\"})", "write_project_sd_doc", "advance_ticket_stage"],
+  };
 }
 
 function verifierStep(): Step {
@@ -176,7 +185,7 @@ function stageStep(status: TicketStatus, ctx: NextActionContext): Step {
     case "sd_drafted":
       return sdDraftedStep(status, ctx);
     case "implemented":
-      return verifierStep();
+      return ctx.sasd?.sdMode === "self-generated" && ctx.sasd.specOrder === "code_first" ? codeFirstSpecStep() : verifierStep();
     case "verified":
       if (status.verdict === "FAIL") return failBranchStep(status);
       return status.verdict === "PASS"
