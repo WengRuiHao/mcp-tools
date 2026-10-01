@@ -23,6 +23,7 @@ import { syncPendingActionsReport, getPipelineAsanaUserGid, getUncommittedChange
 import { textResult } from "./shared.js";
 import { filterAndLimitTickets, localDateString, DUE_ON_DATE_PATTERN } from "./ticket-list-filter.js";
 import { computeNextAction } from "./next-action.js";
+import { statusResponse, verboseParam } from "./stage-response.js";
 
 export function registerTicketLifecycleTools(server: McpServer): void {
   server.tool(
@@ -259,13 +260,14 @@ export function registerTicketLifecycleTools(server: McpServer): void {
     "記錄結案前唯一一關人類確認（使用者自己實測＋審視程式碼品質），與 advance_ticket_stage 的 verdict（AI 驗證師判定）是不同東西。" +
       "只有記錄 confirmed: true，票單才會從 awaitingConfirmation 消失、真正結案。只能在已跑到 tested 階段後呼叫，否則被拒絕。" +
       "confirmed: false=使用者測出問題：記下 note、verdict 重設為 null，票單回到 list_pending_tickets 一般清單（humanRejected: true），走與 AI 判 FAIL 相同的根因分流。" +
-      "呼叫後自動局部重寫 PENDING_HUMAN_ACTIONS.html。",
+      "呼叫後自動局部重寫 PENDING_HUMAN_ACTIONS.html。預設回傳精簡狀態＋nextAction，verbose:true 取得完整狀態。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
       confirmed: z.boolean().describe("使用者自己實測＋審視程式碼品質是否通過：true = 沒問題、真正結案，false = 發現問題"),
       note: z.string().nullable().optional().describe("備註，例如測了哪些情境、審視程式碼的發現、confirmed 是 false 時具體發現了什麼問題"),
+      verbose: verboseParam,
     },
-    async ({ taskGid, confirmed, note }) => {
+    async ({ taskGid, confirmed, note, verbose }) => {
       const current = await readStatus(taskGid);
       if (current.stage !== "tested") {
         return textResult(
@@ -278,7 +280,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       }
       const status = await recordConfirmation(taskGid, confirmed, note ?? null);
       await syncPendingActionsReport(taskGid);
-      return textResult({ success: true, status });
+      return statusResponse(taskGid, status, verbose);
     }
   );
 
@@ -287,13 +289,14 @@ export function registerTicketLifecycleTools(server: McpServer): void {
     "記錄「規格草稿定案」關卡的確認結果，僅 sdMode \"self-generated\" 專案會走到這一關（與 record_confirmation 是獨立的兩個確認點）。只能在已推進到 stage \"sd_drafted\" 後呼叫，否則被拒絕。" +
       "confirmed: true=解鎖下一步：specOrder \"spec_first\" 解鎖推進到 \"implemented\"；\"code_first\"（規格是寫完 code 後反推）解鎖推進到 \"verified\"。" +
       "confirmed: false=草稿有問題：記下 note，stage 維持 \"sd_drafted\"，票單回到 list_pending_tickets 一般清單（specRejected: true），規格撰寫者依 note 修改後重新 advance_ticket_stage({ stage: \"sd_drafted\" }) 送出（會自動清空這裡的紀錄）。" +
-      "呼叫後自動局部重寫 PENDING_HUMAN_ACTIONS.html。",
+      "呼叫後自動局部重寫 PENDING_HUMAN_ACTIONS.html。預設回傳精簡狀態＋nextAction，verbose:true 取得完整狀態。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
       confirmed: z.boolean().describe("是否確認這份規格草稿可以動手寫程式碼：true = 沒問題、可以開始，false = 有問題要修改"),
       note: z.string().nullable().optional().describe("備註，confirmed 是 false 時應具體說明規格草稿哪裡需要修改"),
+      verbose: verboseParam,
     },
-    async ({ taskGid, confirmed, note }) => {
+    async ({ taskGid, confirmed, note, verbose }) => {
       const current = await readStatus(taskGid);
       if (current.stage !== "sd_drafted") {
         return textResult(
@@ -306,24 +309,25 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       }
       const status = await recordSpecConfirmation(taskGid, confirmed, note ?? null);
       await syncPendingActionsReport(taskGid);
-      return textResult({ success: true, status });
+      return statusResponse(taskGid, status, verbose);
     }
   );
 
   server.tool(
     "record_sasd_check",
-    "記錄這張票單是否有對應的 SA/SD 規格文件。這是強制的一步：在寫入 01-analysis.md（分析師產出）之前，一定要先呼叫這個工具，否則 write_ticket_artifact 會拒絕寫入 01-analysis.md。",
+    "記錄這張票單是否有對應的 SA/SD 規格文件。這是強制的一步：在寫入 01-analysis.md（分析師產出）之前，一定要先呼叫這個工具，否則 write_ticket_artifact 會拒絕寫入 01-analysis.md。預設回傳精簡狀態＋nextAction，verbose:true 取得完整狀態。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
       hasSasd: z.boolean().describe("這張票是否有對應的 SA/SD 規格文件"),
       sasdInfo: z.string().nullable().optional().describe("有的話，規格文件的路徑、連結或內容摘要；沒有可省略"),
+      verbose: verboseParam,
     },
-    async ({ taskGid, hasSasd, sasdInfo }) => {
+    async ({ taskGid, hasSasd, sasdInfo, verbose }) => {
       const status = await advanceStage(taskGid, (await readStatus(taskGid)).stage, {
         sasd_checked: true,
         sasd_info: hasSasd ? sasdInfo ?? "(使用者確認有 SA/SD 規格，但未提供詳細內容)" : null,
       });
-      return textResult({ success: true, status });
+      return statusResponse(taskGid, status, verbose);
     }
   );
 
@@ -359,14 +363,15 @@ export function registerTicketLifecycleTools(server: McpServer): void {
   server.tool(
     "request_reanalysis",
     "標記某張票單「使用者要求優先重新確認」（human_requested_reanalysis），純資料操作、不會自己觸發分析。" +
-      "用在使用者要求標記某票優先重新確認，或 PENDING_HUMAN_ACTIONS.html 勾選按鈕背後的呼叫。**呼叫完你自己應直接接著對這張票呼叫 get_ticket_snapshot**；旗標是留給之後才連上的其他 AI/session 看的，不是延後處理的藉口。呼叫後自動局部重寫報告。",
+      "用在使用者要求標記某票優先重新確認，或 PENDING_HUMAN_ACTIONS.html 勾選按鈕背後的呼叫。**呼叫完你自己應直接接著對這張票呼叫 get_ticket_snapshot**；旗標是留給之後才連上的其他 AI/session 看的，不是延後處理的藉口。呼叫後自動局部重寫報告。預設回傳精簡狀態＋nextAction，verbose:true 取得完整狀態。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
+      verbose: verboseParam,
     },
-    async ({ taskGid }) => {
+    async ({ taskGid, verbose }) => {
       const status = await requestReanalysis(taskGid);
       await syncPendingActionsReport(taskGid);
-      return textResult({ success: true, taskGid, status });
+      return statusResponse(taskGid, status, verbose, { taskGid });
     }
   );
 
@@ -376,7 +381,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       "推進到 project_dir_confirmed/analyzed/implemented/verified/tested 前會檢查證據：project_dir 已確定，或 01/02/03/04-*.md 已用 write_ticket_artifact 寫入非空內容；缺少會被拒絕並說明缺哪份。" +
       "**verdict 設 \"FAIL\" 時 rootCause（\"analysis\"|\"implementation\"）必填**，供下一輪決定回分析師或工程師；非 FAIL 不可帶 rootCause。" +
       "tested 的 verdict 規則同 verified（共用 consecutive_fail_count/needs_human_review 安全閥）：只有 AI 有把握的 verified_fail 才算 FAIL，needs_manual_check 不影響（見 get_role_prompt({role:\"tester\"})）。" +
-      "只要更新 verdict 就會自動清空 confirmation，並維護 consecutive_fail_count（FAIL 累加、PASS 歸零，達 3 時 needs_human_review 為 true）。呼叫後自動局部重寫 PENDING_HUMAN_ACTIONS.html。",
+      "只要更新 verdict 就會自動清空 confirmation，並維護 consecutive_fail_count（FAIL 累加、PASS 歸零，達 3 時 needs_human_review 為 true）。呼叫後自動局部重寫 PENDING_HUMAN_ACTIONS.html。預設回傳精簡狀態＋nextAction，verbose:true 取得完整狀態。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
       stage: z
@@ -392,8 +397,9 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         .nullable()
         .optional()
         .describe("verdict 是 \"FAIL\" 時必填：這次 FAIL 的根因在分析階段還是實作階段。verdict 不是 \"FAIL\" 時不應該帶這個參數。"),
+      verbose: verboseParam,
     },
-    async ({ taskGid, stage, project_dir, verdict, rootCause }) => {
+    async ({ taskGid, stage, project_dir, verdict, rootCause, verbose }) => {
       if (verdict === "FAIL" && !rootCause) {
         return textResult(
           {
@@ -476,7 +482,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       if (verdict === "FAIL") patch.verifier_root_cause = rootCause;
       const status = await advanceStage(taskGid, stage, patch);
       await syncPendingActionsReport(taskGid);
-      return textResult({ success: true, status, needs_human_review: needsHumanReview(status) });
+      return statusResponse(taskGid, status, verbose, { needs_human_review: needsHumanReview(status) });
     }
   );
 }
