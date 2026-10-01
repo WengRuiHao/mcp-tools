@@ -1033,8 +1033,8 @@ async function buildTicketNumberMap(taskGids: string[]): Promise<Map<string, str
 }
 
 /**
- * 依票號做自然排序（不是字串排序）：取字串裡「最後一段數字」比較，讓 115SCSB-9 排在 115SCSB-33 前面，
- * 而不是被純字串排序誤判成 115SCSB-33 < 115SCSB-9。取不到數字（例如退回顯示的 taskGid，或格式特殊的
+ * 依票號做自然排序（不是字串排序）：取字串裡「最後一段數字」比較，讓 PROJ-9 排在 PROJ-33 前面，
+ * 而不是被純字串排序誤判成 PROJ-33 < PROJ-9。取不到數字（例如退回顯示的 taskGid，或格式特殊的
  * 票號）就退回單純字串比較，維持穩定排序，不會噴錯。
  */
 function compareTicketNumbers(a: string, b: string): number {
