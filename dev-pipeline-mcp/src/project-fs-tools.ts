@@ -4,6 +4,7 @@ import { fsReadFile, fsWriteFile, fsListDir, fsSearchText, PathEscapeError } fro
 import { runShell, isGitCommand, hasLeadingDirectoryChange } from "./shell-tools.js";
 import { resolveGitRoots } from "./git-roots-store.js";
 import { textResult } from "./shared.js";
+import { sliceFileContent } from "./output-limit.js";
 
 function fsErrorResult(e: unknown) {
   if (e instanceof PathEscapeError) return textResult({ success: false, message: e.message }, true);
@@ -13,16 +14,38 @@ function fsErrorResult(e: unknown) {
 export function registerProjectFsTools(server: McpServer): void {
   server.tool(
     "read_project_file",
-    "讀取指定專案目錄底下某個相對路徑檔案的完整內容。路徑一律限制在 projectDir 範圍內。" +
+    "讀取指定專案目錄底下某個相對路徑檔案的內容。路徑一律限制在 projectDir 範圍內。" +
+      "可用 startLine/endLine 只讀部分行；沒指定且超過 40000 字會截斷並回傳 truncated: true——被截斷時不可據此整份覆寫檔案，要先讀完整內容。" +
       "如果這個檔案自從這個 MCP 上次寫入之後，被外部工具/使用者手動編輯/別的 AI 改過，回傳裡會附上 externally_modified_since_last_write: true 跟 lastWrittenAt——" +
       "**這是提早示警，不會阻擋讀取**：代表你等一下要編輯的內容，已經不是你（或前一輪）上次認知的樣子了，動手改之前最好先確認清楚現在這份是不是你要的版本。",
-    { projectDir: z.string().describe("專案目錄絕對路徑"), path: z.string().describe("相對於 projectDir 的檔案路徑") },
-    async ({ projectDir, path: relPath }) => {
+    {
+      projectDir: z.string().describe("專案目錄絕對路徑"),
+      path: z.string().describe("相對於 projectDir 的檔案路徑"),
+      startLine: z.number().optional().describe("起始行（1 起算、含）"),
+      endLine: z.number().optional().describe("結束行（1 起算、含）"),
+    },
+    async ({ projectDir, path: relPath, startLine, endLine }) => {
       try {
         const { content, externallyModifiedSinceLastWrite, lastWrittenAt } = await fsReadFile(projectDir, relPath);
+        const sliced = sliceFileContent(content, { startLine, endLine });
+        if (!sliced.ok) return textResult({ success: false, message: sliced.message }, true);
+        const rangeInfo =
+          sliced.ranged || sliced.truncated
+            ? { startLine: sliced.startLine, endLine: sliced.endLine, totalLines: sliced.totalLines }
+            : {};
+        const truncInfo = sliced.truncated
+          ? {
+              truncated: true,
+              totalChars: sliced.totalChars,
+              returnedLines: sliced.returnedLines,
+              truncatedNote: `內容已被截斷（共 ${sliced.totalLines} 行、${sliced.totalChars} 字，這次只回傳第 ${sliced.startLine}-${sliced.endLine} 行）。請用 startLine/endLine 取其餘部分；不要據此整份覆寫檔案。`,
+            }
+          : {};
         return textResult({
           success: true,
-          content,
+          content: sliced.content,
+          ...rangeInfo,
+          ...truncInfo,
           ...(externallyModifiedSinceLastWrite ? { externally_modified_since_last_write: true, lastWrittenAt } : {}),
         });
       } catch (e) {
@@ -103,7 +126,8 @@ export function registerProjectFsTools(server: McpServer): void {
     "run_project_shell",
     "在專案目錄下執行 shell 指令（編譯、跑測試、git diff/status/add/commit 等）。" +
       "禁止 git push、--force/-f、reset --hard、clean、checkout --/checkout .、restore、branch -D 這類推到遠端或強制覆蓋/丟棄內容的指令，違反會被拒絕。" +
-      "**任何 git 指令都會先驗證**：專案必須已 register_git_roots，且指令實際解析到的 repo root（`git rev-parse --show-toplevel`）要與登記的根目錄一致，否則拒絕。",
+      "**任何 git 指令都會先驗證**：專案必須已 register_git_roots，且指令實際解析到的 repo root（`git rev-parse --show-toplevel`）要與登記的根目錄一致，否則拒絕。" +
+      "stdout/stderr 各自超過 12000 字時只保留開頭 3000 與結尾 9000 字（中間以標記省略），並多回傳 truncated/originalChars。",
     { projectDir: z.string().describe("專案目錄絕對路徑"), command: z.string().describe("要執行的 shell 指令") },
     async ({ projectDir, command }) => {
       const gitRoots = await resolveGitRoots(projectDir);

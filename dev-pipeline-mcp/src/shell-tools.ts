@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import path from "node:path";
 import type { GitRootEntry } from "./git-roots-store.js";
+import { truncateHeadTail } from "./output-limit.js";
 
 const GIT_INVOKE = /(^|[\s;&|()"'`]|[\\/])git(\.exe)?(?=[\s"'`]|$)/i;
 const GIT_POWERSHELL_CALL = /&\s*['"]?.*\bgit(\.exe)?\b/i;
@@ -133,7 +134,8 @@ async function verifyGitRoot(
   return { ok: true };
 }
 
-const MAX_OUTPUT_CHARS = 20000;
+const OUTPUT_HEAD_CHARS = 3000;
+const OUTPUT_TAIL_CHARS = 9000;
 const DEFAULT_TIMEOUT_MS = 60000;
 
 export interface ShellResult {
@@ -142,6 +144,22 @@ export interface ShellResult {
   stderr: string;
   blocked?: boolean;
   message?: string;
+  /** 只有任一串流被截斷時才出現 */
+  truncated?: { stdout: boolean; stderr: boolean };
+  originalChars?: { stdout: number; stderr: number };
+}
+
+/** 編譯/測試的錯誤摘要多半在輸出最後面，所以截斷時結尾保留得比開頭多。 */
+function limitOutput(stdout: string, stderr: string): Pick<ShellResult, "stdout" | "stderr" | "truncated" | "originalChars"> {
+  const out = truncateHeadTail(stdout, { head: OUTPUT_HEAD_CHARS, tail: OUTPUT_TAIL_CHARS });
+  const err = truncateHeadTail(stderr, { head: OUTPUT_HEAD_CHARS, tail: OUTPUT_TAIL_CHARS });
+  const base = { stdout: out.text, stderr: err.text };
+  if (!out.truncated && !err.truncated) return base;
+  return {
+    ...base,
+    truncated: { stdout: out.truncated, stderr: err.truncated },
+    originalChars: { stdout: out.originalChars, stderr: err.originalChars },
+  };
 }
 
 /** Runs a shell command scoped to `cwd`. Refuses git push / force-overwrite style invocations, and refuses any git invocation whose actual repo root doesn't match a registered git root for this project. */
@@ -177,8 +195,7 @@ export async function runShell(
     execFile(shell, args, { cwd, timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
       resolve({
         ok: !error,
-        stdout: stdout.slice(0, MAX_OUTPUT_CHARS),
-        stderr: (stderr + (error && !stdout && !stderr ? String(error.message) : "")).slice(0, MAX_OUTPUT_CHARS),
+        ...limitOutput(stdout, stderr + (error && !stdout && !stderr ? String(error.message) : "")),
       });
     });
   });
