@@ -21,6 +21,8 @@ import {
 } from "./pipeline-store.js";
 import { syncPendingActionsReport, getPipelineAsanaUserGid, getUncommittedChangesSummary, filterOutGitCommitActions } from "./pending-actions-sync.js";
 import { textResult } from "./shared.js";
+import { filterAndLimitTickets, localDateString, DUE_ON_DATE_PATTERN } from "./ticket-list-filter.js";
+import { computeNextAction } from "./next-action.js";
 
 export function registerTicketLifecycleTools(server: McpServer): void {
   server.tool(
@@ -47,8 +49,20 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         .describe(
           "true=只列指派給目前 Asana 帳號本人的票（其他人的不列、也不進 PENDING_HUMAN_ACTIONS.html）；false=列全部。沒帶時看專案 <projectDir>/.pipeline/settings.json 的 onlyAssignedToMe，都沒有就是 false。"
         ),
+      dueOn: z
+        .union([z.enum(["today", "overdue", "today_or_overdue"]), z.string().regex(DUE_ON_DATE_PATTERN)])
+        .nullable()
+        .optional()
+        .describe("只過濾 `tickets`：依到期日篩選（today／overdue／today_or_overdue／YYYY-MM-DD）；無到期日的票一律排除。其他清單不受影響。"),
+      limit: z
+        .number()
+        .int()
+        .positive()
+        .nullable()
+        .optional()
+        .describe("只限制 `tickets` 回傳筆數（依到期日由早到晚）；超過會附 totalMatched／truncated／truncatedNote，不會悄悄截斷。"),
     },
-    async ({ projectGid, sectionFilter, projectName, onlyAssignedToMe }) => {
+    async ({ projectGid, sectionFilter, projectName, onlyAssignedToMe, dueOn, limit }) => {
       const board = await callAsanaTool("asana_board", { projectGid, refresh: true });
       if (!board?.success) return textResult(board, true);
 
@@ -184,12 +198,22 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         }
       }
 
+      const hasListFilter = dueOn != null || limit != null;
+      const listed = filterAndLimitTickets(pending, { dueOn, limit, today: localDateString() });
+
       return textResult({
         success: true,
         projectGid,
-        count: pending.length,
+        count: listed.tickets.length,
         ...(onlyMine ? { filteredBy: "assignee=me", skippedNotAssignedToMe: skippedNotMine } : {}),
-        tickets: pending,
+        ...(hasListFilter
+          ? {
+              filters: { ...(dueOn != null ? { dueOn } : {}), ...(limit != null ? { limit } : {}) },
+              totalMatched: listed.totalMatched,
+              ...(listed.truncated ? { truncated: true, truncatedNote: listed.truncatedNote } : {}),
+            }
+          : {}),
+        tickets: listed.tickets,
         awaitingConfirmationCount: awaitingConfirmation.length,
         awaitingConfirmation,
         awaitingSpecConfirmationCount: awaitingSpecConfirmation.length,
@@ -213,16 +237,19 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       "- **spec_confirmation** 僅 sdMode \"self-generated\" 使用：null 時 advance_ticket_stage 被擋（\"spec_first\" 擋在 implemented，\"code_first\" 擋在 verified）。\n" +
       "- verdict FAIL 時 verifier_root_cause 是上次根因；**needs_human_review（consecutive_fail_count >= 3）為 true 就停下問使用者，不要自動重跑**，false 才依根因回工程師或分析師。\n" +
       "- sync_flags（analysis_stale / implementation_stale）為 true=01/02/03 有同步債，**接手前先還清**。\n" +
-      "- external_changes（*_externally_modified，每次現場重算雜湊）為 true=檔案被外部改過，summaries 與 sync_flags 可能過期，**要 read_ticket_artifact 讀全文**；確認無誤後用 resync_ticket_artifact 同步。",
+      "- external_changes（*_externally_modified，每次現場重算雜湊）為 true=檔案被外部改過，summaries 與 sync_flags 可能過期，**要 read_ticket_artifact 讀全文**；確認無誤後用 resync_ticket_artifact 同步。\n" +
+      "- nextAction：程式依上述狀態算出的下一步（summary／blockedBy／suggestedTools），與工具實際把關一致，優先照它做。",
     { taskGid: z.string().describe("Asana 任務 gid") },
     async ({ taskGid }) => {
       const status = await readStatus(taskGid);
       const externalChanges = await detectExternalChanges(taskGid, status);
+      const syncFlags = computeSyncFlags(status);
       return textResult({
         ...status,
-        sync_flags: computeSyncFlags(status),
+        sync_flags: syncFlags,
         needs_human_review: needsHumanReview(status),
         external_changes: externalChanges,
+        nextAction: computeNextAction(status, { syncFlags, externalChanges }),
       });
     }
   );
