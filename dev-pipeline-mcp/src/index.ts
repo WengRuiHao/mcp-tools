@@ -2,20 +2,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { closeChildMcpClients } from "./mcp-clients.js";
-import { registerPipelineInfoTools } from "./pipeline-info-tools.js";
-import { registerTicketSnapshotTools } from "./ticket-snapshot-tools.js";
-import { registerProjectConfigTools } from "./project-config-tools.js";
-import { registerSdDocTools } from "./sd-doc-tools.js";
-import { registerTestGuideTools } from "./test-guide-tools.js";
-import { registerBridgeTools } from "./bridge-tools.js";
-import { registerProjectFsTools } from "./project-fs-tools.js";
-import { registerTicketLifecycleTools } from "./ticket-lifecycle-tools.js";
-import { registerTicketArtifactTools } from "./ticket-artifact-tools.js";
-import { registerWorktreeTools } from "./worktree-tools.js";
-import { registerGitHookTools } from "./git-hooks-tools.js";
-import { registerRuleHistoryTools } from "./rule-history-tools.js";
-import { installActiveWarnings } from "./active-warnings.js";
 import { startHttpBridge } from "./http-server.js";
+import { parseDisabledToolsets, registerAllTools, TOOLSET_NAMES } from "./toolsets.js";
 
 // instructions 會在連線時交給 MCP client；是否採用由各家 client 決定，所以重要的規則另外寫在工具說明與 README，不只靠這段。
 const server = new McpServer(
@@ -32,22 +20,17 @@ const server = new McpServer(
   }
 );
 
-// 必須在任何 registerXxxTools 之前安裝——它攔截 server.tool 本身，讓之後註冊的每一個工具回應都自動
-// 附加 activeWarnings（跨 worktree 檔案重疊示警），見 active-warnings.ts 開頭說明。
-installActiveWarnings(server);
-
-registerPipelineInfoTools(server);
-registerTicketSnapshotTools(server);
-registerProjectConfigTools(server);
-registerSdDocTools(server);
-registerTestGuideTools(server);
-registerBridgeTools(server);
-registerProjectFsTools(server);
-registerTicketLifecycleTools(server);
-registerTicketArtifactTools(server);
-registerWorktreeTools(server);
-registerGitHookTools(server);
-registerRuleHistoryTools(server);
+// stdout 是 MCP 協定通道，訊息只能走 stderr。
+const { disabled: disabledToolsets, unknown: unknownToolsets } = parseDisabledToolsets(
+  process.env.DEV_PIPELINE_DISABLE_TOOLSETS
+);
+if (unknownToolsets.length > 0) {
+  console.error(`[dev-pipeline-mcp] 未知的工具群組：${unknownToolsets.join("、")}（可用：${TOOLSET_NAMES.join("、")}）`);
+}
+if (disabledToolsets.size > 0) {
+  console.error(`[dev-pipeline-mcp] 已關閉工具群組：${[...disabledToolsets].join("、")}`);
+}
+registerAllTools(server, disabledToolsets);
 
 async function main() {
   // 跟著這個 MCP 行程一起帶起 PENDING_HUMAN_ACTIONS.html 用的 HTTP bridge（2026-09-17 起，見
