@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 610" role="img" aria-label="SA/SD 規格四種模式：external 只能參考不能建議修改；self 可在報告建議修改但不寫回 SVN；self-generated 由 AI 維護並多一關規格確認 sd_drafted；unregistered 每張票單獨詢問。self-generated 再依 specOrder 分兩種順序：spec_first 先定規格再寫程式碼，擋在推進到 implemented 之前；code_first 先寫程式碼再反推規格，擋在推進到 verified 之前">
+  <defs><marker id="sasdmodesmain" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/></marker><marker id="sasdmodesacc" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2b6777"/></marker><marker id="sasdmodeswarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b9782e"/></marker></defs>
+  <rect x="0" y="0" width="1000" height="610" fill="#f5f2ea"/>
+  <rect x="300" y="18" width="400" height="44" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="500" y="46" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">這個專案的規格（SA/SD）從哪裡來？</text>
+  <rect x="12" y="110" width="225" height="190" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="124.5" y="138" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">external</text>
+  <text x="124.5" y="156" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#2a2620" font-weight="700">規格是客戶／第三方產的</text>
+  <line x1="26" y1="166" x2="223" y2="166" stroke="#2a2620" stroke-opacity="0.35"/>
+  <text x="124.5" y="186" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">只能參考，</text>
+  <text x="124.5" y="202" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">不能建議修改規格，</text>
+  <text x="124.5" y="218" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">只調整程式碼去配合。</text>
+  <path d="M 500 62 L 500 86 L 124.5 86 L 124.5 106" fill="none" stroke="#2a2620" stroke-width="1.6" marker-end="url(#sasdmodesmain)"/>
+  <rect x="262" y="110" width="225" height="190" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="374.5" y="138" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">self</text>
+  <text x="374.5" y="156" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#2a2620" font-weight="700">規格是自己團隊產的</text>
+  <line x1="276" y1="166" x2="473" y2="166" stroke="#2a2620" stroke-opacity="0.35"/>
+  <text x="374.5" y="186" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">可以在報告裡建議</text>
+  <text x="374.5" y="202" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">修改哪些段落，</text>
+  <text x="374.5" y="218" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">但不寫回 SVN（唯讀）。</text>
+  <path d="M 500 62 L 500 86 L 374.5 86 L 374.5 106" fill="none" stroke="#2a2620" stroke-width="1.6" marker-end="url(#sasdmodesmain)"/>
+  <rect x="512" y="110" width="225" height="190" rx="12" fill="#dbe9ea" stroke="#2b6777" stroke-opacity="1"/>
+  <text x="624.5" y="138" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#17414c" font-weight="700">self-generated</text>
+  <text x="624.5" y="156" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c" font-weight="700">沒有既有規格，AI 自己維護</text>
+  <line x1="526" y1="166" x2="723" y2="166" stroke="#2b6777" stroke-opacity="0.35"/>
+  <text x="624.5" y="186" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">唯一多一關規格確認</text>
+  <text x="624.5" y="202" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">（sd_drafted）的模式：</text>
+  <text x="624.5" y="218" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">規格撰寫者寫草稿到</text>
+  <text x="624.5" y="234" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">sdOutputPath，你確認</text>
+  <text x="624.5" y="250" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">才能繼續往下走。</text>
+  <text x="624.5" y="266" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">要多登記 specOrder ↓</text>
+  <path d="M 500 62 L 500 86 L 624.5 86 L 624.5 106" fill="none" stroke="#2a2620" stroke-width="1.6" marker-end="url(#sasdmodesmain)"/>
+  <rect x="762" y="110" width="225" height="190" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="874.5" y="138" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">unregistered</text>
+  <text x="874.5" y="156" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#2a2620" font-weight="700">不登記</text>
+  <line x1="776" y1="166" x2="973" y2="166" stroke="#2a2620" stroke-opacity="0.35"/>
+  <text x="874.5" y="186" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">唯一每張票都要</text>
+  <text x="874.5" y="202" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">單獨問一次</text>
+  <text x="874.5" y="218" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">「有沒有規格」的模式。</text>
+  <path d="M 500 62 L 500 86 L 874.5 86 L 874.5 106" fill="none" stroke="#2a2620" stroke-width="1.6" marker-end="url(#sasdmodesmain)"/>
+  <line x1="624" y1="300" x2="624" y2="338" stroke="#2b6777" stroke-width="1.7" marker-end="url(#sasdmodesacc)"/>
+  <text x="20" y="360" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">self-generated 還要再選一個 specOrder：規格草稿這一關，卡在流程的哪個位置</text>
+  <rect x="20" y="386" width="150" height="64" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="95" y="412" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="12" fill="#2a2620" font-weight="700">spec_first</text>
+  <text x="95" y="432" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">先定規格、再動工</text>
+  <rect x="190" y="386" width="165" height="64" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="272.5" y="412" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">分析</text>
+  <text x="272.5" y="432" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">分析師</text>
+  <rect x="395" y="386" width="165" height="64" rx="12" fill="#dbe9ea" stroke="#2b6777" stroke-opacity="1"/>
+  <text x="477.5" y="412" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#17414c" font-weight="700">規格定案</text>
+  <text x="477.5" y="432" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">你確認規格草稿</text>
+  <line x1="355" y1="418" x2="392" y2="418" stroke="#2b6777" stroke-width="1.7" marker-end="url(#sasdmodesacc)"/>
+  <rect x="600" y="386" width="165" height="64" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="682.5" y="412" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">寫程式碼</text>
+  <text x="682.5" y="432" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">工程師</text>
+  <line x1="560" y1="418" x2="597" y2="418" stroke="#2a2620" stroke-width="1.7" marker-end="url(#sasdmodesmain)"/>
+  <rect x="805" y="386" width="165" height="64" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="887.5" y="412" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">驗證</text>
+  <text x="887.5" y="432" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">驗證師</text>
+  <line x1="765" y1="418" x2="802" y2="418" stroke="#2a2620" stroke-width="1.7" marker-end="url(#sasdmodesmain)"/>
+  <text x="477.5" y="470" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c" font-weight="700">▲ 卡在「推進到 implemented」之前：沒確認規格，工程師不能開工</text>
+  <rect x="20" y="498" width="150" height="64" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="95" y="524" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="12" fill="#2a2620" font-weight="700">code_first</text>
+  <text x="95" y="544" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">先寫程式碼、再補規格</text>
+  <rect x="190" y="498" width="165" height="64" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="272.5" y="524" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">分析</text>
+  <text x="272.5" y="544" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">分析師</text>
+  <rect x="395" y="498" width="165" height="64" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="477.5" y="524" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">寫程式碼</text>
+  <text x="477.5" y="544" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">工程師</text>
+  <line x1="355" y1="530" x2="392" y2="530" stroke="#2a2620" stroke-width="1.7" marker-end="url(#sasdmodesmain)"/>
+  <rect x="600" y="498" width="165" height="64" rx="12" fill="#dbe9ea" stroke="#2b6777" stroke-opacity="1"/>
+  <text x="682.5" y="524" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#17414c" font-weight="700">規格反推</text>
+  <text x="682.5" y="544" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">你確認規格草稿</text>
+  <line x1="560" y1="530" x2="597" y2="530" stroke="#2b6777" stroke-width="1.7" marker-end="url(#sasdmodesacc)"/>
+  <rect x="805" y="498" width="165" height="64" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="887.5" y="524" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">驗證</text>
+  <text x="887.5" y="544" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">驗證師</text>
+  <line x1="765" y1="530" x2="802" y2="530" stroke="#2a2620" stroke-width="1.7" marker-end="url(#sasdmodesmain)"/>
+  <text x="682.5" y="582" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c" font-weight="700">▲ 卡在「推進到 verified」之前：沒確認規格，票單不能推進到驗證完成</text>
+  <text x="500" y="600" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">兩種順序共用同一套 sd_drafted／spec_confirmation 機制：只看票單是不是卡在 sd_drafted 又還沒確認，就擋下推進，不需要知道 specOrder</text>
+</svg>

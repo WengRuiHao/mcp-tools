@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 480" role="img" aria-label="一次性設定：每個專案第一次處理票單時，依序登記六件事（今天看哪個 Asana 專案、程式碼目錄、規格放哪與模式、要不要套用老舊系統測試章節、能不能寫自動化測試、git 版控根目錄），每項都是 resolve 先查、沒登記才問你並 register，之後都記住不再重問">
+  <defs><marker id="onetimesetupmain" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/></marker><marker id="onetimesetupacc" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2b6777"/></marker><marker id="onetimesetupwarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b9782e"/></marker></defs>
+  <rect x="0" y="0" width="1000" height="480" fill="#f5f2ea"/>
+  <text x="500" y="32" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">每個專案第一次處理票單時，AI 會依序問這六件事（問一次就記住）</text>
+  <rect x="20" y="60" width="290" height="130" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <circle cx="42" cy="80" r="13" fill="#2a2620"/>
+  <text x="42" y="85" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#f5f2ea" font-weight="700">1</text>
+  <text x="165.0" y="88" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">今天要看哪個 Asana 專案</text>
+  <text x="165.0" y="108" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">依工作目錄各自登記</text>
+  <text x="165.0" y="123" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">（往上找最近一層，不借用別處的）</text>
+  <text x="165.0" y="179" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">register_default_project</text>
+  <rect x="355" y="60" width="290" height="130" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <circle cx="377" cy="80" r="13" fill="#2a2620"/>
+  <text x="377" y="85" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#f5f2ea" font-weight="700">2</text>
+  <text x="500.0" y="88" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">程式碼放在哪個目錄</text>
+  <text x="500.0" y="108" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">對應哪個本機／伺服器上的</text>
+  <text x="500.0" y="123" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">程式碼專案目錄</text>
+  <text x="500.0" y="179" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">register_project_dir</text>
+  <rect x="690" y="60" width="290" height="130" rx="12" fill="#dbe9ea" stroke="#2b6777" stroke-opacity="1"/>
+  <circle cx="712" cy="80" r="13" fill="#17414c"/>
+  <text x="712" y="85" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#dbe9ea" font-weight="700">3</text>
+  <text x="835.0" y="88" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#17414c" font-weight="700">規格（SA/SD）放哪、哪種模式</text>
+  <text x="835.0" y="108" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">決定 AI 能不能建議修改規格</text>
+  <text x="835.0" y="123" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">（四種模式見下一張圖）</text>
+  <text x="835.0" y="179" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#17414c">register_sasd_config</text>
+  <rect x="20" y="250" width="290" height="130" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <circle cx="42" cy="270" r="13" fill="#2a2620"/>
+  <text x="42" y="275" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#f5f2ea" font-weight="700">4</text>
+  <text x="165.0" y="278" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">要不要套老舊系統測試章節</text>
+  <text x="165.0" y="298" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">管「測試工程師手動測試」要不要</text>
+  <text x="165.0" y="313" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">套用老舊系統章節；預設「否」，</text>
+  <text x="165.0" y="328" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">只有你明確說才登記為「是」</text>
+  <text x="165.0" y="369" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">register_legacy_test_profile</text>
+  <rect x="355" y="250" width="290" height="130" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <circle cx="377" cy="270" r="13" fill="#2a2620"/>
+  <text x="377" y="275" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#f5f2ea" font-weight="700">5</text>
+  <text x="500.0" y="278" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">工程師能不能寫自動化測試</text>
+  <text x="500.0" y="298" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">用哪套工具鏈：modern／</text>
+  <text x="500.0" y="313" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">legacy_junit4／none</text>
+  <text x="500.0" y="328" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">（跟左邊那項是不同軸向）</text>
+  <text x="500.0" y="369" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">register_test_capability</text>
+  <rect x="690" y="250" width="290" height="130" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <circle cx="712" cy="270" r="13" fill="#2a2620"/>
+  <text x="712" y="275" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#f5f2ea" font-weight="700">6</text>
+  <text x="835.0" y="278" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">git 版控根目錄在哪</text>
+  <text x="835.0" y="298" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">前後端可各自登記</text>
+  <text x="835.0" y="313" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">git 指令執行前會驗證是否一致</text>
+  <text x="835.0" y="369" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">register_git_roots</text>
+  <line x1="310" y1="125" x2="351" y2="125" stroke="#2a2620" stroke-width="1.7" marker-end="url(#onetimesetupmain)"/>
+  <line x1="645" y1="125" x2="686" y2="125" stroke="#2a2620" stroke-width="1.7" marker-end="url(#onetimesetupmain)"/>
+  <line x1="310" y1="315" x2="351" y2="315" stroke="#2a2620" stroke-width="1.7" marker-end="url(#onetimesetupmain)"/>
+  <line x1="645" y1="315" x2="686" y2="315" stroke="#2a2620" stroke-width="1.7" marker-end="url(#onetimesetupmain)"/>
+  <path d="M 835 190 L 835 220 L 165 220 L 165 246" fill="none" stroke="#2a2620" stroke-width="1.6" marker-end="url(#onetimesetupmain)"/>
+  <rect x="20" y="405" width="960" height="58" rx="12" fill="#dbe9ea" stroke="#2b6777" stroke-opacity="1"/>
+  <text x="500" y="428" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#17414c" font-weight="700">每項都是一組工具：resolve_ 先查有沒有登記，沒有才問你並用 register_ 登記；登記完之後都記住，不再重問</text>
+  <text x="500" y="448" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">「老舊系統測試」管測試工程師手動測試的章節；「自動化測試」管工程師能不能寫 JUnit／Jest——一個專案可能兩者皆是，也可能只有一個</text>
+</svg>

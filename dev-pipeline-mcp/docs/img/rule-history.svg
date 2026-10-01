@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 530" role="img" aria-label="規則檔快照與還原：MCP 每次讀取專案規則檔時，內容跟最近一份快照不同就存進 .pipeline/.history/，每個檔案保留最近 10 份，相同不重複存；還原時先用 list_rule_history 列出快照，再用 restore_rule_file 選一版，還原前會先把目前內容也存一份，所以還原本身也能反悔">
+  <defs><marker id="rulehistorymain" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/></marker><marker id="rulehistoryacc" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2b6777"/></marker><marker id="rulehistorywarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b9782e"/></marker></defs>
+  <rect x="0" y="0" width="1000" height="530" fill="#f5f2ea"/>
+  <text x="20" y="30" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">自動存快照（MCP 每次讀到規則檔時）</text>
+  <rect x="20" y="50" width="270" height="100" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="155.0" y="78" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">讀取專案規則檔</text>
+  <text x="155.0" y="98" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">角色規則、共通規則、關卡、</text>
+  <text x="155.0" y="113" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">設定、SD 範本</text>
+  <rect x="330" y="50" width="230" height="100" rx="12" fill="#dbe9ea" stroke="#2b6777" stroke-opacity="1"/>
+  <text x="445.0" y="78" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#17414c" font-weight="700">跟最近一份快照一樣嗎？</text>
+  <text x="445.0" y="98" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">逐檔比對內容</text>
+  <rect x="610" y="50" width="370" height="100" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="795.0" y="78" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">存成新快照</text>
+  <text x="795.0" y="98" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">放在 &lt;projectDir&gt;/.pipeline/.history/</text>
+  <text x="795.0" y="113" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">每個檔案保留最近 10 份（舊的淘汰）</text>
+  <line x1="290" y1="100" x2="326" y2="100" stroke="#2a2620" stroke-width="1.7" marker-end="url(#rulehistorymain)"/>
+  <line x1="560" y1="100" x2="606" y2="100" stroke="#2b6777" stroke-width="1.7" marker-end="url(#rulehistoryacc)"/>
+  <text x="583" y="92" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c" font-weight="700">不同</text>
+  <line x1="445" y1="150" x2="445" y2="192" stroke="#2a2620" stroke-width="1.7" marker-end="url(#rulehistorymain)"/>
+  <text x="470" y="176" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558" font-weight="700">一樣</text>
+  <rect x="330" y="196" width="230" height="40" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="445" y="221" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12" fill="#2a2620" font-weight="700">不重複存</text>
+  <text x="20" y="282" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">還原（可以反悔）</text>
+  <rect x="20" y="302" width="215" height="104" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <circle cx="42" cy="322" r="13" fill="#2a2620"/>
+  <text x="42" y="327" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#f5f2ea" font-weight="700">1</text>
+  <text x="127.5" y="330" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">列出快照</text>
+  <text x="127.5" y="350" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">不帶 file：列出有快照的檔案</text>
+  <text x="127.5" y="365" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">帶 file：列出該檔的快照（新→舊）</text>
+  <text x="127.5" y="395" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">list_rule_history</text>
+  <rect x="270" y="302" width="215" height="104" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <circle cx="292" cy="322" r="13" fill="#2a2620"/>
+  <text x="292" y="327" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#f5f2ea" font-weight="700">2</text>
+  <text x="377.5" y="330" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">選一版還原</text>
+  <text x="377.5" y="350" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">指定要還原到哪個快照</text>
+  <text x="377.5" y="395" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">restore_rule_file</text>
+  <rect x="520" y="302" width="215" height="104" rx="12" fill="#dbe9ea" stroke="#2b6777" stroke-opacity="1"/>
+  <circle cx="542" cy="322" r="13" fill="#17414c"/>
+  <text x="542" y="327" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#dbe9ea" font-weight="700">3</text>
+  <text x="627.5" y="330" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#17414c" font-weight="700">還原前先存一份</text>
+  <text x="627.5" y="350" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">把「目前內容」也存成快照</text>
+  <text x="627.5" y="365" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">所以還原本身也能反悔</text>
+  <rect x="770" y="302" width="215" height="104" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <circle cx="792" cy="322" r="13" fill="#2a2620"/>
+  <text x="792" y="327" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#f5f2ea" font-weight="700">4</text>
+  <text x="877.5" y="330" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">覆寫規則檔</text>
+  <text x="877.5" y="350" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">只允許 .pipeline/ 底下的規則檔</text>
+  <text x="877.5" y="365" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">路徑跳脫、快照檔名不合法會被拒絕</text>
+  <line x1="235" y1="354" x2="266" y2="354" stroke="#2a2620" stroke-width="1.7" marker-end="url(#rulehistorymain)"/>
+  <line x1="485" y1="354" x2="516" y2="354" stroke="#2b6777" stroke-width="1.7" marker-end="url(#rulehistoryacc)"/>
+  <line x1="735" y1="354" x2="766" y2="354" stroke="#2a2620" stroke-width="1.7" marker-end="url(#rulehistorymain)"/>
+  <text x="500" y="430" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#17414c" font-weight="700">想反悔？剛剛存的那一份也在快照清單裡，再還原一次就回去了</text>
+  <rect x="20" y="450" width="960" height="64" rx="10" fill="#f1e2c8" stroke="#b9782e" stroke-opacity="1"/>
+  <text x="500" y="472" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#8a5a1e">限制：快照是「MCP 讀到時」才建立，不是存檔當下；在任何 AI 流程讀過之前就被改壞或刪掉的版本救不回來。</text>
+  <text x="500" y="490" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#8a5a1e">這是安全網，不是正式版本控制（沒有提交說明、不能比較差異）。專案目錄若有進 git，記得把 .pipeline/.history/ 加進忽略清單。</text>
+</svg>

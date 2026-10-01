@@ -66,32 +66,16 @@ npm run build
 
 ### 一次性設定（每個 Asana 專案通常只問一次）
 
-| 工具 | 設定什麼 |
-|---|---|
-| `resolve_default_project` / `register_default_project` | 今天要看哪個 Asana 專案（依 `cwd` 各工作目錄各自登記） |
-| `resolve_project_dir` / `register_project_dir` | 對應哪個本機/伺服器程式碼目錄 |
-| `resolve_sasd_config` / `register_sasd_config` | SA/SD 規格放哪、模式為何（見下表） |
-| `resolve_legacy_test_profile` / `register_legacy_test_profile` | 這個專案要不要套用測試工程師說明書的「老舊系統測試」章節（JDK6+舊IE這類，預設 `false`，只有使用者明確告知才登記為 `true`） |
-| `resolve_test_capability` / `register_test_capability` | 這個專案的工程師階段能不能寫自動化測試、用哪套工具鏈（`modern`/`legacy_junit4`/`none`）。跟上面 `legacy_test_profile` 是不同軸向——那個管「測試工程師手動測試要不要套老 IE 章節」，這個管「工程師能不能寫 JUnit/Jest 自動化測試」，一個專案可能兩者都成立，也可能只成立一個 |
-| `resolve_git_roots` / `register_git_roots` | 前後端各自的 git 版控根目錄 |
+![一次性設定：每個專案第一次處理票單時，依序登記六件事（今天看哪個 Asana 專案、程式碼目錄、規格放哪與模式、要不要套用老舊系統測試章節、能不能寫自動化測試、git 版控根目錄），每項都是 resolve 先查、沒登記才問你並 register，之後都記住不再重問](docs/img/one-time-setup.svg)
+
+每項都是一組 `resolve_*`（查有沒有登記）＋ `register_*`（登記）工具，工具名稱見圖。「老舊系統測試」（`legacy_test_profile`，管測試工程師手動測試要不要套老 IE 章節，預設 `false`）跟「自動化測試」（`test_capability`，管工程師能不能寫 JUnit/Jest）是不同軸向，一個專案可能兩者都成立，也可能只成立一個。
 
 ### SA/SD 規格四種模式
 
-| 模式 | 適用情境 | 規則 |
-|---|---|---|
-| `external` | 規格是客戶/第三方產的 | 只能參考，不能建議修改 SD，只調整程式碼配合 |
-| `self` | 規格是自己團隊產的 | 可在報告裡建議修改段落，但不寫回 SVN（唯讀） |
-| `self-generated` | 沒有既有規格，AI 自己維護 | 唯一會多走 `sd_drafted` 規格確認關卡的模式：「規格撰寫者」角色產出草稿寫進 `sdOutputPath`，使用者 `record_spec_confirmation` 確認過才能繼續往下走。額外要登記 `specOrder`（見下） |
-| `unregistered` | 不登記，逐票詢問 | 唯一每張票都要單獨問「有沒有 SD」的模式 |
+![SA/SD 規格四種模式：external 只能參考不能建議修改；self 可在報告建議修改但不寫回 SVN；self-generated 由 AI 維護並多一關規格確認 sd_drafted；unregistered 每張票單獨詢問。self-generated 再依 specOrder 分兩種順序：spec_first 先定規格再寫程式碼，擋在推進到 implemented 之前；code_first 先寫程式碼再反推規格，擋在推進到 verified 之前](docs/img/sasd-modes.svg)
 
-`self-generated` 底下還要多決定一個 `specOrder`，決定「規格草稿」關卡出現在流程的哪個位置：
-
-| specOrder | 順序 | 說明 |
-|---|---|---|
-| `spec_first`（原本唯一支援的順序） | 分析 → **規格定案** → 寫程式碼 → 驗證 | 規格撰寫者先依分析師的結論產出草稿，使用者確認過，工程師才動手寫程式碼——規格先定案，程式碼才動工 |
-| `code_first` | 分析 → 寫程式碼 → **規格反推** → 驗證 | 工程師先依分析師的結論直接寫程式碼，規格撰寫者再依實際改動反推整理成一份草稿，一樣要使用者確認過，票單才能推進到驗證完成 |
-
-兩種順序共用同一套 `sd_drafted`/`spec_confirmation` 機制——差別只在這個確認關卡卡在「寫程式碼之前」還是「寫程式碼之後」，`advance_ticket_stage` 本身不需要知道 `specOrder` 是什麼，只要看票單目前是不是卡在 `sd_drafted` 又還沒確認，就會擋下推進到下一步（`implemented` 或 `verified`，視卡住的時間點而定）。
+- `self-generated` 的規格確認用 `record_spec_confirmation`；`specOrder`（`spec_first`／`code_first`）在 `register_sasd_config` 時一併登記，`spec_first` 是原本唯一支援的順序。
+- `advance_ticket_stage` 本身不需要知道 `specOrder` 是什麼：只要票單目前卡在 `sd_drafted` 又還沒確認，就會擋下推進，擋的是 `implemented` 或 `verified`，視卡住的時間點而定。
 
 ---
 
@@ -237,15 +221,9 @@ npm run build
 
 ## 追蹤目錄放在哪裡
 
-建在**目標程式碼專案自己的目錄**，不是這個 MCP 的安裝目錄：
+![追蹤目錄放在哪裡：建在目標程式碼專案自己的目錄 projectDir 底下的 .asana-pipeline/<Asana 專案全名稱>/<票號>/<子票號>，子任務巢狀層數不限；票號資料夾的命名優先序為業務單號、Asana 票單標題（上限 80 字）、taskGid 保底；同一層撞名時補上 _taskGid 後綴](docs/img/tracking-dir.svg)
 
-```
-<projectDir>/.asana-pipeline/<Asana 專案全名稱>/<票號>/<子票號>/...   （子任務巢狀，層數不限，自動偵測）
-```
-
-資料夾名稱的命名優先序（2026-09-30 起）：**業務單號 → Asana 票單標題 → taskGid**。沒有業務單號時改用標題（上限 80 字，避免「前端開發與SQ」這類結尾被截掉、同一條鏈的子任務看起來一樣；Windows 不允許的字元會被替換、結尾的 `.`／`_` 會去掉）；同一層已經有別張票用了同名資料夾（Windows 不分大小寫）就補上 `_<taskGid>` 後綴。純數字 gid 資料夾在檔案總管裡完全看不出對應哪張票，所以只當最後的保底。
-
-分享/交接這個工具本身不會夾帶任何客戶票單內容——內容全部留在各專案目錄。第一次建立追蹤目錄時會在該專案 `CLAUDE.md` 附加一段說明（不覆蓋既有內容）。`data/tickets-index.json` 只存 `{ taskGid: 目錄路徑 }` 對照表，不含票單內容。
+建在**目標程式碼專案自己的目錄**，不是這個 MCP 的安裝目錄。資料夾命名優先序（2026-09-30 起）：**業務單號 → Asana 票單標題 → taskGid**，細節見圖；標題上限 80 字，是為了避免「前端開發與SQ」這類結尾被截掉、同一條鏈的子任務看起來一樣。
 
 ---
 
@@ -259,7 +237,9 @@ npm run build
 `get_role_prompt({ role, projectDir })` 會把 `all.md`（共通，例如「寫程式前先讀哪些規範檔」）和 `<role>.md`（這個角色專屬）依序附加在通用角色說明後面，衝突時以專案規則為準。`role` 為 `analyst`／`spec-writer`／`engineer`／`verifier`／`tester`。適合放「開發前先讀哪些習慣檔」「SD 範本以專案檔為準」這類指示，不需要改 MCP 程式碼。**`projectDir` 沒帶時，可以改帶 `taskGid`，工具會用這張票記錄的 `project_dir` 反查**，避免漏帶導致補充規則被靜默略過；兩個都沒帶才只回傳通用說明。**派子代理人時，`get_role_prompt` 一定要帶 `projectDir`（或 `taskGid`），並把回傳全文（含補充規則段落）原文貼給子代理人。**
 
 ### 2. 專案關卡 `<projectDir>/.pipeline/gates.json`（分析關卡＋實作關卡）
-寫入 `01-analysis.md` 時（`write_ticket_artifact`，在既有的 `record_sasd_check` 檢查之後）檢查。設定格式：
+![專案關卡 gates.json：寫入 01-analysis.md 時，先過既有的 record_sasd_check，再過分析關卡 analysisReferences（標題含 heading、列出至少 minPaths 個實際存在於 pathPrefix 底下的路徑、requireSasd 時須記錄找到規格）；寫入 02-implementation.md 時過實作關卡 implementationSections（標題含 heading、該節字數不少於 minChars）。票名不符 ticketNamePattern 就不檢查；不符就擋下並說明缺什麼](docs/img/gates.svg)
+
+**分析關卡**（`analysisReferences`）：寫入 `01-analysis.md` 時（`write_ticket_artifact`，在既有的 `record_sasd_check` 檢查之後）檢查。設定格式：
 
 ```json
 {
@@ -275,11 +255,8 @@ npm run build
 }
 ```
 
-- 只有**票名符合 `ticketNamePattern`（正規表示式）**的票才會被檢查，同專案其他票不受影響。
-- 分析文件必須有一節標題含 `heading` 的段落，段落內要列出至少 `minPaths` 個**實際存在**、位於 `pathPrefix`（相對 `projectDir`）底下的檔案路徑，斜線／反斜線皆可，可附 `:行號`。路徑不存在或寫錯會被擋下並列出哪些路徑無效。
-- `requireSasd: true`：`record_sasd_check` 記錄的必須是「找到規格」（`hasSasd: true`），記錄「找不到」會被擋下。
-- **限制**：只能檢查「有沒有寫出實際存在的檔案」，檢查不出代理人是不是真的讀了、讀得對不對。
-- `gates.json` 不是合法 JSON 時，這個專案的分析文件寫入會被擋下並提示修正，不會靜默略過。
+- `ticketNamePattern` 是正規表示式，只有票名符合的票才會被檢查，同專案其他票不受影響。
+- 路徑斜線／反斜線皆可，可附 `:行號`，`pathPrefix` 相對 `projectDir`。
 
 **實作關卡**（`implementationSections`）：寫入 `02-implementation.md` 時檢查，用來把「工程師要先查重再新增方法」這類要求變成機械檢查。
 
@@ -289,10 +266,8 @@ npm run build
 ] }
 ```
 
-- 票名符合 `ticketNamePattern` 的票，`02-implementation.md` 必須有一節標題（`#`～`######`）**包含** `heading`，且該節（到下一個標題為止）去掉空白後字數 ≥ `minChars`（沒填預設 40）。多條規則逐條檢查，第一個不符的就擋下並說明缺什麼。
-- 沒有 `implementationSections`、或票名不符，完全不檢查；讀檔位置與壞掉 JSON 的處理同分析關卡。
-- **限制**：只驗章節存在與字數，驗不出內容品質，也驗不出有沒有真的做過搜尋；字數可以用填充文字湊數；只管 `02-implementation.md`，不管 03、04；`heading` 是子字串比對，只取第一個符合的標題。
-
+- 「該節」指到下一個標題為止；`heading` 是子字串比對，只取第一個符合的標題。
+- 只管 `02-implementation.md`，不管 03、04。兩個關卡共通的限制與壞掉 JSON 的處理，寫在上方圖最下面的框。
 
 ### 3. 專案自己的 SD 範本與版更規範（`<projectDir>/.pipeline/templates/`）
 
@@ -316,28 +291,22 @@ npm run build
 
 ### 6. 規則檔快照與還原（`<projectDir>/.pipeline/.history/`）
 
-- MCP 每次讀取專案規則檔（角色規則、共通規則、關卡、設定、SD 範本）時，若內容跟最近一份快照不同，就把這個版本存進該專案的 `.pipeline/.history/`，**每個檔案保留最近 10 份**，內容相同不重複存。
-- `list_rule_history` 列出快照、`restore_rule_file` 還原指定版本；還原前會先把目前內容也存一份，還原動作本身可以反悔。還原只允許 `.pipeline/` 底下的規則檔，路徑跳脫、快照檔名不合法都會被拒絕。
-- **限制**：快照是「MCP 讀到時」才建立，不是存檔當下；在任何 AI 流程讀過之前就被改壞或刪掉的版本救不回來。這是安全網，不是正式的版本控制（沒有提交說明、不能比較差異）。專案目錄如果有進 git，記得把 `.pipeline/.history/` 加進忽略清單。
+![規則檔快照與還原：MCP 每次讀取專案規則檔時，內容跟最近一份快照不同就存進 .pipeline/.history/，每個檔案保留最近 10 份，相同不重複存；還原時先用 list_rule_history 列出快照，再用 restore_rule_file 選一版，還原前會先把目前內容也存一份，所以還原本身也能反悔](docs/img/rule-history.svg)
+
+快照是「MCP 讀到時」才建立，不是存檔當下，是安全網而不是正式版本控制；專案目錄若有進 git，記得把 `.pipeline/.history/` 加進忽略清單。
 
 ### 7. 工具群組可關閉（`DEV_PIPELINE_DISABLE_TOOLSETS`）
 
-用環境變數縮小工具清單（tools/list）送進 AI 上下文的量；**預設（沒設）全部註冊，共 57 個工具**。
+用環境變數縮小工具清單（tools/list）送進 AI 上下文的量；**預設（沒設）全部註冊**。
+
+![工具群組可關閉：預設全部註冊共 57 個工具；用環境變數 DEV_PIPELINE_DISABLE_TOOLSETS 可關掉 worktree 群組（8 個，關後剩 49 個）或 bridge 群組（9 個，關後剩 48 個），兩個都關剩 40 個核心工具；內部流程不經過這些可關閉的工具，關閉不影響運作](docs/img/toolsets.svg)
 
 ```json
 "env": { "DEV_PIPELINE_DISABLE_TOOLSETS": "worktree,bridge" }
 ```
 
-| 群組 | 工具 | 何時適合關閉 | 關閉後工具數 |
-|---|---|---|---|
-| `worktree` | 7 個 worktree 工具＋`install_git_hooks`（共 8 個） | 不需要多票／多 AI 同時改程式碼隔離時。關閉後跨 worktree 重疊示警也一併停用 | 49 |
-| `bridge` | `svn_*` 6 個、`get_ticket_activity`、`download_ticket_attachment`、`get_recent_commits`（共 9 個） | **只有另外直接連了 svn-mcp 與 asana-mcp 時**才適合。`get_ticket_activity` 沒有直接替代工具，要靠 asana-mcp 的 `asana_task_activity`／`asana_task_comments` | 48 |
-| 兩個都關 | | | 40 |
-
-- 逗號分隔、不分大小寫、容許空白；未知名稱只在 stderr 印警告並略過，不中斷。啟動時 stderr 會印出實際關閉了哪些群組。
-- `bridge` 關閉時，`get_pipeline_overview` 與 `get_role_prompt` 的回傳會自動附上一段說明，告訴 AI 文中提到的橋接工具不存在、該改用哪些外部工具；預設不關閉時不會多出任何字。
-- 內部流程（SA/SD 連線驗證、票單快照、Asana 同步）不經過這些已註冊的工具，關閉不影響運作。
-- 注意：Claude Code 對 MCP 工具採延遲載入，這項設定對它的效果有限，主要幫助不做延遲載入的 AI 工具。
+- 逗號分隔、不分大小寫、容許空白。`bridge` 關閉時，`get_pipeline_overview` 與 `get_role_prompt` 的回傳會自動附上替代工具說明；預設不關閉時不會多出任何字。
+- **工具數量有變動時，記得同步更新這張圖**（數字以 `tests/toolsets.test.mjs` 為準）。
 
 ### 8. 自動化測試
 

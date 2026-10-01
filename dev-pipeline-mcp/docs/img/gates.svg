@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 710" role="img" aria-label="專案關卡 gates.json：寫入 01-analysis.md 時，先過既有的 record_sasd_check，再過分析關卡 analysisReferences（標題含 heading、列出至少 minPaths 個實際存在於 pathPrefix 底下的路徑、requireSasd 時須記錄找到規格）；寫入 02-implementation.md 時過實作關卡 implementationSections（標題含 heading、該節字數不少於 minChars）。票名不符 ticketNamePattern 就不檢查；不符就擋下並說明缺什麼">
+  <defs><marker id="gatesmain" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/></marker><marker id="gatesacc" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2b6777"/></marker><marker id="gateswarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b9782e"/></marker></defs>
+  <rect x="0" y="0" width="1000" height="710" fill="#f5f2ea"/>
+  <text x="20" y="26" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">分析關卡（寫入 01-analysis.md 時）</text>
+  <rect x="20" y="86" width="200" height="124" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="120.0" y="114" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">寫入分析文件</text>
+  <text x="120.0" y="134" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">01-analysis.md</text>
+  <text x="120.0" y="199" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">write_ticket_artifact</text>
+  <rect x="260" y="86" width="200" height="124" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="360.0" y="114" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">先過既有檢查</text>
+  <text x="360.0" y="134" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">規格有沒有找到</text>
+  <text x="360.0" y="199" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">record_sasd_check</text>
+  <rect x="500" y="86" width="300" height="124" rx="12" fill="#dbe9ea" stroke="#2b6777" stroke-opacity="1"/>
+  <text x="650.0" y="114" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#17414c" font-weight="700">分析關卡 analysisReferences</text>
+  <text x="650.0" y="134" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">① 有一節標題含 heading 的段落</text>
+  <text x="650.0" y="149" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">② 段落列出 ≥ minPaths 個實際存在、</text>
+  <text x="650.0" y="164" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">　 在 pathPrefix 底下的檔案路徑</text>
+  <text x="650.0" y="179" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">③ requireSasd 時須記錄「找到規格」</text>
+  <rect x="840" y="116" width="140" height="64" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="910.0" y="144" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">寫入成功</text>
+  <line x1="220" y1="148" x2="256" y2="148" stroke="#2a2620" stroke-width="1.7" marker-end="url(#gatesmain)"/>
+  <line x1="460" y1="148" x2="496" y2="148" stroke="#2a2620" stroke-width="1.7" marker-end="url(#gatesmain)"/>
+  <line x1="800" y1="148" x2="836" y2="148" stroke="#2b6777" stroke-width="1.7" marker-end="url(#gatesacc)"/>
+  <path d="M 360 86 C 360 18, 910 18, 910 112" fill="none" stroke="#2b6777" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#gatesacc)"/>
+  <text x="640" y="30" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c">票名不符 ticketNamePattern：不檢查，直接放行</text>
+  <line x1="650" y1="210" x2="650" y2="238" stroke="#b9782e" stroke-width="1.7" marker-end="url(#gateswarn)"/>
+  <rect x="500" y="242" width="300" height="50" rx="12" fill="#f1e2c8" stroke="#b9782e" stroke-opacity="1"/>
+  <text x="650" y="263" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12" fill="#8a5a1e" font-weight="700">不符就擋下</text>
+  <text x="650" y="281" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#8a5a1e">並列出缺什麼、哪些路徑不存在</text>
+  <text x="20" y="338" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">實作關卡（寫入 02-implementation.md 時）</text>
+  <rect x="20" y="398" width="200" height="124" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="120.0" y="426" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">寫入實作文件</text>
+  <text x="120.0" y="446" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">02-implementation.md</text>
+  <text x="120.0" y="511" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">write_ticket_artifact</text>
+  <rect x="260" y="398" width="340" height="124" rx="12" fill="#dbe9ea" stroke="#2b6777" stroke-opacity="1"/>
+  <text x="430.0" y="426" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#17414c" font-weight="700">實作關卡 implementationSections</text>
+  <text x="430.0" y="446" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">① 有一節標題（# ～ ######）含 heading</text>
+  <text x="430.0" y="461" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">② 該節去掉空白後字數 ≥ minChars（預設 40）</text>
+  <text x="430.0" y="476" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">多條規則逐條查，第一個不符就擋下</text>
+  <rect x="640" y="428" width="140" height="64" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="710.0" y="456" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">寫入成功</text>
+  <line x1="220" y1="460" x2="256" y2="460" stroke="#2a2620" stroke-width="1.7" marker-end="url(#gatesmain)"/>
+  <line x1="600" y1="460" x2="636" y2="460" stroke="#2b6777" stroke-width="1.7" marker-end="url(#gatesacc)"/>
+  <path d="M 120 398 C 120 336, 710 336, 710 424" fill="none" stroke="#2b6777" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#gatesacc)"/>
+  <text x="470" y="346" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c">票名不符：不檢查，直接放行</text>
+  <line x1="430" y1="522" x2="430" y2="550" stroke="#b9782e" stroke-width="1.7" marker-end="url(#gateswarn)"/>
+  <rect x="260" y="554" width="340" height="50" rx="12" fill="#f1e2c8" stroke="#b9782e" stroke-opacity="1"/>
+  <text x="430" y="575" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12" fill="#8a5a1e" font-weight="700">不符就擋下</text>
+  <text x="430" y="593" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#8a5a1e">說明缺哪一節、字數差多少</text>
+  <rect x="20" y="628" width="960" height="68" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="500" y="650" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#2a2620">限制：只驗「有寫、路徑真的存在、字數夠」，驗不出內容品質，也驗不出代理人是不是真的讀過或搜過；字數可以用填充文字湊數。</text>
+  <text x="500" y="668" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#2a2620">gates.json 不是合法 JSON：該專案的寫入會被擋下並提示修正，不會悄悄略過。沒設定關卡的專案，行為完全不變。</text>
+  <text x="500" y="686" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#6b6558">檔案放在 &lt;projectDir&gt;/.pipeline/gates.json（舊位置 .claude/pipeline-roles/ 仍讀得到，兩邊都有時新位置優先）</text>
+</svg>

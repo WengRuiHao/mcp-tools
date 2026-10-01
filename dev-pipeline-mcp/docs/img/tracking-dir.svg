@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 490" role="img" aria-label="追蹤目錄放在哪裡：建在目標程式碼專案自己的目錄 projectDir 底下的 .asana-pipeline/&lt;Asana 專案全名稱&gt;/&lt;票號&gt;/&lt;子票號&gt;，子任務巢狀層數不限；票號資料夾的命名優先序為業務單號、Asana 票單標題（上限 80 字）、taskGid 保底；同一層撞名時補上 _taskGid 後綴">
+  <defs><marker id="trackingdirmain" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/></marker><marker id="trackingdiracc" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2b6777"/></marker><marker id="trackingdirwarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b9782e"/></marker></defs>
+  <rect x="0" y="0" width="1000" height="490" fill="#f5f2ea"/>
+  <text x="20" y="32" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">追蹤目錄的位置</text>
+  <rect x="20" y="50" width="460" height="52" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="34" y="72" text-anchor="start" font-family="'IBM Plex Mono',sans-serif" font-size="12.5" fill="#2a2620" font-weight="700">&lt;projectDir&gt;/</text>
+  <text x="34" y="91" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">目標程式碼專案自己的目錄（不是 MCP 安裝目錄）</text>
+  <path d="M 32 102 L 32 140 L 44 140" fill="none" stroke="#2a2620" stroke-width="1.6" marker-end="url(#trackingdirmain)"/>
+  <rect x="46" y="114" width="434" height="52" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="60" y="136" text-anchor="start" font-family="'IBM Plex Mono',sans-serif" font-size="12.5" fill="#2a2620" font-weight="700">.asana-pipeline/</text>
+  <text x="60" y="155" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">第一次建立時，會在該專案 CLAUDE.md 附加說明</text>
+  <path d="M 58 166 L 58 204 L 70 204" fill="none" stroke="#2a2620" stroke-width="1.6" marker-end="url(#trackingdirmain)"/>
+  <rect x="72" y="178" width="408" height="52" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="86" y="200" text-anchor="start" font-family="'IBM Plex Mono',sans-serif" font-size="12.5" fill="#2a2620" font-weight="700">&lt;Asana 專案全名稱&gt;/</text>
+  <text x="86" y="219" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">每個 Asana 專案一個資料夾</text>
+  <path d="M 84 230 L 84 268 L 96 268" fill="none" stroke="#2a2620" stroke-width="1.6" marker-end="url(#trackingdirmain)"/>
+  <rect x="98" y="242" width="382" height="52" rx="10" fill="#dbe9ea" stroke="#2b6777" stroke-opacity="1"/>
+  <text x="112" y="264" text-anchor="start" font-family="'IBM Plex Mono',sans-serif" font-size="12.5" fill="#17414c" font-weight="700">&lt;票號&gt;/</text>
+  <text x="112" y="283" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">01～04 追蹤檔、status.json 都在這裡</text>
+  <path d="M 110 294 L 110 332 L 122 332" fill="none" stroke="#2a2620" stroke-width="1.6" marker-end="url(#trackingdirmain)"/>
+  <rect x="124" y="306" width="356" height="52" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="138" y="328" text-anchor="start" font-family="'IBM Plex Mono',sans-serif" font-size="12.5" fill="#2a2620" font-weight="700">&lt;子票號&gt;/ …</text>
+  <text x="138" y="347" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">子任務巢狀，層數不限，自動偵測父票單</text>
+  <rect x="520" y="44" width="460" height="332" rx="14" fill="none" stroke="#2b6777" stroke-opacity="1" stroke-dasharray="5 4"/>
+  <line x1="480" y1="270" x2="516" y2="270" stroke="#2b6777" stroke-width="1.7" marker-end="url(#trackingdiracc)"/>
+  <text x="536" y="70" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="12" fill="#17414c" font-weight="700">資料夾名稱怎麼取（照順序，找不到才往下）</text>
+  <rect x="540" y="84" width="420" height="62" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <circle cx="562" cy="104" r="13" fill="#2a2620"/>
+  <text x="562" y="109" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#f5f2ea" font-weight="700">1</text>
+  <text x="750.0" y="112" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">業務單號</text>
+  <text x="750.0" y="132" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">最優先；有就用它</text>
+  <line x1="750" y1="146" x2="750" y2="168" stroke="#2a2620" stroke-width="1.7" marker-end="url(#trackingdirmain)"/>
+  <text x="765" y="162" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">沒有</text>
+  <rect x="540" y="170" width="420" height="98" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <circle cx="562" cy="190" r="13" fill="#2a2620"/>
+  <text x="562" y="195" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#f5f2ea" font-weight="700">2</text>
+  <text x="750.0" y="198" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">Asana 票單標題</text>
+  <text x="750.0" y="218" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">上限 80 字（避免結尾被截掉、看起來都一樣）</text>
+  <text x="750.0" y="233" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">Windows 不允許的字元會被替換</text>
+  <text x="750.0" y="248" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">結尾的 . 與 _ 會去掉</text>
+  <line x1="750" y1="268" x2="750" y2="290" stroke="#2a2620" stroke-width="1.7" marker-end="url(#trackingdirmain)"/>
+  <text x="765" y="284" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">沒有</text>
+  <rect x="540" y="292" width="420" height="70" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <circle cx="562" cy="312" r="13" fill="#2a2620"/>
+  <text x="562" y="317" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#f5f2ea" font-weight="700">3</text>
+  <text x="750.0" y="320" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">taskGid（最後保底）</text>
+  <text x="750.0" y="340" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">純數字，在檔案總管裡看不出是哪張票</text>
+  <rect x="520" y="392" width="460" height="64" rx="10" fill="#f1e2c8" stroke="#b9782e" stroke-opacity="1"/>
+  <text x="750" y="416" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#8a5a1e" font-weight="700">同一層已經有別張票用了同名資料夾</text>
+  <text x="750" y="436" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#8a5a1e">（Windows 不分大小寫）→ 補上 _&lt;taskGid&gt; 後綴</text>
+  <rect x="20" y="392" width="480" height="64" rx="10" fill="#dbe9ea" stroke="#2b6777" stroke-opacity="1"/>
+  <text x="260" y="413" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#17414c" font-weight="700">分享或交接這個工具本身，不會夾帶任何客戶票單內容</text>
+  <text x="260" y="432" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">內容全部留在各專案目錄；data/tickets-index.json</text>
+  <text x="260" y="447" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">只存 { taskGid: 目錄路徑 } 對照表，不含票單內容</text>
+</svg>
