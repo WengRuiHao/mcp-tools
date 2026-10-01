@@ -8,11 +8,11 @@ export const OVERVIEW_PROMPT = `# Asana 票單自動處理 Pipeline — 整體�
 
 **如果你自己具備派生子任務/子代理人執行工作的能力**（例如 Claude Code 的 Agent 工具），步驟 2 之 4／4.5／5／6／6.5（分析師/規格撰寫者/工程師/驗證師/測試工程師的實際工作）建議改派子任務執行、你只做調度——見文末「附錄 A：子任務派工建議」。不具備這種能力的話不用管這段，直接照步驟本身的說明自己執行即可。
 
-## 步驟 0：確認今天要看哪個 Asana 專案（只需要問一次，之後都會記住）
+## 步驟 0：確認今天要看哪個 Asana 專案（每個工作目錄只需要問一次，之後都會記住）
 
-呼叫 \`resolve_default_project({})\`：
+呼叫 \`resolve_default_project({ cwd: <目前工作目錄的絕對路徑> })\`（預設專案是依工作目錄各自登記的，沒帶 cwd 只會讀到舊的全域值，可能是別的專案的）：
 - \`found: true\` → 直接用回傳的 \`projectGid\`/\`projectName\`，不用再問使用者「今天的問題單」是指哪個專案。
-- \`found: false\` → 問使用者要看哪個 Asana workspace/專案（可以先呼叫 asana-mcp 的 \`asana_workspaces\`/\`asana_projects\` 列出選項給使用者選），拿到答案後呼叫 \`register_default_project({ workspaceGid, projectGid, projectName })\` 永久記住，之後同樣的觸發語句不會再問這件事。
+- \`found: false\` → 問使用者要看哪個 Asana workspace/專案（可以先呼叫 asana-mcp 的 \`asana_workspaces\`/\`asana_projects\` 列出選項給使用者選），拿到答案後呼叫 \`register_default_project({ workspaceGid, projectGid, projectName, cwd })\` 永久記住（同樣帶 cwd），之後在這個目錄下同樣的觸發語句不會再問這件事。
 
 ## 步驟 0.5：確認這個 Asana 專案對應哪個程式碼目錄（每個 Asana 專案通常只需要問一次）
 

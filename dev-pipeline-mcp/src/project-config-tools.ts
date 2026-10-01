@@ -152,10 +152,10 @@ export function registerProjectConfigTools(server: McpServer): void {
 
   server.tool(
     "resolve_default_project",
-    "查詢是否已經設定過「今天的問題單」預設要看哪個 Asana workspace/專案。找到就直接用，不用再問；找不到則回傳 needsInput，呼叫端要問使用者一次後呼叫 register_default_project。",
-    {},
-    async () => {
-      const project = await resolveDefaultProject();
+    "查詢是否已經設定過「今天的問題單」預設要看哪個 Asana workspace/專案。**一律帶 cwd（目前工作目錄的絕對路徑）**，每個工作目錄各自記自己的預設專案（往上找最近一層登記過的目錄），沒登記過的目錄不會借用別的專案的預設。找到就直接用，不用再問；找不到則回傳 needsInput，呼叫端要問使用者一次後呼叫 register_default_project（同樣帶 cwd）。不帶 cwd 只會讀舊的全域單一預設值（向下相容用）。",
+    { cwd: z.string().nullable().optional().describe("目前工作目錄的絕對路徑，用來決定要讀哪個專案目錄登記的預設 Asana 專案") },
+    async ({ cwd }) => {
+      const project = await resolveDefaultProject(cwd);
       if (project) return textResult({ found: true, ...project });
       return textResult({ found: false, needsInput: true });
     }
@@ -168,10 +168,11 @@ export function registerProjectConfigTools(server: McpServer): void {
       workspaceGid: z.string().describe("Asana 工作區 gid"),
       projectGid: z.string().describe("Asana 專案 gid"),
       projectName: z.string().describe("Asana 專案名稱（用於顯示、也用於追蹤目錄命名）"),
+      cwd: z.string().nullable().optional().describe("目前工作目錄的絕對路徑；帶了就只登記給這個目錄（及其子目錄），不帶則覆寫舊的全域預設值"),
     },
-    async ({ workspaceGid, projectGid, projectName }) => {
-      await registerDefaultProject({ workspaceGid, projectGid, projectName });
-      return textResult({ success: true, workspaceGid, projectGid, projectName });
+    async ({ workspaceGid, projectGid, projectName, cwd }) => {
+      await registerDefaultProject({ workspaceGid, projectGid, projectName }, cwd);
+      return textResult({ success: true, workspaceGid, projectGid, projectName, cwd: cwd ?? null });
     }
   );
 

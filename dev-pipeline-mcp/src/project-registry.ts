@@ -119,11 +119,40 @@ export interface DefaultProject {
   projectName: string;
 }
 
-/** The "today's tickets" default Asana project, so the daily trigger doesn't have to ask which project every time. */
-export async function resolveDefaultProject(): Promise<DefaultProject | null> {
-  return readJsonFile<DefaultProject | null>(defaultProjectPath(), null);
+const DEFAULT_PROJECT_BY_DIR_FILE = "default-project-by-dir.json";
+
+function defaultProjectByDirPath(): string {
+  return path.join(getDataDir(), DEFAULT_PROJECT_BY_DIR_FILE);
 }
 
-export async function registerDefaultProject(project: DefaultProject): Promise<void> {
-  await updateJsonFile<DefaultProject | null>(defaultProjectPath(), null, () => project);
+function normalizeDirKey(dir: string): string {
+  const abs = path.resolve(dir).replace(/[\\/]+$/, "");
+  return process.platform === "win32" ? abs.toLowerCase() : abs;
+}
+
+/**
+ * The "today's tickets" default Asana project, so the daily trigger doesn't have to ask which project every time.
+ * With `cwd`: looked up per working directory (nearest registered ancestor wins) and never falls back to the global
+ * value — a directory nobody registered must be asked about, not silently inherit another project's default.
+ * Without `cwd`: the legacy single global value.
+ */
+export async function resolveDefaultProject(cwd?: string | null): Promise<DefaultProject | null> {
+  if (!cwd) return readJsonFile<DefaultProject | null>(defaultProjectPath(), null);
+  const map = await readJsonFile<Record<string, DefaultProject>>(defaultProjectByDirPath(), {});
+  const target = normalizeDirKey(cwd);
+  const matchedKey = Object.keys(map)
+    .filter((key) => target === key || target.startsWith(key + path.sep))
+    .sort((a, b) => b.length - a.length)[0];
+  return matchedKey ? map[matchedKey] : null;
+}
+
+export async function registerDefaultProject(project: DefaultProject, cwd?: string | null): Promise<void> {
+  if (!cwd) {
+    await updateJsonFile<DefaultProject | null>(defaultProjectPath(), null, () => project);
+    return;
+  }
+  await updateJsonFile<Record<string, DefaultProject>>(defaultProjectByDirPath(), {}, (map) => ({
+    ...map,
+    [normalizeDirKey(cwd)]: project,
+  }));
 }
