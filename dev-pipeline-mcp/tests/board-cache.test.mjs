@@ -90,3 +90,47 @@ test("thrown errors propagate and do not update the clock", async () => {
   await fetchBoard("p1");
   assert.equal(calls[1].args.refresh, true);
 });
+
+test("cached path failure falls back to a forced refresh instead of returning the failure", async () => {
+  const { calls, fetchBoard, advance } = setup([
+    { success: true, tasks: [{ gid: "1" }] },
+    { success: false, message: "cache empty" },
+    { success: true, tasks: [{ gid: "2" }] },
+  ]);
+  await fetchBoard("p1");
+  advance(5_000);
+  const r = await fetchBoard("p1");
+  assert.deepEqual(calls.map((c) => c.args.refresh), [true, false, true]);
+  assert.equal(r.fromCache, false);
+  assert.equal(r.ageSeconds, null);
+  assert.equal(r.board.tasks[0].gid, "2");
+});
+
+test("cached path that throws also falls back to a forced refresh", async () => {
+  const { calls, fetchBoard, advance } = setup([
+    { success: true, tasks: [] },
+    new Error("asana-mcp restarted"),
+    { success: true, tasks: [{ gid: "3" }] },
+  ]);
+  await fetchBoard("p1");
+  advance(1_000);
+  const r = await fetchBoard("p1");
+  assert.equal(r.fromCache, false);
+  assert.deepEqual(calls.map((c) => c.args.refresh), [true, false, true]);
+});
+
+test("after a fallback refresh the cache window restarts", async () => {
+  const { calls, fetchBoard, advance } = setup([
+    { success: true, tasks: [] },
+    { success: false },
+    { success: true, tasks: [] },
+    { success: true, tasks: [] },
+  ]);
+  await fetchBoard("p1");
+  advance(2_000);
+  await fetchBoard("p1");
+  advance(2_000);
+  const r = await fetchBoard("p1");
+  assert.equal(r.fromCache, true);
+  assert.deepEqual(calls.map((c) => c.args.refresh), [true, false, true, false]);
+});

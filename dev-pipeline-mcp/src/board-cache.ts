@@ -26,10 +26,15 @@ export function createBoardFetcher({ call, now, ttlMs = DEFAULT_BOARD_TTL_MS }: 
     const age = last === undefined ? null : now() - last;
     const useCache = !forceRefresh && age !== null && age >= 0 && age < ttlMs;
 
-    const board = await call("asana_board", { projectGid, refresh: !useCache });
     if (useCache) {
-      return { board, fromCache: true, ageSeconds: Math.floor((age as number) / 1000) };
+      // asana-mcp 的快取可能已被清空（行程重啟過）：快取路徑失敗就退回強制重抓，不把失敗直接回給呼叫端
+      const cached = await call("asana_board", { projectGid, refresh: false }).catch(() => null);
+      if (cached?.success === true) {
+        return { board: cached, fromCache: true, ageSeconds: Math.floor((age as number) / 1000) };
+      }
     }
+
+    const board = await call("asana_board", { projectGid, refresh: true });
     // 失敗不更新時間，下一次仍會強制重抓
     if (board?.success === true) lastRefreshedAt.set(projectGid, now());
     return { board, fromCache: false, ageSeconds: null };
