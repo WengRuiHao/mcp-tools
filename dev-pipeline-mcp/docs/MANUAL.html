@@ -360,7 +360,7 @@
 
   <section id="tools" class="reveal">
     <h2><span class="num">06</span> 工具總覽</h2>
-    <p class="kicker">總共 54 個工具，分成幾大類。每一類點開來看，裡面有實際的工具名稱（給負責設定的工程師對照用）跟白話說明——大多數情況下你不需要知道這些名字，AI 助理會自己判斷該呼叫哪一個。</p>
+    <p class="kicker">總共 55 個工具，分成幾大類。每一類點開來看，裡面有實際的工具名稱（給負責設定的工程師對照用）跟白話說明——大多數情況下你不需要知道這些名字，AI 助理會自己判斷該呼叫哪一個。</p>
 
     <div class="cat-list">
       <details class="cat" open>
@@ -386,7 +386,8 @@
         </summary>
         <div class="cat-body">
           <div class="example"><b>可以這樣問：</b>不用特別問，AI 依流程自動切換角色</div>
-          <div class="tool-row"><code>get_role_prompt</code><span>取得某個角色該做什麼的完整說明；專案有自己的補充規則時會一併附上</span></div>
+          <div class="tool-row"><code>get_role_prompt</code><span>取得某個角色該做什麼的完整說明；專案有自己的規則時會一併附上</span></div>
+          <div class="tool-row"><code>get_project_rules</code><span>取得這個專案自己定義的開發規則（開發前要先讀哪些規範檔）；不走票單流程、單純寫程式時也能用</span></div>
           <div class="tool-row"><code>get_ticket_snapshot</code><span>抓票單內容＋留言，子任務會自動偵測父票單</span></div>
           <div class="tool-row"><code>advance_ticket_stage</code><span>推進到下一個階段，記錄 PASS/FAIL 跟原因</span></div>
           <div class="tool-row"><code>write_ticket_artifact</code> / <code>read_ticket_artifact</code><span>讀寫分析/實作/驗證/測試四份追蹤文件</span></div>

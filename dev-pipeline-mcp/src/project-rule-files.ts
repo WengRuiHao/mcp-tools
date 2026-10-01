@@ -6,6 +6,8 @@ import { readFile } from "node:fs/promises";
  * The first candidate wins; the second is the original location, kept so projects that already adopted it keep working.
  */
 export const ROLE_FILE_CANDIDATES = (role: string): string[] => [`.pipeline/roles/${role}.md`, `.claude/pipeline-roles/${role}.md`];
+/** Rules that apply to every role (e.g. which standards files to read before coding). */
+export const COMMON_RULES_FILE_CANDIDATES: string[] = [".pipeline/roles/all.md", ".claude/pipeline-roles/all.md"];
 export const GATES_FILE_CANDIDATES: string[] = [".pipeline/gates.json", ".claude/pipeline-roles/gates.json"];
 
 export interface FoundRuleFile {
