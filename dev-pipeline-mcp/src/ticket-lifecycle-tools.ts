@@ -23,6 +23,9 @@ import { syncPendingActionsReport, getPipelineAsanaUserGid, getUncommittedChange
 import { textResult } from "./shared.js";
 import { filterAndLimitTickets, localDateString, DUE_ON_DATE_PATTERN } from "./ticket-list-filter.js";
 import { computeNextAction } from "./next-action.js";
+import { createBoardFetcher } from "./board-cache.js";
+
+const fetchBoard = createBoardFetcher({ call: callAsanaTool, now: Date.now });
 
 export function registerTicketLifecycleTools(server: McpServer): void {
   server.tool(
@@ -33,6 +36,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       "- `awaitingConfirmation`：AI 已判 PASS、等使用者實測確認；**每次呼叫都要完整秀給使用者**，直到 record_confirmation。\n" +
       "- `awaitingSpecConfirmation`：僅 sdMode \"self-generated\"，等 record_spec_confirmation，同樣要秀給使用者。\n" +
       "- `manualActions`／`uncommittedChanges` 互斥：「尚未 commit」且有具體檔名的只在 `uncommittedChanges`（`registered:false`=尚未 register_git_roots）。\n" +
+      "Asana 資料 60 秒內重複呼叫會用快取（回傳帶 boardFromCache／boardAgeSeconds，剛改的指派／到期日可能還沒反映），要最新資料帶 refresh:true。\n" +
       "HTML 上的勾選要先在 dev-pipeline-mcp 目錄執行 `npm run start:http` 啟動本機 HTTP bridge（首次產出報告時提醒使用者）；「Asana 內容已變更」的勾選只是標記，要等下一個看到 `humanRequestedReanalysis:true` 的 AI 才會處理。改票單狀態的工具都會自動局部重寫報告，本工具主要用來發現全新的票與使用者標記的優先票。",
     {
       projectGid: z.string().describe("Asana 專案 gid"),
@@ -61,9 +65,10 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         .nullable()
         .optional()
         .describe("只限制 `tickets` 回傳筆數（依到期日由早到晚）；超過會附 totalMatched／truncated／truncatedNote，不會悄悄截斷。"),
+      refresh: z.boolean().nullable().optional().describe("true=強制重抓 Asana；沒帶=60 秒內重複呼叫用快取。"),
     },
-    async ({ projectGid, sectionFilter, projectName, onlyAssignedToMe, dueOn, limit }) => {
-      const board = await callAsanaTool("asana_board", { projectGid, refresh: true });
+    async ({ projectGid, sectionFilter, projectName, onlyAssignedToMe, dueOn, limit, refresh }) => {
+      const { board, fromCache, ageSeconds } = await fetchBoard(projectGid, { forceRefresh: refresh === true });
       if (!board?.success) return textResult(board, true);
 
       let onlyMine = onlyAssignedToMe ?? null;
@@ -226,6 +231,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         manualActions: manualActionsForReport,
         ...(uncommittedChanges ? { uncommittedChanges } : {}),
         ...(pendingActionsReportPath ? { pendingActionsReportPath } : {}),
+        ...(fromCache ? { boardFromCache: true, boardAgeSeconds: ageSeconds } : {}),
       });
     }
   );
