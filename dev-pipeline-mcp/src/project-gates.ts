@@ -17,13 +17,27 @@ export interface AnalysisReferenceGate {
   requireSasd?: boolean;
 }
 
+/** 實作文件必須有一節（標題含 heading）且去空白後字數達標；heading 語意由專案自訂。 */
+export interface ImplementationSectionGate {
+  ticketNamePattern: string;
+  heading: string;
+  /** 預設 DEFAULT_MIN_SECTION_CHARS */
+  minChars?: number;
+}
+
 interface GatesConfig {
   analysisReferences?: AnalysisReferenceGate[];
+  implementationSections?: ImplementationSectionGate[];
 }
 
 export type GateResult = { ok: true } | { ok: false; message: string };
 
-async function loadGates(projectDir: string): Promise<GatesConfig | { error: string } | null> {
+const DEFAULT_MIN_SECTION_CHARS = 40;
+
+async function loadGates(
+  projectDir: string,
+  writeTarget = "分析文件"
+): Promise<GatesConfig | { error: string } | null> {
   let found: FoundRuleFile | null;
   try {
     found = await readFirstExisting(projectDir, GATES_FILE_CANDIDATES);
@@ -34,7 +48,7 @@ async function loadGates(projectDir: string): Promise<GatesConfig | { error: str
   try {
     return JSON.parse(found.content) as GatesConfig;
   } catch {
-    return { error: `${found.relPath} 不是合法的 JSON，請修正後再寫入分析文件` };
+    return { error: `${found.relPath} 不是合法的 JSON，請修正後再寫入${writeTarget}` };
   }
 }
 
@@ -125,6 +139,39 @@ export async function checkAnalysisGates(params: {
       return {
         ok: false,
         message: `「${gate.heading}」這一節必須列出至少 ${minPaths} 個實際存在、位於 ${gate.pathPrefix} 底下的檔案路徑，目前只有 ${existing.length} 個有效${missingNote}。請先實際讀取舊系統檔案再補上路徑。`,
+      };
+    }
+  }
+  return { ok: true };
+}
+
+export async function checkImplementationGates(params: {
+  projectDir: string;
+  ticketName: string;
+  implementationContent: string;
+}): Promise<GateResult> {
+  const { projectDir, ticketName, implementationContent } = params;
+  const config = await loadGates(projectDir, "實作文件");
+  if (config === null) return { ok: true };
+  if ("error" in config) return { ok: false, message: config.error };
+
+  for (const gate of config.implementationSections ?? []) {
+    if (!new RegExp(gate.ticketNamePattern).test(ticketName)) continue;
+
+    const minChars = gate.minChars ?? DEFAULT_MIN_SECTION_CHARS;
+    const hint = "請依該專案對這一節的要求，寫清楚做了什麼檢查、找到什麼、最後的決定與理由";
+    const section = extractSection(implementationContent, gate.heading);
+    if (section === null) {
+      return {
+        ok: false,
+        message: `這個專案規定這類票的實作文件必須包含一節「${gate.heading}」（markdown 標題），內容至少 ${minChars} 字。${hint}，補上這一節再寫入。`,
+      };
+    }
+    const length = section.replace(/\s/g, "").length;
+    if (length < minChars) {
+      return {
+        ok: false,
+        message: `實作文件的「${gate.heading}」這一節太短（目前 ${length} 字，至少要 ${minChars} 字）。${hint}，補完再寫入。`,
       };
     }
   }

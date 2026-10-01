@@ -11,7 +11,7 @@ import {
   detectSensitiveManualActions,
   NO_SYNC_NEEDED,
 } from "./pipeline-store.js";
-import { checkAnalysisGates } from "./project-gates.js";
+import { checkAnalysisGates, checkImplementationGates } from "./project-gates.js";
 import { syncPendingActionsReport } from "./pending-actions-sync.js";
 import { textResult } from "./shared.js";
 
@@ -20,7 +20,7 @@ export function registerTicketArtifactTools(server: McpServer): void {
     "write_ticket_artifact",
     "把內容寫入某張票單追蹤目錄下的檔案（01-analysis.md / 02-implementation.md / 03-verification.md / 04-test.md）。" +
       "**content 是整份覆寫、不是附加**：檔案已有內容時，先 read_ticket_artifact 讀全文，組合舊＋新內容再整份送入，否則先前內容永久遺失。" +
-      "寫 01-analysis.md 前必須已呼叫 record_sasd_check，且需通過專案 gates.json（<projectDir>/.pipeline/gates.json）的分析關卡，否則拒絕並說明缺什麼。" +
+      "寫 01-analysis.md 前必須已呼叫 record_sasd_check，且需通過專案 gates.json（<projectDir>/.pipeline/gates.json）的分析關卡（寫 02-implementation.md 亦有實作關卡），否則拒絕並說明缺什麼。" +
       "寫 01–04 都要帶 summary（2-4 條重點）；寫 01-analysis.md 會清掉 needs_reanalysis 標記。" +
       `寫 02/03/04 必填 syncNote（對上一階段有無修正；沒有就帶 "${NO_SYNC_NEEDED}"）與 manualActions（需使用者手動處理的事項，沒有帶 []），缺少會被拒絕。` +
       "寫入後自動局部重寫該 Asana 專案的 PENDING_HUMAN_ACTIONS.html。",
@@ -117,6 +117,18 @@ export function registerTicketArtifactTools(server: McpServer): void {
             },
             true
           );
+        }
+      }
+
+      if (filename === "02-implementation.md") {
+        const status = await readStatus(taskGid);
+        if (status.project_dir) {
+          const gate = await checkImplementationGates({
+            projectDir: status.project_dir,
+            ticketName: status.name ?? "",
+            implementationContent: content,
+          });
+          if (!gate.ok) return textResult({ success: false, message: gate.message }, true);
         }
       }
 
