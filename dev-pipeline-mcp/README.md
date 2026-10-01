@@ -339,6 +339,19 @@ npm run build
 - 內部流程（SA/SD 連線驗證、票單快照、Asana 同步）不經過這些已註冊的工具，關閉不影響運作。
 - 注意：Claude Code 對 MCP 工具採延遲載入，這項設定對它的效果有限，主要幫助不做延遲載入的 AI 工具。
 
+### 8. 自動化測試
+
+```bash
+cd dev-pipeline-mcp
+npm test        # 先編譯再跑全部測試
+node --test tests/gates.test.mjs   # 單檔（要先 npm run build）
+```
+
+- 使用 Node 內建的 `node:test`，沒有額外依賴；測試放在 `tests/*.test.mjs`，從 `dist/` 以相對路徑匯入。
+- 一律使用暫時資料目錄（設 `ASANA_PIPELINE_DATA_DIR`），**不連 Asana、不碰正式 `data/`**。涵蓋規則檔與快照、專案關卡、工具分組、列表過濾與快取、`nextAction`、角色說明組裝、總覽字數、預設專案、SD 文件、輸出截斷、狀態推進精簡回傳、專案 gid 等。
+- 另有「契約測試」固定工具名稱清單與關鍵參數、`core` 總覽字數上限，以及「客戶代號守門」掃描 `src/`、`templates/`、`README.md`、`docs/MANUAL.html`、`tests/`，避免之後不小心刪掉參數或帶入真實客戶代號。刻意新增或移除工具時，要同步更新 `tests/toolsets.test.mjs` 的工具清單與數量。
+- **未涵蓋**：`list_pending_tickets` handler 本體（會連 Asana，只測它用到的過濾與快取邏輯）、HTTP bridge、worktree 實際 git 操作。
+
 ---
 
 ## 提供的工具
@@ -349,13 +362,13 @@ npm run build
 | 工具 | 用途 |
 |---|---|
 | `get_pipeline_overview` | 取得整條流程說明（第一步一定先呼叫）。預設只回傳核心流程（約 9.5K 字），其餘情境用 `section` 取：`setup`（第一次設定問答）、`appendix-a`（子任務派工）、`appendix-b`（換 session 接手）、`appendix-c`（測試員回報）、`all`（全部） |
-| `get_role_prompt` | 取得分析師／規格撰寫者／工程師／驗證師／測試工程師其中一個角色的職責說明（`spec-writer` 只有 `sdMode: "self-generated"` 才需要；`tester` 每張票都會經過，是 `verifier` 判 PASS 之後、人類最終確認之前新增的一階）。帶 `projectDir`（或 `taskGid` 反查）時，若 `<projectDir>/.pipeline/roles/<role>.md` 存在（舊位置 `.claude/pipeline-roles/` 也讀得到，新位置優先），內容會附加在通用說明後面當作專案專屬補充規則（衝突時以補充規則為準），讓各專案自己的開發步驟、路徑慣例、驗證方式不必改 MCP 程式碼。專案登記的 test capability 為 `none` 時，`engineer` 說明省略自動化測試詳細規則（由 `projectDir` 反查，查不到或設定不一致則維持完整說明） |
+| `get_role_prompt` | 取得分析師／規格撰寫者／工程師／驗證師／測試工程師其中一個角色的職責說明（`spec-writer` 只有 `sdMode: "self-generated"` 才需要；`tester` 每張票都會經過，是 `verifier` 判 PASS 之後、人類最終確認之前新增的一階）。帶 `projectDir`（或 `taskGid` 反查）時，若 `<projectDir>/.pipeline/roles/<role>.md` 存在（舊位置 `.claude/pipeline-roles/` 也讀得到，新位置優先），內容會附加在通用說明後面當作專案專屬補充規則（衝突時以補充規則為準），讓各專案自己的開發步驟、路徑慣例、驗證方式不必改 MCP 程式碼。專案登記的 test capability 為 `none` 時，`engineer` 說明省略自動化測試詳細規則（由 `projectDir` 反查，查不到或設定不一致則維持完整說明）。帶 `taskGid` 且票單有 `project_gid` 時，規格撰寫者／工程師／驗證師說明只保留該專案 `sdMode`／`specOrder` 適用的分支，自動化測試設定也改用 gid 精準查；任何一項查不到就回完整說明 |
 | `get_project_rules` | 取得專案自己定義的開發規則（`.pipeline/roles/all.md` 共通規則、有哪些角色專屬規則檔、有沒有分析關卡）。**不走票單流程、單純要在某個專案寫程式碼時，開始前先呼叫這個**；走票單流程時 `get_role_prompt` 已自動附上。`projectDir`／`taskGid` 擇一 |
 | `list_rule_history` | 列出專案規則檔（`.pipeline/` 底下）的歷史快照；不帶 `file` 列出有快照的檔案，帶 `file` 列出該檔案的快照（新到舊） |
 | `restore_rule_file` | 把規則檔還原成某個快照；還原前會先把目前內容存成快照，所以還原本身也能反悔 |
 | `resolve_default_project` / `register_default_project` | 查詢/登記「今天的問題單」預設 Asana 專案。帶 `cwd` 時依工作目錄各自登記（往上找最近一層，不借用別的目錄的預設）；不帶 `cwd` 才讀舊的全域單一值 |
-| `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；可只列指派給自己的票（`onlyAssignedToMe` 參數或 `.pipeline/settings.json`）；附上 `awaitingConfirmation`（AI 已 PASS、還卡在使用者自測這關的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過**或使用者主動要求重新確認**的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）、`humanRequestedReanalysis: true`（使用者在網頁上勾了「請 AI 優先處理」，這次批次一定要處理，見 `request_reanalysis`）。**帶 `projectName` 會把這六類整份寫進互動網頁 `PENDING_HUMAN_ACTIONS.html`**（見下方說明）。可用 `dueOn`（`today`／`overdue`／`today_or_overdue`／`YYYY-MM-DD`）與 `limit` 縮小一般待處理清單：只作用在 `tickets`，需要使用者看的清單（待確認、待確認規格、卡住、手動待辦、未 commit）與 `PENDING_HUMAN_ACTIONS.html` 不受影響；帶了 `dueOn` 會排除沒有到期日的票；超過 `limit` 會附 `truncated`／`totalMatched`／`truncatedNote`，不會悄悄截斷 |
-| `get_ticket_snapshot` | 抓票單內容＋留言，寫入追蹤檔案；子任務自動偵測（讀 Asana `parent` 欄位） |
+| `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；可只列指派給自己的票（`onlyAssignedToMe` 參數或 `.pipeline/settings.json`）；附上 `awaitingConfirmation`（AI 已 PASS、還卡在使用者自測這關的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過**或使用者主動要求重新確認**的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）、`humanRequestedReanalysis: true`（使用者在網頁上勾了「請 AI 優先處理」，這次批次一定要處理，見 `request_reanalysis`）。**帶 `projectName` 會把這六類整份寫進互動網頁 `PENDING_HUMAN_ACTIONS.html`**（見下方說明）。可用 `dueOn`（`today`／`overdue`／`today_or_overdue`／`YYYY-MM-DD`）與 `limit` 縮小一般待處理清單：只作用在 `tickets`，需要使用者看的清單（待確認、待確認規格、卡住、手動待辦、未 commit）與 `PENDING_HUMAN_ACTIONS.html` 不受影響；帶了 `dueOn` 會排除沒有到期日的票；超過 `limit` 會附 `truncated`／`totalMatched`／`truncatedNote`，不會悄悄截斷。**快取**：同一專案 60 秒內重複呼叫會用 asana-mcp 的快取（約 0.03 秒，強制重抓約 7～18 秒），回傳會多 `boardFromCache: true` 與 `boardAgeSeconds`；帶 `refresh: true` 強制重抓。60 秒內才在 Asana 改的指派或到期日可能還看不到；快取失敗會自動退回強制重抓 |
+| `get_ticket_snapshot` | 抓票單內容＋留言，寫入追蹤檔案；子任務自動偵測（讀 Asana `parent` 欄位）。可帶 `projectGid`，會記錄在票單狀態的 `project_gid`，讓 `nextAction` 與角色說明能依專案的規格模式／測試設定精準化；舊票單要等下一次帶 `projectGid` 的快照才會補上 |
 | `relocate_ticket_project` | 修正 `get_ticket_snapshot` 第一次呼叫 `projectName` 傳錯時，這張票（連同巢狀子任務）的本機追蹤資料夾要一併搬到正確的專案名稱底下；只改本機資料夾標籤，不會也不能改 Asana 上這張票實際所屬的專案 |
 | `get_ticket_activity` | 取得票單完整活動時間軸（留言＋系統事件＋附件，依時間排序）；使用者說「查看測試員回報的測試狀況」時用這個 |
 | `download_ticket_attachment` | 下載某個附件到本機暫存檔（`attachmentGid` 來自 `get_ticket_activity`） |
@@ -369,10 +382,10 @@ npm run build
 | `svn_list_connections` / `svn_test_connection` | 轉呼叫 svn-mcp，列出/測試 SVN 連線 |
 | `svn_browse` / `svn_cat` / `svn_doc_images` / `svn_log` | 轉呼叫 svn-mcp 讀 SVN 上的規格（唯讀），一律讀遠端不讀本機 checkout |
 | `get_recent_commits` | 查某目錄最近的 git commit |
-| `read_project_file` / `write_project_file` / `list_project_dir` / `search_project_text` | 讀寫/搜尋專案檔案（限 `projectDir` 範圍內）；偵測外部修改，見下方安全限制 |
+| `read_project_file` / `write_project_file` / `list_project_dir` / `search_project_text` | 讀寫/搜尋專案檔案（限 `projectDir` 範圍內）；偵測外部修改，見下方安全限制。`read_project_file` 可用 `startLine`／`endLine` 讀指定行範圍；沒帶範圍且超過 40,000 字時在行尾截斷，並回 `truncated`／`totalChars`／`totalLines`／`returnedLines`／`truncatedNote`，**被截斷時不可據此整份覆寫檔案** |
 | `resolve_git_roots` / `register_git_roots` | 查詢/登記專案目錄實際的 git 版控根目錄（可前後端分開） |
-| `run_project_shell` | 跑 shell 指令；git 指令會驗證版控根目錄，見下方安全限制 |
-| `get_ticket_status` / `advance_ticket_stage` | 讀取/更新票單追蹤狀態，附 `sync_flags`/`needs_human_review`/`external_changes`（當場重新讀磁碟比對，抓繞過 MCP 的手動修改）；`verdict`（驗證師或測試工程師的結論，兩者共用同一個欄位跟同一組 `consecutive_fail_count`）、`confirmation`（使用者自測＋審視 code）、`verifier_root_cause`（FAIL 根因，供自動路由）是分開的欄位。`verdict: "FAIL"` 時 `rootCause` 必填（`"analysis"`/`"implementation"`），並會機械式維護 `consecutive_fail_count`（FAIL 累加/PASS 歸零）、清空人類確認。`stage` 新增 `"tested"`（`"verified"` 之後、人類最終確認之前）。`get_ticket_status` 另回傳 `nextAction`（`summary`／`blockedBy`／`suggestedTools`）：由程式依票單狀態算出下一步與目前被什麼擋住，對齊真實把關；取不到專案的 SD 模式時，規格相關建議只寫「依專案設定」，不猜 |
+| `run_project_shell` | 跑 shell 指令；git 指令會驗證版控根目錄，見下方安全限制。stdout、stderr 各自超過約 12,000 字時保留開頭 3,000 與結尾 9,000 字（錯誤通常在結尾），中間以「輸出共 N 字，省略中間 M 字」標記，並回 `truncated`／`originalChars`；沒超過時回傳形狀不變 |
+| `get_ticket_status` / `advance_ticket_stage` | 讀取/更新票單追蹤狀態，附 `sync_flags`/`needs_human_review`/`external_changes`（當場重新讀磁碟比對，抓繞過 MCP 的手動修改）；`verdict`（驗證師或測試工程師的結論，兩者共用同一個欄位跟同一組 `consecutive_fail_count`）、`confirmation`（使用者自測＋審視 code）、`verifier_root_cause`（FAIL 根因，供自動路由）是分開的欄位。`verdict: "FAIL"` 時 `rootCause` 必填（`"analysis"`/`"implementation"`），並會機械式維護 `consecutive_fail_count`（FAIL 累加/PASS 歸零）、清空人類確認。`stage` 新增 `"tested"`（`"verified"` 之後、人類最終確認之前）。`get_ticket_status` 另回傳 `nextAction`（`summary`／`blockedBy`／`suggestedTools`）：由程式依票單狀態算出下一步與目前被什麼擋住，對齊真實把關；取不到專案的 SD 模式時，規格相關建議只寫「依專案設定」，不猜。`advance_ticket_stage`、`record_confirmation`、`record_spec_confirmation`、`record_sasd_check`、`request_reanalysis` 預設只回精簡狀態（`stage`／`verdict`／`needs_human_review`／`consecutive_fail_count`／`nextAction` 等，約 500 字），帶 `verbose: true` 取得完整狀態；網頁勾選用的 HTTP bridge 回傳格式不變 |
 | `write_ticket_artifact` / `read_ticket_artifact` | 讀寫追蹤目錄下的分析/實作/驗證/測試檔案；寫 02/03/04 時 `syncNote`/`manualActions` 都必填（`manualActions` 可以是空陣列，04 的話裝測試工程師判不出來、只能列出來提醒人工的 `needs_manual_check` 項目） |
 | `resync_ticket_artifact` | 把 01/02/03/04 其中一份檔案「現在磁碟上的實際內容」重新雜湊、寫回 `sync.*_hash`——給直接手動改過追蹤檔案（沒走 `write_ticket_artifact`）之後，用最低成本同步雜湊記錄，不用跑完整流程；也能順便回填舊票的 `manualActions` |
 | `resolve_manual_action` | 把某張票單 `manualActions`（02/03/04 皆可）裡「使用者確認已經處理完」的一項移除（文字精確比對），不用整份陣列重新宣告一次 |
