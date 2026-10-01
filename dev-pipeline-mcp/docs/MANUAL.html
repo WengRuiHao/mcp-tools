@@ -371,9 +371,9 @@
         </summary>
         <div class="cat-body">
           <div class="example"><b>可以這樣問：</b>「處理今天的問題單」</div>
-          <div class="tool-row"><code>get_pipeline_overview</code><span>取得整條流程說明，AI 開始前一定先讀這個</span></div>
-          <div class="tool-row"><code>list_pending_tickets</code><span>列出這個專案尚未處理完的票單，順便整份重寫 PENDING_HUMAN_ACTIONS.html</span></div>
-          <div class="tool-row"><code>get_ticket_status</code><span>看單一張票目前的進度、驗證結果、確認狀態</span></div>
+          <div class="tool-row"><code>get_pipeline_overview</code><span>取得整條流程說明，AI 開始前一定先讀這個；預設只給核心流程，其他情境（第一次設定、子任務派工等）需要時才另外取</span></div>
+          <div class="tool-row"><code>list_pending_tickets</code><span>列出這個專案尚未處理完的票單，順便整份重寫 PENDING_HUMAN_ACTIONS.html；可只看今天到期的票或限制筆數，不會一次回傳整個專案</span></div>
+          <div class="tool-row"><code>get_ticket_status</code><span>看單一張票目前的進度、驗證結果、確認狀態，並直接告訴 AI 下一步該做什麼、目前被什麼擋住</span></div>
           <div class="tool-row"><code>get_ticket_activity</code><span>看票單完整活動時間軸（留言＋系統事件＋附件）</span></div>
         </div>
       </details>
@@ -488,7 +488,7 @@
 
     <div class="scenario">
       <h3>情境二：查看測試員回報的測試狀況</h3>
-      <div class="bubble user">看一下 115SCSB-13 測試員說了什麼</div>
+      <div class="bubble user">看一下 PROJ-1234 測試員說了什麼</div>
       <div class="bubble ai">測試員留言說某個欄位沒有正確顯示，我看了一下附的截圖，問題出在……我已經修好了，重新走一次驗證。
         <span class="steps">背後呼叫：<code>get_ticket_activity</code> → <code>download_ticket_attachment</code> → 重新進入工程師/驗證師角色</span>
       </div>
@@ -541,6 +541,14 @@
     <div class="faq-item">
       <h3>專案規則檔不小心改壞或刪掉了怎麼辦？</h3>
       <p>系統每次讀到規則檔且內容有變，就會在專案的 <code class="mono">.pipeline/.history/</code> 存一份，每個檔案保留最近 10 版。請 AI 列出該檔案的歷史版本，再選一版還原即可；還原前會先把目前內容也存起來，所以還原也能反悔。注意：只有被系統讀過的版本才有紀錄，從沒被讀過就改壞的版本救不回來。</p>
+    </div>
+    <div class="faq-item">
+      <h3>我只想處理今天到期的票，AI 卻把整個專案的票都列出來？</h3>
+      <p>請 AI 列票時指定「只看今天到期」或「到期日在某天」，也可以限制筆數。被限制的只是一般待處理清單；需要你確認、手動處理的事項不受影響，所以不會因為過濾而漏掉。若有被截斷，結果裡會明確寫出總共幾筆、少給了幾筆。</p>
+    </div>
+    <div class="faq-item">
+      <h3>寫程式的步驟會不會被 AI 跳過查重？</h3>
+      <p>專案可以設定「寫實作紀錄時一定要有查重章節」，沒有就會被擋下並說明缺什麼。這個檢查只確認章節存在且有一定字數，確認不了查重做得好不好，重要的票仍值得你看一眼。</p>
     </div>
     <div class="faq-item">
       <h3>AI 寫完的程式碼會自動上傳到公司的版本系統嗎？</h3>
