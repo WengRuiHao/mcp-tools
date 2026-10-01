@@ -5,7 +5,8 @@ import { OVERVIEW_SECTIONS, getOverview } from "./overview-prompts.js";
 import { COMMON_RULES_FILE_CANDIDATES, GATES_FILE_CANDIDATES, ROLE_FILE_CANDIDATES, readFirstExisting, resolveProjectDir } from "./project-rule-files.js";
 import { bridgeDisabledNote } from "./toolset-config.js";
 import { textResult } from "./shared.js";
-import { resolveUniformTestCapabilityMode } from "./project-registry.js";
+import { resolveSasdConfig, resolveTestCapability, resolveUniformTestCapabilityMode } from "./project-registry.js";
+import { peekStatus } from "./pipeline-store.js";
 
 const ALL_ROLES = ["analyst", "spec-writer", "engineer", "verifier", "tester"] as const;
 
@@ -40,7 +41,7 @@ export function registerPipelineInfoTools(server: McpServer): void {
     "get_role_prompt",
     "取得「分析師 / 規格撰寫者 / 工程師 / 驗證師 / 測試工程師」其中一個角色的職責說明、可用工具、輸出格式；切換角色前先呼叫。" +
       "\"spec-writer\" 只有 sdMode 為 \"self-generated\" 的專案才需要；\"tester\" 是 verifier 判 PASS 之後、人類最終確認之前的角色（每張票都會經過），依 get_test_engineer_guide 跑情境測試。" +
-      "專案登記為不寫自動化測試（test capability mode 為 none）時，\"engineer\" 說明會省略自動化測試的詳細規則。",
+      "專案登記為不寫自動化測試（test capability mode 為 none）時，\"engineer\" 說明會省略自動化測試的詳細規則；帶 taskGid 且票單已記錄 project_gid 時，spec-writer／engineer／verifier 說明另依專案的 sdMode／specOrder 只保留適用分支。",
     {
       role: z.enum(["analyst", "spec-writer", "engineer", "verifier", "tester"]).describe("要取得說明的角色"),
       projectDir: z
@@ -59,9 +60,18 @@ export function registerPipelineInfoTools(server: McpServer): void {
     },
     async ({ role, projectDir, taskGid }) => {
       const dir = await resolveProjectDir(projectDir, taskGid);
-      // 專案登記為不寫自動化測試時，工程師說明省略整段測試規則；查不到或不一致就維持完整說明。
-      const testCapabilityMode = role === "engineer" && dir ? await resolveUniformTestCapabilityMode(dir) : null;
-      const base = getRolePrompt(role, { testCapabilityMode });
+      // 票單有記錄 project_gid 時用它精準查專案設定；沒有就退回 projectDir 反查。查不到一律維持完整說明，不誤省略。
+      const projectGid = taskGid ? (await peekStatus(taskGid)).project_gid : null;
+      const sasd = projectGid ? await resolveSasdConfig(projectGid) : null;
+      const testCapabilityMode =
+        role !== "engineer"
+          ? null
+          : projectGid
+            ? ((await resolveTestCapability(projectGid))?.mode ?? null)
+            : dir
+              ? await resolveUniformTestCapabilityMode(dir)
+              : null;
+      const base = getRolePrompt(role, { testCapabilityMode, sdMode: sasd?.sdMode ?? null, specOrder: sasd?.specOrder ?? null });
       const note = bridgeDisabledNote();
       const sections = [base];
       if (dir) {

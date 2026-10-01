@@ -47,6 +47,8 @@ export interface TicketStatus {
   project_dir: string | null;
   /** 這張票所屬的 Asana 專案「全名稱」（未消毒過的原始字串）。get_ticket_snapshot 時自動記錄，供任何單張票的狀態異動事後局部重建 PENDING_HUMAN_ACTIONS.html 用（見 syncPendingActionsReport/listTicketsUnderProject），不需要呼叫端每次額外傳遞或記得重新呼叫 list_pending_tickets。 */
   project_name: string | null;
+  /** 這張票所屬 Asana 專案的 gid；get_ticket_snapshot 帶 projectGid 時記錄。用來精準查該專案的 SA/SD 與自動化測試設定（舊票單為 null，要等下次 snapshot 才會補上）。 */
+  project_gid: string | null;
   /** 這張票在 Asana 上的顯示名稱（task.name）。get_ticket_snapshot 時自動記錄，同上用途——讓局部重建 PENDING_HUMAN_ACTIONS.html 不需要重新查 Asana 就能顯示票名。 */
   name: string | null;
   /** 上次抓取時 Asana 這張票的指派人 gid（task.assignee?.gid），沒有指派人是 null。get_ticket_snapshot 時自動記錄。用途：判斷「Asana 內容已被異動，待重新確認」這個提醒該不該冒出來——只有指派人剛好是這個 pipeline 帳號本人時，才代表有人是刻意指派這張票要（重新）處理，用來過濾掉「內容雖然變了、但根本沒指派給這個帳號」這種不需要現在關注的雜訊。 */
@@ -321,12 +323,14 @@ export async function recordProjectContext(
   projectName: string,
   name: string,
   assigneeGid: string | null,
-  completed: boolean
+  completed: boolean,
+  projectGid: string | null = null
 ): Promise<void> {
   await updateStatus(ticketGid, (status) => ({
     ...status,
     project_dir: status.project_dir ?? projectDir,
     project_name: projectName,
+    project_gid: projectGid ?? status.project_gid,
     name,
     last_seen_assignee_gid: assigneeGid,
     last_seen_completed: completed,
@@ -383,6 +387,7 @@ const NEW_STATUS: TicketStatus = {
   stage: "new",
   project_dir: null,
   project_name: null,
+  project_gid: null,
   name: null,
   last_seen_assignee_gid: null,
   last_seen_completed: false,

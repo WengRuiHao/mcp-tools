@@ -94,7 +94,8 @@ async function ensureSnapshotted(
   projectDir: string,
   projectName: string,
   ticketNumberOverride: string | null | undefined,
-  depth: number
+  depth: number,
+  projectGid: string | null = null
 ): Promise<{ ticketNumber: string | null; content: string; dir: string; unchanged: boolean; needsReanalysis: boolean }> {
   if (depth > MAX_ANCESTOR_DEPTH) {
     throw new Error(`任務 ${taskGid} 的父子關係層數超過 ${MAX_ANCESTOR_DEPTH} 層，可能有循環，已中止。`);
@@ -107,7 +108,7 @@ async function ensureSnapshotted(
   if (parentGid) {
     const parentAlreadyAssigned = await getAssignedDir(parentGid);
     if (!parentAlreadyAssigned) {
-      await ensureSnapshotted(parentGid, projectDir, projectName, null, depth + 1);
+      await ensureSnapshotted(parentGid, projectDir, projectName, null, depth + 1, projectGid);
     }
     parentTaskGid = parentGid;
   }
@@ -121,7 +122,8 @@ async function ensureSnapshotted(
     projectName,
     task.name ?? taskGid,
     task.assignee?.gid ?? null,
-    task.completed === true
+    task.completed === true,
+    projectGid
   );
   // 內容雜湊沒變就不重寫 ticket.md、也不把全文塞回這次回應——省掉留言串很長的票單重複佔用 token 的成本。
   const { changed, needsReanalysis } = await recordSnapshotContent(taskGid, content, task.modified_at ?? null);
@@ -148,11 +150,16 @@ export function registerTicketSnapshotTools(server: McpServer): void {
         .nullable()
         .optional()
         .describe("這張票的業務單號（例如「PROJ-1234」），不提供的話會嘗試從自訂欄位自動偵測，偵測不到才會退回用 taskGid 命名"),
+      projectGid: z
+        .string()
+        .nullable()
+        .optional()
+        .describe("這張票所屬 Asana 專案的 gid（步驟 0 已取得）。帶了會記進票單狀態，之後 get_ticket_status 的 nextAction 與 get_role_prompt 會依該專案的 SA/SD、測試設定給更精準的內容；已有 gid 時以新傳入的為準。"),
     },
-    async ({ taskGid, projectDir, projectName, ticketNumber }) => {
+    async ({ taskGid, projectDir, projectName, ticketNumber, projectGid }) => {
       let result: { ticketNumber: string | null; content: string; dir: string; unchanged: boolean; needsReanalysis: boolean };
       try {
-        result = await ensureSnapshotted(taskGid, projectDir, projectName, ticketNumber, 0);
+        result = await ensureSnapshotted(taskGid, projectDir, projectName, ticketNumber, 0, projectGid ?? null);
       } catch (err: any) {
         return textResult({ success: false, message: err?.message ?? String(err) }, true);
       }
