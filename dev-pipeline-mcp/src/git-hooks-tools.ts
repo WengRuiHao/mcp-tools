@@ -48,10 +48,9 @@ exit 0
 export function registerGitHookTools(server: McpServer): void {
   server.tool(
     "install_git_hooks",
-    "把 git 原生 hook（post-commit/post-merge）安裝到 projectDir 已登記的每一個 git 根目錄，透過 `git config core.hooksPath` 指向這個 MCP 自己管理的共用 hooks 資料夾（絕不寫進客戶專案版控）。" +
-      "**這是防止有人（或哪個 AI/CLI）直接改動受追蹤專案卻繞過 dev-pipeline-mcp 工具的核心防線**——不管透過什麼工具 commit/merge，git 自己一定會觸發這個 hook，通知本機 HTTP bridge 立刻讓跨 worktree 檔案重疊示警（activeWarnings）失效重算，並留下稽核紀錄（`data/git-hook-events.log`）供事後比對。" +
-      "**每個受追蹤的 git 根目錄建議都安裝一次**，重複呼叫是安全的（會覆寫成最新版腳本、重設 core.hooksPath，冪等）。" +
-      "沒開 Claude Code session（bridge 沒啟動）時，hook 會直接安靜失敗略過，不影響原本的 commit/merge 動作本身。",
+    "把 git 原生 hook（post-commit/post-merge）安裝到 projectDir 已登記的每個 git 根目錄，以 `git config core.hooksPath` 指向本 MCP 管理的共用 hooks 資料夾（不寫進客戶專案版控）。" +
+      "**這是防止有人（或其他 AI/CLI）繞過本 MCP 直接改動受追蹤專案的核心防線**：commit/merge 時 hook 會通知本機 HTTP bridge 讓跨 worktree 檔案重疊示警（activeWarnings）重算，並寫稽核紀錄（`data/git-hook-events.log`）。" +
+      "每個受追蹤的 git 根目錄建議都裝一次，重複呼叫安全（冪等）。bridge 沒啟動時 hook 靜默略過，不影響 commit/merge。",
     {
       projectDir: z.string().describe("要安裝 hook 的專案目錄（用它已登記的 git 根目錄，見 register_git_roots）"),
     },

@@ -107,6 +107,30 @@ export async function registerTestCapability(projectGid: string, config: TestCap
   await updateJsonFile<Record<string, TestCapabilityConfig>>(testCapabilityConfigPath(), {}, (map) => ({ ...map, [projectGid]: config }));
 }
 
+function normalizeDirForCompare(dir: string): string {
+  const resolved = path.resolve(dir);
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
+/**
+ * get_role_prompt 只拿得到 projectDir、拿不到 projectGid，所以由 project-dir-config 反查：
+ * 只有「對應到這個目錄的每一個 Asana 專案都登記過、且都是同一個 mode」才回傳該 mode，其餘（沒登記、
+ * 多個專案設定不一致、目錄對不上）一律回傳 null，呼叫端照完整說明處理，不會誤省略。
+ */
+export async function resolveUniformTestCapabilityMode(projectDir: string): Promise<TestCapabilityMode | null> {
+  const dirMap = await readJsonFile<Record<string, string>>(projectDirConfigPath(), {});
+  const target = normalizeDirForCompare(projectDir);
+  const gids = Object.entries(dirMap)
+    .filter(([, dir]) => normalizeDirForCompare(dir) === target)
+    .map(([gid]) => gid);
+  if (gids.length === 0) return null;
+
+  const capMap = await readJsonFile<Record<string, TestCapabilityConfig>>(testCapabilityConfigPath(), {});
+  const modes = new Set(gids.map((gid) => capMap[gid]?.mode ?? null));
+  if (modes.size !== 1) return null;
+  return [...modes][0];
+}
+
 const DEFAULT_PROJECT_FILE = "default-project.json";
 
 function defaultProjectPath(): string {

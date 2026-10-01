@@ -56,12 +56,12 @@ export function registerProjectConfigTools(server: McpServer): void {
 
   server.tool(
     "register_sasd_config",
-    "登記某個 Asana 專案的 SA/SD 規格設定。sdMode 有四種：" +
-      "\"external\"（SD 是別人/客戶產的，只能讀取當作依據，絕對不能建議修改 SD 本身，只能調整程式碼）、" +
-      "\"self\"（SD 是我方產的，判斷需要調整時可以在驗證/實作報告裡明確建議修改段落，但因為 SVN 是唯讀的，不能直接寫回去，要交由人工事後更新）、" +
-      "\"self-generated\"（沒有既有 SD，AI 自己維護一份 living document，之後可以用 read_project_sd_doc/write_project_sd_doc 真的讀寫這份文件——**這份文件會寫在 sdOutputPath 指定的真實本機路徑**，不是藏在這個 MCP 自己的安裝目錄裡，方便使用者事後直接把這個檔案傳到 SVN；還要多問一題決定 specOrder，見下方）、" +
-      "\"unregistered\"（沒有登記 SD 位置也不自動產生，之後每一張票都要單獨詢問使用者這張票有沒有對應 SD，不會被這裡的設定省略掉）。" +
-      "**\"external\"/\"self\" 一定要帶 svnConnectionId，而且這個工具會真的呼叫 svn_test_connection 驗證連得上才會登記成功**——saRoot/sdRoot 是 SVN 上的正式路徑，連不上 SVN 就沒辦法確認規格內容，不能假設之後會自己通。",
+    "登記某個 Asana 專案的 SA/SD 規格設定。sdMode：" +
+      "\"external\"（SD 由別人/客戶產，唯讀依據，不可建議修改 SD，只能調整程式碼）、" +
+      "\"self\"（SD 由我方產，需要時在報告建議修改段落，SVN 唯讀所以交由人工事後更新）、" +
+      "\"self-generated\"（無既有 SD，AI 維護寫在 sdOutputPath 真實本機路徑的 living document，用 read_project_sd_doc/write_project_sd_doc 讀寫；還要決定 specOrder）、" +
+      "\"unregistered\"（不登記也不自動產生，每張票都要單獨問使用者有無對應 SD）。" +
+      "**\"external\"/\"self\" 一定要帶 svnConnectionId，且會真的呼叫 svn_test_connection 驗證，連不上就拒絕登記。**",
     {
       projectGid: z.string().describe("Asana 專案 gid"),
       saRoot: z.string().describe("SA 規格存放位置，SVN 上的正式路徑（例如 \"doc/sa\"，相對於 svnConnectionId 對應 repo 的根目錄）"),
@@ -72,25 +72,22 @@ export function registerProjectConfigTools(server: McpServer): void {
         .nullable()
         .optional()
         .describe(
-          "saRoot/sdRoot 所在的 SVN 連線（svn_list_connections 回傳的 id 或 name），只有 sdMode 是 \"external\" 或 \"self\" 時才需要。" +
-            "這個工具會真的呼叫 svn_test_connection 驗證連得上，連不上會拒絕登記。"
+          "saRoot/sdRoot 所在的 SVN 連線（svn_list_connections 回傳的 id 或 name），只有 sdMode 是 \"external\" 或 \"self\" 時需要。"
         ),
       sdOutputPath: z
         .string()
         .nullable()
         .optional()
         .describe(
-          "AI 產出的 SD 規格要寫入的本機檔案路徑（相對於 projectDir），只有 sdMode 是 \"self-generated\" 時才需要。" +
-            "這是使用者準備之後要傳到 SVN 的真實檔案位置，一定要先問使用者，不要自己隨便挑一個路徑。"
+          "SD 規格寫入的本機檔案路徑（相對於 projectDir），只有 self-generated 需要；使用者之後要傳到 SVN 的真實位置，一定要先問使用者，不要自己挑。"
         ),
       specOrder: z
         .enum(["spec_first", "code_first"])
         .nullable()
         .optional()
         .describe(
-          "只有 sdMode 是 \"self-generated\" 時才需要，必填：\"spec_first\"（先由規格撰寫者產出/確認 SD 草稿，工程師才動手寫程式碼，這是原本唯一支援的順序）或 " +
-            "\"code_first\"（工程師先依分析師的結論直接寫程式碼，規格撰寫者事後依實際改動反推補一份 SD 草稿，一樣要經過使用者 record_spec_confirmation 確認才能讓票單推進到 verified）。" +
-            "一定要先問使用者要哪一種，不要自己預設，問過一次之後這個專案往後每一張票都會沿用同一個順序。"
+          "self-generated 時必填：\"spec_first\"（規格撰寫者先產出/確認 SD 草稿，工程師才寫程式碼）或 \"code_first\"（工程師先寫，規格撰寫者事後反推 SD 草稿，仍須 record_spec_confirmation 確認才能推進到 verified）。" +
+            "一定要先問使用者、不要預設；之後整個專案沿用。"
         ),
     },
     async ({ projectGid, saRoot, sdMode, sdRoot, svnConnectionId, sdOutputPath, specOrder }) => {
@@ -216,11 +213,10 @@ export function registerProjectConfigTools(server: McpServer): void {
 
   server.tool(
     "register_test_capability",
-    "登記這個 Asana 專案的自動化測試能力等級。只有使用者主動告知才呼叫，不要自己依程式碼特徵猜測——" +
-      "三個選項：" +
-      "\"modern\"：可以用現代版本的 JUnit5+Mockito(後端 Java)/Jest+React Testing Library(前端)寫測試，工程師階段照一般方式寫。" +
-      "\"legacy_junit4\"：專案受限於較舊的 JDK 版本(例如 JDK6/7)，現代 JUnit5/新版 Mockito 語法或位元組碼版本在這個 JDK 上編不過，只能改用相容的舊版工具鏈(例如 JUnit 4.12 + Mockito 1.10.19，這是最後一批支援 JDK6 的版本)——note 欄位請寫清楚實際 JDK 版本跟建議用的工具鏈版本，工程師會照這個版本寫。" +
-      "\"none\"：這個專案沒辦法跑任何自動化測試(不是 Java/JS 生態、沒有可用的 build test task、程式碼結構完全無法測試這類)，工程師階段維持原本純手動/情境測試流程，不用寫測試。",
+    "登記這個 Asana 專案的自動化測試能力等級。只有使用者主動告知才呼叫，不要依程式碼特徵猜測。" +
+      "\"modern\"：可用 JUnit5+Mockito(後端 Java)/Jest+React Testing Library(前端)，工程師階段照一般方式寫測試。" +
+      "\"legacy_junit4\"：受限於舊 JDK(例如 JDK6/7)，只能用相容舊工具鏈(例如 JUnit 4.12 + Mockito 1.10.19)；note 要寫清楚實際 JDK 版本與建議工具鏈版本，工程師照此寫。" +
+      "\"none\"：無法跑任何自動化測試，工程師階段維持純手動/情境測試，不寫測試。",
     {
       projectGid: z.string().describe("Asana 專案 gid"),
       mode: z.enum(["modern", "legacy_junit4", "none"]).describe("這個專案的自動化測試能力等級"),

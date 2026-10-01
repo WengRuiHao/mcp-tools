@@ -103,11 +103,10 @@ async function resolveEntryOrThrow(worktreeId?: string | null, taskGid?: string 
 export function registerWorktreeTools(server: McpServer): void {
   server.tool(
     "create_ticket_worktree",
-    "為一張（或一組）票單建立獨立的 git worktree 工作目錄，隔離多個 AI/session 併行處理不同票單時互相干擾的問題（見記憶 project_dev_pipeline_worktree_design）。" +
-      "**一個 worktree 綁定一組票號，不是單張票**——這張票如果要跟另一張已經有 worktree 的票合併進同一次改動，改呼叫 join_ticket_worktree，不要重複建立。" +
-      "會從這張票 project_dir 目前登記的 git 根目錄裡，抓「目前 checkout 的分支」當作來源分支切出新分支＋worktree，worktree 資料夾建在 git 根目錄的上一層 `.worktrees/<票號>/`。" +
-      "**只建立追蹤資料，不會自動幫你把程式碼複製過去**——後續的檔案編輯要自己對著回傳的 worktreePath 操作。" +
-      "已經有 worktree 涵蓋這張票時，直接回傳既有的 worktree 資訊（冪等，不會重複建立）。",
+    "為一張（或一組）票單建立獨立的 git worktree，隔離多個 AI/session 併行處理不同票單時的互相干擾。" +
+      "**一個 worktree 綁定一組票號，不是單張票**：要與另一張已有 worktree 的票合併進同一次改動，改呼叫 join_ticket_worktree，不要重複建立。" +
+      "以這張票 project_dir 已登記的 git 根目錄「目前 checkout 的分支」為來源分支切出新分支＋worktree，資料夾建在 git 根目錄上一層 `.worktrees/<票號>/`。" +
+      "**只建立追蹤資料，不會複製程式碼**，後續要對回傳的 worktreePath 編輯。已有 worktree 涵蓋這張票時直接回傳既有資訊（冪等）。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
       gitRootLabel: z
@@ -215,10 +214,10 @@ export function registerWorktreeTools(server: McpServer): void {
 
   server.tool(
     "merge_ticket_worktree",
-    "完成這一輪：視情況把 worktree 分支 rebase 到來源分支最新狀態，再合併回來源分支（**只更新 git 根目錄的本機分支，絕不自動 push**）。worktree 資料夾本身不會被刪除，下一輪直接沿用。" +
-      "**只有來源分支比 worktree 上次同步時領先才會觸發 rebase**（另一張共用來源分支的票先合併回去、或使用者自己在主目錄手動 commit/pull，都會造成領先）；沒有領先就直接快轉合併。" +
-      "**rebase 或 merge 途中如果真的衝突，這個工具不會自動選邊、也不會自動 abort**——回傳 conflict:true，worktree（或主目錄）會停在衝突中間的狀態，需要人工/AI 進去解決衝突、`git add`、`git rebase --continue` 或 `git commit` 之後才能算完成，下次呼叫這個工具前要先確認衝突已經清乾淨。" +
-      "呼叫前 worktree 裡的異動要先自己 commit 好——這裡不會幫你決定 commit message。",
+    "完成這一輪：視情況把 worktree 分支 rebase 到來源分支最新，再合併回來源分支（**只更新 git 根目錄的本機分支，絕不 push**）；worktree 資料夾不刪，下一輪沿用。" +
+      "**只有來源分支比 worktree 上次同步領先才 rebase**（別張共用來源分支的票先合併，或使用者在主目錄手動 commit/pull），沒領先就直接快轉合併。" +
+      "**rebase/merge 衝突時不會自動選邊或 abort**：回傳 conflict:true，停在衝突狀態，需人工/AI 解決、`git add`、`git rebase --continue` 或 `git commit` 後才算完成，下次呼叫前要先確認已清乾淨。" +
+      "呼叫前 worktree 內的異動要先自己 commit，這裡不決定 commit message。",
     {
       worktreeId: z.string().nullable().optional().describe("worktree id，跟 taskGid 至少帶一個"),
       taskGid: z.string().nullable().optional().describe("這張票所屬的 worktree，跟 worktreeId 至少帶一個"),

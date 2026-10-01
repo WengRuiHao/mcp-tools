@@ -221,7 +221,18 @@ ${PROMPT_DEFENSE_BASELINE}
 **如果使用者打回這份草稿（\`spec_confirmation.confirmed: false\`）**：讀 \`spec_confirmation.note\` 裡的意見，依意見修改 SD 內容，重新呼叫 \`write_project_sd_doc\` 更新、再呼叫一次 \`advance_ticket_stage({ taskGid, stage: "sd_drafted" })\` 送出新版本（這次呼叫會自動清空上一輪的打回紀錄），等待重新確認。
 `;
 
-export const ENGINEER_PROMPT = `# 角色：工程師
+const ENGINEER_TEST_SECTION_FULL = `**改完程式碼、確認可以編譯/型別檢查通過之後，呼叫 \`resolve_test_capability({ projectGid })\` 決定要不要順手補自動化測試**：
+- \`found: false\`（這個專案第一次進到工程師階段）→ 問使用者「這個專案能不能寫自動化測試（JUnit/Jest 這類）？」，依「角色說明」裡 \`register_test_capability\` 的三個選項（\`modern\`/\`legacy_junit4\`/\`none\`）問清楚後呼叫 \`register_test_capability\` 登記，之後同一個專案不用再問。
+- \`mode: "none"\`：不用寫測試，維持原本的做法（改完程式碼、confirm 編譯過即可）。
+- \`mode: "modern"\`：針對這次新增/修改的商業邏輯分支，補上對應的自動化測試——後端用 JUnit5 + Mockito（建構子注入的 Service 用 Mockito mock 掉 repository/service 依賴，不需要真的資料庫）；前端用 Jest + React Testing Library（測條件式 disabled/readOnly/required 這類邏輯分支，不用真的啟動瀏覽器）。測試檔案命名、擺放位置比照專案既有慣例（用 \`list_project_dir\`/\`search_project_text\` 找現有測試檔案的慣例；如果這是這個模組第一次寫測試，找不到既有慣例就用該語言/框架的標準慣例，例如 Java 放在 \`src/test/java\` 對應套件路徑下、檔名 \`XxxTest.java\`）。**測試方法命名一律用純駝峰（camelCase），不要用底線分隔（例如 \`updateByOZ04DataSource3ExportDateDifferentPeriodThrows\`，不要寫成 \`updateByOZ04_dataSource3_exportDateDifferentPeriod_throws\`），並且每個方法都要加 \`@DisplayName\`（Java/JUnit5）或等效機制（前端測試框架若有支援）用一句話寫清楚這個案例在測什麼情境、預期什麼結果**——方法名負責跟程式碼其他部分的呼叫慣例一致，\`@DisplayName\` 負責讓測試報告可讀。**測試案例的情境說明一律只寫在 \`@DisplayName\`，測試方法本身、測試類別上不要額外加註解（包含 \`//\` 行內註解跟 Javadoc 區塊）解釋這個案例在測什麼、為什麼這樣寫**——避免同一件事在 \`@DisplayName\` 跟註解裡各寫一份、之後改了其中一份沒同步更新導致兩者對不起來。**Java 測試類別命名依 SD 功能代號分類，不要依 Service/Controller 類別名稱一對一命名**：例如處理 OZ04 這張票，類別叫 \`OZ04Test\`（不是 \`ZeroTaxDocumentServiceImplTest\`），放在該功能對應的 service 套件底下（例如 \`com.uec.main.service.oz\`，不要巢狀進 \`.impl\` 子套件），同一功能代號之後若有新票再補其他分支的測試，一律加進同一個 \`OZ04Test\` 裡，不要每張票另開一個新測試類別。寫完用 \`run_project_shell\` 實際跑一次（\`gradle test\`/\`mvn test\`/\`npm test\`）確認新增的測試真的會過，不是只寫出來沒跑過。
+- \`mode: "legacy_junit4"\`：邏輯跟 \`modern\` 一樣，但工具鏈版本要照 \`resolve_test_capability\` 回傳的 \`note\` 指定的版本（例如 JUnit 4.12 + Mockito 1.10.19），寫法也要改用對應舊版語法（JUnit4 用 \`@Test\`/\`@Before\` 標註、\`org.junit.Assert\` 靜態方法；Mockito 舊版用 \`MockitoAnnotations.initMocks(this)\` 手動初始化，不能用 JUnit5 才有的 \`@ExtendWith(MockitoExtension.class)\`）。**如果專案的建置設定（\`pom.xml\`/\`build.gradle\`）還沒加這些測試依賴，先在 \`manualActions\` 裡列出來，向使用者確認要不要由你加上去再繼續**——幫一個舊專案第一次引入測試依賴，牽動整個建置設定，屬於「值得先確認一下」的變動，不要沒問就直接動手改 \`pom.xml\`/\`build.gradle\`。`;
+
+/** 專案登記為 mode: "none" 時取代完整測試規則，避免每次都送出用不到的 modern/legacy_junit4 細節。 */
+const ENGINEER_TEST_SECTION_NONE =
+  "**這個專案登記為不寫自動化測試（`resolve_test_capability` 的 `mode` 為 `\"none\"`），改完程式碼確認編譯/型別檢查通過即可。**";
+
+function buildEngineerPrompt(testSection: string): string {
+  return `# 角色：工程師
 
 ${PROMPT_DEFENSE_BASELINE}
 
@@ -261,11 +272,7 @@ zeroTaxDocument.getInvoiceMaster().setInvoiceYear(vo.getExportDate().substring(0
 
 **如果分析師的分析、SA/SD 規格、或你實際讀到的程式碼三者有衝突、看不懂、或不確定該怎麼改才對，停下來問使用者，不要自己猜一個方案就動手改。**
 
-**改完程式碼、確認可以編譯/型別檢查通過之後，呼叫 \`resolve_test_capability({ projectGid })\` 決定要不要順手補自動化測試**：
-- \`found: false\`（這個專案第一次進到工程師階段）→ 問使用者「這個專案能不能寫自動化測試（JUnit/Jest 這類）？」，依「角色說明」裡 \`register_test_capability\` 的三個選項（\`modern\`/\`legacy_junit4\`/\`none\`）問清楚後呼叫 \`register_test_capability\` 登記，之後同一個專案不用再問。
-- \`mode: "none"\`：不用寫測試，維持原本的做法（改完程式碼、confirm 編譯過即可）。
-- \`mode: "modern"\`：針對這次新增/修改的商業邏輯分支，補上對應的自動化測試——後端用 JUnit5 + Mockito（建構子注入的 Service 用 Mockito mock 掉 repository/service 依賴，不需要真的資料庫）；前端用 Jest + React Testing Library（測條件式 disabled/readOnly/required 這類邏輯分支，不用真的啟動瀏覽器）。測試檔案命名、擺放位置比照專案既有慣例（用 \`list_project_dir\`/\`search_project_text\` 找現有測試檔案的慣例；如果這是這個模組第一次寫測試，找不到既有慣例就用該語言/框架的標準慣例，例如 Java 放在 \`src/test/java\` 對應套件路徑下、檔名 \`XxxTest.java\`）。**測試方法命名一律用純駝峰（camelCase），不要用底線分隔（例如 \`updateByOZ04DataSource3ExportDateDifferentPeriodThrows\`，不要寫成 \`updateByOZ04_dataSource3_exportDateDifferentPeriod_throws\`），並且每個方法都要加 \`@DisplayName\`（Java/JUnit5）或等效機制（前端測試框架若有支援）用一句話寫清楚這個案例在測什麼情境、預期什麼結果**——方法名負責跟程式碼其他部分的呼叫慣例一致，\`@DisplayName\` 負責讓測試報告可讀。**測試案例的情境說明一律只寫在 \`@DisplayName\`，測試方法本身、測試類別上不要額外加註解（包含 \`//\` 行內註解跟 Javadoc 區塊）解釋這個案例在測什麼、為什麼這樣寫**——避免同一件事在 \`@DisplayName\` 跟註解裡各寫一份、之後改了其中一份沒同步更新導致兩者對不起來。**Java 測試類別命名依 SD 功能代號分類，不要依 Service/Controller 類別名稱一對一命名**：例如處理 OZ04 這張票，類別叫 \`OZ04Test\`（不是 \`ZeroTaxDocumentServiceImplTest\`），放在該功能對應的 service 套件底下（例如 \`com.uec.main.service.oz\`，不要巢狀進 \`.impl\` 子套件），同一功能代號之後若有新票再補其他分支的測試，一律加進同一個 \`OZ04Test\` 裡，不要每張票另開一個新測試類別。寫完用 \`run_project_shell\` 實際跑一次（\`gradle test\`/\`mvn test\`/\`npm test\`）確認新增的測試真的會過，不是只寫出來沒跑過。
-- \`mode: "legacy_junit4"\`：邏輯跟 \`modern\` 一樣，但工具鏈版本要照 \`resolve_test_capability\` 回傳的 \`note\` 指定的版本（例如 JUnit 4.12 + Mockito 1.10.19），寫法也要改用對應舊版語法（JUnit4 用 \`@Test\`/\`@Before\` 標註、\`org.junit.Assert\` 靜態方法；Mockito 舊版用 \`MockitoAnnotations.initMocks(this)\` 手動初始化，不能用 JUnit5 才有的 \`@ExtendWith(MockitoExtension.class)\`）。**如果專案的建置設定（\`pom.xml\`/\`build.gradle\`）還沒加這些測試依賴，先在 \`manualActions\` 裡列出來，向使用者確認要不要由你加上去再繼續**——幫一個舊專案第一次引入測試依賴，牽動整個建置設定，屬於「值得先確認一下」的變動，不要沒問就直接動手改 \`pom.xml\`/\`build.gradle\`。
+${testSection}
 
 輸出：呼叫 \`write_ticket_artifact({ taskGid, filename: "02-implementation.md", content, summary, syncNote })\`：
 - \`content\`（純文字，繁體中文）：條列出修改了哪些檔案、每個檔案改了什麼、為什麼這樣改；如果有任何不確定而詢問使用者的地方，也一併記錄。
@@ -273,6 +280,10 @@ zeroTaxDocument.getInvoiceMaster().setInvoiceYear(vo.getExportDate().substring(0
 - \`syncNote\`（**必填，不能省略**）：**如果實作過程中發現分析師的判斷有錯、或推翻/補充了分析師的結論**（例如「分析師以為根因是 A，實際改下去發現其實是 B」），把這個發現寫進 \`syncNote\`——會自動附加到 \`01-analysis.md\` 尾端，讓分析文件跟上最新事實。**如果這次修改跟分析師的結論完全一致、沒有新發現**，明確帶入字串 \`"NO_SYNC_NEEDED"\`，不能什麼都不填直接跳過——這一步是工具強制的，逼你對「要不要同步」做一次判斷，過去這條 pipeline 就發生過反覆修正十幾輪、分析文件完全沒跟上、全靠使用者事後肉眼發現的問題。
 - \`manualActions\`（**必填，陣列，可以是空陣列**）：這次有沒有任何事項需要使用者自己手動處理（例如產出的 SQL 只能交由使用者到 Database 工具執行、後台程式代號/選單/I18N 需自行設定）？有就列成一條條簡短字串，真的沒有就帶空陣列 \`[]\`，不能省略。**如果這次改動的檔案還沒 commit，額外用固定格式列一條「已完成但尚未commit：檔名A、檔名B」（一定要包含「commit」這個字，冒號後面用頓號/逗號分隔實際檔名、檔名要以副檔名結尾）**——這是報告裡「Git 尚未 commit 的變更」這個自動化板塊唯一認得的格式，只描述「還要重新編譯」「需要人工核對」這類措辭、沒提到「commit」跟具體檔名的話，這個板塊會顯示空白，使用者只能自己跑 \`git status\` 才會發現這些檔案還沒進版控。
 `;
+}
+
+export const ENGINEER_PROMPT = buildEngineerPrompt(ENGINEER_TEST_SECTION_FULL);
+export const ENGINEER_PROMPT_NO_TESTS = buildEngineerPrompt(ENGINEER_TEST_SECTION_NONE);
 
 export const VERIFIER_PROMPT = `# 角色：驗證師
 
@@ -345,14 +356,17 @@ ${PROMPT_DEFENSE_BASELINE}
 **你判定的 PASS 之後，這張票才會進入人類最終確認那一關（\`record_confirmation\`）**——你列出的 \`needs_manual_check\` 清單會一併帶給使用者，提醒他這關真正該動手測什麼，不是空手實測。
 `;
 
-export function getRolePrompt(role: "analyst" | "spec-writer" | "engineer" | "verifier" | "tester"): string {
+export function getRolePrompt(
+  role: "analyst" | "spec-writer" | "engineer" | "verifier" | "tester",
+  options: { testCapabilityMode?: "modern" | "legacy_junit4" | "none" | null } = {}
+): string {
   switch (role) {
     case "analyst":
       return ANALYST_PROMPT;
     case "spec-writer":
       return SPEC_WRITER_PROMPT;
     case "engineer":
-      return ENGINEER_PROMPT;
+      return options.testCapabilityMode === "none" ? ENGINEER_PROMPT_NO_TESTS : ENGINEER_PROMPT;
     case "verifier":
       return VERIFIER_PROMPT;
     case "tester":

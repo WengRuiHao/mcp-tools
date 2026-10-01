@@ -25,13 +25,13 @@ import { textResult } from "./shared.js";
 export function registerTicketLifecycleTools(server: McpServer): void {
   server.tool(
     "list_pending_tickets",
-    "列出指定 Asana 專案裡尚未完成的票單（可用 onlyAssignedToMe 或專案設定 .pipeline/settings.json 限制只列指派給目前帳號本人的票），並在帶 projectName 時把「需要人工處理」的項目整份覆寫進互動網頁 PENDING_HUMAN_ACTIONS.html。\n\n" +
-      "**回傳欄位速查**：\n" +
-      "- `tickets`：一般待處理清單。`contentChanged:true` = 先前已處理過（甚至 PASS 過），但 Asana 內容後來又變了（或使用者主動要求重新確認），不能因為之前處理過就跳過，下一步 get_ticket_snapshot 會確認要不要重新分析；`humanRequestedReanalysis:true` = 使用者在 PENDING_HUMAN_ACTIONS.html 上主動勾了「請 AI 優先處理」——**這張票即使沒有其他理由要處理，也要在這次批次裡優先呼叫 get_ticket_snapshot**，不能因為使用者這次是要處理別的票就略過，處理完（不管有沒有真的偵測到內容變動）這個旗標會自動清掉；`humanRejected:true` = 使用者用 record_confirmation({confirmed:false}) 打回的票，**套用跟 AI 驗證師自己判 FAIL 完全一樣的根因分流機制**（見 advance_ticket_stage 的 rootCause 說明），不要另開一套「人工打回」流程；`specRejected:true` = 規格草稿被使用者打回。\n" +
-      "- `awaitingConfirmation`：AI 驗證師/測試工程師已判 PASS、Asana 內容也沒再變，只等使用者自己實測＋審視程式碼品質。**每次呼叫都要把這份清單完整秀給使用者看**（不能因為這次是處理別的新票就略過），直到每一張都呼叫過 record_confirmation 才會消失。\n" +
-      "- `awaitingSpecConfirmation`：只有 sdMode:\"self-generated\" 的專案會出現，等使用者呼叫 record_spec_confirmation 表態，同樣要主動秀給使用者看。\n" +
-      "- `manualActions`/`manualActionsCount`、`uncommittedChanges`：兩者互斥——「尚未 commit」且點得出具體檔名的事項只會出現在 `uncommittedChanges`（跟真實 git status 核對過，`registered:false` 代表還沒呼叫過 register_git_roots），不會在 `manualActions` 重複出現。\n\n" +
-      "**`PENDING_HUMAN_ACTIONS.html`**（只有帶 `projectName` 才會寫，放在 `<projectDir>/.asana-pipeline/<projectName>/`，取代「只在聊天視窗提醒一次、換個 session 就找不到」的做法，強烈建議每次都帶）：待確認規格草稿／待確認／需要你手動處理的事項／Asana 內容已變更（還沒被要求優先處理的票）這四類可以直接在瀏覽器勾選/確認（即時呼叫 record_spec_confirmation/record_confirmation/resolve_manual_action/request_reanalysis，要先在 dev-pipeline-mcp 目錄下執行 `npm run start:http` 啟動本機 HTTP bridge，第一次產出報告時記得提醒使用者這個步驟）；卡住需要你介入／Git 尚未 commit 這兩類唯讀。**「Asana 內容已變更」的勾選只是標記請求，bridge 沒有 LLM 能力、不會真的觸發分析**——要等下一個呼叫這個工具的 AI 看到 `humanRequestedReanalysis:true` 才會真的處理，見上面 `tickets` 欄位說明。**不需要手動維護同步時機**——任何會改動票單狀態的工具（advance_ticket_stage/write_ticket_artifact/resolve_manual_action/record_confirmation/resync_ticket_artifact/request_reanalysis）呼叫完都會自動局部重寫這份報告，呼叫這裡的 list_pending_tickets 主要是為了發現「全新、還沒被 get_ticket_snapshot 摸過」的票單，以及發現使用者主動標記要優先處理的票。",
+    "列出 Asana 專案尚未完成的票單（onlyAssignedToMe 或專案 .pipeline/settings.json 可限制只列指派給本人的）。帶 projectName 時一併把「需人工處理」項目覆寫進 `<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.html`（建議每次都帶）。\n" +
+      "回傳欄位：\n" +
+      "- `tickets`：待處理。`contentChanged:true`=處理過但 Asana 內容又變了，由 get_ticket_snapshot 判斷是否重分析；`humanRequestedReanalysis:true`=使用者要求優先處理，**這批次一定要先對它呼叫 get_ticket_snapshot**（處理後旗標自動清除）；`humanRejected:true`=使用者 record_confirmation({confirmed:false}) 打回，比照驗證師判 FAIL 的根因分流（見 advance_ticket_stage 的 rootCause）；`specRejected:true`=規格草稿被打回。\n" +
+      "- `awaitingConfirmation`：AI 已判 PASS、等使用者實測確認；**每次呼叫都要完整秀給使用者**，直到 record_confirmation。\n" +
+      "- `awaitingSpecConfirmation`：僅 sdMode \"self-generated\"，等 record_spec_confirmation，同樣要秀給使用者。\n" +
+      "- `manualActions`／`uncommittedChanges` 互斥：「尚未 commit」且有具體檔名的只在 `uncommittedChanges`（`registered:false`=尚未 register_git_roots）。\n" +
+      "HTML 上的勾選要先在 dev-pipeline-mcp 目錄執行 `npm run start:http` 啟動本機 HTTP bridge（首次產出報告時提醒使用者）；「Asana 內容已變更」的勾選只是標記，要等下一個看到 `humanRequestedReanalysis:true` 的 AI 才會處理。改票單狀態的工具都會自動局部重寫報告，本工具主要用來發現全新的票與使用者標記的優先票。",
     {
       projectGid: z.string().describe("Asana 專案 gid"),
       sectionFilter: z.string().nullable().optional().describe("只取這個 section 名稱底下的任務，不指定就取全部"),
@@ -45,8 +45,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         .nullable()
         .optional()
         .describe(
-          "true = 只處理指派給目前這個 Asana 帳號本人的票（其他人的票完全不列，也不進 PENDING_HUMAN_ACTIONS.html 這次的內容）；false = 列出所有人的票。" +
-            "沒帶時看專案設定 <projectDir>/.pipeline/settings.json 的 onlyAssignedToMe，都沒有就是 false。"
+          "true=只列指派給目前 Asana 帳號本人的票（其他人的不列、也不進 PENDING_HUMAN_ACTIONS.html）；false=列全部。沒帶時看專案 <projectDir>/.pipeline/settings.json 的 onlyAssignedToMe，都沒有就是 false。"
         ),
     },
     async ({ projectGid, sectionFilter, projectName, onlyAssignedToMe }) => {
@@ -209,13 +208,12 @@ export function registerTicketLifecycleTools(server: McpServer): void {
 
   server.tool(
     "get_ticket_status",
-    "取得某張票單目前的追蹤狀態（stage / project_dir / verdict / history / summaries / confirmation / spec_confirmation / verifier_root_cause / consecutive_fail_count）。" +
-      "**verdict 是 AI 驗證師自己判定的 PASS/FAIL，confirmation（使用者自己實測＋審視程式碼品質）才是真正結案要看的人類確認——兩者是不同軸向，verdict PASS 不代表 confirmation 也是 confirmed:true**。confirmation 是 null 代表使用者還沒表態，要 confirmed:true 才能當作這張票已經結案。" +
-      "**spec_confirmation 是另一個獨立的確認點，只有 sdMode 為 \"self-generated\" 的專案（走過 stage: \"sd_drafted\"）才會用到**：null 代表使用者還沒對這份 SD 規格草稿表態，advance_ticket_stage 會被擋下不能繼續推進——specOrder 是 \"spec_first\" 時擋在推進到 \"implemented\"（規格先定案才能寫程式碼）；specOrder 是 \"code_first\" 時擋在推進到 \"verified\"（工程師已經先寫完 code，規格是事後反推的，要 confirmed:true 才能讓票單走到驗證完成）。" +
-      "**verdict 是 \"FAIL\" 時，verifier_root_cause（\"analysis\"|\"implementation\"）是上次判斷的根因，回傳額外算出的 needs_human_review（consecutive_fail_count >= 3）是連續 FAIL 的安全閥旗標**——處理一張 FAIL 的票之前，先看 needs_human_review：false 才能依 verifier_root_cause 自動決定回工程師還是分析師，true 就不該再自動重跑，要停下來問使用者。" +
-      "回傳裡額外附上 sync_flags（analysis_stale / implementation_stale）：任一個是 true，代表 01/02/03 這三份追蹤文件彼此之間有同步債務沒還——" +
-      "例如工程師階段推翻了分析師的結論，但沒有回頭同步 01-analysis.md。**換 session/AI 接手一張票之前，一定要先看這個欄位**，是 true 就先把債務還清（把新發現同步回上一階段文件）再繼續往下走，不要當作沒看到。" +
-      "**回傳裡也附上 external_changes（analysis_externally_modified / implementation_externally_modified / verification_externally_modified）**：這是每次呼叫都當場重新讀一次磁碟上 01/02/03-*.md 的實際內容、重新算雜湊比對出來的，不是快取值——任一個是 true，代表那份檔案在這個 MCP 不知情的狀況下被改過（使用者直接編輯、別的沒走這條 pipeline 的 AI 動過），對應的 summaries.* 快取摘要跟 sync_flags 判斷都可能已經過期，**要重新用 read_ticket_artifact 讀全文，不要只信快取**。這個工具本身不會自動修正，只負責告知；確認過內容沒問題、想把雜湊記錄同步回目前內容，呼叫 resync_ticket_artifact。",
+    "取得某張票單的追蹤狀態（stage / project_dir / verdict / history / summaries / confirmation / spec_confirmation / verifier_root_cause / consecutive_fail_count）。\n" +
+      "- **verdict 是 AI 驗證師的 PASS/FAIL，confirmation 是使用者實測確認，兩者不同軸**：confirmation 要 confirmed:true 才算結案，null=未表態。\n" +
+      "- **spec_confirmation** 僅 sdMode \"self-generated\" 使用：null 時 advance_ticket_stage 被擋（\"spec_first\" 擋在 implemented，\"code_first\" 擋在 verified）。\n" +
+      "- verdict FAIL 時 verifier_root_cause 是上次根因；**needs_human_review（consecutive_fail_count >= 3）為 true 就停下問使用者，不要自動重跑**，false 才依根因回工程師或分析師。\n" +
+      "- sync_flags（analysis_stale / implementation_stale）為 true=01/02/03 有同步債，**接手前先還清**。\n" +
+      "- external_changes（*_externally_modified，每次現場重算雜湊）為 true=檔案被外部改過，summaries 與 sync_flags 可能過期，**要 read_ticket_artifact 讀全文**；確認無誤後用 resync_ticket_artifact 同步。",
     { taskGid: z.string().describe("Asana 任務 gid") },
     async ({ taskGid }) => {
       const status = await readStatus(taskGid);
@@ -231,11 +229,10 @@ export function registerTicketLifecycleTools(server: McpServer): void {
 
   server.tool(
     "record_confirmation",
-    "記錄結案前唯一一關人類確認——使用者自己對這張票的實測結果＋程式碼品質審視——跟 advance_ticket_stage 的 verdict（AI 驗證師自己判定的 PASS/FAIL）是完全不同的東西，不能混用。" +
-      "AI 判 PASS 只代表「AI 自己檢查過、可以交給人測了」，不是真正結案；只有呼叫這個工具記錄 confirmed: true，這張票才會從 list_pending_tickets 的 awaitingConfirmation 清單裡消失、真正算結案。" +
-      "只能在這張票已經跑到 tested 階段之後才能呼叫（代表至少走過一次分析/實作/驗證/測試），否則會被拒絕。" +
-      "confirmed: false 代表使用者實際測過、發現有問題——會記錄下 note，並把這張票的 verdict 重設回 null，重新丟回 list_pending_tickets 的一般待處理清單（標記 humanRejected: true），讓 AI 用跟自己判 FAIL 完全一樣的根因分流機制去處理，不是丟給人工事後自己決定。" +
-      "**呼叫完會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.html`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
+    "記錄結案前唯一一關人類確認（使用者自己實測＋審視程式碼品質），與 advance_ticket_stage 的 verdict（AI 驗證師判定）是不同東西。" +
+      "只有記錄 confirmed: true，票單才會從 awaitingConfirmation 消失、真正結案。只能在已跑到 tested 階段後呼叫，否則被拒絕。" +
+      "confirmed: false=使用者測出問題：記下 note、verdict 重設為 null，票單回到 list_pending_tickets 一般清單（humanRejected: true），走與 AI 判 FAIL 相同的根因分流。" +
+      "呼叫後自動局部重寫 PENDING_HUMAN_ACTIONS.html。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
       confirmed: z.boolean().describe("使用者自己實測＋審視程式碼品質是否通過：true = 沒問題、真正結案，false = 發現問題"),
@@ -260,12 +257,10 @@ export function registerTicketLifecycleTools(server: McpServer): void {
 
   server.tool(
     "record_spec_confirmation",
-    "記錄「規格草稿定案」這道關卡的確認結果——只有 sdMode 為 \"self-generated\" 的專案（AI 自己維護 SD 規格文件）會走到這一關，不管這個專案的 specOrder 是 \"spec_first\" 還是 \"code_first\"。" +
-      "只能在這張票已經推進到 stage: \"sd_drafted\"（規格撰寫者已產出/更新草稿）之後才能呼叫，否則會被拒絕。" +
-      "**confirmed: true**：這張票才會解鎖，繼續往下推進——specOrder 是 \"spec_first\" 的話解鎖工程師階段的 advance_ticket_stage 推進到 \"implemented\"；specOrder 是 \"code_first\" 的話（規格是工程師寫完 code 之後才反推補上的）解鎖驗證師階段推進到 \"verified\"。" +
-      "**confirmed: false**：代表這份草稿有問題，記錄下 note 說明哪裡要改，stage 不會變動（還停在 \"sd_drafted\"），這張票會重新出現在 list_pending_tickets 的一般 tickets 清單裡並標記 specRejected: true，交給規格撰寫者依 note 修改後重新呼叫 advance_ticket_stage({ stage: \"sd_drafted\" }) 送出新版本（那次呼叫會自動清空這裡的紀錄，不需要另外呼叫任何清空工具）。" +
-      "跟 record_confirmation（結案前那關）是完全獨立的兩個確認點，欄位分開存放，不要混用。" +
-      "**呼叫完會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.html`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
+    "記錄「規格草稿定案」關卡的確認結果，僅 sdMode \"self-generated\" 專案會走到這一關（與 record_confirmation 是獨立的兩個確認點）。只能在已推進到 stage \"sd_drafted\" 後呼叫，否則被拒絕。" +
+      "confirmed: true=解鎖下一步：specOrder \"spec_first\" 解鎖推進到 \"implemented\"；\"code_first\"（規格是寫完 code 後反推）解鎖推進到 \"verified\"。" +
+      "confirmed: false=草稿有問題：記下 note，stage 維持 \"sd_drafted\"，票單回到 list_pending_tickets 一般清單（specRejected: true），規格撰寫者依 note 修改後重新 advance_ticket_stage({ stage: \"sd_drafted\" }) 送出（會自動清空這裡的紀錄）。" +
+      "呼叫後自動局部重寫 PENDING_HUMAN_ACTIONS.html。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
       confirmed: z.boolean().describe("是否確認這份規格草稿可以動手寫程式碼：true = 沒問題、可以開始，false = 有問題要修改"),
@@ -307,10 +302,9 @@ export function registerTicketLifecycleTools(server: McpServer): void {
 
   server.tool(
     "resolve_manual_action",
-    "把 `implementation_manual_actions`／`verification_manual_actions` 裡『使用者確認已經處理完』的一項移除，其餘保留，讓它不再出現在 `PENDING_HUMAN_ACTIONS.html`。" +
-      "**用在：使用者跟你說某個票單的某項手動待辦（例如某段 SQL、某份多國語系匯入）已經做完了**——不用整份陣列重新宣告一次，只要指出這一項，其餘事項會原封不動保留。" +
-      "**`action` 用完整文字精確比對**（前後空白會自動忽略）——文字必須跟 `get_ticket_status`/`list_pending_tickets` 回傳的 `manualActions` 內容一字不差，找不到完全對應的項目時，會回傳 `success: false` 跟這份文件目前的完整清單，讓你核對正確文字後再重試，不要憑印象猜測。" +
-      "移除之後這個工具會自動局部重寫 `PENDING_HUMAN_ACTIONS.html`（純本機運算，不用等下次呼叫 `list_pending_tickets`），不需要呼叫端額外做任何事。",
+    "移除 manualActions 裡『使用者確認已處理完』的一項（其餘保留），讓它不再出現在 PENDING_HUMAN_ACTIONS.html。" +
+      "用在使用者說某票的某項手動待辦（SQL、I18N 匯入等）做完了；只指出這一項即可。" +
+      "**`action` 要與 get_ticket_status/list_pending_tickets 回傳的 manualActions 文字一字不差**（前後空白忽略）；找不到時回傳 success:false 與目前完整清單，核對後重試，不要憑印象猜。移除後自動局部重寫報告。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
       filename: z
@@ -337,10 +331,8 @@ export function registerTicketLifecycleTools(server: McpServer): void {
 
   server.tool(
     "request_reanalysis",
-    "標記某張票單「使用者要求優先重新確認」（human_requested_reanalysis）。" +
-      "**用在：使用者直接跟你說『幫我標記 XX 票要優先重新確認』，或你在 PENDING_HUMAN_ACTIONS.html 對應的勾選按鈕背後看到這個呼叫**——純資料操作，不會、也不能自己觸發分析。" +
-      "**這個工具呼叫完之後，你自己就應該直接接著呼叫 get_ticket_snapshot 處理這張票**（不用等旗標被清掉再等下一次批次）；旗標存在的意義是給*其他*之後才連上這個專案的 AI/session 看到，不是給你自己延後處理的藉口。" +
-      "呼叫完會自動局部重寫 `PENDING_HUMAN_ACTIONS.html`。",
+    "標記某張票單「使用者要求優先重新確認」（human_requested_reanalysis），純資料操作、不會自己觸發分析。" +
+      "用在使用者要求標記某票優先重新確認，或 PENDING_HUMAN_ACTIONS.html 勾選按鈕背後的呼叫。**呼叫完你自己應直接接著對這張票呼叫 get_ticket_snapshot**；旗標是留給之後才連上的其他 AI/session 看的，不是延後處理的藉口。呼叫後自動局部重寫報告。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
     },
@@ -353,23 +345,18 @@ export function registerTicketLifecycleTools(server: McpServer): void {
 
   server.tool(
     "advance_ticket_stage",
-    "更新某張票單的追蹤狀態，記錄目前進行到哪個階段，並可以一併更新 project_dir / verdict。" +
-      "**推進到 \"project_dir_confirmed\"/\"analyzed\"/\"implemented\"/\"verified\"/\"tested\" 這幾個階段前，會檢查對應的證據是否已經存在，不是單純改個欄位就能過關**：" +
-      "\"project_dir_confirmed\" 要求 project_dir 已確定（這次帶或先前已設定過）；\"analyzed\"/\"implemented\"/\"verified\"/\"tested\" 分別要求 01-analysis.md／02-implementation.md／03-verification.md／04-test.md 已經透過 write_ticket_artifact 寫入非空內容——" +
-      "沒有對應證據就直接呼叫這個工具想跳過某個角色（例如只做完工程師改動就想直接標記 verified），會被拒絕，訊息會說明還缺哪一份文件。" +
-      "**\"tested\" 是 \"verified\" 之後、使用者最終確認之前新增的一關（測試工程師），verdict/rootCause 的規則跟 \"verified\" 完全一樣，兩者共用同一組 consecutive_fail_count/needs_human_review 安全閥**——判斷依據見 get_role_prompt({role:\"tester\"})：只有測試項目裡出現 AI 有把握判定的 verified_fail 才算 FAIL，AI 沒把握判定、只能列出來提醒使用者的項目（needs_manual_check）不影響這裡的 verdict。" +
-      "**verdict 設成 \"FAIL\" 時，rootCause 是必填參數**（\"analysis\" 或 \"implementation\"）——判斷這次 FAIL 的根因在分析階段還是實作階段，供下一輪處理這張票時決定要自動跳回分析師還是工程師，不能省略。verdict 不是 \"FAIL\"（PASS，或這次沒有更新 verdict）時，不需要也不應該帶 rootCause，帶了會被拒絕。" +
-      "**這個呼叫只要有更新 verdict，就會自動清空 confirmation**（這個人類確認是對上一輪程式碼/結論表態的，新 verdict 出爐代表結論已經更新，舊確認一律作廢，不能沿用）、並機械式維護 consecutive_fail_count（FAIL 累加、PASS 歸零，累加到 3 之後回傳的 needs_human_review 會是 true）。" +
-      "**呼叫完會自動局部重寫這張票所屬 Asana 專案的 `PENDING_HUMAN_ACTIONS.html`**（純本機運算，不用另外呼叫 `list_pending_tickets`）。",
+    "更新票單追蹤階段，可一併更新 project_dir / verdict。" +
+      "推進到 project_dir_confirmed/analyzed/implemented/verified/tested 前會檢查證據：project_dir 已確定，或 01/02/03/04-*.md 已用 write_ticket_artifact 寫入非空內容；缺少會被拒絕並說明缺哪份。" +
+      "**verdict 設 \"FAIL\" 時 rootCause（\"analysis\"|\"implementation\"）必填**，供下一輪決定回分析師或工程師；非 FAIL 不可帶 rootCause。" +
+      "tested 的 verdict 規則同 verified（共用 consecutive_fail_count/needs_human_review 安全閥）：只有 AI 有把握的 verified_fail 才算 FAIL，needs_manual_check 不影響（見 get_role_prompt({role:\"tester\"})）。" +
+      "只要更新 verdict 就會自動清空 confirmation，並維護 consecutive_fail_count（FAIL 累加、PASS 歸零，達 3 時 needs_human_review 為 true）。呼叫後自動局部重寫 PENDING_HUMAN_ACTIONS.html。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
       stage: z
         .enum(["new", "snapshot", "project_dir_confirmed", "analyzed", "sd_drafted", "implemented", "verified", "tested"])
         .describe(
-          "要推進到的階段。\"sd_drafted\" 只有 sdMode 為 \"self-generated\" 的專案才需要（規格撰寫者產出/更新 SD 草稿後推進到這裡）；" +
-            "其他 sdMode 直接從 \"analyzed\" 推進到 \"implemented\" 即可，不用經過這一階。" +
-            "**self-generated 底下這一階出現的時機依 specOrder 而定**：\"spec_first\" 是 \"analyzed\" 之後、\"implemented\" 之前；\"code_first\" 是 \"implemented\" 之後、\"verified\" 之前（工程師先寫完 code，規格撰寫者才依實作反推補上 SD 草稿）。" +
-            "\"tested\" 是 \"verified\" 之後、使用者最終確認之前新增的一階（測試工程師），每張票都會經過，套用哪些檢查項目由測試工程師依這張票的改動內容自己判斷（見 get_role_prompt({role:\"tester\"})）。"
+          "要推進到的階段。\"sd_drafted\" 只有 sdMode \"self-generated\" 才需要（specOrder \"spec_first\"：analyzed 之後、implemented 之前；\"code_first\"：implemented 之後、verified 之前）；其他 sdMode 直接從 analyzed 到 implemented。" +
+            "\"tested\" 在 verified 之後、使用者最終確認之前（測試工程師），每張票都會經過。"
         ),
       project_dir: z.string().nullable().optional().describe("這張票對應的專案目錄（有更新才需要帶）"),
       verdict: z.enum(["PASS", "FAIL"]).nullable().optional().describe("驗證結論（只有 verified 階段才需要帶）"),

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { OVERVIEW_PROMPT, getRolePrompt } from "./prompts.js";
 import { COMMON_RULES_FILE_CANDIDATES, GATES_FILE_CANDIDATES, ROLE_FILE_CANDIDATES, readFirstExisting, resolveProjectDir } from "./project-rule-files.js";
 import { textResult } from "./shared.js";
+import { resolveUniformTestCapabilityMode } from "./project-registry.js";
 
 const ALL_ROLES = ["analyst", "spec-writer", "engineer", "verifier", "tester"] as const;
 
@@ -25,9 +26,9 @@ export function registerPipelineInfoTools(server: McpServer): void {
 
   server.tool(
     "get_role_prompt",
-    "取得「分析師 / 規格撰寫者 / 工程師 / 驗證師 / 測試工程師」其中一個角色的職責說明、可用工具、輸出格式。驅動 pipeline 的 AI 在切換角色前應該先呼叫這個工具讀懂該角色的說明。" +
-      "**\"spec-writer\" 只有 sdMode 為 \"self-generated\" 的專案才需要**，其他 sdMode 分析師完成後直接取得 \"engineer\" 說明即可，不用呼叫 \"spec-writer\"。" +
-      "**\"tester\" 是 \"verifier\" 判 PASS 之後、人類最終確認之前的新角色（每張票都會經過）**，負責依《測試工程師說明書》（\`get_test_engineer_guide\`）跑情境測試。",
+    "取得「分析師 / 規格撰寫者 / 工程師 / 驗證師 / 測試工程師」其中一個角色的職責說明、可用工具、輸出格式；切換角色前先呼叫。" +
+      "\"spec-writer\" 只有 sdMode 為 \"self-generated\" 的專案才需要；\"tester\" 是 verifier 判 PASS 之後、人類最終確認之前的角色（每張票都會經過），依 get_test_engineer_guide 跑情境測試。" +
+      "專案登記為不寫自動化測試（test capability mode 為 none）時，\"engineer\" 說明會省略自動化測試的詳細規則。",
     {
       role: z.enum(["analyst", "spec-writer", "engineer", "verifier", "tester"]).describe("要取得說明的角色"),
       projectDir: z
@@ -45,8 +46,10 @@ export function registerPipelineInfoTools(server: McpServer): void {
         .describe("正在處理的票單 gid。沒帶 projectDir 時用這張票記錄的 project_dir 反查，避免漏帶 projectDir 導致專案補充規則被靜默略過。"),
     },
     async ({ role, projectDir, taskGid }) => {
-      const base = getRolePrompt(role);
       const dir = await resolveProjectDir(projectDir, taskGid);
+      // 專案登記為不寫自動化測試時，工程師說明省略整段測試規則；查不到或不一致就維持完整說明。
+      const testCapabilityMode = role === "engineer" && dir ? await resolveUniformTestCapabilityMode(dir) : null;
+      const base = getRolePrompt(role, { testCapabilityMode });
       if (!dir) return textResult(base);
       const common = await readRuleFile(dir, COMMON_RULES_FILE_CANDIDATES);
       const addendum = await readRuleFile(dir, ROLE_FILE_CANDIDATES(role));

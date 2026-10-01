@@ -85,11 +85,10 @@ export function registerBridgeTools(server: McpServer): void {
 
   server.tool(
     "get_ticket_activity",
-    "【唯讀】取得某張票單在 Asana 上的完整活動時間軸（留言＋系統事件＋附件，依時間排序），橋接 asana-mcp 的 asana_task_activity。" +
-      "**使用者說類似「查看測試員回報的測試狀況」時要呼叫這個**——代表使用者已經在 Asana 上看到測試員把測出來的問題寫進留言（可能還附了截圖/紀錄檔），要你去讀懂問題、修好程式碼。" +
-      "回傳的 items 每筆 kind 是 \"comment\"（使用者留言，通常是測試員回報的問題內容）、\"system_event\"（狀態變更等系統事件）或 \"attachment\"（該時間點上傳的附件，只有 metadata）。" +
-      "看到 kind:\"attachment\" 而且判斷跟問題有關（例如錯誤截圖、log 檔）時，帶它的 attachmentGid 呼叫 `download_ticket_attachment` 把內容抓下來讀，不要只看檔名猜內容。" +
-      "**讀完、修好程式碼、確認根因之後，要把這次結果正式寫回本地追蹤系統**：這張票通常已經是 `verified` 且 `PASS`（AI 驗證師判過、正在等 `record_confirmation`）——呼叫 `record_confirmation({ taskGid, confirmed: false, note: <引用測試員回報的問題摘要> })`，讓它套用跟一般人類打回完全一樣的 `humanRejected`/根因分流機制（見 `advance_ticket_stage` 的 `rootCause` 說明），不要另外發明一套「口頭回報」流程。如果這張票還沒到 `verified` 階段就已經有測試員留言（少見），直接以目前角色繼續往下走，不需要呼叫 `record_confirmation`。",
+    "【唯讀】取得某張票單在 Asana 上的完整活動時間軸（留言＋系統事件＋附件，依時間排序），橋接 asana_task_activity。" +
+      "**使用者說「查看測試員回報的測試狀況」這類話時呼叫**：代表測試員已把問題寫進 Asana 留言（可能附截圖/log），要你讀懂並修好。" +
+      "items 的 kind：\"comment\"（通常是測試員回報內容）、\"system_event\"（狀態變更）、\"attachment\"（只有 metadata；與問題有關時帶 attachmentGid 呼叫 download_ticket_attachment 讀內容，不要憑檔名猜）。" +
+      "**修好、確認根因後要寫回追蹤系統**：票通常已是 verified 且 PASS（等 record_confirmation），呼叫 record_confirmation({ taskGid, confirmed: false, note: <測試員回報摘要> }) 走 humanRejected 的根因分流（見 advance_ticket_stage 的 rootCause），不要另創口頭回報流程；若票還沒到 verified 就有留言（少見），直接以目前角色繼續，不必呼叫 record_confirmation。",
     { taskGid: z.string().describe("Asana 任務 gid") },
     async ({ taskGid }) => {
       const result = await callAsanaTool("asana_task_activity", { taskGid });

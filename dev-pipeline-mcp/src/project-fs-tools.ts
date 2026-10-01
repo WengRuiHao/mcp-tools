@@ -33,10 +33,8 @@ export function registerProjectFsTools(server: McpServer): void {
 
   server.tool(
     "write_project_file",
-    "覆寫（或建立）指定專案目錄底下某個相對路徑檔案的完整內容。路徑一律限制在 projectDir 範圍內。" +
-      "**如果這個檔案自從這個 MCP 上次寫入之後被外部改過（GUI 工具、使用者手動編輯、別的 AI……），預設會擋下這次寫入**，回傳 externally_modified: true、目前磁碟上的實際內容（currentContent）、以及一份自動備份的路徑。" +
-      "先讀 currentContent 比對差異，確認要保留哪個版本；確定要用這次的內容覆蓋掉現有變更，再呼叫一次並加上 acknowledgeExternalChange: true（被蓋掉的內容一樣會先備份，不會真的遺失，但預設行為是不要在不知情的狀況下悄悄覆蓋）。" +
-      "第一次寫某個路徑（這個 MCP 之前沒寫過）不會做這個比對，直接寫入。",
+    "覆寫（或建立）專案目錄底下某個相對路徑檔案的完整內容，路徑限制在 projectDir 內。" +
+      "**檔案自這個 MCP 上次寫入後若被外部改過，預設擋下寫入**，回傳 externally_modified: true、currentContent 與自動備份路徑；比對後確定要覆蓋，再呼叫一次並加 acknowledgeExternalChange: true（被蓋掉的內容仍會備份）。第一次寫某路徑不做比對。",
     {
       projectDir: z.string().describe("專案目錄絕對路徑"),
       path: z.string().describe("相對於 projectDir 的檔案路徑"),
@@ -103,9 +101,9 @@ export function registerProjectFsTools(server: McpServer): void {
 
   server.tool(
     "run_project_shell",
-    "在指定專案目錄下執行一個 shell 指令（例如編譯、跑測試、git diff/status/add/commit）。" +
-      "禁止 git push、--force/-f、reset --hard、clean、checkout --/checkout .、restore、branch -D 這類會推到遠端或強制覆蓋/丟棄內容的指令，違反會被拒絕執行。" +
-      "**任何 git 指令執行前都會先驗證**：這個專案必須先呼叫過 register_git_roots 登記過 git 版控根目錄，而且指令實際解析到的 repo root（`git rev-parse --show-toplevel`）必須跟登記的根目錄對得起來，對不起來（例如子目錄底下根本沒有 .git、git 往上找到不相干的 repo）會直接拒絕執行——避免在沒有真正 git 版控的目錄裡誤跑 add/commit。",
+    "在專案目錄下執行 shell 指令（編譯、跑測試、git diff/status/add/commit 等）。" +
+      "禁止 git push、--force/-f、reset --hard、clean、checkout --/checkout .、restore、branch -D 這類推到遠端或強制覆蓋/丟棄內容的指令，違反會被拒絕。" +
+      "**任何 git 指令都會先驗證**：專案必須已 register_git_roots，且指令實際解析到的 repo root（`git rev-parse --show-toplevel`）要與登記的根目錄一致，否則拒絕。",
     { projectDir: z.string().describe("專案目錄絕對路徑"), command: z.string().describe("要執行的 shell 指令") },
     async ({ projectDir, command }) => {
       const gitRoots = await resolveGitRoots(projectDir);

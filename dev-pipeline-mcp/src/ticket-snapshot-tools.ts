@@ -134,12 +134,11 @@ async function ensureSnapshotted(
 export function registerTicketSnapshotTools(server: McpServer): void {
   server.tool(
     "get_ticket_snapshot",
-    "抓取單一 Asana 票單的完整內容（描述 + 自訂欄位 + 留言串），寫入追蹤檔案 ticket.md 並回傳內容。" +
-      "**內容雜湊沒變的話（跟上次抓的一樣），不會重寫檔案，回傳的是 unchanged: true 加簡短訊息，不會附上全文**——代表可以直接沿用本機既有的 ticket.md/01-analysis.md 等既有內容繼續處理，不用把票單全文重新讀進對話裡。" +
-      "**如果偵測到內容真的變了（unchanged: false）、而且 needsReanalysis: true，代表這張票之前已經 analyzed/implemented/verified 過，但 Asana 上的內容後來又被改了**——即使原本驗證是 PASS，也要當作還沒驗證過，重新從分析師角色走一遍，不能沿用舊的分析/實作結論。" +
-      "追蹤目錄建立在**目標程式碼專案自己的目錄裡**（不是這個 MCP 自己的安裝目錄），路徑是 <projectDir>/.asana-pipeline/<Asana 專案全名稱>/<票號>/，這樣分享/交接這個 MCP 工具本身時，不會夾帶任何客戶票單的實際內容。" +
-      "第一次在某個 projectDir 底下建立追蹤目錄時，會順便在 <projectDir>/CLAUDE.md 加一段說明，告訴之後接手的 AI/工程師這個 .asana-pipeline 目錄是做什麼用的。" +
-      "會自動偵測這張票是不是某張票的子任務（讀 Asana 的 task.parent，不需要呼叫端自己判斷/傳遞），如果是，會先確保父票單（以及父票單的父票單……往上一路到頂層）都已經建好追蹤目錄，再把這張票巢狀掛在正確的父票單底下（<父票號>/<子票號>/），層數不限。",
+    "抓取單一 Asana 票單的完整內容（描述 + 自訂欄位 + 留言串），寫入追蹤檔案 ticket.md 並回傳。" +
+      "**內容雜湊沒變時不重寫、不附全文，回傳 unchanged: true**，直接沿用本機既有 ticket.md/01-analysis.md 等內容繼續處理。" +
+      "**unchanged: false 且 needsReanalysis: true=這張票之前已 analyzed/implemented/verified，但 Asana 內容後來又改了**：即使原本 PASS 也視為未驗證，要重新從分析師走一遍。" +
+      "追蹤目錄建在目標專案自己的目錄：<projectDir>/.asana-pipeline/<Asana 專案全名稱>/<票號>/（不在本 MCP 安裝目錄）；首次在某 projectDir 建立時會在 <projectDir>/CLAUDE.md 加一段說明。" +
+      "會自動從 task.parent 判斷子任務，先確保父票（往上到頂層）都已建好追蹤目錄，再巢狀掛在 <父票號>/<子票號>/，層數不限。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
       projectDir: z.string().describe("這張票對應的程式碼專案目錄（絕對路徑，先用 resolve_project_dir/register_project_dir 拿到），追蹤目錄會建在這個目錄底下"),
@@ -184,22 +183,11 @@ export function registerTicketSnapshotTools(server: McpServer): void {
 
   server.tool(
     "relocate_ticket_project",
-    "修正一張票的追蹤資料夾所在的 Asana 專案名稱標籤——用在 get_ticket_snapshot 第一次呼叫時 projectName 傳錯" +
-      "（例如猜測、沒對照 Asana 實際專案全名稱查證）的情況，把 <projectDir>/.asana-pipeline/<舊專案名稱>/<票號>/ " +
-      "整份搬到 <projectDir>/.asana-pipeline/<newProjectName>/<票號>/，連同巢狀掛在它底下的所有子任務一起搬。" +
-      "**這不是「換這張票所屬的 Asana 專案」**（Asana 上這張票實際在哪個專案，這個工具完全不會去改，也改不了）——" +
-      "純粹是本機追蹤資料夾的命名標籤跟 Asana 實際情況兜不起來時的更正操作。" +
-      "**呼叫前務必先查證清楚 newProjectName**（例如用 asana_projects 或 asana_task 確認這張票在 Asana 上真正所屬" +
-      "的專案全名稱），不要用猜的、也不要在不確定的情況下呼叫——這個操作會實際搬動磁碟上的資料夾。" +
-      "**絕對不要自己用檔案總管/shell 手動搬這個資料夾**：這個 MCP 在自己的安裝目錄（跟 projectDir 無關）維護一份" +
-      "taskGid→資料夾路徑的索引（tickets-index.json），手動搬移不會更新這份索引，會導致這個 MCP 之後完全找不到" +
-      "這張票的追蹤檔案（get_ticket_status/resync_ticket_artifact 等工具全部報錯），或更糟：下次呼叫 " +
-      "get_ticket_snapshot 時因為索引還指著舊路徑，在舊路徑生出一份全新空白的追蹤紀錄，蓋掉/岔開原本的進度。" +
-      "務必只透過這個工具搬移。" +
-      "成功後回傳 oldDir/newDir/movedDescendants（一併被搬動的子任務 taskGid 清單），並自動局部重建新舊兩個" +
-      "專案資料夾各自的 PENDING_HUMAN_ACTIONS.html（新的會補上這張票，舊的會拿掉——但只有舊專案底下還有其他已" +
-      "追蹤票單時才補得到，如果這是舊專案底下唯一一張已追蹤的票，舊的 PENDING_HUMAN_ACTIONS.html 不會自動清空，" +
-      "需要人工檢查是否要一併處理/刪除那份檔案）。",
+    "修正票追蹤資料夾的 Asana 專案名稱標籤：get_ticket_snapshot 第一次呼叫時 projectName 傳錯，就把 <projectDir>/.asana-pipeline/<舊專案名稱>/<票號>/ 連同巢狀子任務整份搬到 <newProjectName>/<票號>/。" +
+      "**這不是換票所屬的 Asana 專案**（Asana 上的歸屬不會改），只是更正本機標籤。" +
+      "**呼叫前務必先用 asana_projects 或 asana_task 查證 newProjectName，不要猜**，這會實際搬動磁碟上的資料夾。" +
+      "**絕對不要自己用檔案總管/shell 搬**：本 MCP 的 tickets-index.json 索引不會更新，之後會找不到追蹤檔案，或在舊路徑生出空白紀錄蓋掉進度；務必只透過這個工具。" +
+      "成功回傳 oldDir/newDir/movedDescendants，並局部重建新舊兩個專案資料夾的 PENDING_HUMAN_ACTIONS.html（舊專案若已無其他追蹤票，舊報告不會自動清空，需人工檢查是否刪除）。",
     {
       taskGid: z.string().describe("要修正資料夾歸屬的 Asana 任務 gid（如果它有子任務，會一併搬動）"),
       newProjectName: z.string().describe("已查證過的 Asana 專案「全名稱」（正確答案），不是簡稱或猜測值"),
