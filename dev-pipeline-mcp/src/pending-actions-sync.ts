@@ -173,7 +173,7 @@ async function syncPendingActionsReportForProject(projectDir: string, projectNam
     const awaitingSpecConfirmation: { taskGid: string; name: string }[] = [];
     const awaitingConfirmation: { taskGid: string; name: string }[] = [];
     const needsHumanReviewList: { taskGid: string; name: string; consecutiveFailCount: number }[] = [];
-    const contentChangedList: { taskGid: string; name: string; stage: string }[] = [];
+    const contentChangedList: { taskGid: string; name: string; stage: string; humanRequested?: boolean }[] = [];
     const manualActionsList: { taskGid: string; name: string; actions: ManualActionItem[] }[] = [];
 
     for (const gid of ticketGids) {
@@ -207,13 +207,16 @@ async function syncPendingActionsReportForProject(projectDir: string, projectNam
       // 只有走到 "tested" 且 PASS，才代表 AI 這邊全部檢查完，可以進入 awaitingConfirmation——
       // "verified" PASS 本身還沒經過測試工程師這一關，不能提早算數（同上，對齊 list_pending_tickets 的 isTestedPass）。
       const isTestedPass = s.stage === "tested" && s.verdict === "PASS";
-      if (isTestedPass && !s.needs_reanalysis) {
+      // 使用者勾了「請 AI 優先處理」的票要留在「內容已被異動」清單（顯示成已請求的唯讀提示），不能被
+      // 這裡的本機條件濾掉——這份重建看不到 Asana 的 modified_at，單靠 needs_reanalysis 會漏掉剛勾完的票。
+      const humanRequested = s.human_requested_reanalysis;
+      if (isTestedPass && !s.needs_reanalysis && !humanRequested) {
         if (s.confirmation?.confirmed === true) continue;
         awaitingConfirmation.push({ taskGid: gid, name });
         continue;
       }
-      if (s.needs_reanalysis && pipelineUserGid !== null && s.last_seen_assignee_gid === pipelineUserGid) {
-        contentChangedList.push({ taskGid: gid, name, stage: s.stage });
+      if (humanRequested || (s.needs_reanalysis && pipelineUserGid !== null && s.last_seen_assignee_gid === pipelineUserGid)) {
+        contentChangedList.push({ taskGid: gid, name, stage: s.stage, ...(humanRequested ? { humanRequested: true } : {}) });
       }
     }
 
