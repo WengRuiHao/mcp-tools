@@ -71,6 +71,12 @@
   .action-row input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
   .row-title { font-weight: 600; }
   .row-detail { margin: 6px 0 0; color: var(--ink-muted); font-size: 0.9rem; white-space: pre-wrap; }
+  .manual-blocks .row-title { display: block; margin-bottom: 6px; }
+  details.manual-block { margin-top: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+  details.manual-block > summary { cursor: pointer; padding: 6px 12px; font-weight: 600; font-size: 0.92rem; }
+  details.manual-block[open] > summary { border-bottom: 1px solid var(--line); }
+  .block-tools { display: flex; justify-content: flex-end; padding: 6px 12px 0; }
+  details.manual-block pre { margin: 0; padding: 8px 12px 12px; overflow-x: auto; font-family: var(--font-mono); font-size: 0.85rem; line-height: 1.5; white-space: pre; }
   .row-error { margin: 6px 0 0; color: var(--stale); font-size: 0.85rem; }
   .file-list { margin: 4px 0 0; padding-left: 18px; font-family: var(--font-mono); font-size: 0.82rem; color: var(--ink-muted); }
   .confirm-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
@@ -276,6 +282,36 @@
       }).catch(function (e) {
         btn.disabled = false;
         showError(row, e.message);
+      });
+    });
+  });
+
+  // ---- 手動貼上內容：複製到剪貼簿（不依賴 bridge，離線也能用） ----
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    return new Promise(function (resolve, reject) {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      ok ? resolve() : reject(new Error("copy failed"));
+    });
+  }
+
+  document.querySelectorAll("[data-copy]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var code = btn.closest("details").querySelector("pre code");
+      copyText(code.textContent).then(function () {
+        btn.textContent = "已複製 ✓";
+      }).catch(function () {
+        btn.textContent = "複製失敗，請手動選取";
+      }).then(function () {
+        setTimeout(function () { btn.textContent = "複製"; }, 1800);
       });
     });
   });

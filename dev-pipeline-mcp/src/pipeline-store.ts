@@ -1091,23 +1091,85 @@ function renderUncommittedSectionHtml(
   return items.length > 0 ? `<ul class="readonly-list">${items.join("")}</ul>` : `<p class="empty">（無）</p>`;
 }
 
+/** 工程師/驗證師/測試工程師在 02/03/04 文件裡標給使用者「手動貼上去用」的內容區塊（SQL、設定值…）。 */
+export interface ManualBlock {
+  title: string;
+  lang: string;
+  body: string;
+}
+
+const DEFAULT_MANUAL_BLOCK_TITLE = "手動貼上內容";
+const FENCED_BLOCK_RE = /^[ \t]*```([^\n`]*)\n([\s\S]*?)\n[ \t]*```[ \t]*$/gm;
+const MANUAL_INFO_RE = /^(?:(\S+)\s+)?manual(?::\s*(.+))?$/;
+
+/**
+ * 從票單追蹤文件（02/03/04）抽出約定標記過的程式碼區塊：info string 帶 `manual`，可選 `:標題`，
+ * 例如 ```sql manual:新增3語系選項。沒帶 manual 的一般程式碼區塊一律忽略。
+ * 內容只在產生報告時從文件現讀，不存進 status.json，所以不會繞過 detectSensitiveManualActions 的防護。
+ */
+export function extractManualBlocks(content: string): ManualBlock[] {
+  const blocks: ManualBlock[] = [];
+  for (const match of content.replace(/\r\n/g, "\n").matchAll(FENCED_BLOCK_RE)) {
+    const info = MANUAL_INFO_RE.exec(match[1].trim());
+    if (!info) continue;
+    blocks.push({ lang: info[1] ?? "", title: info[2]?.trim() || DEFAULT_MANUAL_BLOCK_TITLE, body: match[2] });
+  }
+  return blocks;
+}
+
+/** 讀這張票「還有待辦」的那幾份文件，收集裡面的手動貼上區塊；單份讀不到（沒建立過／檔案被清）就略過，不影響報告其他部分。 */
+async function loadManualBlocks(manualActions: PendingActionsReportInput["manualActions"]): Promise<Map<string, ManualBlock[]>> {
+  const result = new Map<string, ManualBlock[]>();
+  for (const ticket of manualActions) {
+    const filenames = [...new Set(ticket.actions.map((a) => a.filename))];
+    const blocks: ManualBlock[] = [];
+    for (const filename of filenames) {
+      try {
+        const content = await readArtifact(ticket.taskGid, filename);
+        if (content) blocks.push(...extractManualBlocks(content));
+      } catch (err: any) {
+        console.error(`[dev-pipeline-mcp] loadManualBlocks(${ticket.taskGid}, ${filename}) failed: ${err?.message ?? err}`);
+      }
+    }
+    if (blocks.length > 0) result.set(ticket.taskGid, blocks);
+  }
+  return result;
+}
+
+function renderManualBlocksRow(blocks: ManualBlock[]): string {
+  const details = blocks.map(
+    (b) => `<details class="manual-block">
+        <summary>${escapeHtml(b.title)}${b.lang ? ` <code>${escapeHtml(b.lang)}</code>` : ""}</summary>
+        <div class="block-tools"><button type="button" class="btn btn-copy" data-copy>複製</button></div>
+        <pre><code>${escapeHtml(b.body)}</code></pre>
+      </details>`
+  );
+  return `<li class="readonly-row neutral manual-blocks">
+      <span class="row-title">📋 手動貼上內容（${blocks.length}）</span>
+      ${details.join("\n      ")}
+    </li>`;
+}
+
 function renderManualActionsSection(
   manualActions: PendingActionsReportInput["manualActions"],
-  numberMap: Map<string, string>
+  numberMap: Map<string, string>,
+  blocksByTicket: Map<string, ManualBlock[]>
 ): string {
-  const rows = manualActions.flatMap((t) =>
-    t.actions.map((a) => {
-      const number = numberMap.get(t.taskGid) ?? t.taskGid;
-      return `<li class="action-row accent">
+  const rows = manualActions.flatMap((t) => {
+    const number = numberMap.get(t.taskGid) ?? t.taskGid;
+    const actionRows = t.actions.map(
+      (a) => `<li class="action-row accent">
         <label>
           <input type="checkbox" data-manual-checkbox data-taskgid="${escapeHtml(t.taskGid)}" data-filename="${escapeHtml(a.filename)}" data-action="${escapeHtml(a.text)}">
           <span class="row-title">${escapeHtml(t.name)}（<code>${escapeHtml(number)}</code>）</span>
         </label>
         <p class="row-detail">${escapeHtml(a.text)}</p>
         <p class="row-error" hidden></p>
-      </li>`;
-    })
-  );
+      </li>`
+    );
+    const blocks = blocksByTicket.get(t.taskGid);
+    return blocks ? [...actionRows, renderManualBlocksRow(blocks)] : actionRows;
+  });
   return rows.length > 0 ? `<ul class="action-list">${rows.join("")}</ul>` : `<p class="empty">（無）</p>`;
 }
 
@@ -1218,6 +1280,7 @@ export async function writePendingActionsReport(
   const number = (taskGid: string) => numberMap.get(taskGid) ?? taskGid;
 
   const manualActionsCount = input.manualActions.reduce((sum, t) => sum + t.actions.length, 0);
+  const manualBlocks = await loadManualBlocks(input.manualActions);
   const bridgePort = resolveHttpBridgePort();
 
   const template = await loadPendingActionsTemplate();
@@ -1250,7 +1313,7 @@ export async function writePendingActionsReport(
     CHANGED_COUNT: input.contentChanged.length,
     CHANGED_SECTION: renderChangedSection(input.contentChanged, numberMap),
     MANUAL_COUNT: manualActionsCount,
-    MANUAL_SECTION: renderManualActionsSection(input.manualActions, numberMap),
+    MANUAL_SECTION: renderManualActionsSection(input.manualActions, numberMap, manualBlocks),
     GIT_SECTION: renderUncommittedSectionHtml(input.uncommittedChanges, numberMap),
   });
 
