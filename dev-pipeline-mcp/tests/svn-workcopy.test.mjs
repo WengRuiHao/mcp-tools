@@ -226,3 +226,29 @@ test("AI-facing tool surface has no SVN write tool", async () => {
     await close();
   }
 });
+
+test("a conflicted row shows guidance and no delete/revert buttons", { skip }, async () => {
+  const { store, registry } = await loadModules();
+  const projectDir = makeTmpDir("dpm-svn-proj-");
+  try {
+    const a = path.join(root, "wc-conflict-a");
+    const b = path.join(root, "wc-conflict-b");
+    svn("checkout", repoUrl, a);
+    svn("checkout", repoUrl, b);
+    fs.writeFileSync(path.join(a, "spec.txt"), "A-side line\n");
+    svn("commit", "-m", "a edits", a);
+    fs.writeFileSync(path.join(b, "spec.txt"), "B-side line\n");
+    svn("update", "--accept", "postpone", b);
+
+    await registry.registerSvnWorkCopies(projectDir, [{ label: "衝突", workCopyPath: b, connectionId: "t1" }]);
+    await store.writePendingActionsReport(projectDir, PROJECT_NAME, EMPTY_INPUT);
+    const html = readReport(projectDir);
+    const row = html.split('data-svn-path="spec.txt"')[1].split("</li>")[0];
+    assert.match(row, /data-svn-status="conflicted"/);
+    assert.match(row, /TortoiseSVN/);
+    assert.doesNotMatch(row, /data-svn-op="(revert|delete)"/);
+    assert.doesNotMatch(row, /data-svn-select/); // 不能勾選上傳
+  } finally {
+    removeDir(projectDir);
+  }
+});

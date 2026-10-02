@@ -436,11 +436,20 @@ export async function wcRevert(opts: WcOptions, relPath: string): Promise<{ reve
   const abs = resolveInsideWorkCopy(wcAbs, relPath);
   return withWcLock(wcAbs, async () => {
     const key = toRelative(wcAbs, abs);
-    const entry = (await statusMap(conn, wcAbs)).get(key);
+    const statuses = await statusMap(conn, wcAbs);
+    const entry = statuses.get(key);
     if (!entry) throw new Error(`「${relPath}」目前沒有可還原的變更`);
     assertNotConflicted(entry, relPath);
     if (!REVERTABLE.has(entry.status)) {
       throw new Error(`「${relPath}」目前狀態是 ${entry.status}，還原會丟掉你的修改內容，這裡不允許；只能還原新增、刪除或遺失的項目。`);
+    }
+    // 對資料夾是遞迴還原：底下若有已修改的檔案，一併還原會連修改內容一起丟掉，所以直接拒絕。
+    const atRisk = [...statuses.values()].filter(
+      (e) => e.path.startsWith(`${key}/`) && (e.status === "modified" || e.status === "replaced" || e.status === "conflicted" || e.propsModified)
+    );
+    if (atRisk.length > 0) {
+      const sample = atRisk.slice(0, 3).map((e) => e.path.slice(key.length + 1)).join("、");
+      throw new Error(`「${relPath}」底下有 ${atRisk.length} 個已修改的項目（${sample}${atRisk.length > 3 ? " 等" : ""}），還原會連這些修改一起丟掉，這裡不允許。請先上傳或另外備份這些修改。`);
     }
     await runSvn(["revert", "-R", pegSafe(abs)], conn, getSvnTimeoutMs() * 2);
     return { reverted: key };

@@ -388,21 +388,49 @@
   function svnCall(op, wc, extra) {
     var body = { projectDir: svnSection.dataset.projectDir, projectName: svnSection.dataset.projectFolder, label: wc.dataset.svnLabel };
     Object.keys(extra || {}).forEach(function (k) { body[k] = extra[k]; });
+    // 90 秒沒回應就放棄：SVN 卡住時不要讓按鈕永遠停在「處理中」，並把原因告訴使用者。
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, 90000);
     return fetch(BRIDGE_ORIGIN + "/svn/" + op, {
       method: "POST",
       mode: "cors",
       headers: { "Content-Type": "application/json", "X-Bridge-Token": svnSection.dataset.bridgeToken },
       body: JSON.stringify(body),
+      signal: controller.signal,
     }).then(function (res) {
       return res.json().catch(function () { return {}; }).then(function (data) {
         if (!res.ok || data.success === false) throw new Error(data.message || ("請求失敗（HTTP " + res.status + "）"));
         return data;
       });
+    }).catch(function (e) {
+      if (e && e.name === "AbortError") throw new Error("超過 90 秒沒有回應，SVN 可能卡住了。可以稍後按「重新整理狀態」，或到 TortoiseSVN 檢查這份工作副本。");
+      throw e;
+    }).then(function (data) {
+      clearTimeout(timer);
+      return data;
+    }, function (e) {
+      clearTimeout(timer);
+      throw e;
     });
   }
 
-  function svnRun(wc, op, extra, successText) {
+  /** 失敗訊息：針對某一列的操作就顯示在那一列（使用者才看得到），整份工作副本層級的操作顯示在區塊底下的結果框。 */
+  function svnReportError(wc, row, message) {
+    if (row) {
+      showError(row, "失敗：" + message);
+      row.scrollIntoView({ block: "nearest" });
+    } else {
+      svnShowResult(wc, "失敗：" + message, true);
+    }
+    if (/locked|cleanup|鎖定/i.test(message)) {
+      var cleanupBtn = wc.querySelector('[data-svn-op="cleanup"]');
+      if (cleanupBtn) cleanupBtn.hidden = false;
+    }
+  }
+
+  function svnRun(wc, op, extra, successText, row) {
     wc.dataset.busy = "1";
+    if (row) { var oldError = row.querySelector(".row-error"); if (oldError) oldError.hidden = true; }
     svnApplyState();
     return svnCall(op, wc, extra).then(function (data) {
       var text = typeof successText === "function" ? successText(data) : successText;
@@ -412,7 +440,7 @@
     }).catch(function (e) {
       wc.dataset.busy = "0";
       svnApplyState();
-      svnShowResult(wc, "失敗：" + e.message, true);
+      svnReportError(wc, row, e.message);
     });
   }
 
@@ -421,13 +449,17 @@
     if (!pre.hidden) { pre.hidden = true; btn.textContent = "看差異"; return; }
     if (pre.dataset.loaded === "1") { pre.hidden = false; btn.textContent = "收起差異"; return; }
     btn.disabled = true;
+    btn.textContent = "讀取中…";
+    var oldDiffError = row.querySelector(".row-error");
+    if (oldDiffError) oldDiffError.hidden = true;
     svnCall("diff", wc, { files: [row.dataset.svnPath] }).then(function (data) {
       pre.textContent = data.text + (data.truncated ? "\n…（內容過長，已截斷）" : "");
       pre.dataset.loaded = "1";
       pre.hidden = false;
       btn.textContent = "收起差異";
     }).catch(function (e) {
-      showError(row, e.message);
+      btn.textContent = "看差異";
+      svnReportError(wc, row, e.message);
     }).then(function () { svnApplyState(); });
   }
 
@@ -450,14 +482,14 @@
     }
     if (op === "delete") {
       if (!window.confirm("確定要把這個檔案標記為從 SVN 刪除嗎？\n\n" + path + "\n\n標記後要按「上傳」才會真的從遠端移除；之後也可以按「取消刪除」還原。")) return;
-      svnRun(wc, "delete", { files: [path] }, "已標記為刪除，請勾選後按「上傳」送出到 SVN。");
+      svnRun(wc, "delete", { files: [path] }, "已標記為刪除，請勾選後按「上傳」送出到 SVN。", row);
       return;
     }
     if (op === "revert") {
       var status = row.dataset.svnStatus;
-      var what = status === "added" ? "取消加入版控（檔案內容保留在本機）" : status === "deleted" ? "取消刪除（檔案會回到本機）" : "把檔案還原成 SVN 上的版本";
+      var what = status === "added" ? "取消加入版控（一般新增的檔案會留在本機；以複製方式加入、且沒有修改過的資料夾，複本會被移除）" : status === "deleted" ? "取消刪除（檔案會回到本機）" : "把檔案還原成 SVN 上的版本";
       if (!window.confirm("確定要" + what + "嗎？\n\n" + path)) return;
-      svnRun(wc, "revert", { files: [path] }, "已還原：" + path);
+      svnRun(wc, "revert", { files: [path] }, "已還原：" + path, row);
       return;
     }
     if (op === "commit") {

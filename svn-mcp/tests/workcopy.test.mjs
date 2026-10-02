@@ -172,3 +172,30 @@ test("a working copy outside the connection's URL is refused", async () => {
   await assert.rejects(wcStatus({ workCopyPath: otherWc, connectionId: "t1" }), /不在連線/);
   await assert.rejects(wcStatus({ workCopyPath: path.join(root, "not-a-wc"), connectionId: "t1" }), /不是有效的 SVN 工作副本/);
 });
+
+test("revert of a copied (added) directory is refused when it contains modified files", async () => {
+  const wc = newWorkCopy();
+  write(wc, "src/keep.txt", "v1\n");
+  await wcAddAndCommit(opts(wc), ["src"], "add src");
+  // 跟真實情境（PDF Sample）一樣：svn copy 出來的資料夾是 added+copied，裡面的檔案再被修改
+  svn("copy", path.join(wc, "src"), path.join(wc, "src-copy"));
+  write(wc, "src-copy/keep.txt", "edited inside the copy\n");
+  const status = await wcStatus(opts(wc));
+  assert.equal(status.entries.find((e) => e.path === "src-copy")?.status, "added");
+  assert.equal(status.entries.find((e) => e.path === "src-copy/keep.txt")?.status, "modified");
+
+  await assert.rejects(wcRevert(opts(wc), "src-copy"), /已修改的項目/);
+  assert.equal(fs.readFileSync(path.join(wc, "src-copy", "keep.txt"), "utf-8"), "edited inside the copy\n");
+  assert.equal((await wcStatus(opts(wc))).entries.find((e) => e.path === "src-copy")?.status, "added");
+});
+
+test("revert of an unmodified copied directory removes only the pristine copy, never the source", async () => {
+  const wc = newWorkCopy();
+  write(wc, "src2/keep.txt", "v1\n");
+  await wcAddAndCommit(opts(wc), ["src2"], "add src2");
+  svn("copy", path.join(wc, "src2"), path.join(wc, "src2-copy"));
+  await wcRevert(opts(wc), "src2-copy");
+  assert.equal(fs.existsSync(path.join(wc, "src2-copy", "keep.txt")), false); // svn 會移除沒修改過的複本
+  assert.equal(fs.readFileSync(path.join(wc, "src2", "keep.txt"), "utf-8"), "v1\n"); // 原件完全不受影響
+  assert.equal((await wcStatus(opts(wc))).entries.length, 0);
+});

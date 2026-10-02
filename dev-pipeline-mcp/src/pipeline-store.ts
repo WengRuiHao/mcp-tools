@@ -1194,6 +1194,8 @@ const SVN_MAX_ROWS = 300;
 function svnRowButtons(entry: WcEntry): string {
   const buttons: string[] = [];
   if (SVN_DIFFABLE.has(entry.status)) buttons.push(`<button type="button" class="btn" data-svn-op="diff">看差異</button>`);
+  // 衝突項目（含樹狀衝突）刪除/還原都會被拒絕，不顯示會失敗的按鈕，改由說明文字引導去 TortoiseSVN 處理。
+  if (entry.status === "conflicted" || entry.treeConflict) return buttons.join("");
   if (entry.status === "missing") buttons.push(`<button type="button" class="btn btn-no" data-svn-op="delete">標記為從 SVN 刪除</button>`);
   if (entry.status === "added") buttons.push(`<button type="button" class="btn" data-svn-op="revert">取消加入</button>`);
   if (entry.status === "deleted") buttons.push(`<button type="button" class="btn" data-svn-op="revert">取消刪除</button>`);
@@ -1209,7 +1211,7 @@ function renderSvnRow(entry: WcEntry): string {
     : `<input type="checkbox" disabled title="這個狀態不能直接上傳">`;
   const conflictNote =
     entry.status === "conflicted" || entry.treeConflict
-      ? `<p class="row-detail">發生衝突：請先到 TortoiseSVN 手動解決，這裡不會自動處理，也不能上傳。</p>`
+      ? `<p class="row-detail">發生衝突（常見情況：你在本機新增或修改的項目，遠端已經被刪除或搬移）。請到 TortoiseSVN 對它按右鍵 →「檢查修改」或「已解決」處理；這裡不會自動處理，所以不能上傳、取消或刪除。</p>`
       : "";
   const propNote = entry.propsModified && entry.status !== "conflicted" ? `<span class="svn-note">（屬性也有異動）</span>` : "";
   return `<li class="action-row svn-row tone-${label.tone}" data-svn-path="${escapeHtml(entry.path)}" data-svn-status="${escapeHtml(entry.status)}">
