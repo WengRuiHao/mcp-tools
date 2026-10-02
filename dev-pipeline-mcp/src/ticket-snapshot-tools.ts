@@ -164,6 +164,9 @@ export function registerTicketSnapshotTools(server: McpServer): void {
         return textResult({ success: false, message: err?.message ?? String(err) }, true);
       }
 
+      // 這次抓取可能清掉了「請 AI 優先處理」旗標、或更新了 needs_reanalysis——報告不跟著重建的話，網頁會一直停在舊的「已標記」畫面。
+      await syncPendingActionsReport(taskGid);
+
       if (result.unchanged) {
         return textResult({
           success: true,
