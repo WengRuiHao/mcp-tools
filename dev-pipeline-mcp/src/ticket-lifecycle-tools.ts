@@ -173,14 +173,14 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         if (showAsChanged) {
           contentChangedList.push({ taskGid: task.gid, name: task.name, stage: status.stage, ...(humanRequested ? { humanRequested: true } : {}) });
         }
-        // 「Asana 內容已被異動，待重新確認」這個持久化報告區塊，一般情況下額外要求指派人剛好是這個
-        // pipeline 帳號本人——單純內容變了但沒指派給這個帳號的票單不冒出來打擾使用者。但使用者自己在
-        // 網頁上主動勾了「請 AI 優先處理」的票，不管指派人是誰都一定要顯示（是使用者自己要求的，不能
-        // 因為指派人條件被過濾掉）。上面的 `contentChangedList`（回傳給呼叫端的 JSON 欄位，
+        // 「Asana 內容已被異動，待重新確認」這個持久化報告區塊只列「指派人剛好是這個 pipeline 帳號本人」的
+        // 票單——票單狀態常在不同人之間流轉，內容變了但不是指派給這個帳號的票單與使用者無關，不冒出來打擾。
+        // 這條沒有例外：就算曾被勾過「請 AI 優先處理」，轉手給別人之後也不再顯示（旗標本身還在，AI 照樣會從
+        // `tickets[].humanRequestedReanalysis` 看到並處理）。上面的 `contentChangedList`（回傳給呼叫端的 JSON 欄位，
         // `pending[].contentChanged` 也是）不受這條限制，用途不同（提醒 AI「這份舊分析可能已經過期，
         // 用之前先看一眼」，跟該不該寫進報告通知人類是兩回事）。
         const assigneeGid: string | null = task.assignee?.gid ?? null;
-        if (showAsChanged && (humanRequested || (pipelineUserGid !== null && assigneeGid === pipelineUserGid))) {
+        if (showAsChanged && pipelineUserGid !== null && assigneeGid === pipelineUserGid) {
           contentChangedForReport.push({ taskGid: task.gid, name: task.name, stage: status.stage, ...(humanRequested ? { humanRequested: true } : {}) });
         }
       }

@@ -121,6 +121,9 @@ export async function getUncommittedChangesSummary(
 /** 這組共用 token 對應的 Asana 使用者 gid，行程存活期間只查一次（不會變動，沒必要每次都打 API）。查詢失敗回傳 null 且不快取失敗結果，讓下次呼叫可以重試——只在真的查到值之後才快取。 */
 let cachedPipelineAsanaUserGid: string | null | undefined;
 export async function getPipelineAsanaUserGid(): Promise<string | null> {
+  // 測試或 asana-mcp 連不上時可用環境變數直接指定，不去 spawn 真的 asana-mcp 子行程。
+  const override = process.env.PIPELINE_ASANA_USER_GID;
+  if (override) return override;
   if (cachedPipelineAsanaUserGid !== undefined) return cachedPipelineAsanaUserGid;
   try {
     const me = await callAsanaTool("asana_me", {});
@@ -207,15 +210,18 @@ async function syncPendingActionsReportForProject(projectDir: string, projectNam
       // 只有走到 "tested" 且 PASS，才代表 AI 這邊全部檢查完，可以進入 awaitingConfirmation——
       // "verified" PASS 本身還沒經過測試工程師這一關，不能提早算數（同上，對齊 list_pending_tickets 的 isTestedPass）。
       const isTestedPass = s.stage === "tested" && s.verdict === "PASS";
-      // 使用者勾了「請 AI 優先處理」的票要留在「內容已被異動」清單（顯示成已請求的唯讀提示），不能被
-      // 這裡的本機條件濾掉——這份重建看不到 Asana 的 modified_at，單靠 needs_reanalysis 會漏掉剛勾完的票。
-      const humanRequested = s.human_requested_reanalysis;
+      // 「內容已被異動」清單只列指派人是 pipeline 帳號本人的票（跟 list_pending_tickets 同一條規則，這裡只能靠
+      // 上次 get_ticket_snapshot 記下的 last_seen_assignee_gid 判斷）。使用者勾了「請 AI 優先處理」的票，只要還
+      // 指派給本人就要留在清單（顯示成已請求的唯讀提示）——這份重建看不到 Asana 的 modified_at，單靠
+      // needs_reanalysis 會漏掉剛勾完的票。
+      const assignedToPipelineUser = pipelineUserGid !== null && s.last_seen_assignee_gid === pipelineUserGid;
+      const humanRequested = s.human_requested_reanalysis && assignedToPipelineUser;
       if (isTestedPass && !s.needs_reanalysis && !humanRequested) {
         if (s.confirmation?.confirmed === true) continue;
         awaitingConfirmation.push({ taskGid: gid, name });
         continue;
       }
-      if (humanRequested || (s.needs_reanalysis && pipelineUserGid !== null && s.last_seen_assignee_gid === pipelineUserGid)) {
+      if (assignedToPipelineUser && (s.needs_reanalysis || humanRequested)) {
         contentChangedList.push({ taskGid: gid, name, stage: s.stage, ...(humanRequested ? { humanRequested: true } : {}) });
       }
     }
