@@ -73,7 +73,7 @@ const OVERVIEW_CORE = `# Asana 票單自動處理 Pipeline — 整體流程說�
 - \`found: false\` → 回傳的 \`instructions\` 說明要問使用者什麼、問完呼叫哪個 register 工具，照做（完整版見 \`section: "setup"\`）。
 
 ## 步驟 1：找出待處理票單
-呼叫 \`list_pending_tickets({ projectGid, sectionFilter?, projectName: <步驟 0 拿到的 Asana 專案「全名稱」，一定要帶> })\`，取得尚未完成、尚未驗證 PASS 的票單，一張一張處理。帶了 \`projectName\` 後，「待確認規格草稿／待確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 尚未 commit 的變更」六類項目會整份寫進互動式 HTML \`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.html\`，步驟 3 不用再彙整。第一次告知時順便提醒他在 \`dev-pipeline-mcp\` 目錄跑一次 \`npm run start:http\` 啟動本機 HTTP bridge，按鈕才會生效。
+呼叫 \`list_pending_tickets({ projectGid, sectionFilter?, projectName: <步驟 0 拿到的 Asana 專案「全名稱」，一定要帶> })\`，取得尚未完成、尚未驗證 PASS 的票單，一張一張處理。帶了 \`projectName\` 後，「待確認規格草稿／待確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 未 commit／SVN 未上傳」七類項目會整份寫進互動式 HTML \`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.html\`，步驟 3 不用再彙整。第一次告知時順便提醒他在 \`dev-pipeline-mcp\` 目錄跑一次 \`npm run start:http\` 啟動本機 HTTP bridge，按鈕才會生效。
 
 清單裡的旗標：
 - \`contentChanged: true\`：之前 PASS 過，但 Asana 內容後來被改過——不能因為「之前是 PASS」就跳過，一樣要走步驟 2（\`get_ticket_snapshot\` 會確認內容是不是真的變了）。
@@ -121,7 +121,7 @@ const OVERVIEW_CORE = `# Asana 票單自動處理 Pipeline — 整體流程說�
 6.5. 測試工程師（驗證師判 PASS 之後、人類最終確認之前，每張票都要走）：\`get_role_prompt({ role: "tester", projectDir })\`（可派子任務），依說明跑情境測試。\`write_ticket_artifact({ taskGid: T, filename: "04-test.md", content, summary, syncNote, manualActions })\`，\`advance_ticket_stage({ taskGid: T, stage: "tested", verdict: "PASS"|"FAIL", rootCause?: ... })\`——verdict/rootCause/連續 FAIL 判斷與 FAIL 處理跟步驟 6 共用同一套機制。
 
 ## 步驟 3：彙整報告
-全部處理完，整理表格（票單／專案目錄／SD 模式／結果／備註），並提醒：程式碼異動是否 commit 由工程師/驗證師階段決定，但都還沒 push，需人工決定要不要推。「需要人工處理」六類項目不用重新彙整——步驟 1 帶了 \`projectName\` 就已寫進 \`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.html\`，告訴使用者這份檔案存在、位置在哪（任何 session 都能直接開來看）；細節以那份檔案為準，不用在聊天逐條重列。這次新驗證 PASS 的票仍要口頭提一下（票名 + \`taskGid\`）。
+全部處理完，整理表格（票單／專案目錄／SD 模式／結果／備註），並提醒：程式碼異動是否 commit 由工程師/驗證師階段決定，但都還沒 push，需人工決定要不要推。「需要人工處理」七類項目不用重新彙整——步驟 1 帶了 \`projectName\` 就已寫進 \`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.html\`，告訴使用者這份檔案存在、位置在哪（任何 session 都能直接開來看）；細節以那份檔案為準，不用在聊天逐條重列。這次新驗證 PASS 的票仍要口頭提一下（票名 + \`taskGid\`）。
 Asana 票單狀態/留言不會被這條 pipeline 自動更新（\`asana-mcp\` 唯讀）：標「待測試」「已完成」或留言通知是使用者自己到 Asana 做，報告只提醒哪些票該去標記，不要代為執行。
 
 ## 安全限制（由工具強制，你無法繞過）

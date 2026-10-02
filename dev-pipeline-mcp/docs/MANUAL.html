@@ -211,7 +211,7 @@
     <a href="#what">這是什麼</a>
     <a href="#flow">運作方式</a>
     <a href="#stages">一張票的旅程</a>
-    <a href="#actions">六種你該注意的事</a>
+    <a href="#actions">七種你該注意的事</a>
     <a href="#setup">一次性設定</a>
     <a href="#tools">工具總覽</a>
     <a href="#scenarios">實際範例</a>
@@ -280,10 +280,10 @@
   </section>
 
   <section id="actions" class="reveal">
-    <h2><span class="num">04</span> 六種你該注意的事</h2>
+    <h2><span class="num">04</span> 七種你該注意的事</h2>
     <p class="kicker">
       AI 每次處理票單，都會順手把「需要你看一下、確認一下、或動手做」的事，整理成一份存在硬碟上的網頁檔案
-      <code class="mono">PENDING_HUMAN_ACTIONS.html</code>——不用開著 Claude Code 也能打開看，其中四類可以直接在網頁上打勾/按按鈕生效。
+      <code class="mono">PENDING_HUMAN_ACTIONS.html</code>——不用開著 Claude Code 也能打開看，其中五類可以直接在網頁上打勾/按按鈕生效。
     </p>
     <div class="card-grid">
       <div class="cat-card" style="background:var(--accent-soft); border-color:var(--accent); color:var(--accent-ink)">
@@ -315,6 +315,11 @@
         <span class="pill" style="background:var(--ink-soft); color:var(--bg-raised)">唯讀</span>
         <h3>Git 尚未 commit 的變更</h3>
         <p>工程師改好的程式碼還沒正式「存檔」進版本紀錄，提醒你請工程師記得存檔。</p>
+      </div>
+      <div class="cat-card" style="background:var(--good-soft); border-color:var(--good); color:var(--good)">
+        <span class="pill" style="background:var(--good); color:var(--bg-raised)">可以操作</span>
+        <h3>SVN 尚未上傳的變更</h3>
+        <p>本機規格檔改了、還沒傳到 SVN 遠端的，會列在這裡。每一項可以展開看差異；勾選要上傳的項目、<b>在網頁上填好 commit 訊息</b>，按「上傳選取的項目到 SVN」就一次送出（新檔案會先自動加入版控）。也有「從 SVN 更新」「標記為從 SVN 刪除」「取消加入／還原檔案」。<b>這些按鈕只有你按得到，AI 沒有任何能改動 SVN 的工具</b>；遇到衝突不會自動處理，請到 TortoiseSVN 解決。要先請 AI 幫你登記一次工作副本資料夾（登記時會先驗證）。</p>
       </div>
     </div>
     <p class="kicker" style="margin-top:16px">
@@ -419,6 +424,7 @@
         <div class="cat-body">
           <div class="example"><b>可以這樣問：</b>（設定一次即可，通常不用主動問）</div>
           <div class="tool-row"><code>resolve_sasd_config</code> / <code>register_sasd_config</code><span>查詢/登記這個專案的規格模式</span></div>
+          <div class="tool-row"><code>resolve_svn_workcopies</code> / <code>register_svn_workcopies</code><span>查詢/登記這個專案對應的 SVN 工作副本資料夾（登記前會驗證）。只存設定，不能改動 SVN；上傳/更新/刪除只能由你在報告網頁上按按鈕</span></div>
           <div class="tool-row"><code>read_project_sd_doc</code> / <code>write_project_sd_doc</code><span>讀寫「AI 自己維護」的規格文件；規格是一支功能一份檔案時，會用檔名指定要讀寫哪一份</span></div>
           <div class="tool-row"><code>get_sd_spec_template</code><span>規格撰寫範本，AI 寫規格前會先讀這個</span></div>
         </div>
