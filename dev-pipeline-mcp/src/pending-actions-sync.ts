@@ -169,7 +169,7 @@ export async function syncPendingActionsReport(ticketGid: string): Promise<void>
  * pair instead of a taskGid — needed by syncPendingActionsReportsForGitRoot, which only ever knows a
  * gitRoot (from a git-native post-commit/post-merge hook event), never a specific ticket.
  */
-async function syncPendingActionsReportForProject(projectDir: string, projectName: string): Promise<void> {
+export async function syncPendingActionsReportForProject(projectDir: string, projectName: string): Promise<void> {
     const pipelineUserGid = await getPipelineAsanaUserGid();
 
     const ticketGids = await listTicketsUnderProject(projectDir, projectName);

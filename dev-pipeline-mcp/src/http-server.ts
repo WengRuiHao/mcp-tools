@@ -25,10 +25,12 @@
  * 不是額外的認證層。CORS 開放給任何 origin（包含瀏覽器直接開 file:// 報告檔案時送出的 `Origin: null`），
  * 因為呼叫端就是使用者自己在瀏覽器裡開的那份報告，不是要防外部網站呼叫。
  */
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { pathToFileURL } from "node:url";
 import { readStatus, recordConfirmation, recordSpecConfirmation, resolveManualAction, requestReanalysis } from "./pipeline-store.js";
-import { syncPendingActionsReport, syncPendingActionsReportsForGitRoot } from "./pending-actions-sync.js";
+import { syncPendingActionsReport, syncPendingActionsReportForProject, syncPendingActionsReportsForGitRoot } from "./pending-actions-sync.js";
+import { getBridgeToken, tokenMatches } from "./bridge-token.js";
+import { performSvnOperation, type SvnOperation } from "./svn-workcopy-bridge.js";
 import { resolveHttpBridgeHost, resolveHttpBridgePort } from "./http-bridge-config.js";
 import { invalidateActiveWarningsCache } from "./active-warnings.js";
 import { appendGitHookLog } from "./git-hook-log.js";
@@ -170,19 +172,64 @@ async function handleGitHookEvent(req: IncomingMessage, res: ServerResponse) {
 }
 
 type Handler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;
+
+/**
+ * 網頁上 SVN 按鈕觸發的操作（status/diff/commit/update/delete/revert/cleanup）。操作對象只能是這個專案已登記的
+ * SVN 工作副本（用 label 指定，路徑與連線一律取自登記資料），做完（diff 除外）會重建一次報告讓頁面反映最新狀態。
+ * 這些端點是 AI 碰不到的唯一一條 SVN 寫入路徑：svn-mcp 沒有任何寫入類 MCP 工具。
+ */
+function svnHandler(op: SvnOperation): Handler {
+  return async (req, res) => {
+    const body = await readJsonBody(req);
+    const projectDir = requireString(body, "projectDir");
+    const label = requireString(body, "label");
+    const projectName = typeof body?.projectName === "string" && body.projectName ? body.projectName : null;
+    const files: string[] = Array.isArray(body?.files) ? body.files.filter((f: unknown): f is string => typeof f === "string") : [];
+    const message: string | undefined = typeof body?.message === "string" ? body.message : undefined;
+
+    const result = await performSvnOperation({ projectDir, label, op, files, message });
+    if (op !== "diff" && projectName) {
+      await syncPendingActionsReportForProject(projectDir, projectName).catch((e: any) => {
+        console.error(`[dev-pipeline-mcp-http] 重建報告失敗（${op}）：${e?.message ?? e}`);
+      });
+    }
+    sendJson(res, 200, { success: true, ...(typeof result === "object" && result !== null ? result : {}) });
+  };
+}
+
+/** SVN 端點一律要求 X-Bridge-Token（見 bridge-token.ts）；token 錯誤或缺少直接 401，不碰 svn。 */
+function requireBridgeToken(handler: Handler): Handler {
+  return async (req, res) => {
+    const provided = req.headers["x-bridge-token"];
+    const expected = await getBridgeToken();
+    if (!tokenMatches(typeof provided === "string" ? provided : undefined, expected)) {
+      sendJson(res, 401, { success: false, message: "缺少或錯誤的 token——請重新整理這份報告（或請 AI 重新產生報告）後再試。" });
+      return;
+    }
+    await handler(req, res);
+  };
+}
+
 const ROUTES: Record<string, Handler> = {
   "/resolve-manual-action": handleResolveManualAction,
   "/record-confirmation": handleRecordConfirmation,
   "/record-spec-confirmation": handleRecordSpecConfirmation,
   "/request-reanalysis": handleRequestReanalysis,
   "/git-hook-event": handleGitHookEvent,
+  "/svn/status": requireBridgeToken(svnHandler("status")),
+  "/svn/diff": requireBridgeToken(svnHandler("diff")),
+  "/svn/commit": requireBridgeToken(svnHandler("commit")),
+  "/svn/update": requireBridgeToken(svnHandler("update")),
+  "/svn/delete": requireBridgeToken(svnHandler("delete")),
+  "/svn/revert": requireBridgeToken(svnHandler("revert")),
+  "/svn/cleanup": requireBridgeToken(svnHandler("cleanup")),
 };
 
 /**
  * 啟動 HTTP bridge。`exitOnConflict:true`（獨立行程模式）搶不到 port 就直接結束行程；
  * `false`（被 index.ts 內嵌呼叫）搶不到 port 只記一行 log、不影響呼叫端繼續跑下去。
  */
-export function startHttpBridge(opts: { exitOnConflict: boolean } = { exitOnConflict: true }): void {
+export function startHttpBridge(opts: { exitOnConflict: boolean } = { exitOnConflict: true }): Server {
   const PORT = resolveHttpBridgePort();
   const HOST = resolveHttpBridgeHost();
 
@@ -191,7 +238,7 @@ export function startHttpBridge(opts: { exitOnConflict: boolean } = { exitOnConf
       res.writeHead(204, {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": "Content-Type, X-Bridge-Token",
       });
       res.end();
       return;
@@ -223,8 +270,9 @@ export function startHttpBridge(opts: { exitOnConflict: boolean } = { exitOnConf
   });
 
   server.listen(PORT, HOST, () => {
-    console.error(`dev-pipeline-mcp HTTP bridge listening on http://${HOST}:${PORT} (POST /resolve-manual-action, /record-confirmation, /record-spec-confirmation, GET /health)`);
+    console.error(`dev-pipeline-mcp HTTP bridge listening on http://${HOST}:${PORT} (POST /resolve-manual-action, /record-confirmation, /record-spec-confirmation, /svn/*, GET /health)`);
   });
+  return server;
 }
 
 const isMainModule = process.argv[1] ? import.meta.url === pathToFileURL(process.argv[1]).href : false;

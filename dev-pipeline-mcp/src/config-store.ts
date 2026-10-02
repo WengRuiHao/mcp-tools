@@ -36,6 +36,21 @@ export function getGitRootsConfigFile(): string {
   return path.join(getDataDir(), "git-roots-config.json");
 }
 
+/** Per-projectDir registry of SVN working copies (label/workCopyPath/connectionId) that PENDING_HUMAN_ACTIONS.html's SVN buttons operate on. */
+export function getSvnWorkCopiesConfigFile(): string {
+  return path.join(getDataDir(), "svn-workcopies-config.json");
+}
+
+/** Random secret the SVN write endpoints of the HTTP bridge require (embedded in the generated HTML report only, never returned by any MCP tool). */
+export function getBridgeTokenFile(): string {
+  return path.join(getDataDir(), "bridge-token.txt");
+}
+
+/** Append-only audit trail of every SVN write operation triggered from the report's buttons. */
+export function getSvnOperationLogFile(): string {
+  return path.join(getDataDir(), "svn-operations.log");
+}
+
 /** Per-absolute-path record of the content hash this MCP last wrote via write_project_file, used to detect external modification (see file-write-state.ts). Lives in this MCP's own data dir, never inside the target project. */
 export function getFileWriteStateFile(): string {
   return path.join(getDataDir(), "file-write-state.json");

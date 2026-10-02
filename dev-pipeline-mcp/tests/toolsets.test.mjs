@@ -20,9 +20,9 @@ const EXPECTED_TOOLS = [
   "get_worktree_status", "install_git_hooks", "join_ticket_worktree", "list_pending_tickets", "list_project_dir",
   "list_rule_history", "list_worktrees", "merge_ticket_worktree", "read_project_file", "read_project_sd_doc",
   "read_ticket_artifact", "record_confirmation", "record_sasd_check", "record_spec_confirmation", "register_default_project",
-  "register_git_roots", "register_legacy_test_profile", "register_project_dir", "register_sasd_config", "register_test_capability",
+  "register_git_roots", "register_legacy_test_profile", "register_project_dir", "register_sasd_config", "register_svn_workcopies", "register_test_capability",
   "relocate_ticket_project", "request_reanalysis", "resolve_default_project", "resolve_git_roots", "resolve_legacy_test_profile",
-  "resolve_manual_action", "resolve_project_dir", "resolve_sasd_config", "resolve_test_capability", "restore_rule_file",
+  "resolve_manual_action", "resolve_project_dir", "resolve_sasd_config", "resolve_svn_workcopies", "resolve_test_capability", "restore_rule_file",
   "resync_ticket_artifact", "run_project_shell", "search_project_text", "svn_browse", "svn_cat", "svn_doc_images",
   "svn_list_connections", "svn_log", "svn_test_connection", "write_project_file", "write_project_sd_doc", "write_ticket_artifact",
 ];
@@ -55,10 +55,10 @@ test("parseDisabledToolsets: unknown names are reported once, undefined/empty me
 });
 
 test("registerAllTools: tool counts by disabled group", async () => {
-  assert.equal((await listToolsWith()).length, 57);
-  assert.equal((await listToolsWith(["worktree"])).length, 49);
-  assert.equal((await listToolsWith(["bridge"])).length, 48);
-  assert.equal((await listToolsWith(["worktree", "bridge"])).length, 40);
+  assert.equal((await listToolsWith()).length, 59);
+  assert.equal((await listToolsWith(["worktree"])).length, 51);
+  assert.equal((await listToolsWith(["bridge"])).length, 50);
+  assert.equal((await listToolsWith(["worktree", "bridge"])).length, 42);
 });
 
 test("registerAllTools: each group removes exactly its own tools", async () => {

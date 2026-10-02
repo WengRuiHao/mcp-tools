@@ -100,6 +100,31 @@
   .batch-toolbar input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--warn); cursor: pointer; }
   .batch-toolbar .btn-batch { border-color: var(--warn); color: var(--warn); }
   .batch-toolbar .batch-status { flex: 1 1 auto; }
+  .svn-wc { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  .svn-wc-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .svn-wc-actions { display: flex; gap: 8px; }
+  .svn-wc-actions .btn[hidden] { display: none; }
+  .svn-list { margin-top: 8px; }
+  li.svn-row { background: var(--bg); }
+  .svn-row label { align-items: flex-start; flex-wrap: wrap; }
+  .svn-file { font-weight: 500; word-break: break-all; }
+  .svn-note { color: var(--ink-muted); font-size: 0.82rem; font-weight: 500; }
+  .svn-badge { flex: 0 0 auto; font-size: 0.74rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-muted); }
+  .svn-badge.tone-warn { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
+  .svn-badge.tone-stale { border-color: var(--stale); background: var(--stale-soft); color: var(--stale); }
+  .svn-badge.tone-good { border-color: var(--good); background: var(--good-soft); color: var(--good); }
+  .svn-badge.tone-accent { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+  .svn-row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 0 25px; }
+  .svn-row-actions:empty { display: none; }
+  .svn-row-actions .btn { padding: 3px 10px; font-size: 0.8rem; }
+  pre.svn-diff { margin: 8px 0 0 25px; padding: 8px 12px; max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.5; white-space: pre; }
+  pre.svn-diff[hidden] { display: none; }
+  .svn-commit { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; margin-top: 12px; }
+  .svn-commit textarea { flex: 1 1 320px; font-family: var(--font-body); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; resize: vertical; background: var(--bg); color: var(--ink); }
+  .svn-selected-count { align-self: center; color: var(--ink-muted); font-size: 0.86rem; }
+  .svn-result { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; font-size: 0.88rem; white-space: pre-wrap; border: 1px solid var(--good); background: var(--good-soft); color: var(--good); }
+  .svn-result[hidden] { display: none; }
+  .svn-result.is-error { border-color: var(--stale); background: var(--stale-soft); color: var(--stale); }
   #bridge-banner { display: none; border: 1px solid var(--warn); background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 16px; margin-top: 16px; font-size: 0.88rem; }
   #bridge-banner a { color: inherit; font-weight: 700; }
   #bridge-banner.show { display: block; }
@@ -150,6 +175,12 @@
     <h2>Git 尚未 commit 的變更</h2>
     {{GIT_SECTION}}
   </section>
+
+  <section class="block" id="svn-section" data-bridge-token="{{BRIDGE_TOKEN}}" data-project-dir="{{PROJECT_DIR}}" data-project-folder="{{PROJECT_FOLDER}}">
+    <h2>SVN 尚未上傳的變更 <span class="count-badge">{{SVN_COUNT}}</span></h2>
+    <p class="meta">這是本機 SVN 工作副本跟遠端的差距：勾選要上傳的項目、填好 commit 訊息，按「上傳」就會（必要時先加入版控）一次 commit 到 SVN。<strong>這些按鈕只有你在網頁上按得到，AI 沒有任何工具能修改 SVN。</strong>遇到衝突不會自動處理，請到 TortoiseSVN 解決。</p>
+    {{SVN_SECTION}}
+  </section>
 </main>
 <script>
 (function () {
@@ -160,6 +191,7 @@
     var controls = document.querySelectorAll("[data-manual-checkbox], [data-request-reanalysis], [data-confirm-yes], [data-confirm-no], [data-confirm-reject-submit], .batch-select, .batch-all, [data-batch-run]");
     controls.forEach(function (el) { el.disabled = !enabled; });
     if (banner) banner.classList.toggle("show", !enabled);
+    svnApplyState();
   }
 
   fetch(BRIDGE_ORIGIN + "/health", { method: "GET", mode: "cors" })
@@ -315,6 +347,151 @@
       });
     });
   });
+
+  // ---- SVN 變更：所有寫入操作都帶 token 打 bridge 的 /svn/*，成功後 bridge 已重建過報告，直接重新載入頁面 ----
+  var svnSection = document.getElementById("svn-section");
+  var SVN_RESULT_KEY = "dpm-svn-result";
+
+  function svnBridgeUp() { return !(banner && banner.classList.contains("show")); }
+
+  function svnApplyState() {
+    if (!svnSection) return;
+    var up = svnBridgeUp();
+    svnSection.querySelectorAll(".svn-wc").forEach(function (wc) {
+      var busy = wc.dataset.busy === "1";
+      var selected = wc.querySelectorAll("[data-svn-select]:checked").length;
+      var msgEl = wc.querySelector("[data-svn-message]");
+      var message = msgEl ? msgEl.value.trim() : "";
+      wc.querySelectorAll("[data-svn-op]").forEach(function (btn) {
+        var disabled = !up || busy;
+        if (btn.dataset.svnOp === "commit") disabled = disabled || selected === 0 || message === "";
+        btn.disabled = disabled;
+      });
+      wc.querySelectorAll("[data-svn-select], [data-svn-message]").forEach(function (el) { el.disabled = !up || busy; });
+      var counter = wc.querySelector(".svn-selected-count");
+      if (counter) counter.textContent = selected > 0 ? "已選 " + selected + " 項" : "";
+    });
+  }
+
+  function svnShowResult(wc, text, isError) {
+    var box = wc.querySelector(".svn-result");
+    if (!box) return;
+    box.hidden = false;
+    box.classList.toggle("is-error", !!isError);
+    box.textContent = text;
+    if (isError && /locked|cleanup|鎖定/i.test(text)) {
+      var cleanupBtn = wc.querySelector('[data-svn-op="cleanup"]');
+      if (cleanupBtn) cleanupBtn.hidden = false;
+    }
+  }
+
+  function svnCall(op, wc, extra) {
+    var body = { projectDir: svnSection.dataset.projectDir, projectName: svnSection.dataset.projectFolder, label: wc.dataset.svnLabel };
+    Object.keys(extra || {}).forEach(function (k) { body[k] = extra[k]; });
+    return fetch(BRIDGE_ORIGIN + "/svn/" + op, {
+      method: "POST",
+      mode: "cors",
+      headers: { "Content-Type": "application/json", "X-Bridge-Token": svnSection.dataset.bridgeToken },
+      body: JSON.stringify(body),
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok || data.success === false) throw new Error(data.message || ("請求失敗（HTTP " + res.status + "）"));
+        return data;
+      });
+    });
+  }
+
+  function svnRun(wc, op, extra, successText) {
+    wc.dataset.busy = "1";
+    svnApplyState();
+    return svnCall(op, wc, extra).then(function (data) {
+      var text = typeof successText === "function" ? successText(data) : successText;
+      try { sessionStorage.setItem(SVN_RESULT_KEY, JSON.stringify({ label: wc.dataset.svnLabel, text: text })); } catch (e) { /* 無法暫存就只是看不到成功訊息，不影響結果 */ }
+      location.reload();
+      return data;
+    }).catch(function (e) {
+      wc.dataset.busy = "0";
+      svnApplyState();
+      svnShowResult(wc, "失敗：" + e.message, true);
+    });
+  }
+
+  function svnToggleDiff(wc, row, btn) {
+    var pre = row.querySelector(".svn-diff");
+    if (!pre.hidden) { pre.hidden = true; btn.textContent = "看差異"; return; }
+    if (pre.dataset.loaded === "1") { pre.hidden = false; btn.textContent = "收起差異"; return; }
+    btn.disabled = true;
+    svnCall("diff", wc, { files: [row.dataset.svnPath] }).then(function (data) {
+      pre.textContent = data.text + (data.truncated ? "\n…（內容過長，已截斷）" : "");
+      pre.dataset.loaded = "1";
+      pre.hidden = false;
+      btn.textContent = "收起差異";
+    }).catch(function (e) {
+      showError(row, e.message);
+    }).then(function () { svnApplyState(); });
+  }
+
+  function svnHandle(btn) {
+    var wc = btn.closest(".svn-wc");
+    var row = btn.closest(".svn-row");
+    var op = btn.dataset.svnOp;
+    var path = row ? row.dataset.svnPath : null;
+    if (op === "diff") { svnToggleDiff(wc, row, btn); return; }
+    if (op === "refresh") { svnRun(wc, "status", {}, "已重新整理狀態。"); return; }
+    if (op === "cleanup") { svnRun(wc, "cleanup", {}, "已清除 SVN 鎖定，可以再試一次剛才的操作。"); return; }
+    if (op === "update") {
+      if (!window.confirm("確定要從 SVN 更新這份工作副本嗎？\n\n遠端的新內容會合併進本機；遇到衝突不會自動處理，只會標記出來。")) return;
+      svnRun(wc, "update", {}, function (d) {
+        var text = "已更新到 r" + d.revision + "，共 " + d.changes.length + " 項異動。";
+        if (d.conflicts && d.conflicts.length) text += "\n⚠ 有衝突，請到 TortoiseSVN 解決：\n" + d.conflicts.join("\n");
+        return text;
+      });
+      return;
+    }
+    if (op === "delete") {
+      if (!window.confirm("確定要把這個檔案標記為從 SVN 刪除嗎？\n\n" + path + "\n\n標記後要按「上傳」才會真的從遠端移除；之後也可以按「取消刪除」還原。")) return;
+      svnRun(wc, "delete", { files: [path] }, "已標記為刪除，請勾選後按「上傳」送出到 SVN。");
+      return;
+    }
+    if (op === "revert") {
+      var status = row.dataset.svnStatus;
+      var what = status === "added" ? "取消加入版控（檔案內容保留在本機）" : status === "deleted" ? "取消刪除（檔案會回到本機）" : "把檔案還原成 SVN 上的版本";
+      if (!window.confirm("確定要" + what + "嗎？\n\n" + path)) return;
+      svnRun(wc, "revert", { files: [path] }, "已還原：" + path);
+      return;
+    }
+    if (op === "commit") {
+      var rows = Array.prototype.filter.call(wc.querySelectorAll(".svn-row"), function (r) { return r.querySelector("[data-svn-select]:checked"); });
+      var files = rows.map(function (r) { return r.dataset.svnPath; });
+      var message = wc.querySelector("[data-svn-message]").value.trim();
+      if (files.length === 0 || !message) return;
+      var preview = files.slice(0, 15).join("\n") + (files.length > 15 ? "\n…（另外 " + (files.length - 15) + " 項）" : "");
+      if (!window.confirm("確定要把以下 " + files.length + " 個項目上傳（commit）到 SVN 嗎？\n\n" + preview + "\n\n訊息：" + message + "\n\n上傳後就在遠端了。")) return;
+      svnRun(wc, "commit", { files: files, message: message }, function (d) {
+        return "已上傳到 SVN" + (d.committedRevision ? "（r" + d.committedRevision + "）" : "") + "，共 " + files.length + " 個項目。";
+      });
+    }
+  }
+
+  if (svnSection) {
+    svnSection.addEventListener("click", function (ev) {
+      var btn = ev.target.closest("[data-svn-op]");
+      if (btn && !btn.disabled) svnHandle(btn);
+    });
+    svnSection.addEventListener("change", svnApplyState);
+    svnSection.addEventListener("input", svnApplyState);
+    try {
+      var stored = sessionStorage.getItem(SVN_RESULT_KEY);
+      if (stored) {
+        sessionStorage.removeItem(SVN_RESULT_KEY);
+        var saved = JSON.parse(stored);
+        svnSection.querySelectorAll(".svn-wc").forEach(function (wc) {
+          if (wc.dataset.svnLabel === saved.label) svnShowResult(wc, saved.text, false);
+        });
+      }
+    } catch (e) { /* 沒有暫存結果就不顯示 */ }
+    svnApplyState();
+  }
 
   // ---- 批次打勾：每個「有可操作列」的區塊加一條工具列（全選＋批次執行），列首加一個批次選取框 ----
   // 同一張票的多個待辦會寫回同一份追蹤檔，所以批次一律「依序」送出，不平行，避免互相覆蓋。

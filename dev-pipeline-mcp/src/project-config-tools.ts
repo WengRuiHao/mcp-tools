@@ -3,6 +3,8 @@ import { z } from "zod";
 import path from "node:path";
 import { callSvnTool } from "./mcp-clients.js";
 import { resolveGitRoots, registerGitRoots, type GitRootEntry } from "./git-roots-store.js";
+import { resolveSvnWorkCopies, registerSvnWorkCopies, type SvnWorkCopyEntry } from "./svn-workcopy-store.js";
+import { loadWorkCopyClient } from "./svn-workcopy-bridge.js";
 import {
   resolveSasdConfig,
   registerSasdConfig,
@@ -252,6 +254,49 @@ export function registerProjectConfigTools(server: McpServer): void {
     async ({ projectDir, gitRoots }) => {
       await registerGitRoots(projectDir, gitRoots as GitRootEntry[]);
       return textResult({ success: true, projectDir, gitRoots });
+    }
+  );
+
+  server.tool(
+    "resolve_svn_workcopies",
+    "查詢這個專案目錄登記過哪些 SVN 工作副本（label/workCopyPath/connectionId）。這些是 PENDING_HUMAN_ACTIONS.html「SVN 尚未上傳的變更」區塊的操作對象。" +
+      "**上傳/更新/刪除只能由使用者在網頁上按按鈕，AI 沒有任何工具能修改 SVN**——這個工具只是查登記資料。找不到回傳 found: false，問使用者要不要登記（見 register_svn_workcopies）。",
+    { projectDir: z.string().describe("專案目錄絕對路徑") },
+    async ({ projectDir }) => {
+      const workCopies = await resolveSvnWorkCopies(projectDir);
+      return textResult(workCopies ? { found: true, workCopies } : { found: false });
+    }
+  );
+
+  server.tool(
+    "register_svn_workcopies",
+    "登記某個專案目錄對應的 SVN 工作副本（本機 checkout 的資料夾）與 svn-mcp 連線，登記後 PENDING_HUMAN_ACTIONS.html 會多出「SVN 尚未上傳的變更」區塊，使用者可在網頁上勾選上傳（commit）、從 SVN 更新、標記刪除、還原。" +
+      "只有使用者主動告知才呼叫，不要猜路徑。登記前會真的對每份工作副本執行 `svn status` 驗證它是有效的工作副本、且遠端 URL 在指定連線底下，驗證不過就整批不登記。" +
+      "整份覆寫該專案目錄原本的登記。**這個工具不會、也不能修改 SVN 內容**。",
+    {
+      projectDir: z.string().describe("專案目錄絕對路徑"),
+      workCopies: z
+        .array(
+          z.object({
+            label: z.string().describe("用途標籤，例如「規格書」「程式規格」；同一專案內不可重複，網頁按鈕靠它指定操作對象"),
+            workCopyPath: z.string().describe("SVN 工作副本資料夾的本機絕對路徑"),
+            connectionId: z.string().describe("svn-mcp 的連線 id 或名稱（用 svn_list_connections 查）"),
+          })
+        )
+        .min(1)
+        .describe("要登記的工作副本清單，至少一筆"),
+    },
+    async ({ projectDir, workCopies }) => {
+      try {
+        const client = await loadWorkCopyClient();
+        for (const wc of workCopies) {
+          await client.wcStatus({ workCopyPath: wc.workCopyPath, connectionId: wc.connectionId });
+        }
+        await registerSvnWorkCopies(projectDir, workCopies as SvnWorkCopyEntry[]);
+      } catch (err: any) {
+        return textResult({ success: false, message: `沒有登記：${err?.message ?? String(err)}` }, true);
+      }
+      return textResult({ success: true, projectDir, workCopies });
     }
   );
 }

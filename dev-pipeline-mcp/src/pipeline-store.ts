@@ -5,6 +5,8 @@ import { access, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs
 import { getTicketsIndexFile } from "./config-store.js";
 import { readJsonFile, updateJsonFile, withFileLock, writeJsonFileAtomic } from "./atomic-store.js";
 import { resolveHttpBridgePort } from "./http-bridge-config.js";
+import { getBridgeToken } from "./bridge-token.js";
+import { getSvnReportData, type SvnReportData, type SvnWorkCopySummary, type WcEntry } from "./svn-workcopy-bridge.js";
 
 export interface TicketSummaries {
   analysis: string | null;
@@ -1173,6 +1175,108 @@ function renderManualActionsSection(
   return rows.length > 0 ? `<ul class="action-list">${rows.join("")}</ul>` : `<p class="empty">（無）</p>`;
 }
 
+const SVN_STATUS_LABEL: Record<string, { text: string; tone: string }> = {
+  conflicted: { text: "衝突", tone: "stale" },
+  modified: { text: "已修改", tone: "warn" },
+  added: { text: "已加入，待上傳", tone: "good" },
+  deleted: { text: "已標記刪除，待上傳", tone: "stale" },
+  unversioned: { text: "新檔案（尚未加入版控）", tone: "accent" },
+  missing: { text: "本機找不到這個檔案", tone: "stale" },
+  replaced: { text: "已取代", tone: "warn" },
+  incomplete: { text: "上次更新沒做完，可按「從 SVN 更新」補完", tone: "warn" },
+};
+const SVN_STATUS_ORDER = ["conflicted", "modified", "added", "deleted", "unversioned", "missing", "replaced", "incomplete"];
+/** 勾得起來、可以一起 commit 的狀態。 */
+const SVN_SELECTABLE = new Set(["modified", "added", "deleted", "unversioned", "replaced"]);
+const SVN_DIFFABLE = new Set(["modified", "added", "unversioned", "replaced"]);
+const SVN_MAX_ROWS = 300;
+
+function svnRowButtons(entry: WcEntry): string {
+  const buttons: string[] = [];
+  if (SVN_DIFFABLE.has(entry.status)) buttons.push(`<button type="button" class="btn" data-svn-op="diff">看差異</button>`);
+  if (entry.status === "missing") buttons.push(`<button type="button" class="btn btn-no" data-svn-op="delete">標記為從 SVN 刪除</button>`);
+  if (entry.status === "added") buttons.push(`<button type="button" class="btn" data-svn-op="revert">取消加入</button>`);
+  if (entry.status === "deleted") buttons.push(`<button type="button" class="btn" data-svn-op="revert">取消刪除</button>`);
+  if (entry.status === "missing") buttons.push(`<button type="button" class="btn" data-svn-op="revert">還原檔案</button>`);
+  return buttons.join("");
+}
+
+function renderSvnRow(entry: WcEntry): string {
+  const label = SVN_STATUS_LABEL[entry.treeConflict ? "conflicted" : entry.status] ?? { text: entry.status, tone: "neutral" };
+  const selectable = SVN_SELECTABLE.has(entry.status) && !entry.treeConflict;
+  const checkbox = selectable
+    ? `<input type="checkbox" data-svn-select>`
+    : `<input type="checkbox" disabled title="這個狀態不能直接上傳">`;
+  const conflictNote =
+    entry.status === "conflicted" || entry.treeConflict
+      ? `<p class="row-detail">發生衝突：請先到 TortoiseSVN 手動解決，這裡不會自動處理，也不能上傳。</p>`
+      : "";
+  const propNote = entry.propsModified && entry.status !== "conflicted" ? `<span class="svn-note">（屬性也有異動）</span>` : "";
+  return `<li class="action-row svn-row tone-${label.tone}" data-svn-path="${escapeHtml(entry.path)}" data-svn-status="${escapeHtml(entry.status)}">
+        <label>
+          ${checkbox}
+          <span class="svn-badge tone-${label.tone}">${escapeHtml(label.text)}</span>
+          <code class="svn-file">${escapeHtml(entry.path)}</code>${propNote}
+        </label>
+        <div class="svn-row-actions">${svnRowButtons(entry)}</div>
+        ${conflictNote}
+        <pre class="svn-diff" hidden></pre>
+        <p class="row-error" hidden></p>
+      </li>`;
+}
+
+function renderSvnWorkCopy(wc: SvnWorkCopySummary): string {
+  const head = `<div class="svn-wc-head">
+        <span class="row-title">${escapeHtml(wc.label)}</span>
+        <span class="svn-wc-actions">
+          <button type="button" class="btn" data-svn-op="refresh">重新整理狀態</button>
+          <button type="button" class="btn" data-svn-op="update">從 SVN 更新</button>
+          <button type="button" class="btn" data-svn-op="cleanup" hidden>清除 SVN 鎖定</button>
+        </span>
+      </div>
+      <p class="meta"><code>${escapeHtml(wc.workCopyPath)}</code>${wc.remoteUrl ? `　→　<code>${escapeHtml(wc.remoteUrl)}</code>` : ""}</p>`;
+  if (wc.error) {
+    return `<div class="svn-wc" data-svn-label="${escapeHtml(wc.label)}">${head}
+      <p class="row-error">${escapeHtml(wc.error)}</p>
+      <p class="svn-result" hidden></p>
+    </div>`;
+  }
+  const sorted = [...wc.entries].sort((a, b) => {
+    const rank = (e: WcEntry) => {
+      const idx = SVN_STATUS_ORDER.indexOf(e.treeConflict ? "conflicted" : e.status);
+      return idx === -1 ? SVN_STATUS_ORDER.length : idx;
+    };
+    return rank(a) - rank(b) || a.path.localeCompare(b.path);
+  });
+  const shown = sorted.slice(0, SVN_MAX_ROWS);
+  const list =
+    shown.length === 0
+      ? `<p class="empty">（沒有尚未上傳的變更）</p>`
+      : `<ul class="action-list svn-list">${shown.map(renderSvnRow).join("")}</ul>${
+          sorted.length > shown.length ? `<p class="meta">只顯示前 ${SVN_MAX_ROWS} 筆，還有 ${sorted.length - shown.length} 筆，請先處理後重新整理。</p>` : ""
+        }`;
+  const commitBox =
+    shown.length === 0
+      ? ""
+      : `<div class="svn-commit">
+        <textarea data-svn-message rows="2" placeholder="commit 訊息（必填），例如：[UGLT-54] 更新 SM31 規格書"></textarea>
+        <button type="button" class="btn btn-yes" data-svn-op="commit">上傳選取的項目到 SVN</button>
+        <span class="svn-selected-count"></span>
+      </div>`;
+  return `<div class="svn-wc" data-svn-label="${escapeHtml(wc.label)}">${head}
+      ${list}
+      ${commitBox}
+      <p class="svn-result" hidden></p>
+    </div>`;
+}
+
+function renderSvnSection(data: SvnReportData): string {
+  if (!data.registered) {
+    return `<p class="empty">這個專案還沒登記 SVN 工作副本。呼叫 <code>register_svn_workcopies</code> 登記後，這裡會列出還沒上傳到 SVN 的變更，並提供上傳／更新／刪除按鈕。</p>`;
+  }
+  return data.workCopies.map(renderSvnWorkCopy).join("\n");
+}
+
 /** awaitingConfirmation（record_confirmation）跟 awaitingSpecConfirmation（record_spec_confirmation）共用同一種「確認/打回＋打回要填原因」卡片形狀，只有文案跟打的 endpoint 不同。 */
 function renderConfirmSection(
   items: { taskGid: string; name: string }[],
@@ -1281,6 +1385,8 @@ export async function writePendingActionsReport(
 
   const manualActionsCount = input.manualActions.reduce((sum, t) => sum + t.actions.length, 0);
   const manualBlocks = await loadManualBlocks(input.manualActions);
+  const svnData = await getSvnReportData(projectDir);
+  const bridgeToken = await getBridgeToken();
   const bridgePort = resolveHttpBridgePort();
 
   const template = await loadPendingActionsTemplate();
@@ -1315,6 +1421,11 @@ export async function writePendingActionsReport(
     MANUAL_COUNT: manualActionsCount,
     MANUAL_SECTION: renderManualActionsSection(input.manualActions, numberMap, manualBlocks),
     GIT_SECTION: renderUncommittedSectionHtml(input.uncommittedChanges, numberMap),
+    SVN_COUNT: svnData.workCopies.reduce((sum, wc) => sum + wc.entries.length, 0),
+    SVN_SECTION: renderSvnSection(svnData),
+    BRIDGE_TOKEN: escapeHtml(bridgeToken),
+    PROJECT_DIR: escapeHtml(projectDir),
+    PROJECT_FOLDER: escapeHtml(sanitizeSegment(projectName)),
   });
 
   await writeFile(filePath, html, "utf-8");
