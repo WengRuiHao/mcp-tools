@@ -10,7 +10,7 @@ export interface SvnResult {
   message?: string;
 }
 
-interface SvnConnection {
+export interface SvnConnection {
   id: string;
   name: string;
   url: string;
@@ -33,7 +33,7 @@ export async function listConnections(): Promise<SvnResult> {
   }
 }
 
-async function resolveConnection(connectionId?: string): Promise<SvnConnection> {
+export async function resolveConnection(connectionId?: string): Promise<SvnConnection> {
   const target = connectionId?.trim() || getDefaultConnectionId();
   const conns = await loadConnections();
   if (!target) {
@@ -65,13 +65,18 @@ function buildFullUrl(baseUrl: string, subPath: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/${subPath.replace(/^\/+/, "")}`;
 }
 
-function runSvn(args: string[], conn: SvnConnection, timeoutMs: number): Promise<{ stdout: Buffer; stderr: string }> {
+export function runSvn(
+  args: string[],
+  conn: SvnConnection,
+  timeoutMs: number,
+  extraEnv?: Record<string, string>
+): Promise<{ stdout: Buffer; stderr: string }> {
   const fullArgs = [...args, "--non-interactive", "--trust-server-cert", "--username", conn.username, "--password", conn.password];
   return new Promise((resolve, reject) => {
     execFile(
       "svn",
       fullArgs,
-      { timeout: timeoutMs, maxBuffer: 50 * 1024 * 1024, encoding: "buffer" },
+      { timeout: timeoutMs, maxBuffer: 50 * 1024 * 1024, encoding: "buffer", env: extraEnv ? { ...process.env, ...extraEnv } : process.env },
       (error, stdout, stderr) => {
         const stderrText = Buffer.isBuffer(stderr) ? stderr.toString("utf-8") : String(stderr ?? "");
         if (error) {
