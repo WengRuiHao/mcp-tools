@@ -286,6 +286,7 @@ npm run build
 
 - 「該節」指到下一個標題為止；`heading` 是子字串比對，只取第一個符合的標題。
 - 只管 `02-implementation.md`，不管 03、04。兩個關卡共通的限制與壞掉 JSON 的處理，寫在上方圖最下面的框。
+- **登記時的提示**：`register_project_dir` 登記專案目錄時，如果該目錄還沒有 `gates.json`，回傳會多一個 `gatesHint` 欄位，提醒可以複製下方範本；這只是提示，不會擋任何東西，也不會自動複製，要不要啟用由使用者決定。
 - **快速啟用查重關卡**：把內建範本 [templates/gates.example.json](templates/gates.example.json) 複製到 `<projectDir>/.pipeline/gates.json` 即生效（`ticketNamePattern` 為 `".*"`＝該專案所有票都要有含「查重」的一節、至少 40 字；想只管特定票就改成票名 regex）。**沒複製就不會有任何機械檢查，既有專案行為不變**；專案已有自己的 `gates.json` 時，把範本的 `implementationSections` 項目合併進去，不要整份覆蓋。
 
 ### 3. 專案自己的 SD 範本與版更規範（`<projectDir>/.pipeline/templates/`）

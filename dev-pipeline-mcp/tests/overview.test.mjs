@@ -1,7 +1,7 @@
 // get_pipeline_overview 的分章、字數與關鍵內容；resolve_xxx found:false 時的 instructions。
 import test from "node:test";
 import assert from "node:assert/strict";
-import { makeTmpDir, removeDir, connectClient, callTool, isolateDataDir } from "./helpers/support.mjs";
+import { makeTmpDir, removeDir, writeFile, connectClient, callTool, isolateDataDir } from "./helpers/support.mjs";
 import { registerPipelineInfoTools } from "../dist/pipeline-info-tools.js";
 import { registerProjectConfigTools } from "../dist/project-config-tools.js";
 import { getOverview, OVERVIEW_SECTIONS } from "../dist/overview-prompts.js";
@@ -128,5 +128,23 @@ test("resolve_project_dir: found:true after register_project_dir (no instruction
       assert.deepEqual(res.json, { found: true, projectDir: dir });
     } finally {
       removeDir(dir);
+    }
+  }));
+
+test("register_project_dir: 沒有 gates.json 時附 gatesHint，已有就不附", () =>
+  withClient(async (client) => {
+    const bare = makeTmpDir("dpm-gates-hint-");
+    const withGates = makeTmpDir("dpm-gates-hint-");
+    try {
+      const noGates = await callTool(client, "register_project_dir", { projectGid: "P-HINT-1", projectDir: bare });
+      assert.equal(noGates.json.success, true);
+      assert.match(noGates.json.gatesHint, /gates\.example\.json/);
+      writeFile(withGates, ".pipeline/gates.json", "{}");
+      const hasGates = await callTool(client, "register_project_dir", { projectGid: "P-HINT-2", projectDir: withGates });
+      assert.equal(hasGates.json.success, true);
+      assert.equal(hasGates.json.gatesHint, undefined);
+    } finally {
+      removeDir(bare);
+      removeDir(withGates);
     }
   }));

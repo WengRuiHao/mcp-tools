@@ -1,6 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import path from "node:path";
+import { stat } from "node:fs/promises";
+import { GATES_FILE_CANDIDATES } from "./project-rule-files.js";
 import { callSvnTool } from "./mcp-clients.js";
 import { resolveGitRoots, registerGitRoots, type GitRootEntry } from "./git-roots-store.js";
 import { resolveSvnWorkCopies, registerSvnWorkCopies, type SvnWorkCopyEntry } from "./svn-workcopy-store.js";
@@ -19,6 +21,21 @@ import {
 } from "./project-registry.js";
 import { textResult } from "./shared.js";
 import { SETUP_DEFAULT_PROJECT, SETUP_GIT_ROOTS, SETUP_PROJECT_DIR, SETUP_SASD_CONFIG } from "./overview-prompts.js";
+
+const GATES_HINT =
+  "這個專案目錄還沒有 gates.json（沒有任何機械式關卡）。如果想強制工程師的 02-implementation.md 一定要有標題含「查重」的一節，可以把 dev-pipeline-mcp 的 templates/gates.example.json 複製到 <projectDir>/.pipeline/gates.json；這只是提示，要不要啟用請問使用者，不要自己複製。";
+
+async function hasGatesFile(projectDir: string): Promise<boolean> {
+  for (const relPath of GATES_FILE_CANDIDATES) {
+    try {
+      await stat(path.join(projectDir, relPath));
+      return true;
+    } catch (err: any) {
+      if (err?.code !== "ENOENT" && err?.code !== "ENOTDIR") throw err;
+    }
+  }
+  return false;
+}
 
 export function registerProjectConfigTools(server: McpServer): void {
   server.tool(
@@ -42,7 +59,8 @@ export function registerProjectConfigTools(server: McpServer): void {
     async ({ projectGid, projectDir }) => {
       const absDir = path.resolve(projectDir);
       await registerProjectDir(projectGid, absDir);
-      return textResult({ success: true, projectGid, projectDir: absDir });
+      const gatesHint = (await hasGatesFile(absDir)) ? undefined : GATES_HINT;
+      return textResult({ success: true, projectGid, projectDir: absDir, ...(gatesHint ? { gatesHint } : {}) });
     }
   );
 
