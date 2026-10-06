@@ -247,3 +247,10 @@ test("verifier prompt: 共用工具歸屬與命名檢查在每種 sdMode 下都�
     assert.match(prompt, /param1/);
   }
 });
+
+test("analyst prompt: 要求列出疑似可重用的既有候選且只當線索", () => {
+  const prompt = getRolePrompt("analyst");
+  assert.match(prompt, /疑似可重用的既有候選/);
+  assert.match(prompt, /候選線索，工程師仍須自己搜尋確認/);
+  assert.match(prompt, /有列出可重用候選就要一併帶進摘要/);
+});
