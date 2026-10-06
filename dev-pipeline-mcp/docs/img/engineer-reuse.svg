@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 620" role="img" aria-label="工程師動手寫新程式碼前的流程：先判斷是不是要新增方法、類別、檔案或檢核邏輯。不是（只改既有判斷條件、數值、欄位對應）就不用全專案搜尋，查重那一節寫一句未新增方法即可。是的話，第一步用 search_project_text 搜整個專案並找用途相近的共用工具類；找到現成的就直接呼叫或抽成共用方法並把差異參數化；沒找到時，只有這張票自己會用到的邏輯留在原本的類別或元件，會被多處使用的共用邏輯併入既有工具類、跟同類方法擺在一起，不要新建只裝這幾個方法的 class 或 tsx，整個專案真的沒有適合歸屬才可以新建並放在既有共用位置。最後共同的兩步：命名要用業務意思不用 data、temp、flag 這類名稱，並在 02-implementation.md 寫一節標題含查重的紀錄。">
+  <defs>
+    <marker id="arrowER" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
+    </marker>
+    <marker id="arrowERGood" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4c7a52"/>
+    </marker>
+    <marker id="arrowERNeutral" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a2620" fill-opacity="0.6"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1040" height="620" fill="#f5f2ea"/>
+
+  <g font-family="'Noto Sans TC',sans-serif" transform="translate(0,20)">
+    <!-- start -->
+    <rect x="20" y="30" width="230" height="56" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="135" y="63" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">工程師要寫新程式碼</text>
+    <line x1="250" y1="58" x2="334" y2="58" stroke="#2a2620" stroke-width="1.6" marker-end="url(#arrowER)"/>
+
+    <!-- D1 -->
+    <polygon points="336,58 440,12 544,58 440,104" fill="#dbe9ea" stroke="#2b6777" stroke-width="1.4"/>
+    <text x="440" y="54" text-anchor="middle" font-size="11" font-weight="700" fill="#17414c">新增方法／類別／</text>
+    <text x="440" y="70" text-anchor="middle" font-size="11" font-weight="700" fill="#17414c">檔案／檢核邏輯？</text>
+
+    <!-- D1 no -->
+    <line x1="544" y1="58" x2="640" y2="58" stroke="#2a2620" stroke-opacity="0.6" stroke-width="1.6" marker-end="url(#arrowERNeutral)"/>
+    <text x="592" y="50" text-anchor="middle" font-size="11" font-weight="700" fill="#6b6558">否</text>
+    <rect x="646" y="30" width="374" height="56" rx="9" fill="#ece7da" stroke="#2a2620" stroke-opacity="0.5"/>
+    <text x="833" y="53" text-anchor="middle" font-size="11" font-weight="700" fill="#2a2620">不用全專案搜尋（只改既有判斷條件、數值、欄位對應）</text>
+    <text x="833" y="72" text-anchor="middle" font-size="10.5" fill="#6b6558">查重那一節寫一句「未新增方法，無需查重」即可</text>
+
+    <!-- D1 yes -->
+    <line x1="440" y1="104" x2="440" y2="140" stroke="#2a2620" stroke-width="1.6" marker-end="url(#arrowER)"/>
+    <text x="452" y="126" font-size="11" font-weight="700" fill="#4c7a52">是</text>
+
+    <!-- step 1 -->
+    <rect x="120" y="142" width="640" height="72" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="440" y="163" text-anchor="middle" font-size="12" font-weight="700" fill="#2a2620">① 搜尋：不要只看正在改的檔案</text>
+    <text x="440" y="183" text-anchor="middle" font-size="10" fill="#4a4335">search_project_text 針對邏輯關鍵字搜整個專案（含看起來不相干的子套件、Common／共用模組）</text>
+    <text x="440" y="201" text-anchor="middle" font-size="10" fill="#4a4335">找用途相近的共用工具類：XxxUtil／Helper／Validator，前端 utils／helpers／hooks</text>
+    <line x1="440" y1="214" x2="440" y2="250" stroke="#2a2620" stroke-width="1.6" marker-end="url(#arrowER)"/>
+
+    <!-- D2 -->
+    <polygon points="340,300 440,252 540,300 440,348" fill="#dbe9ea" stroke="#2b6777" stroke-width="1.4"/>
+    <text x="440" y="296" text-anchor="middle" font-size="11" font-weight="700" fill="#17414c">找到現成的</text>
+    <text x="440" y="312" text-anchor="middle" font-size="11" font-weight="700" fill="#17414c">方法或工具類？</text>
+
+    <!-- D2 yes -->
+    <line x1="340" y1="300" x2="268" y2="300" stroke="#4c7a52" stroke-width="1.6" marker-end="url(#arrowERGood)"/>
+    <text x="304" y="292" text-anchor="middle" font-size="11" font-weight="700" fill="#4c7a52">有</text>
+    <rect x="20" y="268" width="246" height="64" rx="9" fill="#e4eee3" stroke="#4c7a52" stroke-width="1.2"/>
+    <text x="143" y="293" text-anchor="middle" font-size="12" font-weight="700" fill="#2f5a36">② 直接呼叫現有方法</text>
+    <text x="143" y="313" text-anchor="middle" font-size="10.5" fill="#4a4335">或抽成共用方法、差異參數化</text>
+
+    <!-- D2 no -> D3 -->
+    <line x1="540" y1="300" x2="618" y2="300" stroke="#2a2620" stroke-width="1.6" marker-end="url(#arrowER)"/>
+    <text x="579" y="292" text-anchor="middle" font-size="11" font-weight="700" fill="#6b6558">沒有</text>
+    <polygon points="620,300 730,252 840,300 730,348" fill="#dbe9ea" stroke="#2b6777" stroke-width="1.4"/>
+    <text x="730" y="296" text-anchor="middle" font-size="11" font-weight="700" fill="#17414c">會被多處使用的</text>
+    <text x="730" y="312" text-anchor="middle" font-size="11" font-weight="700" fill="#17414c">共用邏輯？</text>
+
+    <!-- D3 no -->
+    <line x1="840" y1="300" x2="878" y2="300" stroke="#2a2620" stroke-opacity="0.6" stroke-width="1.6" marker-end="url(#arrowERNeutral)"/>
+    <text x="859" y="292" text-anchor="middle" font-size="11" font-weight="700" fill="#6b6558">否</text>
+    <rect x="880" y="268" width="140" height="64" rx="9" fill="#ece7da" stroke="#2a2620" stroke-opacity="0.5"/>
+    <text x="950" y="293" text-anchor="middle" font-size="11" font-weight="700" fill="#2a2620">② 留在原類別／元件</text>
+    <text x="950" y="313" text-anchor="middle" font-size="10.5" fill="#6b6558">不硬抽工具方法</text>
+
+    <!-- D3 yes -->
+    <line x1="730" y1="348" x2="730" y2="386" stroke="#4c7a52" stroke-width="1.6" marker-end="url(#arrowERGood)"/>
+    <text x="742" y="372" font-size="11" font-weight="700" fill="#4c7a52">是</text>
+    <rect x="570" y="388" width="320" height="92" rx="9" fill="#e4eee3" stroke="#4c7a52" stroke-width="1.2"/>
+    <text x="730" y="410" text-anchor="middle" font-size="12" font-weight="700" fill="#2f5a36">② 併入既有工具類，跟同類方法擺一起</text>
+    <text x="730" y="430" text-anchor="middle" font-size="10.5" fill="#4a4335">不要新建只裝這幾個方法的 class 或 tsx／ts 檔</text>
+    <text x="730" y="450" text-anchor="middle" font-size="10" fill="#6b6558">整個專案真的沒有適合歸屬的工具類才可新建，</text>
+    <text x="730" y="466" text-anchor="middle" font-size="10" fill="#6b6558">放在既有共用位置、命名比照既有工具類</text>
+
+    <!-- converge -->
+    <line x1="143" y1="332" x2="143" y2="500" stroke="#2a2620" stroke-opacity="0.6" stroke-width="1.6"/>
+    <line x1="950" y1="332" x2="950" y2="500" stroke="#2a2620" stroke-opacity="0.6" stroke-width="1.6"/>
+    <line x1="730" y1="480" x2="730" y2="500" stroke="#2a2620" stroke-opacity="0.6" stroke-width="1.6"/>
+    <line x1="143" y1="500" x2="950" y2="500" stroke="#2a2620" stroke-opacity="0.6" stroke-width="1.6"/>
+    <line x1="520" y1="500" x2="520" y2="520" stroke="#2a2620" stroke-width="1.6" marker-end="url(#arrowER)"/>
+
+    <!-- step 3/4 -->
+    <rect x="70" y="522" width="900" height="68" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <text x="520" y="543" text-anchor="middle" font-size="11" fill="#2a2620"><tspan font-weight="700">③ 命名：</tspan>用業務意思（exportDate、invoiceYear），不用 data／temp／flag／param1／handle，風格比照同檔案既有慣例</text>
+    <text x="520" y="567" text-anchor="middle" font-size="11" fill="#2a2620"><tspan font-weight="700">④ 記錄：</tspan>02-implementation.md 要有標題含「查重」的一節——搜了什麼、找到什麼、決定與理由</text>
+    <text x="520" y="583" text-anchor="middle" font-size="10" fill="#6b6558">決定不合併或必須新建時，不能只寫「語意不同」，要說出具體差異</text>
+  </g>
+</svg>

@@ -216,3 +216,21 @@ for (const [tool, file, builtIn] of [
       assert.equal((await callTool(client, tool, { taskGid: "T300" })).text, "BY-TICKET-MARK");
     }));
 }
+
+test("engineer prompt: 查重/共用工具歸屬/命名/SD 來源規則在每種專案設定下都存在", () => {
+  const variants = [
+    getRolePrompt("engineer"),
+    getRolePrompt("engineer", { testCapabilityMode: "none" }),
+    getRolePrompt("engineer", { sdMode: "external" }),
+    getRolePrompt("engineer", { sdMode: "self-generated", specOrder: "code_first" }),
+  ];
+  for (const prompt of variants) {
+    assert.match(prompt, /sasd_info/, "要告訴工程師 SA\/SD 去哪讀");
+    assert.match(prompt, /標題含「查重」/, "要維持實作關卡認得的「查重」標題");
+    assert.match(prompt, /不要新建只裝這幾個方法的 class 或 tsx\/ts 檔/, "新的共用方法要併入既有工具類");
+    assert.match(prompt, /命名要有意義/);
+    assert.match(prompt, /什麼時候停下來問使用者/);
+    assert.match(prompt, /commit 不是每輪必做/);
+    assert.doesNotMatch(prompt, /\`\`\`java\n\/\/ SD v0\.7/, "註解反例已精簡成單行");
+  }
+});
