@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 620" role="img" aria-label="工程師動手寫新程式碼前的流程：先判斷是不是要新增方法、類別、檔案或檢核邏輯。不是（只改既有判斷條件、數值、欄位對應）就不用全專案搜尋，查重那一節寫一句未新增方法即可。是的話，第一步用 search_project_text 搜整個專案並找用途相近的共用工具類；找到現成的就直接呼叫或抽成共用方法並把差異參數化；沒找到時，只有這張票自己會用到的邏輯留在原本的類別或元件，會被多處使用的共用邏輯併入既有工具類、跟同類方法擺在一起，不要新建只裝這幾個方法的 class 或 tsx，整個專案真的沒有適合歸屬才可以新建並放在既有共用位置。最後共同的兩步：命名要用業務意思不用 data、temp、flag 這類名稱，並在 02-implementation.md 寫一節標題含查重的紀錄。">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 700" role="img" aria-label="工程師動手寫新程式碼前的流程：先判斷是不是要新增方法、類別、檔案或檢核邏輯。不是（只改既有判斷條件、數值、欄位對應）就不用全專案搜尋，查重那一節寫一句未新增方法即可。是的話，第一步用 search_project_text 搜整個專案並找用途相近的共用工具類；找到現成的就直接呼叫或抽成共用方法並把差異參數化；沒找到時，只有這張票自己會用到的邏輯留在原本的類別或元件，會被多處使用的共用邏輯併入既有工具類、跟同類方法擺在一起，不要新建只裝這幾個方法的 class 或 tsx，整個專案真的沒有適合歸屬才可以新建並放在既有共用位置。最後共同的兩步：命名要用業務意思不用 data、temp、flag 這類名稱，並在 02-implementation.md 寫一節標題含查重的紀錄。流程的輸入是分析師附在分析結果裡的可重用候選線索（只是線索，工程師仍須自己搜尋）；流程的最後由驗證師獨立驗收，新建了只裝少數方法的工具檔或名稱看不出內容、且查重那一節沒有具體理由，就判 FAIL。">
   <defs>
     <marker id="arrowER" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
@@ -11,12 +11,17 @@
     </marker>
   </defs>
 
-  <rect x="0" y="0" width="1040" height="620" fill="#f5f2ea"/>
+  <rect x="0" y="0" width="1040" height="700" fill="#f5f2ea"/>
 
   <g font-family="'Noto Sans TC',sans-serif" transform="translate(0,20)">
     <!-- start -->
     <rect x="20" y="30" width="230" height="56" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
     <text x="135" y="63" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">工程師要寫新程式碼</text>
+    <!-- analyst clue -->
+    <rect x="20" y="98" width="230" height="40" rx="9" fill="#ece7da" stroke="#2a2620" stroke-opacity="0.5" stroke-dasharray="4 3"/>
+    <text x="135" y="115" text-anchor="middle" font-size="10.5" font-weight="700" fill="#2a2620">輸入線索：分析師附的可重用候選</text>
+    <text x="135" y="130" text-anchor="middle" font-size="10" fill="#6b6558">只是線索，仍須自己搜尋確認</text>
+    <line x1="135" y1="98" x2="135" y2="88" stroke="#2a2620" stroke-opacity="0.6" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrowERNeutral)"/>
     <line x1="250" y1="58" x2="334" y2="58" stroke="#2a2620" stroke-width="1.6" marker-end="url(#arrowER)"/>
 
     <!-- D1 -->
@@ -89,5 +94,11 @@
     <text x="520" y="543" text-anchor="middle" font-size="11" fill="#2a2620"><tspan font-weight="700">③ 命名：</tspan>用業務意思（exportDate、invoiceYear），不用 data／temp／flag／param1／handle，風格比照同檔案既有慣例</text>
     <text x="520" y="567" text-anchor="middle" font-size="11" fill="#2a2620"><tspan font-weight="700">④ 記錄：</tspan>02-implementation.md 要有標題含「查重」的一節——搜了什麼、找到什麼、決定與理由</text>
     <text x="520" y="583" text-anchor="middle" font-size="10" fill="#6b6558">決定不合併或必須新建時，不能只寫「語意不同」，要說出具體差異</text>
+
+    <!-- verifier -->
+    <line x1="520" y1="590" x2="520" y2="612" stroke="#2a2620" stroke-width="1.6" marker-end="url(#arrowER)"/>
+    <rect x="170" y="614" width="700" height="52" rx="9" fill="#f3e6d3" stroke="#b9782e" stroke-width="1.2"/>
+    <text x="520" y="636" text-anchor="middle" font-size="11" fill="#2a2620"><tspan font-weight="700">⑤ 驗證師獨立驗收：</tspan>新建了只裝少數方法的工具檔，或名稱看不出內容，</text>
+    <text x="520" y="654" text-anchor="middle" font-size="11" fill="#2a2620">且查重那一節沒有具體理由 → 判 FAIL（工程師已說明合理理由則不算）</text>
   </g>
 </svg>
