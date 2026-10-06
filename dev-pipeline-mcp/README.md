@@ -320,7 +320,7 @@ npm run build
 
 用環境變數縮小工具清單（tools/list）送進 AI 上下文的量；**預設（沒設）全部註冊**。
 
-![工具群組可關閉：預設全部註冊共 57 個工具；用環境變數 DEV_PIPELINE_DISABLE_TOOLSETS 可關掉 worktree 群組（8 個，關後剩 49 個）或 bridge 群組（9 個，關後剩 48 個），兩個都關剩 40 個核心工具；內部流程不經過這些可關閉的工具，關閉不影響運作](docs/img/toolsets.svg)
+![工具群組可關閉：預設全部註冊共 59 個工具；用環境變數 DEV_PIPELINE_DISABLE_TOOLSETS 可關掉 worktree 群組（8 個，關後剩 51 個）或 bridge 群組（9 個，關後剩 50 個），兩個都關剩 42 個核心工具；內部流程不經過這些可關閉的工具，關閉不影響運作](docs/img/toolsets.svg)
 
 ```json
 "env": { "DEV_PIPELINE_DISABLE_TOOLSETS": "worktree,bridge" }
@@ -347,7 +347,7 @@ node --test tests/gates.test.mjs   # 單檔（要先 npm run build）
 ## 提供的工具
 
 <details>
-<summary>展開完整工具清單（57 個）</summary>
+<summary>展開完整工具清單（59 個）</summary>
 
 | 工具 | 用途 |
 |---|---|

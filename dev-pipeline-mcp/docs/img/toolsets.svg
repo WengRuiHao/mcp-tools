@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 500" role="img" aria-label="工具群組可關閉：預設全部註冊共 57 個工具；用環境變數 DEV_PIPELINE_DISABLE_TOOLSETS 可關掉 worktree 群組（8 個，關後剩 49 個）或 bridge 群組（9 個，關後剩 48 個），兩個都關剩 40 個核心工具；內部流程不經過這些可關閉的工具，關閉不影響運作">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 500" role="img" aria-label="工具群組可關閉：預設全部註冊共 59 個工具；用環境變數 DEV_PIPELINE_DISABLE_TOOLSETS 可關掉 worktree 群組（8 個，關後剩 51 個）或 bridge 群組（9 個，關後剩 50 個），兩個都關剩 42 個核心工具；內部流程不經過這些可關閉的工具，關閉不影響運作">
   <defs><marker id="toolsetsmain" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/></marker><marker id="toolsetsacc" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2b6777"/></marker><marker id="toolsetswarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b9782e"/></marker></defs>
   <rect x="0" y="0" width="1000" height="500" fill="#f5f2ea"/>
   <rect x="200" y="18" width="600" height="66" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
   <text x="500" y="42" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="12" fill="#2a2620" font-weight="700">DEV_PIPELINE_DISABLE_TOOLSETS</text>
-  <text x="500" y="62" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">逗號分隔、不分大小寫，例：worktree,bridge（寫哪個就關掉哪個；沒設＝全部註冊，共 57 個）</text>
+  <text x="500" y="62" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">逗號分隔、不分大小寫，例：worktree,bridge（寫哪個就關掉哪個；沒設＝全部註冊，共 59 個）</text>
   <rect x="20" y="130" width="300" height="215" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
   <text x="170.0" y="158" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">worktree 群組（8 個）</text>
   <text x="170.0" y="178" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">7 個 worktree 工具＋install_git_hooks</text>
@@ -11,9 +11,9 @@
   <text x="170.0" y="216" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">同時改程式碼的隔離時</text>
   <text x="170.0" y="239" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">代價：跨 worktree 檔案重疊</text>
   <text x="170.0" y="254" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">示警也一併停用</text>
-  <text x="170.0" y="333" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#2a2620" font-weight="700">關掉後剩 49 個</text>
+  <text x="170.0" y="333" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#2a2620" font-weight="700">關掉後剩 51 個</text>
   <rect x="350" y="130" width="300" height="215" rx="12" fill="#dbe9ea" stroke="#2b6777" stroke-opacity="1"/>
-  <text x="500.0" y="158" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#17414c" font-weight="700">核心工具 40 個（一直都在）</text>
+  <text x="500.0" y="158" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#17414c" font-weight="700">核心工具 42 個（一直都在）</text>
   <text x="500.0" y="178" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">票單快照、狀態推進、追蹤檔讀寫、</text>
   <text x="500.0" y="193" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">角色說明、專案規則與設定…</text>
   <text x="500.0" y="216" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">內部流程（規格連線驗證、票單快照、</text>
@@ -28,22 +28,22 @@
   <text x="830.0" y="238" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">asana-mcp 時。get_ticket_activity</text>
   <text x="830.0" y="253" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">沒有直接替代，改用 asana_task_activity</text>
   <text x="830.0" y="268" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">／asana_task_comments</text>
-  <text x="830.0" y="333" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#2a2620" font-weight="700">關掉後剩 48 個</text>
+  <text x="830.0" y="333" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#2a2620" font-weight="700">關掉後剩 50 個</text>
   <path d="M 320 84 C 320 108, 170 104, 170 126" fill="none" stroke="#b9782e" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#toolsetswarn)"/>
   <path d="M 680 84 C 680 108, 830 104, 830 126" fill="none" stroke="#b9782e" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#toolsetswarn)"/>
   <text x="20" y="376" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="12" fill="#2a2620" font-weight="700">關閉後的工具數</text>
   <rect x="20" y="388" width="225" height="50" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
   <text x="38" y="418" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="12" fill="#2a2620" font-weight="700">預設（都不關）</text>
-  <text x="225" y="421" text-anchor="end" font-family="'Noto Sans TC',sans-serif" font-size="22" fill="#2a2620" font-weight="700">57</text>
+  <text x="225" y="421" text-anchor="end" font-family="'Noto Sans TC',sans-serif" font-size="22" fill="#2a2620" font-weight="700">59</text>
   <rect x="265" y="388" width="225" height="50" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
   <text x="283" y="418" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="12" fill="#2a2620" font-weight="700">關 worktree</text>
-  <text x="470" y="421" text-anchor="end" font-family="'Noto Sans TC',sans-serif" font-size="22" fill="#2a2620" font-weight="700">49</text>
+  <text x="470" y="421" text-anchor="end" font-family="'Noto Sans TC',sans-serif" font-size="22" fill="#2a2620" font-weight="700">51</text>
   <rect x="510" y="388" width="225" height="50" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
   <text x="528" y="418" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="12" fill="#2a2620" font-weight="700">關 bridge</text>
-  <text x="715" y="421" text-anchor="end" font-family="'Noto Sans TC',sans-serif" font-size="22" fill="#2a2620" font-weight="700">48</text>
+  <text x="715" y="421" text-anchor="end" font-family="'Noto Sans TC',sans-serif" font-size="22" fill="#2a2620" font-weight="700">50</text>
   <rect x="755" y="388" width="225" height="50" rx="12" fill="#dbe9ea" stroke="#2b6777" stroke-opacity="1"/>
   <text x="773" y="418" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="12" fill="#17414c" font-weight="700">兩個都關</text>
-  <text x="960" y="421" text-anchor="end" font-family="'Noto Sans TC',sans-serif" font-size="22" fill="#17414c" font-weight="700">40</text>
+  <text x="960" y="421" text-anchor="end" font-family="'Noto Sans TC',sans-serif" font-size="22" fill="#17414c" font-weight="700">42</text>
   <text x="500" y="464" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">未知的名稱只會在 stderr 印警告並略過，不中斷；啟動時 stderr 會印出實際關了哪些群組。關掉 bridge 時，流程說明會自動附上「該改用哪些外部工具」。</text>
   <text x="500" y="482" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">注意：Claude Code 對 MCP 工具採延遲載入，這項設定對它的效果有限，主要幫助不做延遲載入的 AI 工具。</text>
 </svg>

@@ -1,6 +1,9 @@
 // 工具群組開關、工具清單與關鍵參數的契約測試。
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { connectClient } from "./helpers/support.mjs";
 import { parseDisabledToolsets, registerAllTools, bridgeDisabledNote, TOOLSET_NAMES } from "../dist/toolsets.js";
 
@@ -123,4 +126,24 @@ test("contract: get_pipeline_overview.section enum and get_role_prompt.role enum
     [...schema("get_role_prompt").role.enum].sort(),
     ["analyst", "engineer", "spec-writer", "tester", "verifier"]
   );
+});
+
+test("文件裡寫的工具數量跟實際註冊數一致（README／MANUAL／toolsets.svg）", async () => {
+  const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const read = (rel) => fs.readFileSync(path.join(root, rel), "utf-8");
+  const total = (await listToolsWith()).length;
+  const withoutWorktree = (await listToolsWith(["worktree"])).length;
+  const withoutBridge = (await listToolsWith(["bridge"])).length;
+  const core = (await listToolsWith(["worktree", "bridge"])).length;
+  const readme = read("README.md");
+  const svg = read("docs/img/toolsets.svg");
+  assert.ok(readme.includes(`共 ${total} 個工具`), `README 的總數要是 ${total}`);
+  assert.ok(readme.includes(`展開完整工具清單（${total} 個）`), "README 工具清單標題的總數");
+  assert.ok(read("docs/MANUAL.html").includes(`總共 ${total} 個工具`), `MANUAL 的總數要是 ${total}`);
+  assert.ok(readme.includes(`關後剩 ${withoutWorktree} 個`) && readme.includes(`關後剩 ${withoutBridge} 個`), "README 各群組關掉後剩餘數");
+  assert.ok(readme.includes(`剩 ${core} 個核心工具`), "README 核心工具數");
+  for (const n of [total, withoutWorktree, withoutBridge, core]) {
+    assert.ok(svg.includes(`>${n}<`), `toolsets.svg 要有 ${n}`);
+  }
+  assert.ok(svg.includes(`核心工具 ${core} 個`), "toolsets.svg 核心工具數");
 });
