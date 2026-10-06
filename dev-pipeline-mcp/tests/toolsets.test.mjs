@@ -147,3 +147,12 @@ test("文件裡寫的工具數量跟實際註冊數一致（README／MANUAL／to
   }
   assert.ok(svg.includes(`核心工具 ${core} 個`), "toolsets.svg 核心工具數");
 });
+
+test("每個實際註冊的工具都有出現在 README 與 MANUAL", async () => {
+  const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const readme = fs.readFileSync(path.join(root, "README.md"), "utf-8");
+  const manual = fs.readFileSync(path.join(root, "docs/MANUAL.html"), "utf-8");
+  const names = (await listToolsWith()).map((t) => t.name);
+  assert.deepEqual(names.filter((n) => !readme.includes(n)), [], "README 缺少這些工具");
+  assert.deepEqual(names.filter((n) => !manual.includes(n)), [], "MANUAL 缺少這些工具");
+});

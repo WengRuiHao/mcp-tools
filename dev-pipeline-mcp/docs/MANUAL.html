@@ -380,6 +380,10 @@
           <div class="tool-row"><code>list_pending_tickets</code><span>列出這個專案尚未處理完的票單，順便整份重寫 PENDING_HUMAN_ACTIONS.html；可只看今天到期的票或限制筆數，不會一次回傳整個專案</span></div>
           <div class="tool-row"><code>get_ticket_status</code><span>看單一張票目前的進度、驗證結果、確認狀態，並直接告訴 AI 下一步該做什麼、目前被什麼擋住</span></div>
           <div class="tool-row"><code>get_ticket_activity</code><span>看票單完整活動時間軸（留言＋系統事件＋附件）</span></div>
+          <div class="tool-row"><code>resolve_default_project</code> / <code>register_default_project</code><span>查詢/登記「今天的問題單」預設看哪個 Asana 專案（可依工作目錄各自登記）</span></div>
+          <div class="tool-row"><code>resolve_project_dir</code> / <code>register_project_dir</code><span>查詢/登記這個 Asana 專案對應的程式碼目錄；登記時如果這個專案還沒設定關卡，會順便提示有現成範本可啟用</span></div>
+          <div class="tool-row"><code>relocate_ticket_project</code><span>票單第一次抓取時專案名稱傳錯，把本機追蹤資料夾（含子任務）搬到正確的專案名稱底下；只改本機，不會改 Asana 上的歸屬</span></div>
+          <div class="tool-row"><code>resync_ticket_artifact</code><span>直接手動改過追蹤檔案後，用最低成本把同步記錄對齊現況，不用重跑整個流程</span></div>
         </div>
       </details>
 
@@ -426,7 +430,8 @@
           <div class="tool-row"><code>resolve_sasd_config</code> / <code>register_sasd_config</code><span>查詢/登記這個專案的規格模式</span></div>
           <div class="tool-row"><code>resolve_svn_workcopies</code> / <code>register_svn_workcopies</code><span>查詢/登記這個專案對應的 SVN 工作副本資料夾（登記前會驗證）。只存設定，不能改動 SVN；上傳/更新/刪除只能由你在報告網頁上按按鈕</span></div>
           <div class="tool-row"><code>read_project_sd_doc</code> / <code>write_project_sd_doc</code><span>讀寫「AI 自己維護」的規格文件；規格是一支功能一份檔案時，會用檔名指定要讀寫哪一份</span></div>
-          <div class="tool-row"><code>get_sd_spec_template</code><span>規格撰寫範本，AI 寫規格前會先讀這個</span></div>
+          <div class="tool-row"><code>get_sd_spec_template</code> / <code>get_sd_spec_versioning_rules</code><span>規格撰寫範本／修改既有規格的版更規範，AI 寫規格前會先讀其中之一</span></div>
+          <div class="tool-row"><code>record_sasd_check</code><span>記錄這張票有沒有對應的 SA/SD 規格；沒記錄過就不能寫分析文件</span></div>
         </div>
       </details>
 
@@ -440,7 +445,7 @@
           <div class="example"><b>可以這樣問：</b>（設定一次即可）</div>
           <div class="tool-row"><code>resolve_test_capability</code> / <code>register_test_capability</code><span>這個專案能不能寫自動化測試、用哪套工具鏈</span></div>
           <div class="tool-row"><code>get_test_engineer_guide</code><span>測試工程師的完整檢查清單</span></div>
-          <div class="tool-row"><code>resolve_legacy_test_profile</code><span>要不要套用「老舊系統測試」章節</span></div>
+          <div class="tool-row"><code>resolve_legacy_test_profile</code> / <code>register_legacy_test_profile</code><span>查詢/登記要不要套用「老舊系統測試」章節（只有你明確告知才會登記，不自動偵測）</span></div>
         </div>
       </details>
 
@@ -452,10 +457,12 @@
         </summary>
         <div class="cat-body">
           <div class="example"><b>可以這樣問：</b>（AI 依需要自動呼叫）</div>
-          <div class="tool-row"><code>read_project_file</code> / <code>write_project_file</code> / <code>search_project_text</code><span>讀寫/搜尋專案裡的程式碼檔案</span></div>
-          <div class="tool-row"><code>svn_cat</code> / <code>svn_browse</code> / <code>svn_doc_images</code><span>唯讀查詢 SVN 上的規格書（含圖片）</span></div>
+          <div class="tool-row"><code>read_project_file</code> / <code>write_project_file</code> / <code>list_project_dir</code> / <code>search_project_text</code><span>讀寫/列目錄/搜尋專案裡的程式碼檔案</span></div>
+          <div class="tool-row"><code>svn_cat</code> / <code>svn_browse</code> / <code>svn_doc_images</code> / <code>svn_log</code><span>唯讀查詢 SVN 上的規格書（含圖片）與修改紀錄</span></div>
+          <div class="tool-row"><code>svn_list_connections</code> / <code>svn_test_connection</code><span>列出/測試可用的 SVN 連線</span></div>
           <div class="tool-row"><code>run_project_shell</code><span>執行編譯/測試指令；git 指令會核對版控根目錄</span></div>
           <div class="tool-row"><code>get_recent_commits</code><span>查最近的 git 修改紀錄</span></div>
+          <div class="tool-row"><code>resolve_git_roots</code> / <code>register_git_roots</code><span>查詢/登記專案實際的 git 版控根目錄（前後端可分開）；沒登記就不能執行 git 指令</span></div>
         </div>
       </details>
 
