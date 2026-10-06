@@ -181,3 +181,19 @@ test("implementation gates ignore analysisReferences and vice versa", withProjec
   assert.deepEqual(await implement(dir, "## Duplicate Check\n" + chars(60)), { ok: true });
   assert.deepEqual(await analyze(dir, "## Legacy Refs\nlegacy/src/A.java"), { ok: true });
 }));
+
+test("templates/gates.example.json is valid JSON and enforces the duplicate-check section", async () => {
+  const example = fs.readFileSync(new URL("../templates/gates.example.json", import.meta.url), "utf8");
+  const parsed = JSON.parse(example);
+  assert.equal(parsed.implementationSections[0].heading, "查重");
+  const dir = makeTmpDir("dpm-gates-example-");
+  try {
+    writeFile(dir, NEW_GATES, example);
+    const run = (content) => checkImplementationGates({ projectDir: dir, ticketName: "任意票名", implementationContent: content });
+    assert.equal((await run("## 實作\n沒有查重")).ok, false);
+    assert.equal((await run("## 查重\n太短")).ok, false);
+    assert.deepEqual(await run("## 查重\n" + "搜尋既有方法後確認沒有可重用者所以新增".repeat(4)), { ok: true });
+  } finally {
+    removeDir(dir);
+  }
+});

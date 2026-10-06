@@ -1,0 +1,9 @@
+{
+  "implementationSections": [
+    {
+      "ticketNamePattern": ".*",
+      "heading": "查重",
+      "minChars": 40
+    }
+  ]
+}

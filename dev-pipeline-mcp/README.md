@@ -115,6 +115,7 @@ npm run build
 - **門檻**：只有新增方法、類別/元件/檔案、檢核/轉換/格式化邏輯才必須做全專案搜尋；只是改既有方法裡的條件、數值、欄位對應，查重那一節寫一句「未新增方法，無需查重」即可，避免小票也被迫交一份形式上的搜尋紀錄。
 - **共用方法放哪**：新的可共用方法要併進專案已經存在的工具類（後端 `XxxUtil`/`XxxHelper`/`XxxValidator`，前端 `utils/`、`helpers/`、`hooks/` 底下的既有檔案），跟同類方法擺在一起；只有整個專案真的沒有適合歸屬的工具類、而且這批方法會被多處使用，才可以新建，並放在既有共用位置、命名比照既有工具類。只有這張票自己用得到的邏輯留在原本的類別/元件，不硬抽。
 - **記錄**：`02-implementation.md` 的查重那一節（標題含「查重」）要寫搜了什麼、找到什麼、決定與理由。想把「一定要有這一節」變成機械檢查，用下方「實作關卡」（`implementationSections`），這條規則本身只約束說明文字，不會自己擋寫入。
+- **驗收**：驗證師會獨立檢查這輪新增的檔案——新建了只裝少數方法的 class 或 tsx/ts、而專案其實有適合歸屬的既有工具類，或新增名稱是 `data`/`temp`/`flag` 這類看不出內容的，且查重那一節沒有具體理由，就判 `FAIL`（`rootCause: "implementation"`）。
 - **範圍**：這幾條只在走這個 MCP 的工程師角色（`get_role_prompt` 的 `engineer`）生效，不管專案有沒有登記自動化測試都會帶；沒有走票單流程、單純寫程式的情境，要靠專案自己的規則檔（`get_project_rules`）。
 
 跟這張圖同一批調整的工程師說明還有三點：**SA/SD 的位置**看 `get_ticket_status` 的 `sasd_info`（`self-generated` 專案改用 `read_project_sd_doc`），前端只依 SA、後端只依 SD；**commit 不是每輪必做**，有 commit 就不用再列「尚未 commit」的檔案，沒 commit 才列；**停下來問使用者**只留給規格/分析/程式碼衝突、要動建置依賴、第一次登記測試能力這類真正需要人決定的事，擺放位置、命名、併入哪個工具類這類實作細節由工程師依專案慣例自行判斷並寫進 `02-implementation.md`。
@@ -285,6 +286,7 @@ npm run build
 
 - 「該節」指到下一個標題為止；`heading` 是子字串比對，只取第一個符合的標題。
 - 只管 `02-implementation.md`，不管 03、04。兩個關卡共通的限制與壞掉 JSON 的處理，寫在上方圖最下面的框。
+- **快速啟用查重關卡**：把內建範本 [templates/gates.example.json](templates/gates.example.json) 複製到 `<projectDir>/.pipeline/gates.json` 即生效（`ticketNamePattern` 為 `".*"`＝該專案所有票都要有含「查重」的一節、至少 40 字；想只管特定票就改成票名 regex）。**沒複製就不會有任何機械檢查，既有專案行為不變**；專案已有自己的 `gates.json` 時，把範本的 `implementationSections` 項目合併進去，不要整份覆蓋。
 
 ### 3. 專案自己的 SD 範本與版更規範（`<projectDir>/.pipeline/templates/`）
 

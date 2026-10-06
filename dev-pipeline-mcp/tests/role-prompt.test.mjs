@@ -234,3 +234,16 @@ test("engineer prompt: 查重/共用工具歸屬/命名/SD 來源規則在每種
     assert.doesNotMatch(prompt, /\`\`\`java\n\/\/ SD v0\.7/, "註解反例已精簡成單行");
   }
 });
+
+test("verifier prompt: 共用工具歸屬與命名檢查在每種 sdMode 下都存在", () => {
+  const variants = [
+    getRolePrompt("verifier"),
+    getRolePrompt("verifier", { sdMode: "external" }),
+    getRolePrompt("verifier", { sdMode: "self-generated", specOrder: "code_first" }),
+  ];
+  for (const prompt of variants) {
+    assert.match(prompt, /額外檢查共用工具歸屬與命名/);
+    assert.match(prompt, /只裝少數方法的 class 或 tsx\/ts 檔/);
+    assert.match(prompt, /param1/);
+  }
+});

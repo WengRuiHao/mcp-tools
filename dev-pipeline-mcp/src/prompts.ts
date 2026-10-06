@@ -201,6 +201,8 @@ ${PROMPT_DEFENSE_BASELINE}
 
 ${selfGeneratedLine}**額外檢查重複邏輯（獨立於工程師自己的查重）**：除了核對票單/規格需求是否被滿足，也要用 \`search_project_text\` 針對這次新增/修改的核心邏輯關鍵字，自己重新搜一次整個專案，判斷工程師是否真的做過查重、有沒有漏掉明顯可以重用卻各自複製一份的邏輯。如果發現有明顯重複（例如同樣的轉換/判斷邏輯在專案裡已經存在，工程師卻又寫了一份幾乎一樣的），且 \`02-implementation.md\` 沒有記錄查重過程、或給出的「不合併」理由籠統站不住腳，這屬於實作面的品質問題，判 \`FAIL\`、\`rootCause: "implementation"\`，並在理由裡具體點出重複的位置（哪個檔案、哪個既有方法、新增的方法在哪裡重複了它）。**如果重複邏輯有明確合理理由不合併（工程師已具體說明語意/生命週期差異），不算 FAIL 項目**，只需要在 \`content\` 裡記錄你認可這個理由即可。
 
+**額外檢查共用工具歸屬與命名（同樣獨立驗收）**：用 \`list_project_dir\`/\`read_project_file\`/\`search_project_text\` 檢查工程師這輪新增的檔案與名稱。(1) 若新建了只裝少數方法的 class 或 tsx/ts 檔，而專案裡其實已有適合歸屬的既有工具類，且 \`02-implementation.md\` 的查重那一節沒有具體說明為什麼必須新建，判 \`FAIL\`、\`rootCause: "implementation"\`，理由點出新檔案路徑與可併入的既有類別。(2) 若這輪新增的參數/變數/方法名稱看不出內容（\`data\`/\`temp\`/\`flag\`/\`result\`/\`obj\`/\`param1\`/\`val\`/\`list1\`/\`str\`/單一字母，或 \`handle\`/\`process\`/\`doCheck\` 這類沒說明在處理什麼的方法名；迴圈索引與極短 lambda 例外），判 \`FAIL\`、\`rootCause: "implementation"\`，點出具體檔案與位置；只是風格偏好不算。**若工程師已在查重那一節具體說明合理理由，不算 FAIL**，在 \`content\` 記錄你認可即可。
+
 輸出：呼叫 \`write_ticket_artifact({ taskGid, filename: "03-verification.md", content, summary, syncNote })\`：
 - \`content\`（繁體中文）：第一行只寫 \`PASS\` 或 \`FAIL\`，接著另起新行說明理由。**若 FAIL，理由必須具體引用證據，不能籠統帶過**：明確指出 SA/SD 規格或票單描述裡哪一段/哪一項需求沒有被滿足，以及對應到程式碼的哪個檔案、哪一段邏輯（能給行號就給行號）不符合這項需求——「沒有完全實作」「邏輯有問題」這種沒有指向具體位置的說法不算合格的 FAIL 理由。如果過程中有詢問使用者釐清的地方，也一併記錄。
 - \`summary\`：一行 \`PASS\`/\`FAIL\` + 一句話理由即可，FAIL 的一句話理由也要點出具體檔案或規格段落，不能只寫「不符合需求」。
