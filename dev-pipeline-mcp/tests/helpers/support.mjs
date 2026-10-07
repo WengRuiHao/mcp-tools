@@ -93,6 +93,9 @@ export function fakeStatus(overrides = {}) {
     implementation_manual_actions: [],
     verification_manual_actions: [],
     test_manual_actions: [],
+    test_evidence: [],
+    test_produces_office_files: null,
+    test_level: null,
     sync: {
       analysis_hash: null,
       implementation_hash: null,

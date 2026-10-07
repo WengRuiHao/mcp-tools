@@ -6,6 +6,7 @@ import { getTicketsIndexFile } from "./config-store.js";
 import { readJsonFile, updateJsonFile, withFileLock, writeJsonFileAtomic } from "./atomic-store.js";
 import { resolveHttpBridgePort } from "./http-bridge-config.js";
 import { getBridgeToken } from "./bridge-token.js";
+import { CREDENTIAL_PATTERN } from "./sensitive-patterns.js";
 import { getSvnReportData, type SvnReportData, type SvnWorkCopySummary, type WcEntry } from "./svn-workcopy-bridge.js";
 
 export interface TicketSummaries {
@@ -42,6 +43,31 @@ export interface TicketSyncState {
   implementation_hash_at_verify_write: string | null;
   /** 上次寫 04 時，03 的雜湊是多少（快照）——跟 verification_hash 不一致代表 03 在那之後又被獨立改過，04 還沒對照過最新的 03。 */
   verification_hash_at_test_write: string | null;
+}
+
+export type TestEvidenceKind = "excel" | "pdf" | "api-call" | "test-report" | "db-state";
+/** 測試層級，由低到高：unit-mock（依賴皆 mock）< integration-db（連真實資料庫）< live-api（打真實運行中的服務）。 */
+export type TestLevel = "unit-mock" | "integration-db" | "live-api";
+
+/** record_test_evidence 記錄的一筆測試證據；files 內路徑皆相對於票單追蹤目錄。 */
+export interface TestEvidenceRecord {
+  id: string;
+  featureName: string;
+  fileKind: TestEvidenceKind;
+  testLevel: TestLevel;
+  /** 證據怎麼取得（指令、測試類別名稱等）。 */
+  testSource: string | null;
+  /**
+   * file＝票單目錄內唯一的證據檔（相對路徑）；original＝呼叫時 sourceFile 的絕對路徑與 sha256，只供追溯、不當檔案存。
+   * 舊格式（original 是備份路徑字串、另有 marked）的紀錄會在同功能＋同原檔名再次呼叫時遷移成這個結構。
+   */
+  files: { file: string; screenshots: string[]; original: { path: string; sha256: string } };
+  usesFakeData: boolean;
+  fakeDataMarked: boolean;
+  /** excel 且尚無實際渲染截圖：等使用者用 Excel 截圖後補登。 */
+  pendingManualScreenshot: boolean;
+  recordedAt: string;
+  note: string | null;
 }
 
 export interface TicketStatus {
@@ -92,6 +118,12 @@ export interface TicketStatus {
   verification_manual_actions: string[];
   /** 測試工程師階段宣告的「需要使用者手動處理」事項——主要就是 needs_manual_check 分類的測試項目（AI 沒有精確依據判定 PASS/FAIL、只能列出來提醒使用者親自確認的項目，例如報表版面視覺比對、老 IE 實際渲染），write_ticket_artifact 寫 04-test.md 時必填。跟另外兩份 manual_actions 一樣獨立累積、不互相覆蓋。 */
   test_manual_actions: string[];
+  /** record_test_evidence 記錄的測試證據（每張票都要有，write_ticket_artifact 寫 04-test.md 與 advance_ticket_stage tested 會檢查）。 */
+  test_evidence: TestEvidenceRecord[];
+  /** 寫 04-test.md 時宣告這次測試有沒有產出 Excel/PDF；true 時要求至少 1 筆 excel/pdf 證據。null＝尚未宣告。 */
+  test_produces_office_files: boolean | null;
+  /** 寫 04-test.md 時宣告的整體測試層級（必須等於證據中最高層級）；null＝尚未宣告。 */
+  test_level: TestLevel | null;
   /** 01/02/03/04 四份文件彼此之間是否同步（跟 content_hash/needs_reanalysis 是不同軸向：那組管「票單原文 vs 追蹤系統」，這組管「追蹤系統內部四份文件互相」）。 */
   sync: TicketSyncState;
 }
@@ -375,7 +407,7 @@ export async function listTrackedProjectNames(projectDir: string): Promise<strin
 }
 
 /** Resolves a ticket's tracking directory via the index. Throws a clear error if this ticket hasn't gone through assignTicketDir yet (get_ticket_snapshot must always be called first). */
-async function resolveTicketDir(taskGid: string): Promise<string> {
+export async function resolveTicketDir(taskGid: string): Promise<string> {
   const index = await readJsonFile<Record<string, string>>(getTicketsIndexFile(), {});
   const dir = index[taskGid];
   if (!dir) {
@@ -409,6 +441,9 @@ const NEW_STATUS: TicketStatus = {
   implementation_manual_actions: [],
   verification_manual_actions: [],
   test_manual_actions: [],
+  test_evidence: [],
+  test_produces_office_files: null,
+  test_level: null,
   sync: {
     analysis_hash: null,
     implementation_hash: null,
@@ -503,7 +538,7 @@ function applyStageIfForward(status: TicketStatus, stage: TicketStatus["stage"],
  * call updateStatus/readStatus/peekStatus for the SAME ticketGid from inside it, that would deadlock
  * against the lock this function is already holding.
  */
-async function updateStatus(
+export async function updateStatus(
   ticketGid: string,
   mutator: (status: TicketStatus) => TicketStatus | Promise<TicketStatus>
 ): Promise<TicketStatus> {
@@ -665,8 +700,7 @@ export interface SensitiveManualActionHit {
 export function detectSensitiveManualActions(actions: string[]): SensitiveManualActionHit[] {
   const sqlPattern =
     /\b(INSERT\s+INTO|UPDATE\s+\S+\s+SET|DELETE\s+FROM|SELECT\s+[\s\S]*?\bFROM\b)\b[\s\S]*?(\bVALUES\s*\(|\bSET\b|\bWHERE\b)/i;
-  const credentialPattern =
-    /(jdbc:|mongodb:\/\/|postgres(?:ql)?:\/\/|mysql:\/\/|password\s*=\s*\S+|pwd\s*=\s*\S+|api[_-]?key\s*[=:]\s*\S+|secret\s*[=:]\s*\S+|Server\s*=[^;]*;\s*.*Password\s*=)/i;
+  const credentialPattern = CREDENTIAL_PATTERN;
   const hits: SensitiveManualActionHit[] = [];
   for (const action of actions) {
     const reasons: string[] = [];

@@ -141,6 +141,16 @@ npm run build
 
 **報表／老舊系統兩章是不是套用，AI 依這張票改動的檔案自己判斷**，不用整份說明書每次全套用。老舊系統章節額外多一層：只有 `resolve_legacy_test_profile` 回傳 `true` 才套用——這是專案層級的布林設定（`register_legacy_test_profile`），預設 `false`，只有使用者明確告知「這個專案是 JDK6+舊IE 這類環境」才登記為 `true`，AI 不會自己依程式碼特徵猜測。
 
+
+**測試證據（每張票都要）**：測試工程師用 `record_test_evidence` 把證據複製備份進票單追蹤目錄的 `test-evidence/<功能名稱>/`，讓使用者回頭觀察；寫 04-test.md 與推進到 `tested` 都會檢查「至少 1 筆證據」。
+- **類型**（`fileKind`）：`api-call`（真實呼叫的原文：method、URL、request、HTTP 狀態、response、耗時，禁止手寫改寫）、`test-report`（備份 build/test-results 實際報告）、`db-state`（用 db-mcp 唯讀查詢存下的測試前後狀態）、`excel`、`pdf`。
+- **測試層級**（`testLevel`，每筆必填）：`unit-mock`（依賴全 mock）< `integration-db`（連真實資料庫）< `live-api`（打真實運行中的服務）；04-test.md 宣告的層級必須等於證據中最高者，只有 `unit-mock` 不得宣稱已驗證真實 DB／API。
+- **機密遮蔽**：api-call／db-state／test-report 的文字檔會掃描未遮蔽的 Authorization/Bearer token、JWT、password/secret/api key/token 值、連線字串帳密，命中就拒絕並回報檔名與行號（不回印內容）；共用 `src/sensitive-patterns.ts`，與 `manualActions` 檢查同一份基礎 pattern。
+- **截圖必須來自實際檔案**，禁止轉網頁重畫或依公式重算。PDF 用 PyMuPDF（`pymupdf`）逐頁轉 PNG（全自動）；Excel 這台機器無法真實渲染，工具只備份實際 xlsx 並標記 `pendingManualScreenshot`，寫 04-test.md 時自動加一條待辦，使用者用 Excel 截圖放進同一資料夾後，再用同功能名稱與原檔名重複呼叫 `record_test_evidence` 補登即清除旗標。
+- **每筆證據只存一個檔案，假資料一眼看得出來**：真實資料存 `test-evidence/<功能名稱>/<原檔名>.<副檔名>`；假資料存 `test-evidence/【假資料】<功能名稱>/<原檔名>_假資料.<副檔名>`（截圖 `<原檔名>_假資料_截圖_N`）。**不另存原始檔**：假資料的 excel/pdf 只存 `markedFile`，`sourceFile` 只在 `status.json` 記絕對路徑與 sha256（`files.original`）供追溯。同一筆（功能名稱＋原檔名）再次呼叫（含改 `usesFakeData`）會搬到新位置並刪除舊檔；舊格式備份（`_原始`、`_假資料標註`、舊資料夾名）也在再次呼叫時換成新命名、舊檔刪除、空資料夾移除。舊檔刪不掉（例如被 Excel 開著，旁邊有 `~$` 鎖定檔）**不會讓登記失敗**：呼叫回 `success:true` 與 `cleanupWarnings`，關閉檔案後再呼叫一次即重試清理；`get_ticket_status` 的 `test_evidence.stale_old_backups` 會提示未清理的舊備份。
+- **假資料標註**：固定文字 `【測試假資料，非正式資料】`。Excel 副本標註為紅字、粗體、字級 14 以上，放在截圖第一眼看得到的空白位置（前 5 列內的空白列或資料格右邊，不放遠欄），不更動任何既有儲存格與合併範圍；PDF 每頁斜向浮水印；呼叫時帶 `markedFile` ＋ `fakeDataMarked: true`（標註是否真的在檔案內，工具無法自動驗證）。api-call／db-state 的 sourceFile 第一個非空白行必須就是這段文字（工具讀檔驗證）；test-report 不改檔，只靠檔名、資料夾與記錄標示。
+- 04-test.md「測試證據」表格欄位：功能名稱｜資料來源（假資料／真實資料）｜測試層級｜檔案類型｜證據檔位置（單一檔案）｜截圖｜備註；有假資料證據時內文必須出現「假資料」。
+- 做法與程式碼範例見 `get_test_engineer_guide` 第五章。
 </details>
 
 <details>
@@ -320,7 +330,7 @@ npm run build
 
 用環境變數縮小工具清單（tools/list）送進 AI 上下文的量；**預設（沒設）全部註冊**。
 
-![工具群組可關閉：預設全部註冊共 59 個工具；用環境變數 DEV_PIPELINE_DISABLE_TOOLSETS 可關掉 worktree 群組（8 個，關後剩 51 個）或 bridge 群組（9 個，關後剩 50 個），兩個都關剩 42 個核心工具；內部流程不經過這些可關閉的工具，關閉不影響運作](docs/img/toolsets.svg)
+![工具群組可關閉：預設全部註冊共 60 個工具；用環境變數 DEV_PIPELINE_DISABLE_TOOLSETS 可關掉 worktree 群組（8 個，關後剩 52 個）或 bridge 群組（9 個，關後剩 51 個），兩個都關剩 43 個核心工具；內部流程不經過這些可關閉的工具，關閉不影響運作](docs/img/toolsets.svg)
 
 ```json
 "env": { "DEV_PIPELINE_DISABLE_TOOLSETS": "worktree,bridge" }
@@ -347,7 +357,7 @@ node --test tests/gates.test.mjs   # 單檔（要先 npm run build）
 ## 提供的工具
 
 <details>
-<summary>展開完整工具清單（59 個）</summary>
+<summary>展開完整工具清單（60 個）</summary>
 
 | 工具 | 用途 |
 |---|---|
@@ -368,7 +378,7 @@ node --test tests/gates.test.mjs   # 單檔（要先 npm run build）
 | `resolve_test_capability` / `register_test_capability` | 查詢/登記這個專案工程師階段能不能寫自動化測試、用哪套工具鏈（`modern`/`legacy_junit4`/`none`）；測試工程師階段會依這個設定決定要不要重跑工程師補的測試當交叉核對證據 |
 | `read_project_sd_doc` / `write_project_sd_doc` | 讀寫「自維護」SD 文件（`self-generated` 專用），寫在 `sdOutputPath` 真實本機檔案；`sdOutputPath` 登記的是目錄（一支功能一份規格）時帶 `fileName` 指定目錄底下那一份，`fileName` 只能是檔名 |
 | `get_sd_spec_template` / `get_sd_spec_versioning_rules` | SD 規格撰寫範本／版更規範，寫入前應先呼叫其中之一 |
-| `get_test_engineer_guide` | 取得測試工程師說明書：通用測試框架／報表測試／老舊系統測試三章檢查清單，供設計測試案例、跑手動/情境測試時查，跟驗證師角色的規格/程式碼交叉核對是不同用途 |
+| `get_test_engineer_guide` | 取得測試工程師說明書：通用測試框架／報表測試／老舊系統測試三章檢查清單，另有第五章「測試證據」（`record_test_evidence` 做法、測試層級、機密遮蔽、假資料標註、Excel/PDF 截圖），供設計測試案例、跑手動/情境測試時查，跟驗證師角色的規格/程式碼交叉核對是不同用途 |
 | `svn_list_connections` / `svn_test_connection` | 轉呼叫 svn-mcp，列出/測試 SVN 連線 |
 | `svn_browse` / `svn_cat` / `svn_doc_images` / `svn_log` | 轉呼叫 svn-mcp 讀 SVN 上的規格（唯讀），一律讀遠端不讀本機 checkout |
 | `get_recent_commits` | 查某目錄最近的 git commit |
@@ -376,8 +386,9 @@ node --test tests/gates.test.mjs   # 單檔（要先 npm run build）
 | `resolve_git_roots` / `register_git_roots` | 查詢/登記專案目錄實際的 git 版控根目錄（可前後端分開） |
 | `resolve_svn_workcopies` / `register_svn_workcopies` | 查詢/登記專案目錄對應的 SVN 工作副本（label／路徑／svn-mcp 連線；登記前會驗證）。**只存設定，不能修改 SVN**——上傳/更新/刪除只能由使用者在報告網頁上按按鈕（2026-10-02 新增） |
 | `run_project_shell` | 跑 shell 指令；git 指令會驗證版控根目錄，見下方安全限制。stdout、stderr 各自超過約 12,000 字時保留開頭 3,000 與結尾 9,000 字（錯誤通常在結尾），中間以「輸出共 N 字，省略中間 M 字」標記，並回 `truncated`／`originalChars`；沒超過時回傳形狀不變 |
-| `get_ticket_status` / `advance_ticket_stage` | 讀取/更新票單追蹤狀態，附 `sync_flags`/`needs_human_review`/`external_changes`（當場重新讀磁碟比對，抓繞過 MCP 的手動修改）；`verdict`（驗證師或測試工程師的結論，兩者共用同一個欄位跟同一組 `consecutive_fail_count`）、`confirmation`（使用者自測＋審視 code）、`verifier_root_cause`（FAIL 根因，供自動路由）是分開的欄位。`verdict: "FAIL"` 時 `rootCause` 必填（`"analysis"`/`"implementation"`），並會機械式維護 `consecutive_fail_count`（FAIL 累加/PASS 歸零）、清空人類確認。`stage` 新增 `"tested"`（`"verified"` 之後、人類最終確認之前）。`get_ticket_status` 另回傳 `nextAction`（`summary`／`blockedBy`／`suggestedTools`）：由程式依票單狀態算出下一步與目前被什麼擋住，對齊真實把關；取不到專案的 SD 模式時，規格相關建議只寫「依專案設定」，不猜。`advance_ticket_stage`、`record_confirmation`、`record_spec_confirmation`、`record_sasd_check`、`request_reanalysis` 預設只回精簡狀態（`stage`／`verdict`／`needs_human_review`／`consecutive_fail_count`／`nextAction` 等，約 500 字），帶 `verbose: true` 取得完整狀態；網頁勾選用的 HTTP bridge 回傳格式不變 |
-| `write_ticket_artifact` / `read_ticket_artifact` | 讀寫追蹤目錄下的分析/實作/驗證/測試檔案；寫 02/03/04 時 `syncNote`/`manualActions` 都必填（`manualActions` 可以是空陣列，04 的話裝測試工程師判不出來、只能列出來提醒人工的 `needs_manual_check` 項目） |
+| `get_ticket_status` / `advance_ticket_stage` | 讀取/更新票單追蹤狀態，附 `sync_flags`/`needs_human_review`/`external_changes`（當場重新讀磁碟比對，抓繞過 MCP 的手動修改）；`verdict`（驗證師或測試工程師的結論，兩者共用同一個欄位跟同一組 `consecutive_fail_count`）、`confirmation`（使用者自測＋審視 code）、`verifier_root_cause`（FAIL 根因，供自動路由）是分開的欄位。`verdict: "FAIL"` 時 `rootCause` 必填（`"analysis"`/`"implementation"`），並會機械式維護 `consecutive_fail_count`（FAIL 累加/PASS 歸零）、清空人類確認。`stage` 新增 `"tested"`（`"verified"` 之後、人類最終確認之前）。`get_ticket_status` 的 `test_evidence` 是精簡摘要（筆數、整體 `test_level`、每筆 `featureName`/`fileKind`/`testLevel`/`usesFakeData`/`pendingManualScreenshot`）。`advance_ticket_stage` 推進到 `tested` 時，沒有任何測試證據或沒記錄過 `testLevel`（或宣告有產出 Excel/PDF 卻沒有 excel/pdf 證據）會被拒絕。`get_ticket_status` 另回傳 `nextAction`（`summary`／`blockedBy`／`suggestedTools`）：由程式依票單狀態算出下一步與目前被什麼擋住，對齊真實把關；取不到專案的 SD 模式時，規格相關建議只寫「依專案設定」，不猜。`advance_ticket_stage`、`record_confirmation`、`record_spec_confirmation`、`record_sasd_check`、`request_reanalysis` 預設只回精簡狀態（`stage`／`verdict`／`needs_human_review`／`consecutive_fail_count`／`nextAction` 等，約 500 字），帶 `verbose: true` 取得完整狀態；網頁勾選用的 HTTP bridge 回傳格式不變 |
+| `write_ticket_artifact` / `read_ticket_artifact` | 讀寫追蹤目錄下的分析/實作/驗證/測試檔案；寫 02/03/04 時 `syncNote`/`manualActions` 都必填（`manualActions` 可以是空陣列，04 的話裝測試工程師判不出來、只能列出來提醒人工的 `needs_manual_check` 項目）。**寫 04-test.md 另必填 `producesOfficeFiles` 與 `testLevel`**，且 `test_evidence` 至少 1 筆、內文有標題含「測試證據」的一節、提及每筆證據的功能名稱與宣告的 `testLevel`、`testLevel` 等於證據中最高層級（`producesOfficeFiles: true` 時另需至少 1 筆 excel/pdf 證據），否則拒絕；仍待使用者截圖的 Excel 證據會自動併入 `manualActions` |
+| `record_test_evidence` | 測試工程師記錄一筆測試證據（見下方「測試證據」一節）：把證據檔複製備份到 `<票單目錄>/test-evidence/<功能名稱>/`（假資料放 `【假資料】<功能名稱>/` 並加 `_假資料` 後綴，每筆只存一個檔案），寫進 `status.json` 的 `test_evidence`。參數：`taskGid`、`featureName`、`fileKind`（`excel`/`pdf`/`api-call`/`test-report`/`db-state`）、`testLevel`（`unit-mock`/`integration-db`/`live-api`）、`sourceFile`、`usesFakeData`，選填 `testSource`、`markedFile`、`fakeDataMarked`、`screenshotPaths`、`note` |
 | `resync_ticket_artifact` | 把 01/02/03/04 其中一份檔案「現在磁碟上的實際內容」重新雜湊、寫回 `sync.*_hash`——給直接手動改過追蹤檔案（沒走 `write_ticket_artifact`）之後，用最低成本同步雜湊記錄，不用跑完整流程；也能順便回填舊票的 `manualActions` |
 | `resolve_manual_action` | 把某張票單 `manualActions`（02/03/04 皆可）裡「使用者確認已經處理完」的一項移除（文字精確比對），不用整份陣列重新宣告一次 |
 | `record_sasd_check` | 記錄這張票有沒有對應 SA/SD；沒呼叫過會擋下 `01-analysis.md` 的寫入 |

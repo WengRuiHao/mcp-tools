@@ -71,6 +71,7 @@
       <circle cx="904" cy="116" r="12" fill="#4c7a52"/><text x="904" y="120" fill="#f5f2ea" font-weight="700" font-size="11">7</text>
       <text x="946" y="140" font-weight="700" fill="#4c7a52">AI 測試情境</text>
       <text x="946" y="158" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#4c7a52">tested</text>
+      <text x="946" y="173" font-family="'Noto Sans TC',sans-serif" font-size="9" fill="#4c7a52">需測試證據</text>
     </g>
   </g>
 

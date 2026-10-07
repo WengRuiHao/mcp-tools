@@ -16,11 +16,13 @@ import {
   requestReanalysis,
   writePendingActionsReport,
   readArtifact,
+  resolveTicketDir,
   type TicketStatus,
   type ManualActionItem,
 } from "./pipeline-store.js";
 import { syncPendingActionsReport, getPipelineAsanaUserGid, getUncommittedChangesSummary, filterOutGitCommitActions } from "./pending-actions-sync.js";
 import { textResult } from "./shared.js";
+import { checkTestEvidenceForTested, findStaleEvidenceBackups, summarizeTestEvidence } from "./test-evidence-store.js";
 import { filterAndLimitTickets, localDateString, DUE_ON_DATE_PATTERN } from "./ticket-list-filter.js";
 import { computeNextAction } from "./next-action.js";
 import { sasdForStatus, statusResponse, verboseParam } from "./stage-response.js";
@@ -245,6 +247,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       "- verdict FAIL 時 verifier_root_cause 是上次根因；**needs_human_review（consecutive_fail_count >= 3）為 true 就停下問使用者，不要自動重跑**，false 才依根因回工程師或分析師。\n" +
       "- sync_flags（analysis_stale / implementation_stale）為 true=01/02/03 有同步債，**接手前先還清**。\n" +
       "- external_changes（*_externally_modified，每次現場重算雜湊）為 true=檔案被外部改過，summaries 與 sync_flags 可能過期，**要 read_ticket_artifact 讀全文**；確認無誤後用 resync_ticket_artifact 同步。\n" +
+      "- test_evidence 是精簡摘要（筆數、整體 test_level、每筆 featureName/fileKind/testLevel/usesFakeData/pendingManualScreenshot）；pending_manual_screenshot>0 代表有 Excel 證據等使用者截圖。完整紀錄在 status.json 與 test-evidence/ 資料夾。\n" +
       "- nextAction：程式依上述狀態算出的下一步（summary／blockedBy／suggestedTools），與工具實際把關一致，優先照它做。",
     { taskGid: z.string().describe("Asana 任務 gid") },
     async ({ taskGid }) => {
@@ -252,8 +255,13 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       const externalChanges = await detectExternalChanges(taskGid, status);
       const syncFlags = computeSyncFlags(status);
       const sasd = await sasdForStatus(status);
+      const evidenceSummary = summarizeTestEvidence(status);
+      const stale = status.test_evidence.length > 0 ? await findStaleEvidenceBackups(status, await resolveTicketDir(taskGid)).catch(() => []) : [];
       return textResult({
         ...status,
+        test_evidence: stale.length > 0
+          ? { ...evidenceSummary, stale_old_backups: { count: stale.length, paths: stale, hint: "有未清理的舊備份，請關閉開啟中的檔案後重新呼叫 record_test_evidence（同功能名稱與原檔名）" } }
+          : evidenceSummary,
         sync_flags: syncFlags,
         needs_human_review: needsHumanReview(status),
         external_changes: externalChanges,
@@ -446,6 +454,12 @@ export function registerTicketLifecycleTools(server: McpServer): void {
             true
           );
         }
+      }
+
+      // tested：每張票都要有測試證據與 testLevel；宣告有產出 Excel/PDF 時還要有 excel/pdf 證據。
+      if (stage === "tested") {
+        const reason = checkTestEvidenceForTested(await readStatus(taskGid));
+        if (reason) return textResult({ success: false, message: reason }, true);
       }
 
       // 這張票目前卡在 sd_drafted（sdMode: "self-generated"）的話，規格草稿必須先經過使用者確認，才能繼續往下推進——

@@ -8,12 +8,20 @@ import {
   recordArtifactSummary,
   recordStageSync,
   recordManualActions,
+  resolveTicketDir,
   detectSensitiveManualActions,
   NO_SYNC_NEEDED,
 } from "./pipeline-store.js";
 import { checkAnalysisGates, checkImplementationGates } from "./project-gates.js";
 import { syncPendingActionsReport } from "./pending-actions-sync.js";
 import { textResult } from "./shared.js";
+import {
+  TEST_LEVELS,
+  checkTestEvidenceForArtifact,
+  mergeEvidenceManualActions,
+  pendingScreenshotActions,
+  recordTestDeclaration,
+} from "./test-evidence-store.js";
 
 export function registerTicketArtifactTools(server: McpServer): void {
   server.tool(
@@ -23,6 +31,9 @@ export function registerTicketArtifactTools(server: McpServer): void {
       "寫 01-analysis.md 前必須已呼叫 record_sasd_check，且需通過專案 gates.json（<projectDir>/.pipeline/gates.json）的分析關卡（寫 02-implementation.md 亦有實作關卡），否則拒絕並說明缺什麼。" +
       "寫 01–04 都要帶 summary（2-4 條重點）；寫 01-analysis.md 會清掉 needs_reanalysis 標記。" +
       `寫 02/03/04 必填 syncNote（對上一階段有無修正；沒有就帶 "${NO_SYNC_NEEDED}"）與 manualActions（需使用者手動處理的事項，沒有帶 []），缺少會被拒絕。` +
+      "**寫 04-test.md 另必填 producesOfficeFiles（這次測試有沒有產出 Excel/PDF）與 testLevel（unit-mock｜integration-db｜live-api，必須等於證據中最高層級）**；" +
+      "每張票都要先用 record_test_evidence 記錄至少 1 筆測試證據，content 要有標題含「測試證據」的一節、提及每筆證據的功能名稱與 testLevel 字串；producesOfficeFiles=true 時另需至少 1 筆 excel/pdf 證據，缺少會被拒絕。" +
+      "尚待使用者截圖的 Excel 證據會自動併入 manualActions（不需自己寫）。" +
       "寫入後自動局部重寫該 Asana 專案的 PENDING_HUMAN_ACTIONS.html。",
     {
       taskGid: z.string().describe("Asana 任務 gid"),
@@ -51,8 +62,18 @@ export function registerTicketArtifactTools(server: McpServer): void {
           "02/03/04 必填（陣列）。列出需使用者手動處理的事項（例如「已產出 SQL，見內文，需自行到 Database 工具執行」；04-test.md 則是 needs_manual_check 項目）；沒有就帶 []。" +
             "檔案還沒 commit 時另列一條固定格式「已完成但尚未commit：檔名A、檔名B」（含「commit」二字與帶副檔名的檔名），Git 板塊只認這格式。"
         ),
+      producesOfficeFiles: z
+        .boolean()
+        .nullable()
+        .optional()
+        .describe("filename 是 04-test.md 時必填：這次測試有沒有產出 Excel/PDF？有就帶 true（需至少 1 筆 excel/pdf 測試證據），沒有帶 false。其他 filename 忽略。"),
+      testLevel: z
+        .enum(TEST_LEVELS)
+        .nullable()
+        .optional()
+        .describe("filename 是 04-test.md 時必填：整體測試層級 unit-mock（依賴全 mock）｜integration-db（連真實資料庫）｜live-api（打真實運行中的服務），必須等於 test_evidence 中最高的層級。其他 filename 忽略。"),
     },
-    async ({ taskGid, filename, content, summary, syncNote, manualActions }) => {
+    async ({ taskGid, filename, content, summary, syncNote, manualActions, producesOfficeFiles, testLevel }) => {
       if (filename === "01-analysis.md") {
         const status = await readStatus(taskGid);
         if (!status.sasd_checked) {
@@ -120,6 +141,42 @@ export function registerTicketArtifactTools(server: McpServer): void {
         }
       }
 
+      // 04-test.md：測試證據關卡，通過後把仍待使用者截圖的 Excel 證據自動併入 manualActions。
+      let finalManualActions = manualActions;
+      if (filename === "04-test.md") {
+        if (typeof producesOfficeFiles !== "boolean") {
+          return textResult(
+            {
+              success: false,
+              message: "寫入 04-test.md 必須帶 producesOfficeFiles：這次測試有沒有產出 Excel/PDF？有就帶 true，沒有帶 false，不能省略。",
+            },
+            true
+          );
+        }
+        if (!testLevel) {
+          return textResult(
+            {
+              success: false,
+              message: `寫入 04-test.md 必須帶 testLevel（${TEST_LEVELS.join("｜")}）：unit-mock＝依賴全是 mock；integration-db＝有連真實資料庫；live-api＝打真實運行中的服務。要等於證據中最高層級。`,
+            },
+            true
+          );
+        }
+        const status = await readStatus(taskGid);
+        const reason = checkTestEvidenceForArtifact(status, { content, testLevel, producesOfficeFiles });
+        if (reason) return textResult({ success: false, message: reason }, true);
+        const ticketDir = await resolveTicketDir(taskGid);
+        const hits = detectSensitiveManualActions(pendingScreenshotActions(status, ticketDir));
+        if (hits.length > 0) {
+          return textResult(
+            { success: false, message: "自動產生的待截圖待辦疑似含敏感內容，請檢查證據的功能名稱（featureName）是否夾帶憑證或 SQL，改名後用 record_test_evidence 重新記錄。" },
+            true
+          );
+        }
+        finalManualActions = mergeEvidenceManualActions(manualActions!, status, ticketDir);
+        await recordTestDeclaration(taskGid, producesOfficeFiles, testLevel);
+      }
+
       if (filename === "02-implementation.md") {
         const status = await readStatus(taskGid);
         if (status.project_dir) {
@@ -134,7 +191,7 @@ export function registerTicketArtifactTools(server: McpServer): void {
 
       if (needsSyncNote) {
         await recordStageSync(taskGid, filename as "02-implementation.md" | "03-verification.md" | "04-test.md", syncNote!.trim());
-        await recordManualActions(taskGid, filename as "02-implementation.md" | "03-verification.md" | "04-test.md", manualActions!);
+        await recordManualActions(taskGid, filename as "02-implementation.md" | "03-verification.md" | "04-test.md", finalManualActions!);
       }
 
       await writeArtifact(taskGid, filename, content);

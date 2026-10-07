@@ -123,8 +123,8 @@ function verifierStep(): Step {
 
 function testerStep(): Step {
   return {
-    text: "測試工程師：寫 04-test.md（必填 syncNote 與 manualActions）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）",
-    tools: ["get_role_prompt({role:\"tester\"})", "get_test_engineer_guide", "write_ticket_artifact", "advance_ticket_stage"],
+    text: "測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）",
+    tools: ["get_role_prompt({role:\"tester\"})", "get_test_engineer_guide", "record_test_evidence", "write_ticket_artifact", "advance_ticket_stage"],
   };
 }
 
@@ -226,6 +226,8 @@ export function computeNextAction(status: TicketStatus, ctx: NextActionContext =
   parts.push(`目前 stage=${status.stage}${status.verdict ? `、verdict=${status.verdict}` : ""}。下一步：${step.text}。`);
   const manualCount = countManualActions(status);
   if (manualCount > 0) parts.push(`另有 ${manualCount} 項手動待辦等使用者處理（resolve_manual_action）。`);
+  const pendingShots = (status.test_evidence ?? []).filter((e) => e.pendingManualScreenshot).length;
+  if (pendingShots > 0) parts.push(`有 ${pendingShots} 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。`);
 
   let summary = parts.join("");
   if (summary.length > MAX_SUMMARY_LENGTH) summary = `${summary.slice(0, MAX_SUMMARY_LENGTH - 1)}…`;

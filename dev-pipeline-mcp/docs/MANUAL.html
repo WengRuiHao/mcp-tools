@@ -365,7 +365,7 @@
 
   <section id="tools" class="reveal">
     <h2><span class="num">06</span> 工具總覽</h2>
-    <p class="kicker">總共 59 個工具，分成幾大類。每一類點開來看，裡面有實際的工具名稱（給負責設定的工程師對照用）跟白話說明——大多數情況下你不需要知道這些名字，AI 助理會自己判斷該呼叫哪一個。</p>
+    <p class="kicker">總共 60 個工具，分成幾大類。每一類點開來看，裡面有實際的工具名稱（給負責設定的工程師對照用）跟白話說明——大多數情況下你不需要知道這些名字，AI 助理會自己判斷該呼叫哪一個。</p>
 
     <div class="cat-list">
       <details class="cat" open>
@@ -400,7 +400,7 @@
           <div class="tool-row"><code>list_rule_history</code> / <code>restore_rule_file</code><span>查看與還原專案規則檔的歷史版本（改壞或誤刪時救回來）</span></div>
           <div class="tool-row"><code>get_ticket_snapshot</code><span>抓票單內容＋留言，子任務會自動偵測父票單</span></div>
           <div class="tool-row"><code>advance_ticket_stage</code><span>推進到下一個階段，記錄 PASS/FAIL 跟原因</span></div>
-          <div class="tool-row"><code>write_ticket_artifact</code> / <code>read_ticket_artifact</code><span>讀寫分析/實作/驗證/測試四份追蹤文件</span></div>
+          <div class="tool-row"><code>write_ticket_artifact</code> / <code>read_ticket_artifact</code><span>讀寫分析/實作/驗證/測試四份追蹤文件；寫測試文件（04-test.md）時要先有測試證據、並宣告測試層級，缺少會被拒絕</span></div>
         </div>
       </details>
 
@@ -444,7 +444,8 @@
         <div class="cat-body">
           <div class="example"><b>可以這樣問：</b>（設定一次即可）</div>
           <div class="tool-row"><code>resolve_test_capability</code> / <code>register_test_capability</code><span>這個專案能不能寫自動化測試、用哪套工具鏈</span></div>
-          <div class="tool-row"><code>get_test_engineer_guide</code><span>測試工程師的完整檢查清單</span></div>
+          <div class="tool-row"><code>get_test_engineer_guide</code><span>測試工程師的完整檢查清單（第五章是測試證據的做法）</span></div>
+          <div class="tool-row"><code>record_test_evidence</code><span>把測試證據備份到票單資料夾的 test-evidence/（每張票至少一筆）。證據可以是 API 呼叫原文、測試報告、資料庫前後狀態、Excel、PDF，每筆只存一個檔案，並標明功能名稱與測試層級（unit-mock＝全用模擬；integration-db＝連真實資料庫；live-api＝打真實服務）。截圖必須來自實際檔案：PDF 由程式逐頁轉圖；Excel 這台機器無法真實渲染，所以會標記「待你截圖」並自動出現在待辦，你截圖放進同一資料夾後請 AI 補登。用了假資料會在檔案本身標註「【測試假資料，非正式資料】」（Excel 為紅字粗體大字），檔名加「_假資料」、資料夾加「【假資料】」前綴，一眼就能看出不是真實資料，也不會另存一份「原始檔」；舊版備份若被 Excel 開著刪不掉，不會影響登記，關閉後再請 AI 重新登記一次就會清掉；Token／密碼沒遮蔽的文字證據會被拒絕</span></div>
           <div class="tool-row"><code>resolve_legacy_test_profile</code> / <code>register_legacy_test_profile</code><span>查詢/登記要不要套用「老舊系統測試」章節（只有你明確告知才會登記，不自動偵測）</span></div>
         </div>
       </details>

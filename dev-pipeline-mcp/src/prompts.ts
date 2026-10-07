@@ -242,9 +242,20 @@ ${PROMPT_DEFENSE_BASELINE}
 
 **只有 \`verified_fail\` 才影響這張票的整體結論**：只要有任一項 \`verified_fail\`，整體判 \`FAIL\`；\`verified_pass\`/\`needs_manual_check\` 不管有多少項，都不影響整體判 \`PASS\`——\`needs_manual_check\` 的項目只是帶到人類最終確認那一關給使用者看，不是拿來卡關用的。
 
-輸出：呼叫 \`write_ticket_artifact({ taskGid, filename: "04-test.md", content, summary, syncNote, manualActions })\`：
+**測試證據（每張票都要，規則不可省略；做法細節見 \`get_test_engineer_guide\` 第五章）**：
+- 先用 \`record_test_evidence\` 把測試證據備份進票單追蹤目錄（\`test-evidence/<功能名稱>/\`），**每張票至少 1 筆**；沒有證據，\`write_ticket_artifact\` 寫 04-test.md 與 \`advance_ticket_stage\` 推進到 tested 都會被擋。
+- **測試層級 \`testLevel\`（每筆證據必填，04-test.md 也要宣告整體層級）**：\`unit-mock\`＝依賴全是 mock；\`integration-db\`＝有連真實資料庫；\`live-api\`＝打真實運行中的服務。層級由低到高 unit-mock < integration-db < live-api，宣告的整體層級必須等於證據中最高者，不可灌水或低報。**只有 \`unit-mock\` 就不得宣稱已驗證真實資料庫或真實 API。**
+- 證據類型 \`fileKind\`：\`api-call\`（從真實呼叫擷取的原文：method、URL、request、HTTP 狀態、response、耗時，例如 \`curl -i\` 或測試框架實際輸出，**禁止手寫或憑記憶改寫 response**）、\`test-report\`（備份 build/test-results 實際報告檔，並在 04-test.md 記錄通過/失敗數）、\`db-state\`（用 db-mcp 的 \`db_query\`（唯讀）把測試前後的 SELECT 結果存檔）、\`excel\`、\`pdf\`。
+- **機密一律遮蔽成 \`****\`**（Authorization/Bearer token、JWT、password/secret/api key/token、連線字串帳密）；工具會掃描文字類證據，命中就拒絕並回報檔名與行號。
+- **Excel/PDF 證據**：1) 截圖必須來自實際產出檔案的真實渲染；**禁止用 Python/HTML 重畫、依公式推算的畫面當截圖**。2) PDF 用 PyMuPDF（\`pymupdf\`）把實際 PDF 逐頁轉 PNG 當截圖（全自動）；裝不到 PyMuPDF 就比照 Excel 走人工截圖，不得用其他方式代替。3) Excel 沒有 Excel／LibreOffice 可渲染，**不要自己產生假截圖**：只備份證據檔，工具會標記「待使用者截圖」並在寫 04-test.md 時自動加待辦，使用者截圖後放進同一資料夾（或再呼叫 \`record_test_evidence\` 補登）。
+- **每筆證據只存一個檔案，假資料要一眼看得出來**：真實資料存成 \`<原檔名>.<副檔名>\`；假資料存成 \`<原檔名>_假資料.<副檔名>\` 並放進 \`【假資料】<功能名稱>\` 資料夾（截圖 \`<原檔名>_假資料_截圖_N\`）。**不再另存原始檔**：假資料的 excel/pdf 只存 \`markedFile\`，\`sourceFile\` 只在 status.json 記路徑與 sha256；同一筆（功能名稱＋原檔名）再次呼叫會把舊格式備份（\`_原始\`、\`_假資料標註\`）換成新命名並刪除舊檔。
+- **假資料標註**：用了假資料就在證據本身標註固定文字 \`【測試假資料，非正式資料】\`。Excel：在副本（\`markedFile\`）寫入**紅字、粗體、字級 14 以上**的標註，放在截圖第一眼看得到的位置（前 5 列內第一個完全空白的列，緊貼表格上方或下方，或前 5 列內某列最後一個資料格右邊的空白格；**不要放到遠離資料的欄**），只寫空白儲存格、**不得更動任何既有儲存格與合併範圍**；PDF：在副本每頁加斜向浮水印；截圖用標註後的副本；呼叫時帶 \`markedFile\` 與 \`fakeDataMarked: true\`。\`api-call\`／\`db-state\` 則 sourceFile 第一個非空白行就要是這段文字（工具會讀檔驗證，不需 markedFile）；\`test-report\` 不改檔內容，只靠檔名、資料夾與記錄標示。範例程式見 \`get_test_engineer_guide\` 第五章。
+- 流程：測試產出證據 → 假資料先標註 → PDF 用 PyMuPDF 渲染 → \`record_test_evidence\` → 04-test.md 加一節標題含「測試證據」的內容（表格：功能名稱｜資料來源（假資料／真實資料）｜測試層級｜檔案類型｜證據檔位置（單一檔案）｜截圖｜備註；每筆證據的功能名稱與宣告的 testLevel 字串都要出現，有假資料證據時資料來源欄要寫「假資料」），並在 \`write_ticket_artifact\` 帶 \`producesOfficeFiles\`（有產出 Excel/PDF 才帶 true，且需至少 1 筆 excel/pdf 證據）與 \`testLevel\`。
+
+輸出：呼叫 \`write_ticket_artifact({ taskGid, filename: "04-test.md", content, summary, syncNote, manualActions, producesOfficeFiles, testLevel })\`：
 - \`content\`（繁體中文）：第一行只寫整體 \`PASS\` 或 \`FAIL\`，接著逐項列出這次套用的每個測試項目、分類（\`verified_pass\`/\`verified_fail\`/\`needs_manual_check\`）、依據或理由。\`verified_fail\` 的項目要具體引用證據（哪個輸入/情境、實際結果 vs 預期結果），不能籠統帶過。
 - \`summary\`：整體結論 + 一句話理由。
+- \`producesOfficeFiles\`（**必填**）與 \`testLevel\`（**必填**）：見上方「測試證據」；缺少或與證據不符會被拒絕寫入。尚待使用者截圖的 Excel 證據會自動併入 manualActions，不用自己寫。
 - \`syncNote\`（**必填，不能省略**）：這次測試有沒有發現 \`03-verification.md\` 記錄的內容跟實際不一致？有就寫這裡，會自動附加到 \`03-verification.md\` 尾端；沒有就明確帶入字串 \`"NO_SYNC_NEEDED"\`，不能留空跳過。
 - \`manualActions\`（**必填，陣列，可以是空陣列**）：**把這次所有 \`needs_manual_check\` 項目放進這裡**（每項一條簡短字串，具體寫清楚要測什麼），這是它們唯一會被使用者看到的地方——不要只寫在 \`content\` 裡指望使用者自己重讀全文找。沒有的話帶空陣列 \`[]\`。需要使用者複製貼上的內容（測試資料、指令…）比照工程師階段的約定：寫在 \`content\` 裡帶 \`manual:標題\` 標記的程式碼區塊，報告會自動顯示成可展開、可複製的區塊。
 

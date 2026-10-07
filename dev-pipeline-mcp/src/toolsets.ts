@@ -8,6 +8,7 @@ import { registerBridgeTools } from "./bridge-tools.js";
 import { registerProjectFsTools } from "./project-fs-tools.js";
 import { registerTicketLifecycleTools } from "./ticket-lifecycle-tools.js";
 import { registerTicketArtifactTools } from "./ticket-artifact-tools.js";
+import { registerTestEvidenceTools } from "./test-evidence-tools.js";
 import { registerWorktreeTools } from "./worktree-tools.js";
 import { registerGitHookTools } from "./git-hooks-tools.js";
 import { registerRuleHistoryTools } from "./rule-history-tools.js";
@@ -36,6 +37,7 @@ export function registerAllTools(server: McpServer, disabledToolsets: ReadonlySe
   registerProjectFsTools(server);
   registerTicketLifecycleTools(server);
   registerTicketArtifactTools(server);
+  registerTestEvidenceTools(server);
   if (!disabledToolsets.has("worktree")) {
     registerWorktreeTools(server);
     registerGitHookTools(server);

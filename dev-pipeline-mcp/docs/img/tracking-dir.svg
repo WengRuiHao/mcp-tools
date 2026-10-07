@@ -16,7 +16,7 @@
   <path d="M 84 230 L 84 268 L 96 268" fill="none" stroke="#2a2620" stroke-width="1.6" marker-end="url(#trackingdirmain)"/>
   <rect x="98" y="242" width="382" height="52" rx="10" fill="#dbe9ea" stroke="#2b6777" stroke-opacity="1"/>
   <text x="112" y="264" text-anchor="start" font-family="'IBM Plex Mono',sans-serif" font-size="12.5" fill="#17414c" font-weight="700">&lt;票號&gt;/</text>
-  <text x="112" y="283" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">01～04 追蹤檔、status.json 都在這裡</text>
+  <text x="112" y="283" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">01～04 追蹤檔、status.json、test-evidence/ 都在這裡</text>
   <path d="M 110 294 L 110 332 L 122 332" fill="none" stroke="#2a2620" stroke-width="1.6" marker-end="url(#trackingdirmain)"/>
   <rect x="124" y="306" width="356" height="52" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
   <text x="138" y="328" text-anchor="start" font-family="'IBM Plex Mono',sans-serif" font-size="12.5" fill="#2a2620" font-weight="700">&lt;子票號&gt;/ …</text>

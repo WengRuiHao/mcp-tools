@@ -22,7 +22,7 @@ const EXPECTED_TOOLS = [
   "get_sd_spec_versioning_rules", "get_test_engineer_guide", "get_ticket_activity", "get_ticket_snapshot", "get_ticket_status",
   "get_worktree_status", "install_git_hooks", "join_ticket_worktree", "list_pending_tickets", "list_project_dir",
   "list_rule_history", "list_worktrees", "merge_ticket_worktree", "read_project_file", "read_project_sd_doc",
-  "read_ticket_artifact", "record_confirmation", "record_sasd_check", "record_spec_confirmation", "register_default_project",
+  "read_ticket_artifact", "record_confirmation", "record_sasd_check", "record_spec_confirmation", "record_test_evidence", "register_default_project",
   "register_git_roots", "register_legacy_test_profile", "register_project_dir", "register_sasd_config", "register_svn_workcopies", "register_test_capability",
   "relocate_ticket_project", "request_reanalysis", "resolve_default_project", "resolve_git_roots", "resolve_legacy_test_profile",
   "resolve_manual_action", "resolve_project_dir", "resolve_sasd_config", "resolve_svn_workcopies", "resolve_test_capability", "restore_rule_file",
@@ -58,10 +58,10 @@ test("parseDisabledToolsets: unknown names are reported once, undefined/empty me
 });
 
 test("registerAllTools: tool counts by disabled group", async () => {
-  assert.equal((await listToolsWith()).length, 59);
-  assert.equal((await listToolsWith(["worktree"])).length, 51);
-  assert.equal((await listToolsWith(["bridge"])).length, 50);
-  assert.equal((await listToolsWith(["worktree", "bridge"])).length, 42);
+  assert.equal((await listToolsWith()).length, 60);
+  assert.equal((await listToolsWith(["worktree"])).length, 52);
+  assert.equal((await listToolsWith(["bridge"])).length, 51);
+  assert.equal((await listToolsWith(["worktree", "bridge"])).length, 43);
 });
 
 test("registerAllTools: each group removes exactly its own tools", async () => {
