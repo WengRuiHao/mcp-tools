@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-label="svn-edit 說明圖：不用手動 checkout，就能編輯 SVN 上的單一檔案（docx、xlsx、md、txt）。流程六步：一、你在控制頁選好要編輯的檔案（用瀏覽 SVN 目錄選，或從 dev-pipeline 報告頁的連結進來）；二、svn-edit 把這一個檔案取到暫存資料夾，Word 和 Excel 檔會先在 SVN 上鎖定，避免別人同時修改；三、你用 Word、Excel 等熟悉的軟體修改並存檔、關閉；四、按上傳時自動做四道檢查：Word 或 Excel 還開著就擋下、內容沒有變就擋下、沒填說明就擋下、遠端在你編輯期間被別人更新就擋下（不會蓋掉對方，可以下載最新版另存比對）；五、通過檢查才提交回 SVN；六、自動清掉暫存資料夾並解除鎖定。另外也可以隨時放棄（解鎖並清掉暫存）；電腦當機後重開，還找得到沒做完的編輯可以繼續上傳或放棄；也可以直接把本機檔案新增到 SVN，Word 和 Excel 檔會自動設定成編輯前需先鎖定。所有寫入都只有你在網頁上按按鈕才會發生，AI 沒有任何能改動 SVN 的工具；服務只綁本機 127.0.0.1，每個動作都留稽核紀錄。">
+  <defs>
+    <marker id="seArrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#6b6558"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="800" fill="#f6f2e8"/>
+
+  <g font-family="'Noto Sans TC',sans-serif">
+    <text x="40" y="52" font-size="26" font-weight="700" fill="#2a2620">svn-edit：不用 checkout，直接編輯 SVN 上的檔案</text>
+    <text x="40" y="82" font-size="15" fill="#6b6558">用你熟悉的 Word、Excel 改，圖片、流程圖、公式都不會走樣；改完一鍵傳回 SVN，暫存檔與鎖定自動清乾淨。</text>
+  </g>
+
+  <!-- 六個步驟 -->
+  <g font-family="'Noto Sans TC',sans-serif">
+    <g>
+      <rect x="40" y="112" width="168" height="150" rx="10" fill="#eef3ea" stroke="#8aa981"/>
+      <circle cx="64" cy="136" r="13" fill="#345c39"/><text x="64" y="141" font-size="14" font-weight="700" fill="#f6f2e8" text-anchor="middle">1</text>
+      <text x="84" y="141" font-size="16" font-weight="700" fill="#345c39">選檔案</text>
+      <text x="56" y="172" font-size="13.5" fill="#345c39">在控制頁「瀏覽 SVN</text>
+      <text x="56" y="192" font-size="13.5" fill="#345c39">目錄」點選；或從</text>
+      <text x="56" y="212" font-size="13.5" fill="#345c39">dev-pipeline 報告頁</text>
+      <text x="56" y="232" font-size="13.5" fill="#345c39">的連結進來</text>
+    </g>
+    <path d="M210 187 H228" stroke="#6b6558" stroke-width="2" marker-end="url(#seArrow)"/>
+    <g>
+      <rect x="230" y="112" width="168" height="150" rx="10" fill="#eef3ea" stroke="#8aa981"/>
+      <circle cx="254" cy="136" r="13" fill="#345c39"/><text x="254" y="141" font-size="14" font-weight="700" fill="#f6f2e8" text-anchor="middle">2</text>
+      <text x="274" y="141" font-size="16" font-weight="700" fill="#345c39">取出到暫存</text>
+      <text x="246" y="172" font-size="13.5" fill="#345c39">只取這一個檔案，</text>
+      <text x="246" y="192" font-size="13.5" fill="#345c39">不用整個 checkout；</text>
+      <text x="246" y="212" font-size="13.5" fill="#345c39">Word、Excel 檔先在</text>
+      <text x="246" y="232" font-size="13.5" fill="#345c39">SVN 上「鎖定」</text>
+    </g>
+    <path d="M400 187 H418" stroke="#6b6558" stroke-width="2" marker-end="url(#seArrow)"/>
+    <g>
+      <rect x="420" y="112" width="168" height="150" rx="10" fill="#eef3ea" stroke="#8aa981"/>
+      <circle cx="444" cy="136" r="13" fill="#345c39"/><text x="444" y="141" font-size="14" font-weight="700" fill="#f6f2e8" text-anchor="middle">3</text>
+      <text x="464" y="141" font-size="16" font-weight="700" fill="#345c39">你來編輯</text>
+      <text x="436" y="172" font-size="13.5" fill="#345c39">自動用預設程式打開</text>
+      <text x="436" y="192" font-size="13.5" fill="#345c39">（Word、Excel…），</text>
+      <text x="436" y="212" font-size="13.5" fill="#345c39">改完存檔、關閉</text>
+    </g>
+    <path d="M590 187 H608" stroke="#6b6558" stroke-width="2" marker-end="url(#seArrow)"/>
+    <g>
+      <rect x="610" y="112" width="168" height="150" rx="10" fill="#f6ecd4" stroke="#c9a24a"/>
+      <circle cx="634" cy="136" r="13" fill="#8a6a1c"/><text x="634" y="141" font-size="14" font-weight="700" fill="#f6f2e8" text-anchor="middle">4</text>
+      <text x="654" y="141" font-size="16" font-weight="700" fill="#8a6a1c">按「上傳」</text>
+      <text x="626" y="172" font-size="13.5" fill="#8a6a1c">先自動做四道檢查</text>
+      <text x="626" y="192" font-size="13.5" fill="#8a6a1c">（見下方），任何一道</text>
+      <text x="626" y="212" font-size="13.5" fill="#8a6a1c">沒過就不會傳，你的</text>
+      <text x="626" y="232" font-size="13.5" fill="#8a6a1c">修改還在，不會遺失</text>
+    </g>
+    <path d="M780 187 H798" stroke="#6b6558" stroke-width="2" marker-end="url(#seArrow)"/>
+    <g>
+      <rect x="800" y="112" width="168" height="150" rx="10" fill="#eef3ea" stroke="#8aa981"/>
+      <circle cx="824" cy="136" r="13" fill="#345c39"/><text x="824" y="141" font-size="14" font-weight="700" fill="#f6f2e8" text-anchor="middle">5</text>
+      <text x="844" y="141" font-size="16" font-weight="700" fill="#345c39">提交回 SVN</text>
+      <text x="816" y="172" font-size="13.5" fill="#345c39">用你填的說明當</text>
+      <text x="816" y="192" font-size="13.5" fill="#345c39">commit 訊息，成為</text>
+      <text x="816" y="212" font-size="13.5" fill="#345c39">SVN 上的一個新版本</text>
+    </g>
+    <path d="M970 187 H988" stroke="#6b6558" stroke-width="2" marker-end="url(#seArrow)"/>
+    <g>
+      <rect x="990" y="112" width="170" height="150" rx="10" fill="#eef3ea" stroke="#8aa981"/>
+      <circle cx="1014" cy="136" r="13" fill="#345c39"/><text x="1014" y="141" font-size="14" font-weight="700" fill="#f6f2e8" text-anchor="middle">6</text>
+      <text x="1034" y="141" font-size="16" font-weight="700" fill="#345c39">自動清理</text>
+      <text x="1006" y="172" font-size="13.5" fill="#345c39">刪掉暫存資料夾，</text>
+      <text x="1006" y="192" font-size="13.5" fill="#345c39">SVN 上的鎖定一併</text>
+      <text x="1006" y="212" font-size="13.5" fill="#345c39">解除，不留任何殘渣</text>
+    </g>
+  </g>
+
+  <!-- 四道檢查 -->
+  <g font-family="'Noto Sans TC',sans-serif">
+    <text x="40" y="312" font-size="19" font-weight="700" fill="#2a2620">按「上傳」時的四道檢查——任何一道沒過，都不會傳，修改也不會丟</text>
+    <rect x="40" y="328" width="268" height="132" rx="10" fill="#f6ecd4" stroke="#c9a24a"/>
+    <text x="58" y="358" font-size="16" font-weight="700" fill="#8a6a1c">① Word／Excel 還開著</text>
+    <text x="58" y="384" font-size="13.5" fill="#8a6a1c">偵測到檔案還沒關閉就擋下，</text>
+    <text x="58" y="404" font-size="13.5" fill="#8a6a1c">避免傳到存到一半的檔案。</text>
+    <text x="58" y="434" font-size="13" fill="#6b6558">→ 先存檔並關閉，再按上傳</text>
+
+    <rect x="326" y="328" width="268" height="132" rx="10" fill="#f6ecd4" stroke="#c9a24a"/>
+    <text x="344" y="358" font-size="16" font-weight="700" fill="#8a6a1c">② 內容完全沒變</text>
+    <text x="344" y="384" font-size="13.5" fill="#8a6a1c">跟開啟時一模一樣就擋下，</text>
+    <text x="344" y="404" font-size="13.5" fill="#8a6a1c">不會產生一筆空的版本紀錄。</text>
+    <text x="344" y="434" font-size="13" fill="#6b6558">→ 改完並存檔後再按上傳</text>
+
+    <rect x="612" y="328" width="268" height="132" rx="10" fill="#f6ecd4" stroke="#c9a24a"/>
+    <text x="630" y="358" font-size="16" font-weight="700" fill="#8a6a1c">③ 沒有填上傳說明</text>
+    <text x="630" y="384" font-size="13.5" fill="#8a6a1c">說明是版本紀錄的一部分，</text>
+    <text x="630" y="404" font-size="13.5" fill="#8a6a1c">一定要寫。從票單進來會</text>
+    <text x="630" y="424" font-size="13.5" fill="#8a6a1c">自動預填票號。</text>
+
+    <rect x="898" y="328" width="262" height="132" rx="10" fill="#f6dcd8" stroke="#c0675c"/>
+    <text x="916" y="358" font-size="16" font-weight="700" fill="#8e3a30">④ 遠端被別人改過了</text>
+    <text x="916" y="384" font-size="13.5" fill="#8e3a30">你編輯期間有人傳了新版本，</text>
+    <text x="916" y="404" font-size="13.5" fill="#8e3a30">一律不蓋掉對方（Word、Excel</text>
+    <text x="916" y="424" font-size="13.5" fill="#8e3a30">本來就無法自動合併）。</text>
+    <text x="916" y="448" font-size="13" fill="#6b6558">→ 可「下載最新版另存」手動比對</text>
+  </g>
+
+  <!-- 其他能力 -->
+  <g font-family="'Noto Sans TC',sans-serif">
+    <text x="40" y="508" font-size="19" font-weight="700" fill="#2a2620">還有這些</text>
+    <rect x="40" y="524" width="268" height="116" rx="10" fill="#ede8db" stroke="#cdc4ae"/>
+    <text x="58" y="552" font-size="16" font-weight="700" fill="#2a2620">放棄</text>
+    <text x="58" y="578" font-size="13.5" fill="#6b6558">不想改了？按兩次確認，會</text>
+    <text x="58" y="598" font-size="13.5" fill="#6b6558">解除鎖定並刪掉暫存資料夾。</text>
+
+    <rect x="326" y="524" width="268" height="116" rx="10" fill="#ede8db" stroke="#cdc4ae"/>
+    <text x="344" y="552" font-size="16" font-weight="700" fill="#2a2620">當機也不怕</text>
+    <text x="344" y="578" font-size="13.5" fill="#6b6558">編輯到一半電腦當機，重開後</text>
+    <text x="344" y="598" font-size="13.5" fill="#6b6558">還找得到，可繼續上傳或放棄，</text>
+    <text x="344" y="618" font-size="13.5" fill="#6b6558">不會被自己的鎖卡住。</text>
+
+    <rect x="612" y="524" width="268" height="116" rx="10" fill="#ede8db" stroke="#cdc4ae"/>
+    <text x="630" y="552" font-size="16" font-weight="700" fill="#2a2620">新增檔案到 SVN</text>
+    <text x="630" y="578" font-size="13.5" fill="#6b6558">選本機檔案直接加進去，不會</text>
+    <text x="630" y="598" font-size="13.5" fill="#6b6558">覆蓋已有的；Word、Excel 檔</text>
+    <text x="630" y="618" font-size="13.5" fill="#6b6558">自動設成「編輯前需先鎖定」。</text>
+
+    <rect x="898" y="524" width="262" height="116" rx="10" fill="#ede8db" stroke="#cdc4ae"/>
+    <text x="916" y="552" font-size="16" font-weight="700" fill="#2a2620">瀏覽 SVN 目錄</text>
+    <text x="916" y="578" font-size="13.5" fill="#6b6558">逐層點進資料夾找檔案，不用</text>
+    <text x="916" y="598" font-size="13.5" fill="#6b6558">記路徑；只讀取，不會改動</text>
+    <text x="916" y="618" font-size="13.5" fill="#6b6558">任何東西。</text>
+  </g>
+
+  <!-- 底部說明 -->
+  <rect x="40" y="664" width="1120" height="112" rx="10" fill="#e6efe2" stroke="#8aa981"/>
+  <g font-family="'Noto Sans TC',sans-serif">
+    <text x="60" y="694" font-size="15.5" font-weight="700" fill="#345c39">這些寫入動作只有「你在網頁上按按鈕」才會發生，AI 助理沒有任何能改動 SVN 的工具。</text>
+    <text x="60" y="720" font-size="14" fill="#345c39">svn-edit 是獨立的本機程式（只接受這台電腦自己連線），沒有註冊成 AI 能呼叫的工具；每次開啟、上傳、放棄、新增都會留一筆稽核紀錄。</text>
+    <text x="60" y="744" font-size="14" fill="#345c39">每個人用自己的 SVN 帳號（鎖定是綁帳號的，才分得出是誰在編輯）；連線設定跟 svn-mcp 的查詢工具共用同一份，只存在自己的電腦上。</text>
+    <text x="60" y="766" font-size="13" fill="#6b6558">需要電腦上有 svn 命令列工具（TortoiseSVN 安裝時勾選 command line client tools）。</text>
+  </g>
+</svg>

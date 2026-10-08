@@ -1,6 +1,6 @@
 # svn-mcp
 
-讓 AI 助理幫你查 SVN 上的程式碼跟規格文件：有哪些檔案、檔案內容長怎樣、改過什麼、跟上一版差在哪。**對 SVN 本身完全唯讀**，不會幫你改動或刪除任何東西。直接執行本機的 `svn` CLI，不依賴 claudeweb 或任何網站服務——stdio 工具（下表）跟 claudeweb 完全無關。
+讓 AI 助理幫你查 SVN 上的程式碼跟規格文件：有哪些檔案、檔案內容長怎樣、改過什麼、跟上一版差在哪。**AI 助理能呼叫的工具對 SVN 完全唯讀**，不會幫你改動或刪除任何東西。直接執行本機的 `svn` CLI，不依賴 claudeweb 或任何網站服務——stdio 工具（下表）跟 claudeweb 完全無關。另外附一個**給人用的網頁編輯器 `svn-edit`**（見下方「遠端單一檔案編輯」一節）：它的寫入動作只有使用者在網頁上按按鈕才會發生，**AI 沒有任何工具能碰到**。
 
 ## 這是怎麼運作的
 
@@ -79,6 +79,8 @@
 ## 遠端單一檔案編輯：svn-edit（不是 MCP 工具，AI 碰不到）
 
 讓使用者不用手動 checkout，就能把 SVN 上的一個檔案（`.docx`／`.xlsx`／`.md`／`.txt`）取到暫存資料夾、用本機的 Word／Excel／編輯器改完，再上傳回 SVN。設計文件見 [docs/svn-edit-design.md](docs/svn-edit-design.md)。
+
+![svn-edit 流程：選檔案 → 取到暫存區（Word／Excel 先鎖定）→ 用 Word／Excel 修改 → 上傳前自動四道檢查（檔案還開著、內容沒變、沒填說明、遠端被別人改過）→ 提交回 SVN → 自動清理解鎖；另有放棄、當機復原、新增檔案、瀏覽 SVN 目錄](docs/img/svn-edit-flow.svg)
 
 - **核心**：`src/remote-edit-client.ts`（開啟、上傳、放棄、當機復原、衝突時另存最新版），跟 `workcopy-client.ts` 一樣**刻意沒有註冊成任何 MCP 工具**，`tests/read-only-surface.test.mjs` 會檢查 `index.ts`／`*-tools.ts` 不得引用。
 - **入口**：`svn-edit` 本機服務（`src/edit-main.ts` → 打包成 `dist-exe/svn-edit.exe`），只綁 `127.0.0.1`，預設埠 `8096`。控制頁在 `http://127.0.0.1:8096/`；dev-pipeline 網頁按鈕只需要開啟 `http://127.0.0.1:8096/edit?connection=<連線名稱>&path=<遠端路徑>&ticket=<票號>`，服務會先顯示確認頁，使用者按「開始編輯」才真的取出檔案（GET 永遠不會改動任何狀態）。

@@ -323,6 +323,11 @@
       </div>
     </div>
     <p class="kicker" style="margin-top:16px">
+      <b>規格書放在 SVN 上的專案，頁面最上方還會多一個「編輯 SVN 上的規格書」連結</b>（它不是待辦事項，所以不算在上面七種裡）。
+      點下去會打開 <code class="mono">svn-edit</code> 的頁面並自動展開規格書資料夾，你可以挑一份規格書，用 Word／Excel 直接改，改完一鍵傳回 SVN——不用自己 checkout。
+      這個連結<b>只負責帶你過去</b>，要在那個頁面按「開始編輯」才會真的取出檔案；AI 一樣碰不到這些寫入動作。AI 自己撰寫 SD 的專案（SD 是電腦上的本機檔案）不會出現這個連結。
+    </p>
+    <p class="kicker" style="margin-top:12px">
       要打勾生效，電腦上要有一個「小幫手程式」在背景執行（工程師會事先設定好）；沒開的話網頁上方會出現黃色提醒，內容仍然是最新的，只是按了沒有用。
     </p>
     <p class="kicker" style="margin-top:12px">
@@ -577,12 +582,17 @@
       <p>指令輸出太長時，系統會保留開頭和結尾（錯誤訊息通常在結尾），中間省略並寫出省略了多少字；讀檔太大時也會明確提示被截斷，AI 可以再指定行數範圍讀其餘部分。不會悄悄漏掉。</p>
     </div>
     <div class="faq-item">
+      <h3>待人工處理清單上方沒有「編輯 SVN 上的規格書」連結，或點了打不開？</h3>
+      <p>沒出現的常見原因：這個專案的 SD 是 AI 自己撰寫的（放在電腦本機，不在 SVN 上）、專案沒有登記 SVN 連線，或專案底下的票單還沒有記錄所屬專案（要先讓 AI 處理過一次票單才會補上）。換新的 Claude Code 對話後第一次重新整理清單，也才會載入這個功能。
+         點了打不開，是因為 svn-edit 沒有在跑：連上 svn-mcp 的 Claude Code 對話會自動啟動它，也可以直接雙擊 svn-mcp 資料夾裡 <code>dist-exe</code> 的 <code>svn-edit.exe</code>。</p>
+    </div>
+    <div class="faq-item">
       <h3>AI 寫完的程式碼會自動上傳到公司的版本系統嗎？</h3>
       <p>會不會 commit（存進版本紀錄）由 AI 依情況決定，但<b>一律不會自動 push（推上去給別人看到）</b>——推不推上去、什麼時候推，永遠由你自己決定。</p>
     </div>
   </section>
 
-  <footer>dev-pipeline-mcp 使用手冊 · 最後更新 2026-10-01</footer>
+  <footer>dev-pipeline-mcp 使用手冊 · 最後更新 2026-10-08</footer>
 </div>
 
 <script>

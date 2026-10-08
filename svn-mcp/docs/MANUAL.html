@@ -235,6 +235,7 @@
     <a href="#connections">多組連線</a>
     <a href="#tools">工具總覽</a>
     <a href="#docflow">讀規格書的流程</a>
+    <a href="#edit">編輯 SVN 檔案</a>
     <a href="#scenarios">實際範例</a>
     <a href="#faq">常見問題</a>
   </nav>
@@ -246,7 +247,8 @@
       現在你可以直接用中文跟 AI 助理說「幫我看某份規格書寫了什麼」，AI 助理會透過 <b>svn-mcp</b> 這個工具直接執行電腦上的 <code>svn</code> 指令把資料抓回來，整理成看得懂的白話文回答你。
     </p>
     <p class="kicker" style="margin-top:-6px">
-      這個工具<b>對 SVN 完全唯讀</b>，不會幫你改動或刪除任何東西，也不依賴任何額外的網站服務——直接呼叫電腦上已經裝好的 <code>svn</code> 程式，斷網、斷服務都不影響它查資料。
+      AI 助理用的這組查詢工具<b>對 SVN 完全唯讀</b>，不會幫你改動或刪除任何東西，也不依賴任何額外的網站服務——直接呼叫電腦上已經裝好的 <code>svn</code> 程式，斷網、斷服務都不影響它查資料。
+      另外有一個<b>給你自己用的網頁編輯器 svn-edit</b>（見第 06 節），可以直接編輯 SVN 上的檔案；它的寫入動作只有你在網頁上按按鈕才會發生，<b>AI 助理碰不到</b>。
     </p>
   </section>
 
@@ -359,8 +361,47 @@
     </div>
   </section>
 
+  <section id="edit" class="reveal">
+    <h2><span class="num">06</span> 直接編輯 SVN 上的檔案（svn-edit）</h2>
+    <p class="kicker">
+      除了查詢，你也可以<b>不用自己 checkout</b>，直接把 SVN 上的某一份檔案（Word、Excel、md、txt）取出來、用你熟悉的軟體修改，改完一鍵傳回 SVN。
+      這是一個獨立的小程式 <b>svn-edit</b>，在你自己的電腦上開一個網頁（<code>http://127.0.0.1:8096</code>）讓你操作。用的是真正的 Word／Excel，所以圖片、流程圖、公式都不會走樣。
+    </p>
+    <div class="diagram-card">
+      <div class="flow-steps">
+        <div class="flow-step"><div class="badge">👆</div><div class="label">在網頁上<br/>選檔案</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">💾</div><div class="label">取到暫存區<br/>Word／Excel 先鎖定</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">✏️</div><div class="label">用 Word／Excel<br/>修改並關閉</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">✅</div><div class="label">按上傳<br/>自動四道檢查</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">📤</div><div class="label">傳回 SVN<br/>自動清理、解鎖</div></div>
+      </div>
+    </div>
+    <p class="kicker" style="margin-top:16px">
+      <b>怎麼開始：</b>雙擊 <code>svn-edit.exe</code>（或由工程師設定成連上 svn-mcp 時自動啟動），瀏覽器會打開控制頁。第一次使用先在頁面下方的「連線設定」填你自己的 SVN 帳號密碼。
+      接著可以用「瀏覽 SVN 目錄」逐層點進資料夾選檔案，或是從 dev-pipeline 待人工處理清單上方的「編輯 SVN 上的規格書」連結直接進來。
+    </p>
+    <div class="conn-grid">
+      <div class="conn-card"><span class="id">檢查 ①</span><h3>檔案還開著</h3><p>Word／Excel 還沒關就按上傳，會被擋下，避免傳到存到一半的檔案。</p></div>
+      <div class="conn-card"><span class="id">檢查 ②</span><h3>內容沒有變</h3><p>跟開啟時一模一樣就不會上傳，不會產生空的版本紀錄。</p></div>
+      <div class="conn-card"><span class="id">檢查 ③</span><h3>沒填上傳說明</h3><p>說明是版本紀錄的一部分一定要寫；從票單進來會自動預填票號。</p></div>
+      <div class="conn-card"><span class="id">檢查 ④</span><h3>遠端被別人改過</h3><p>你編輯期間有人傳了新版本，一律不蓋掉對方；可以「下載最新版另存」手動比對。</p></div>
+    </div>
+    <div class="conn-grid" style="margin-top:12px">
+      <div class="conn-card"><span class="id">功能</span><h3>放棄</h3><p>不想改了，按兩次確認就會解除鎖定、刪掉暫存資料夾。</p></div>
+      <div class="conn-card"><span class="id">功能</span><h3>當機復原</h3><p>編輯到一半電腦當機，重開 svn-edit 還找得到，可繼續上傳或放棄，不會被自己的鎖卡住。</p></div>
+      <div class="conn-card"><span class="id">功能</span><h3>新增檔案</h3><p>選一個本機檔案直接加進 SVN（不會覆蓋已有的）；Word、Excel 檔會自動設成「編輯前需先鎖定」。</p></div>
+    </div>
+    <p class="kicker" style="margin-top:16px">
+      <b>需要準備：</b>電腦上要有 <code>svn</code> 命令列工具（安裝 TortoiseSVN 時勾選 command line client tools）；請用<b>你自己的 SVN 帳號</b>——SVN 的「鎖定」是綁帳號的，這樣才分得出是誰正在編輯同一份檔案。
+    </p>
+  </section>
+
   <section id="scenarios" class="reveal">
-    <h2><span class="num">06</span> 實際範例</h2>
+    <h2><span class="num">07</span> 實際範例</h2>
     <p class="kicker">幾個常見情境，示範怎麼問、AI 助理在背後做了什麼。</p>
 
     <div class="scenario">
@@ -389,11 +430,12 @@
   </section>
 
   <section id="faq" class="reveal">
-    <h2><span class="num">07</span> 常見問題</h2>
+    <h2><span class="num">08</span> 常見問題</h2>
 
     <div class="faq-item">
       <h3>這個工具會不會不小心改到或刪除 SVN 上的東西？</h3>
-      <p>不會。所有工具都只查詢、不寫入，SVN 上的檔案、修訂紀錄都不會被更動。</p>
+      <p>AI 助理用的查詢工具<b>不會</b>：它們都只查詢、不寫入，AI 沒有任何能改動 SVN 的工具。
+         第 06 節的 svn-edit 是另一個獨立的小程式，只有<b>你自己在網頁上按按鈕</b>才會寫入，而且每次都要你填上傳說明、通過檢查才會送出，每個動作都留稽核紀錄。</p>
     </div>
     <div class="faq-item">
       <h3>為什麼有時候 AI 助理會問我要用哪個連線？</h3>
@@ -407,9 +449,25 @@
       <h3>如果連不上 SVN 或指令逾時怎麼辦？</h3>
       <p>可以先用「測試連線連不連得上」這個工具確認，常見原因是網路/VPN 沒開、帳號密碼過期，或連線設定的網址打錯。</p>
     </div>
+    <div class="faq-item">
+      <h3>按「上傳」卻說 Word 還開著，但我明明關了？</h3>
+      <p>Word、Excel 關閉的瞬間有時還來不及清掉它的暫存標記檔，稍等幾秒再按一次即可。如果還是不行，確認沒有其他視窗或背景程式還開著這個檔案。</p>
+    </div>
+    <div class="faq-item">
+      <h3>上傳時說「遠端已經被別人更新」，我的修改會不見嗎？</h3>
+      <p>不會。你的修改還在暫存資料夾裡。可以按「下載最新版另存」取得對方的版本，手動比對、把需要的內容合在一起，再重新上傳。Word、Excel 這類檔案無法自動合併，所以系統寧可擋下，也不會蓋掉別人的修改。</p>
+    </div>
+    <div class="faq-item">
+      <h3>開啟時說「檔案已被某某鎖定」怎麼辦？</h3>
+      <p>代表那位同事正在編輯同一份 Word／Excel，請等對方上傳或放棄後再試。如果顯示的是<b>你自己的帳號</b>，通常是上次編輯沒有正常結束留下的鎖，請先看控制頁有沒有殘留的編輯項目可以處理，或到 TortoiseSVN 手動解除鎖定。</p>
+    </div>
+    <div class="faq-item">
+      <h3>同事也要用的話，要怎麼設定？</h3>
+      <p>每位同事在自己的電腦上準備好 svn 命令列工具，打開 svn-edit 控制頁，在「連線設定」填<b>自己的</b> SVN 帳號密碼就能用（設定只存在各自的電腦上）。請不要共用同一個 SVN 帳號，否則鎖定就分不出是誰在編輯。</p>
+    </div>
   </section>
 
-  <footer>svn-mcp 使用手冊 · 最後更新 2026-09-17</footer>
+  <footer>svn-mcp 使用手冊 · 最後更新 2026-10-08</footer>
 </div>
 
 <script>
