@@ -68,7 +68,7 @@ const OFFICE_LOCK_FILE_PREFIX = "~$";
 
 // ---- 同一個工作副本的操作排隊 ----
 const queues = new Map<string, Promise<unknown>>();
-function withWcLock<T>(wcAbs: string, task: () => Promise<T>): Promise<T> {
+export function withWcLock<T>(wcAbs: string, task: () => Promise<T>): Promise<T> {
   const key = wcAbs.toLowerCase();
   const previous = queues.get(key) ?? Promise.resolve();
   const next = previous.catch(() => undefined).then(task);
@@ -119,7 +119,7 @@ export function resolveInsideWorkCopy(wcAbs: string, relPath: unknown): string {
 }
 
 /** svn 指令的路徑參數若含 `@` 會被當成 peg revision，結尾補一個 `@` 讓它當作純路徑。 */
-function pegSafe(absPath: string): string {
+export function pegSafe(absPath: string): string {
   return absPath.includes("@") ? `${absPath}@` : absPath;
 }
 
@@ -296,7 +296,7 @@ export interface WcCommitResult {
  * commit message 一律寫成 UTF-8 暫存檔再用 -F 傳給 svn：Windows 上經由命令列參數（-m）傳中文，會先被轉成系統
  * 預設字碼頁，svn 再當成 UTF-8 驗證就會報 "svn:log ... not encoded in UTF-8"。
  */
-async function commitWithMessage(conn: SvnConnection, message: string, targets: string[]): Promise<Buffer> {
+export async function commitWithMessage(conn: SvnConnection, message: string, targets: string[]): Promise<Buffer> {
   const dir = await mkdtemp(path.join(os.tmpdir(), "svn-mcp-msg-"));
   const messageFile = path.join(dir, "message.txt");
   try {

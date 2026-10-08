@@ -59,7 +59,7 @@ function assertSafeSubPath(subPath: string): void {
   }
 }
 
-function buildFullUrl(baseUrl: string, subPath: string): string {
+export function buildFullUrl(baseUrl: string, subPath: string): string {
   if (!subPath) return baseUrl;
   assertSafeSubPath(subPath);
   return `${baseUrl.replace(/\/+$/, "")}/${subPath.replace(/^\/+/, "")}`;

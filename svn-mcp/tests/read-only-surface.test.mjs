@@ -1,4 +1,4 @@
-// 「AI 只能讀、不能寫 SVN」的契約：工作副本的寫入函式（workcopy-client）不能被任何 MCP 工具註冊或引用。
+// 「AI 只能讀、不能寫 SVN」的契約：寫入類模組（workcopy-client、remote-edit-client）不能被任何 MCP 工具註冊或引用。
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -29,12 +29,13 @@ test("the registered MCP tools are exactly the read-only set", async () => {
   }
 });
 
-test("no MCP entrypoint or tool file references the work copy write module", () => {
+test("no MCP entrypoint or tool file references the SVN write modules", () => {
   const srcDir = path.resolve(import.meta.dirname, "..", "src");
   const entrypoints = fs.readdirSync(srcDir).filter((f) => f === "index.ts" || f.endsWith("-tools.ts"));
   assert.ok(entrypoints.length >= 4);
   for (const file of entrypoints) {
     const text = fs.readFileSync(path.join(srcDir, file), "utf-8");
     assert.doesNotMatch(text, /workcopy-client/, `${file} 不能引用 workcopy-client（會讓 AI 拿到寫入 SVN 的能力）`);
+    assert.doesNotMatch(text, /remote-edit-client/, `${file} 不能引用 remote-edit-client（會讓 AI 拿到寫入 SVN 的能力）`);
   }
 });

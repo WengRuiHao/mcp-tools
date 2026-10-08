@@ -12,7 +12,10 @@
     "start": "node dist/index.js",
     "start:http": "node dist/http-server.js",
     "dev": "tsc -p tsconfig.json --watch",
-    "test": "npm run build && node --test"
+    "test": "npm run build && node --test",
+    "start:edit": "node dist/edit-main.js",
+    "bundle:edit": "esbuild src/edit-main.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/svn-edit.bundle.cjs --define:import.meta.url=undefined --log-level=warning",
+    "build:exe": "npm run bundle:edit && pkg dist/svn-edit.bundle.cjs --targets node22-win-x64 --output dist-exe/svn-edit.exe"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
@@ -20,6 +23,8 @@
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
+    "@yao-pkg/pkg": "^6.23.0",
+    "esbuild": "^0.28.2",
     "typescript": "^5.5.0"
   }
 }
