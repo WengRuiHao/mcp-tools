@@ -8,6 +8,8 @@ import { resolveHttpBridgePort } from "./http-bridge-config.js";
 import { getBridgeToken } from "./bridge-token.js";
 import { CREDENTIAL_PATTERN } from "./sensitive-patterns.js";
 import { getSvnReportData, type SvnReportData, type SvnWorkCopySummary, type WcEntry } from "./svn-workcopy-bridge.js";
+import { resolveSasdConfig } from "./project-registry.js";
+import { buildSvnEditLink, renderSvnEditSection, type SvnEditLink } from "./svn-edit-link.js";
 
 export interface TicketSummaries {
   analysis: string | null;
@@ -1395,6 +1397,23 @@ function renderTemplate(template: string, tokens: Record<string, string | number
   return template.replace(/\{\{(\w+)\}\}/g, (match, key) => (key in tokens ? String(tokens[key]) : match));
 }
 
+/**
+ * 這個專案「規格書在 SVN 上」時，給報告頁用的 svn-edit 連結；不適用（沒登記設定、self-generated、沒有 SVN 連線）或查不到
+ * 都回傳 null——這只是方便性的連結，絕不能因為它查不到就讓整份報告寫不出來。
+ * 專案 ID 從這個專案底下任一張票的 project_gid 反查（舊票單要等下次 get_ticket_snapshot 才有），所以呼叫端不需要多傳參數。
+ */
+async function resolveProjectSvnEditLink(projectDir: string, projectName: string): Promise<SvnEditLink | null> {
+  try {
+    for (const gid of await listTicketsUnderProject(projectDir, projectName)) {
+      const projectGid = (await peekStatus(gid)).project_gid;
+      if (projectGid) return buildSvnEditLink(await resolveSasdConfig(projectGid));
+    }
+  } catch (err: any) {
+    console.error(`[dev-pipeline-mcp] resolveProjectSvnEditLink failed: ${err?.message ?? err}`);
+  }
+  return null;
+}
+
 export async function writePendingActionsReport(
   projectDir: string,
   projectName: string,
@@ -1422,6 +1441,7 @@ export async function writePendingActionsReport(
   const manualActionsCount = input.manualActions.reduce((sum, t) => sum + t.actions.length, 0);
   const manualBlocks = await loadManualBlocks(input.manualActions);
   const svnData = await getSvnReportData(projectDir);
+  const svnEditLink = await resolveProjectSvnEditLink(projectDir, projectName);
   const bridgeToken = await getBridgeToken();
   const bridgePort = resolveHttpBridgePort();
 
@@ -1459,6 +1479,7 @@ export async function writePendingActionsReport(
     GIT_SECTION: renderUncommittedSectionHtml(input.uncommittedChanges, numberMap),
     SVN_COUNT: svnData.workCopies.reduce((sum, wc) => sum + wc.entries.length, 0),
     SVN_SECTION: renderSvnSection(svnData),
+    SVN_EDIT_SECTION: renderSvnEditSection(svnEditLink),
     BRIDGE_TOKEN: escapeHtml(bridgeToken),
     PROJECT_DIR: escapeHtml(projectDir),
     PROJECT_FOLDER: escapeHtml(sanitizeSegment(projectName)),

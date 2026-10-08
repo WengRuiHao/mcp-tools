@@ -141,6 +141,8 @@
   <p class="meta">括號裡是票號（對照 Asana 上的單號用），偵測不到票號的極少數情況會退回顯示內部 taskGid。</p>
   <div id="bridge-banner">⚠ 連不到本機的 dev-pipeline-mcp HTTP bridge（<code>http://127.0.0.1:{{BRIDGE_PORT}}</code>），下面的勾選／確認按鈕暫時無法使用（內容仍然是最新的，純唯讀）。這個 bridge 會跟著任一個連上 <code>dev-pipeline-mcp</code> 的 Claude Code session 自動啟動——開一個 Claude Code session 連上這個 MCP（或在 <code>dev-pipeline-mcp</code> 目錄下手動執行 <code>npm run start:http</code>）後，重新整理這個頁面即可。</div>
 
+  {{SVN_EDIT_SECTION}}
+
   <section class="block">
     <h2>待確認規格草稿 <span class="count-badge">{{SPEC_DRAFT_COUNT}}</span></h2>
     <p class="meta">規格撰寫者已產出草稿，確認後工程師才能開始寫程式碼；打回的話請簡短說明哪裡要改。</p>
