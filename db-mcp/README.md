@@ -82,7 +82,7 @@ Project（建置案/翻修案）
 - `POST /query`（body：`{ connectionId, sql, params? }`，不含帳密，密碼由 db-mcp 自己查登記檔）
 - `POST /query-readonly`：給另一種「AI 呼叫但不走 stdio MCP 協定」的整合用，套用跟 stdio `db_query` 一樣的把關
 
-只監聽 `127.0.0.1`（`DB_MCP_BRIDGE_HOST` 可覆蓋），`DB_MCP_HTTP_PORT` 預設 `8096`，`DB_MCP_BRIDGE_TOKEN` 設了才會檢查 `Authorization: Bearer` header，沒設就只靠 host-binding。
+只監聽 `127.0.0.1`（`DB_MCP_BRIDGE_HOST` 可覆蓋），`DB_MCP_HTTP_PORT` 預設 `9096`，`DB_MCP_BRIDGE_TOKEN` 設了才會檢查 `Authorization: Bearer` header，沒設就只靠 host-binding。
 
 啟動：`npm run start:http`。
 

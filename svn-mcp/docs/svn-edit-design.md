@@ -178,7 +178,7 @@ dev-pipeline 的「待人工處理」報告頁面裡，**沒有「某張票對�
 
 ### P4 完成紀錄（2026-10-08）
 
-採用方案 (a)：dev-pipeline 的 `PENDING_HUMAN_ACTIONS.html` 上方多一個**專案層級**的「編輯 SVN 上的規格書」區塊，連到 `http://127.0.0.1:8096/?connection=<svnConnectionId>&browse=<sdRoot 或 saRoot>`。
+採用方案 (a)：dev-pipeline 的 `PENDING_HUMAN_ACTIONS.html` 上方多一個**專案層級**的「編輯 SVN 上的規格書」區塊，連到 `http://127.0.0.1:9097/?connection=<svnConnectionId>&browse=<sdRoot 或 saRoot>`。
 - 只在 `sdMode` 是 `external`／`self` 且登記了 `svnConnectionId` 的專案顯示；`self-generated`（SD 是本機檔案）不顯示。
 - 專案 ID 從專案底下任一張票的 `project_gid` 反查（舊票單要等下次 `get_ticket_snapshot` 才有），所以 `writePendingActionsReport` 的簽名完全沒變。
 - dev-pipeline-mcp 這邊只有 `src/svn-edit-link.ts`（組連結與區塊 HTML），沒有任何 SVN 邏輯，也沒有新增 MCP 工具或 bridge 端點。

@@ -18,10 +18,10 @@ const { buildSvnEditLink, renderSvnEditSection, resolveSvnEditPort } = await imp
 
 const cfg = (patch = {}) => ({ saRoot: "doc/sa", sdMode: "external", sdRoot: "doc/sd", sdOutputPath: null, svnConnectionId: "conn-1", specOrder: null, ...patch });
 
-test("external／self 專案：連結帶連線與起始目錄（sdRoot 優先），預設埠 8096", () => {
+test("external／self 專案：連結帶連線與起始目錄（sdRoot 優先），預設埠 9097", () => {
   delete process.env.SVN_EDIT_PORT;
   const link = buildSvnEditLink(cfg());
-  assert.equal(link.url, "http://127.0.0.1:8096/?connection=conn-1&browse=doc%2Fsd");
+  assert.equal(link.url, "http://127.0.0.1:9097/?connection=conn-1&browse=doc%2Fsd");
   assert.equal(link.connection, "conn-1");
   assert.equal(link.startDir, "doc/sd");
   assert.equal(buildSvnEditLink(cfg({ sdMode: "self" })).startDir, "doc/sd");
@@ -40,7 +40,7 @@ test("埠號跟著 SVN_EDIT_PORT；設定不合法就退回預設", () => {
   assert.match(buildSvnEditLink(cfg()).url, /^http:\/\/127\.0\.0\.1:9123\//);
   for (const bad of ["abc", "0", "-5", "70000", "80.5", ""]) {
     process.env.SVN_EDIT_PORT = bad;
-    assert.equal(resolveSvnEditPort(), 8096, `SVN_EDIT_PORT=${bad}`);
+    assert.equal(resolveSvnEditPort(), 9097, `SVN_EDIT_PORT=${bad}`);
   }
   delete process.env.SVN_EDIT_PORT;
 });
@@ -54,10 +54,10 @@ test("不適用的專案沒有連結：self-generated（SD 在本機）、unregi
 
 test("區塊 HTML：沒有連結回傳空字串；有連結時內容被跳脫、連結只用 &amp; 分隔參數", () => {
   assert.equal(renderSvnEditSection(null), "");
-  const html = renderSvnEditSection({ url: "http://127.0.0.1:8096/?connection=a&browse=b", connection: "<script>x</script>", startDir: "d\"q" });
+  const html = renderSvnEditSection({ url: "http://127.0.0.1:9097/?connection=a&browse=b", connection: "<script>x</script>", startDir: "d\"q" });
   assert.match(html, /id="svn-edit-section"/);
   assert.match(html, /dist-exe\/svn-edit\.exe/); // 路徑分隔符不能在範本字串裡被當成跳脫字元吃掉
-  assert.match(html, /href="http:\/\/127\.0\.0\.1:8096\/\?connection=a&amp;browse=b"/);
+  assert.match(html, /href="http:\/\/127\.0\.0\.1:9097\/\?connection=a&amp;browse=b"/);
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /&lt;script&gt;/);
   assert.match(html, /d&quot;q/);

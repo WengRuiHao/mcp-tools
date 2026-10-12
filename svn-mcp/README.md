@@ -51,11 +51,11 @@
 
 ## HTTP bridge（`src/http-server.ts`，給 claudeweb 用的獨立介面）
 
-跟上面的 stdio 工具是兩條完全不同的路——這是給 `claudeweb`（Java Web App，`C:\Tool\claudeweb`）依賴的持久化 HTTP 服務，讓它能對 `svn` CLI 下指令而不用自己重新實作一份。`claudeweb` 這邊透過 `svn.mcp.http.base`（預設 `http://localhost:8095`）呼叫，兩者設計上跑在同一台機器（`claudeweb` 會用 `ProcessBuilder` 直接在本機拉起 `dist-exe/svn-http-bridge.exe`）。
+跟上面的 stdio 工具是兩條完全不同的路——這是給 `claudeweb`（Java Web App，`C:\Tool\claudeweb`）依賴的持久化 HTTP 服務，讓它能對 `svn` CLI 下指令而不用自己重新實作一份。`claudeweb` 這邊透過 `svn.mcp.http.base`（預設 `http://localhost:9095`）呼叫，兩者設計上跑在同一台機器（`claudeweb` 會用 `ProcessBuilder` 直接在本機拉起 `dist-exe/svn-http-bridge.exe`）。
 
 | 變數 | 說明 | 預設值 |
 |---|---|---|
-| `SVN_MCP_HTTP_PORT` | 監聽的埠號 | `8095` |
+| `SVN_MCP_HTTP_PORT` | 監聽的埠號 | `9095` |
 | `SVN_BRIDGE_HOST` | 綁定的網路介面 | `127.0.0.1`（只接受本機連線） |
 | `SVN_BRIDGE_TOKEN` | 選配的共用密鑰，設定後 `POST /run` 要求 `Authorization: Bearer <token>` | 未設定（不驗證，僅靠 host 綁定防護） |
 
@@ -83,7 +83,7 @@
 ![svn-edit 流程：選檔案 → 取到暫存區（Word／Excel 先鎖定）→ 用 Word／Excel 修改 → 上傳前自動四道檢查（檔案還開著、內容沒變、沒填說明、遠端被別人改過）→ 提交回 SVN → 自動清理解鎖；另有放棄、當機復原、新增檔案、瀏覽 SVN 目錄](docs/img/svn-edit-flow.svg)
 
 - **核心**：`src/remote-edit-client.ts`（開啟、上傳、放棄、當機復原、衝突時另存最新版），跟 `workcopy-client.ts` 一樣**刻意沒有註冊成任何 MCP 工具**，`tests/read-only-surface.test.mjs` 會檢查 `index.ts`／`*-tools.ts` 不得引用。
-- **入口**：`svn-edit` 本機服務（`src/edit-main.ts` → 打包成 `dist-exe/svn-edit.exe`），只綁 `127.0.0.1`，預設埠 `8096`。控制頁在 `http://127.0.0.1:8096/`；dev-pipeline 網頁按鈕只需要開啟 `http://127.0.0.1:8096/edit?connection=<連線名稱>&path=<遠端路徑>&ticket=<票號>`，服務會先顯示確認頁，使用者按「開始編輯」才真的取出檔案（GET 永遠不會改動任何狀態）。
+- **入口**：`svn-edit` 本機服務（`src/edit-main.ts` → 打包成 `dist-exe/svn-edit.exe`），只綁 `127.0.0.1`，預設埠 `9097`。控制頁在 `http://127.0.0.1:9097/`；dev-pipeline 網頁按鈕只需要開啟 `http://127.0.0.1:9097/edit?connection=<連線名稱>&path=<遠端路徑>&ticket=<票號>`，服務會先顯示確認頁，使用者按「開始編輯」才真的取出檔案（GET 永遠不會改動任何狀態）。
 - **自動拉起**：svn-mcp 啟動時會先檢查 `/health`，沒有在跑就拉起 svn-edit（冪等，已在跑就略過）。Windows 上透過 PowerShell 的 `Start-Process` 建立，確保服務不會握著 svn-mcp 的 MCP 通訊管道；沒有使用 Claude Code 的人可以直接雙擊 `svn-edit.exe`。沒有任何進行中的編輯且閒置超過 30 分鐘會自動結束。
 - **連線設定**：與 svn-mcp 唯讀工具**共用同一份** `info/svn-connections.json`（`SVN_CONNECTIONS_FILE` 優先；執行檔預設讀「執行檔上一層」的 `info/`）。控制頁的「連線設定」可以新增、編輯連線，密碼不會再顯示出來，編輯時留空代表不變更。每位同事請使用自己的 SVN 帳號（SVN 的鎖是綁帳號的）。
 - **瀏覽 SVN 目錄**：控制頁的「瀏覽 SVN 目錄」卡片可以逐層點進資料夾，點可編輯的檔案（docx、xlsx、md、txt）就跳到確認頁，同事不用記路徑。完全唯讀（只用 `svn list`）。API 是 `GET /api/browse?connection=…&path=…`。網址帶 `?connection=<連線名稱>&browse=<起始目錄>&ticket=<票號>` 進入控制頁會自動展開並載入該目錄，票號會一路帶到確認頁、預填 commit 訊息，dev-pipeline 的按鈕只需要組出這種連結。
@@ -92,7 +92,7 @@
 
 | 變數 | 說明 | 預設值 |
 |---|---|---|
-| `SVN_EDIT_PORT` | svn-edit 監聽的埠號 | `8096` |
+| `SVN_EDIT_PORT` | svn-edit 監聽的埠號 | `9097` |
 | `SVN_EDIT_TEMP_DIR` | 編輯項目的暫存資料夾（含稽核紀錄 `audit.log`） | `%TEMP%\svn-edit` |
 | `SVN_EDIT_IDLE_MINUTES` | 沒有進行中的編輯且閒置多久後自動結束（0 代表不結束） | `30` |
 | `SVN_EDIT_AUTOSTART` | 設成 `0` 可關閉 svn-mcp 啟動時自動拉起 svn-edit | 開啟 |

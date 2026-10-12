@@ -19,7 +19,7 @@ const HEALTH_TIMEOUT_MS = 800;
 const LAUNCHER_WAIT_MS = 30_000;
 
 function getPort(): number {
-  return Number(process.env.SVN_EDIT_PORT) || 8096;
+  return Number(process.env.SVN_EDIT_PORT) || 9097;
 }
 
 /** 這個埠上跑的是不是 svn-edit（打 /health 並檢查回應內容，埠被別的東西占用不算）。 */

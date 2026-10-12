@@ -29,7 +29,7 @@ import { getDriver } from "./db-client.js";
 import { openSchemaDb, replaceSchemaSnapshot, readCachedSchema } from "./schema-cache.js";
 import { checkReadOnly } from "./readonly-gate.js";
 
-const PORT = Number(process.env.DB_MCP_HTTP_PORT) || 8096;
+const PORT = Number(process.env.DB_MCP_HTTP_PORT) || 9096;
 const HOST = process.env.DB_MCP_BRIDGE_HOST || "127.0.0.1";
 const AUTH_TOKEN = process.env.DB_MCP_BRIDGE_TOKEN || "";
 const MAX_BODY_BYTES = 5 * 1024 * 1024;

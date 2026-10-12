@@ -15,7 +15,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { execFile } from "node:child_process";
 
-const PORT = Number(process.env.SVN_MCP_HTTP_PORT) || 8095;
+const PORT = Number(process.env.SVN_MCP_HTTP_PORT) || 9095;
 const HOST = process.env.SVN_BRIDGE_HOST || "127.0.0.1";
 const AUTH_TOKEN = process.env.SVN_BRIDGE_TOKEN || "";
 const MAX_BODY_BYTES = 1 * 1024 * 1024; // request bodies are just {args, timeoutMs} — small

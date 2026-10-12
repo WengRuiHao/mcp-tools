@@ -5,7 +5,7 @@
  */
 import type { SasdConfig } from "./project-registry.js";
 
-const DEFAULT_SVN_EDIT_PORT = 8096;
+const DEFAULT_SVN_EDIT_PORT = 9097;
 
 export interface SvnEditLink {
   url: string;

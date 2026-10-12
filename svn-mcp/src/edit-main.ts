@@ -12,7 +12,7 @@ import { openUrl } from "./os-open.js";
 import { listEdits } from "./remote-edit-client.js";
 
 const HOST = "127.0.0.1";
-const PORT = Number(process.env.SVN_EDIT_PORT) || 8096;
+const PORT = Number(process.env.SVN_EDIT_PORT) || 9097;
 const IDLE_CHECK_MS = 60_000;
 const noOpen = process.argv.includes("--no-open");
 const idleMinutes = process.env.SVN_EDIT_IDLE_MINUTES === undefined ? 30 : Number(process.env.SVN_EDIT_IDLE_MINUTES);
