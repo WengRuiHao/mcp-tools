@@ -76,7 +76,7 @@ export function runSvn(
     execFile(
       "svn",
       fullArgs,
-      { timeout: timeoutMs, maxBuffer: 50 * 1024 * 1024, encoding: "buffer", env: extraEnv ? { ...process.env, ...extraEnv } : process.env },
+      { timeout: timeoutMs, maxBuffer: 50 * 1024 * 1024, encoding: "buffer", windowsHide: true, env: extraEnv ? { ...process.env, ...extraEnv } : process.env },
       (error, stdout, stderr) => {
         const stderrText = Buffer.isBuffer(stderr) ? stderr.toString("utf-8") : String(stderr ?? "");
         if (error) {

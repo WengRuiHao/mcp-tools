@@ -80,27 +80,27 @@
 
 讓使用者不用手動 checkout，就能把 SVN 上的一個檔案（`.docx`／`.xlsx`／`.md`／`.txt`）取到暫存資料夾、用本機的 Word／Excel／編輯器改完，再上傳回 SVN。設計文件見 [docs/svn-edit-design.md](docs/svn-edit-design.md)。
 
-![svn-edit 流程：選檔案 → 取到暫存區（Word／Excel 先鎖定）→ 用 Word／Excel 修改 → 上傳前自動四道檢查（檔案還開著、內容沒變、沒填說明、遠端被別人改過）→ 提交回 SVN → 自動清理解鎖；另有放棄、當機復原、新增檔案、瀏覽 SVN 目錄](docs/img/svn-edit-flow.svg)
+![svn-edit 流程：選檔案 → 取到暫存區（Word／Excel 先鎖定）→ 用 Word／Excel 修改 → 上傳前自動四道檢查（檔案還開著、內容沒變、沒填說明、遠端被別人改過）→ 提交回 SVN → 自動清理解鎖；另有放棄、當機復原、批次上傳檔案／資料夾、瀏覽 SVN 目錄](docs/img/svn-edit-flow.svg)
 
 - **核心**：`src/remote-edit-client.ts`（開啟、上傳、放棄、當機復原、衝突時另存最新版），跟 `workcopy-client.ts` 一樣**刻意沒有註冊成任何 MCP 工具**，`tests/read-only-surface.test.mjs` 會檢查 `index.ts`／`*-tools.ts` 不得引用。
-- **入口**：`svn-edit` 本機服務（`src/edit-main.ts` → 打包成 `dist-exe/svn-edit.exe`），只綁 `127.0.0.1`，預設埠 `9097`。控制頁在 `http://127.0.0.1:9097/`；dev-pipeline 網頁按鈕只需要開啟 `http://127.0.0.1:9097/edit?connection=<連線名稱>&path=<遠端路徑>&ticket=<票號>`，服務會先顯示確認頁，使用者按「開始編輯」才真的取出檔案（GET 永遠不會改動任何狀態）。
-- **自動拉起**：svn-mcp 啟動時會先檢查 `/health`，沒有在跑就拉起 svn-edit（冪等，已在跑就略過）。Windows 上透過 PowerShell 的 `Start-Process` 建立，確保服務不會握著 svn-mcp 的 MCP 通訊管道；沒有使用 Claude Code 的人可以直接雙擊 `svn-edit.exe`。沒有任何進行中的編輯且閒置超過 30 分鐘會自動結束。
+- **入口**：`svn-edit` 本機服務（`src/edit-main.ts` → 打包成 `dist-exe/svn-edit.exe`），只綁 `127.0.0.1`，預設埠 `9097`。手動雙擊執行檔會用 Edge 的「應用程式視窗」模式（`--app`，無網址列，使用專屬設定資料夾 `%LOCALAPPDATA%\SVN遠端編輯\edge`，找不到 Edge 退回預設瀏覽器）開出獨立的桌面視窗（`src/edit-window.ts`），視窗與 exe 都有專屬圖標（`assets/totoro.ico`）；已有實例在跑時會把既有視窗叫到最前面，不重複開。控制頁網址為 `http://127.0.0.1:9097/`；dev-pipeline 網頁按鈕只需要開啟 `http://127.0.0.1:9097/edit?connection=<連線名稱>&path=<遠端路徑>&ticket=<票號>`，服務會先顯示確認頁，使用者按「開始編輯」才真的取出檔案（GET 永遠不會改動任何狀態）。
+- **自動拉起**：svn-mcp 啟動時會先檢查 `/health`，沒有在跑就拉起 svn-edit（冪等，已在跑就略過）。Windows 上透過 PowerShell 的 `Start-Process` 建立，確保服務不會握著 svn-mcp 的 MCP 通訊管道；沒有使用 Claude Code 的人可以直接雙擊 `svn-edit.exe`。
 - **連線設定**：與 svn-mcp 唯讀工具**共用同一份** `info/svn-connections.json`（`SVN_CONNECTIONS_FILE` 優先；執行檔預設讀「執行檔上一層」的 `info/`）。控制頁的「連線設定」可以新增、編輯連線，密碼不會再顯示出來，編輯時留空代表不變更。每位同事請使用自己的 SVN 帳號（SVN 的鎖是綁帳號的）。
 - **瀏覽 SVN 目錄**：控制頁的「瀏覽 SVN 目錄」卡片可以逐層點進資料夾，點可編輯的檔案（docx、xlsx、md、txt）就跳到確認頁，同事不用記路徑。完全唯讀（只用 `svn list`）。API 是 `GET /api/browse?connection=…&path=…`。網址帶 `?connection=<連線名稱>&browse=<起始目錄>&ticket=<票號>` 進入控制頁會自動展開並載入該目錄，票號會一路帶到確認頁、預填 commit 訊息，dev-pipeline 的按鈕只需要組出這種連結。
-- **新增檔案**：控制頁的「新增檔案到 SVN」可以選一個本機檔案、指定遠端路徑（資料夾不存在會自動建立）後直接加進 SVN（`svn import`，不需要本機工作副本）。遠端已有同名檔案一律拒絕、不覆蓋；依副檔名自動設定屬性：docx／xlsx 設 `svn:needs-lock`（編輯前要先鎖定），md／txt 設 `svn:eol-style=native`。API 是 `POST /api/import?connection=…&path=…&message=…`，檔案內容放在請求本文（原始位元組，上限 50 MB）。
+- **上傳檔案／資料夾（批次）**：控制頁的「新增檔案到 SVN」可一次選多個檔案或整個資料夾（也能拖曳，資料夾連同子資料夾、保留資料夾名稱），指定遠端目的地（可直接輸入，或按「從 SVN 選擇」在右側面板點選資料夾；不存在會自動建立），**只產生一個 commit**（核心在 `src/remote-import-batch.ts`，同樣刻意不註冊成 MCP 工具）。網頁逐檔送到暫存區 → 預覽哪些是新增、哪些會覆蓋 → 使用者確認後才送出。遠端已有的同名檔案會更新成新版本（內容相同的不產生變更，SVN 有歷史可還原）；遠端版本比本機檔案新時會另外顯示警告，需再按「我確認，仍要覆蓋」。做法是只 checkout 目標目錄最近的已存在祖先（depth empty），再逐一 update 要覆蓋的檔案，目標目錄再大也不影響速度。依副檔名自動設定屬性：docx／xlsx 設 `svn:needs-lock`，md／txt 設 `svn:eol-style=native`。上限：單檔 50 MB、一次 3000 個檔案、總共 500 MB。API：`POST /api/import/start` → `POST /api/import/stage?batch=…&path=…`（檔案內容放請求本文，原始位元組）→ `POST /api/import/plan` → `POST /api/import/commit`（或 `POST /api/import/cancel` 放棄並清掉暫存）。舊的單檔 `POST /api/import?connection=…&path=…&message=…` 仍保留（遠端已有同名檔案拒絕、不覆蓋）。
 - **一次編輯的流程**：取出單一檔案到 `%TEMP%\svn-edit\<id>\`（docx、xlsx 預設先 `svn lock`）→ 用預設程式開啟 → 使用者改完按「上傳」。上傳前檢查：Word／Excel 暫存鎖定檔（`~$`）還在就拒絕、內容沒變就拒絕、commit 訊息不能空、**遠端在你開啟後被別人更新就拒絕**（不自動合併，可「下載最新版另存」手動比對）。
 
 | 變數 | 說明 | 預設值 |
 |---|---|---|
 | `SVN_EDIT_PORT` | svn-edit 監聽的埠號 | `9097` |
 | `SVN_EDIT_TEMP_DIR` | 編輯項目的暫存資料夾（含稽核紀錄 `audit.log`） | `%TEMP%\svn-edit` |
-| `SVN_EDIT_IDLE_MINUTES` | 沒有進行中的編輯且閒置多久後自動結束（0 代表不結束） | `30` |
+| `SVN_EDIT_IDLE_MINUTES` | 沒有進行中的編輯且閒置多久後自動結束（0 代表不結束） | 手動開視窗 `3`（視窗一關很快就結束）；svn-mcp 自動拉起 `30` |
 | `SVN_EDIT_AUTOSTART` | 設成 `0` 可關閉 svn-mcp 啟動時自動拉起 svn-edit | 開啟 |
 | `SVN_EDIT_NO_LAUNCH` | 設成 `1` 時不會真的開啟檔案或瀏覽器（自動化測試用） | 未設定 |
 
 安全邊界：只能操作連線 URL 底下的單一檔案（拒絕 `..`、完整 URL，以及 Windows 不允許的字元 `: * ? " < > |`）、副檔名白名單加大小上限（50 MB）；`Host` 必須是 `127.0.0.1`／`localhost`、`/api/*` 一律要每次啟動隨機產生的 token、有 `Origin` 就必須是自己；每次開啟／上傳／放棄都寫稽核紀錄（commit 訊息只記長度與前 80 字）；錯誤訊息不會洩漏帳密。
 
-打包：`npm run build:exe`（esbuild 打成單一 CJS，再用 `@yao-pkg/pkg` 產生 `dist-exe/svn-edit.exe`）。需要本機有 `svn` 命令列工具（TortoiseSVN 安裝時勾選 command line client tools），執行檔不隨附。
+打包：`npm run build:exe`（執行 `scripts/build-exe.mjs all`：esbuild 打成單一 CJS，再用 `@yao-pkg/pkg` 產生 `dist-exe/svn-edit.exe` 與 `dist-exe/svn-http-bridge.exe`，並用 `rcedit` 套上 `assets/totoro.ico` 圖標；`svn-edit.exe` 設為視窗程式，雙擊不會跳出黑色主控台）。只打其中一個：`node scripts/build-exe.mjs edit|bridge`。圖標由 `scripts/make-icons.py` 從 `assets/totoro-src.jpg` 產生。需要本機有 `svn` 命令列工具（TortoiseSVN 安裝時勾選 command line client tools），執行檔不隨附。
 
 ## 安裝
 

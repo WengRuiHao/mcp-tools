@@ -12,8 +12,10 @@ import { execFile } from "node:child_process";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { listPublicConnections, saveConnection, ConnectionInputError, type ConnectionInput } from "./connections-store.js";
+import { FAVICON_ICO_BASE64 } from "./edit-icon-data.js";
 import { renderPage } from "./edit-ui.js";
 import { openFile, revealFile } from "./os-open.js";
+import { cancelImport, commitImport, planImport, stageImportFile, startImportBatch } from "./remote-import-batch.js";
 import { browseRemote, commitEdit, discardEdit, EditError, exportLatest, getEditStatus, importNewFile, listEdits, openEdit, type EditErrorCode } from "./remote-edit-client.js";
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -52,6 +54,14 @@ function sendJson(res: ServerResponse, status: number, payload: unknown): void {
   res.end(body);
 }
 
+const FAVICON_ICO = Buffer.from(FAVICON_ICO_BASE64, "base64");
+
+/** 分頁／視窗圖標（多尺寸 ICO，系統依 DPI 選最清楚的一個）。只是靜態圖，不需要 token。 */
+function sendIcon(res: ServerResponse): void {
+  res.writeHead(200, { "Content-Type": "image/x-icon", "Content-Length": FAVICON_ICO.length, "Cache-Control": "public, max-age=3600" });
+  res.end(FAVICON_ICO);
+}
+
 function sendPage(res: ServerResponse, html: string): void {
   res.writeHead(200, {
     "Content-Type": "text/html; charset=utf-8",
@@ -59,7 +69,7 @@ function sendPage(res: ServerResponse, html: string): void {
     "Cache-Control": "no-store",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
-    "Content-Security-Policy": "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; frame-ancestors 'none'",
+    "Content-Security-Policy": "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'",
   });
   res.end(html);
 }
@@ -166,6 +176,11 @@ const API_POST: Record<string, ApiHandler> = {
     revealFile(result.path);
     return result;
   },
+  "/api/import/start": () => startImportBatch(),
+  "/api/import/plan": (body) => planImport({ batch: str(body, "batch"), connectionId: str(body, "connection") || undefined, targetDir: str(body, "targetDir") }),
+  "/api/import/commit": (body) =>
+    commitImport({ batch: str(body, "batch"), connectionId: str(body, "connection") || undefined, targetDir: str(body, "targetDir"), message: str(body, "message"), ticket: str(body, "ticket") || undefined }),
+  "/api/import/cancel": (body) => cancelImport(str(body, "batch")),
   "/api/connections": async (body) => ({ connection: await saveConnection(body as unknown as ConnectionInput) }),
 };
 
@@ -200,6 +215,7 @@ export function createEditServer(): EditServer {
 
     if (req.method === "GET" && route === "/health") return sendJson(res, 200, { ok: true, service: "svn-edit" });
     if (req.method === "GET" && (route === "/" || route === "/edit")) return sendPage(res, renderPage(token));
+    if (req.method === "GET" && route === "/favicon.ico") return sendIcon(res);
 
     if (!route.startsWith("/api/")) throw new HttpError(404, "not found");
     if (!tokenOk(req)) throw new HttpError(401, "unauthorized");
@@ -216,6 +232,12 @@ export function createEditServer(): EditServer {
       const q = url.searchParams;
       const result = await importNewFile({ connectionId: q.get("connection") || undefined, path: q.get("path") ?? "", content, message: q.get("message") ?? "", ticket: q.get("ticket") || undefined });
       return sendJson(res, 200, result);
+    }
+    if (req.method === "POST" && route === "/api/import/stage") {
+      // 批次上傳的單一檔案：內容是原始位元組，批次 id 與相對路徑放在查詢字串
+      const content = await readRawBody(req, MAX_UPLOAD_BYTES);
+      const mtime = Number(url.searchParams.get("mtime"));
+      return sendJson(res, 200, await stageImportFile(url.searchParams.get("batch"), url.searchParams.get("path"), content, Number.isFinite(mtime) && mtime > 0 ? mtime : undefined));
     }
     const handler = req.method === "POST" ? API_POST[route] : undefined;
     if (!handler) throw new HttpError(404, "not found");

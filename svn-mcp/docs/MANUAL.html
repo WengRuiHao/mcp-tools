@@ -381,7 +381,7 @@
       </div>
     </div>
     <p class="kicker" style="margin-top:16px">
-      <b>怎麼開始：</b>雙擊 <code>svn-edit.exe</code>（或由工程師設定成連上 svn-mcp 時自動啟動），瀏覽器會打開控制頁。第一次使用先在頁面下方的「連線設定」填你自己的 SVN 帳號密碼。
+      <b>怎麼開始：</b>雙擊 <code>svn-edit.exe</code>（或由工程師設定成連上 svn-mcp 時自動啟動），會開出一個獨立的「SVN 遠端編輯」桌面視窗（沒有網址列，關掉視窗服務很快就會自動結束）。第一次使用先在頁面下方的「連線設定」填你自己的 SVN 帳號密碼。
       接著可以用「瀏覽 SVN 目錄」逐層點進資料夾選檔案，或是從 dev-pipeline 待人工處理清單上方的「編輯 SVN 上的規格書」連結直接進來。
     </p>
     <div class="conn-grid">
@@ -393,7 +393,7 @@
     <div class="conn-grid" style="margin-top:12px">
       <div class="conn-card"><span class="id">功能</span><h3>放棄</h3><p>不想改了，按兩次確認就會解除鎖定、刪掉暫存資料夾。</p></div>
       <div class="conn-card"><span class="id">功能</span><h3>當機復原</h3><p>編輯到一半電腦當機，重開 svn-edit 還找得到，可繼續上傳或放棄，不會被自己的鎖卡住。</p></div>
-      <div class="conn-card"><span class="id">功能</span><h3>新增檔案</h3><p>選一個本機檔案直接加進 SVN（不會覆蓋已有的）；Word、Excel 檔會自動設成「編輯前需先鎖定」。</p></div>
+      <div class="conn-card"><span class="id">功能</span><h3>上傳檔案／資料夾</h3><p>一次選多個檔案或整個資料夾（也可以直接拖曳進來）傳到 SVN，只產生一個版本；遠端已有同名檔案時會先請你確認才更新成新版本，Word、Excel 新檔會自動設成「編輯前需先鎖定」。</p></div>
     </div>
     <p class="kicker" style="margin-top:16px">
       <b>需要準備：</b>電腦上要有 <code>svn</code> 命令列工具（安裝 TortoiseSVN 時勾選 command line client tools）；請用<b>你自己的 SVN 帳號</b>——SVN 的「鎖定」是綁帳號的，這樣才分得出是誰正在編輯同一份檔案。

@@ -9,7 +9,7 @@
 const http = require("http");
 const { execFile } = require("child_process");
 
-const PORT = Number(process.env.SVN_MCP_HTTP_PORT) || 8095;
+const PORT = Number(process.env.SVN_MCP_HTTP_PORT) || 9095;
 const MAX_BODY_BYTES = 1 * 1024 * 1024;
 const MAX_OUTPUT_BYTES = 50 * 1024 * 1024;
 

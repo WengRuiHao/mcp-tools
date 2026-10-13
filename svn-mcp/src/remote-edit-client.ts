@@ -27,11 +27,18 @@ import { commitWithMessage, pegSafe, withWcLock } from "./workcopy-client.js";
 export const ALLOWED_EXTENSIONS: ReadonlySet<string> = new Set(["docx", "xlsx", "md", "txt"]);
 /** 無法自動合併的格式，預設開啟時就上鎖，避免兩個人同時改。 */
 export const LOCK_EXTENSIONS: ReadonlySet<string> = new Set(["docx", "xlsx"]);
-const MAX_FILE_BYTES = 50 * 1024 * 1024;
-const MAX_COMMIT_MESSAGE_LENGTH = 4000;
+export const MAX_FILE_BYTES = 50 * 1024 * 1024;
+export const MAX_COMMIT_MESSAGE_LENGTH = 4000;
 const LONG_OPERATION_TIMEOUT_MULTIPLIER = 10;
 /** Word／Excel 是 `~$`，LibreOffice 是 `.~lock.`；暫存資料夾裡只有一個被編輯的檔案，出現這些就代表還開著。 */
 const EDITOR_LOCK_PREFIXES = ["~$", ".~lock."];
+/**
+ * Word／Excel／LibreOffice 開著文件時自動產生的暫存標記檔（`~$xxx.docx`、`.~lock.xxx#`）。它們不是文件本身，
+ * 偶爾會被人用 TortoiseSVN 連資料夾一起誤提交進 SVN；瀏覽時要標示出來，也不能被開啟編輯或新增。
+ */
+export function isEditorTempFile(fileName: string): boolean {
+  return EDITOR_LOCK_PREFIXES.some((prefix) => fileName.startsWith(prefix));
+}
 const SESSION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export type EditErrorCode =
@@ -152,7 +159,7 @@ export async function listEdits(): Promise<EditSession[]> {
 
 // ---- 稽核紀錄 ----
 
-async function audit(record: Record<string, unknown>): Promise<void> {
+export async function audit(record: Record<string, unknown>): Promise<void> {
   try {
     const dir = getEditBaseDir();
     await mkdir(dir, { recursive: true });
@@ -162,14 +169,14 @@ async function audit(record: Record<string, unknown>): Promise<void> {
   }
 }
 
-function describeMessage(message: string | undefined): Record<string, unknown> {
+export function describeMessage(message: string | undefined): Record<string, unknown> {
   return message === undefined ? {} : { messagePreview: message.slice(0, 80), messageLength: message.length };
 }
 
 // ---- 輔助 ----
 
 /** 連線解析失敗（沒指定連線而有多個、找不到名稱）是呼叫端的輸入問題，統一轉成 INVALID_INPUT，不要變成 500。 */
-async function resolveConn(connectionId?: string): Promise<SvnConnection> {
+export async function resolveConn(connectionId?: string): Promise<SvnConnection> {
   try {
     return await resolveConnection(connectionId);
   } catch (e) {
@@ -177,11 +184,11 @@ async function resolveConn(connectionId?: string): Promise<SvnConnection> {
   }
 }
 
-function pegUrl(url: string): string {
+export function pegUrl(url: string): string {
   return url.includes("@") ? `${url}@` : url;
 }
 
-function xmlUnescape(s: string): string {
+export function xmlUnescape(s: string): string {
   return s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
 }
 
@@ -189,7 +196,7 @@ async function hashFile(filePath: string): Promise<string> {
   return createHash("sha256").update(await readFile(filePath)).digest("hex");
 }
 
-function longTimeout(): number {
+export function longTimeout(): number {
   return getSvnTimeoutMs() * LONG_OPERATION_TIMEOUT_MULTIPLIER;
 }
 
@@ -200,10 +207,13 @@ function normalizeRemotePath(raw: unknown): { subPath: string; fileName: string;
   if (segments.length === 0) throw new EditError("INVALID_INPUT", "檔案路徑不能是空的");
   if (segments.some((seg) => seg === "..")) throw new EditError("INVALID_INPUT", `路徑不能包含 ".."：${raw}`);
   // Windows 不允許的字元一律拒絕：同事在 Windows 上取出時會失敗；也擋掉 `file:///x` 被整理成 `file:/x` 繞過完整 URL 檢查的寫法
-  if (segments.some((seg) => /[<>:"|?* -]/.test(seg))) {
+  if (segments.some((seg) => /[<>:"|?*\u0000-]/.test(seg))) {
     throw new EditError("INVALID_INPUT", `路徑含有不允許的字元（: * ? " < > |）：${raw}`);
   }
   const fileName = segments[segments.length - 1];
+  if (isEditorTempFile(fileName)) {
+    throw new EditError("INVALID_INPUT", `「${fileName}」是 Word／Excel 開著文件時自動產生的暫存檔，不是文件本身，不能編輯或新增。如果它被誤提交進了 SVN，請用 TortoiseSVN 把它刪除。`);
+  }
   const dot = fileName.lastIndexOf(".");
   const ext = dot > 0 ? fileName.slice(dot + 1).toLowerCase() : "";
   if (!ALLOWED_EXTENSIONS.has(ext)) {
@@ -424,7 +434,7 @@ export async function exportLatest(id: string): Promise<{ path: string; revision
 // ---- 新增檔案到 SVN（svn import）----
 
 /** 新檔案進庫時順便設定的屬性：docx、xlsx 無法合併，設 needs-lock；md、txt 設換行字元為 native。 */
-const IMPORT_AUTO_PROPS: Record<string, string> = {
+export const IMPORT_AUTO_PROPS: Record<string, string> = {
   docx: "svn:needs-lock=*",
   xlsx: "svn:needs-lock=*",
   md: "svn:eol-style=native",
@@ -488,8 +498,10 @@ const MAX_BROWSE_ENTRIES = 1000;
 export interface BrowseEntry {
   name: string;
   kind: "dir" | "file";
-  /** 是不是 svn-edit 支援編輯的檔案類型（副檔名在白名單內）；資料夾一律是 false。 */
+  /** 是不是 svn-edit 支援編輯的檔案類型（副檔名在白名單內）；資料夾與暫存標記檔一律是 false。 */
   editable: boolean;
+  /** Word／Excel／LibreOffice 的暫存標記檔（不是文件，可能是被誤提交進 SVN 的）。 */
+  tempFile: boolean;
   size: number | null;
   revision: string | null;
   author: string | null;
@@ -520,7 +532,8 @@ export async function browseRemote(connectionId: string | undefined, dirPath: st
       const kind: "dir" | "file" = e.kind === "dir" ? "dir" : "file";
       const dot = e.name.lastIndexOf(".");
       const ext = dot > 0 ? e.name.slice(dot + 1).toLowerCase() : "";
-      return { name: e.name, kind, editable: kind === "file" && ALLOWED_EXTENSIONS.has(ext), size: e.size, revision: e.revision, author: e.author, date: e.date };
+      const tempFile = kind === "file" && isEditorTempFile(e.name);
+      return { name: e.name, kind, editable: kind === "file" && !tempFile && ALLOWED_EXTENSIONS.has(ext), tempFile, size: e.size, revision: e.revision, author: e.author, date: e.date };
     })
     .sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name, "zh-Hant") : a.kind === "dir" ? -1 : 1));
   return { connectionId: conn.id, connectionName: conn.name, path: subPath, entries: entries.slice(0, MAX_BROWSE_ENTRIES), truncated: entries.length > MAX_BROWSE_ENTRIES };
