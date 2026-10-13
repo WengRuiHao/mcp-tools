@@ -93,7 +93,8 @@ const OVERVIEW_CORE = `# Asana 票單自動處理 Pipeline — 整體流程說�
    - 接著 \`advance_ticket_stage({ taskGid: T, stage: "project_dir_confirmed", project_dir: projectDir })\`。
 
 2. **確認 SA/SD 規格（強制；每個專案只需設定一次）**：\`resolve_sasd_config({ projectGid })\`。\`found: false\` → 依回傳的 \`instructions\` 問使用者並 \`register_sasd_config\`。\`found: true\` → 得到 \`saRoot\`/\`sdMode\`/\`sdRoot\`/\`svnConnectionId\`/\`sdOutputPath\`/\`specOrder\`，不用再問、不用重驗 SVN。
-   **SA 管前端、SD 管後端，兩份規格不能越界互相支援**（實際發生過：拿票單裡「聽起來合理」但 SD 沒寫的細節去加後端驗證，SD 只有兩行、後端卻改了一大段）：後端只依 SD 明確寫出的欄位/業務邏輯/檢核規則實作；前端只依 SA 的畫面/欄位/互動規則實作，不把 SD 的後端細節（欄位對應、後端例外訊息）套成前端驗證或顯示文字；SD/SA 都沒涵蓋、但票單或留言提到的細節，停下來問使用者算不算這張票的範圍，不能先斬後奏，問答記進 01/02。（SD 提少量前端顯示邏輯是正常的；別把規格沒寫、只是自己覺得合理的部分包裝成規格要求。）
+   **SA 管前端、SD 管後端，兩份規格不能越界互相支援**：後端只依 SD 明確寫出的欄位/業務邏輯/檢核規則實作；前端只依 SA 的畫面/欄位/互動規則實作，不把 SD 後端細節套成前端驗證或文字；SD/SA 都沒涵蓋、但票單或留言提到的細節，停下來問使用者算不算這張票的範圍，不能先斬後奏，問答記進 01/02。（SD 提少量前端顯示邏輯屬正常。）
+   **SA 一定要讀**：\`saRoot\` 已登記就依票單標的 SA 版本/功能代號到 SVN 找來讀（曾因只讀 SD 而漏掉整個前端）；找不到 SA 要問使用者，不能預設前端不做。
    依 \`sdMode\` 處理這張票：
    - \`external\`／\`self\` 讀取規格：**一律以 SVN 遠端為準**，用 \`svn_browse\`/\`svn_cat\`（帶登記的 \`svnConnectionId\`）在 \`saRoot\`/\`sdRoot\` 底下用票號/票名關鍵字找規格（docx 要連 \`svn_doc_images\` 一起抓圖）。**不要讀 \`projectDir\` 底下可能存在的本機 checkout**——使用者不一定有更新，會讀到過期規格（所以 register 時要先驗證 SVN 連線）。找到就讀內容並 \`record_sasd_check({ taskGid: T, hasSasd: true, sasdInfo: "<SVN 路徑 + 內容摘要；external 註明「外部規格，只能參考不能建議修改」>" })\`；找不到就 \`hasSasd: false\`。
    - \`external\`：SD 是別人的，絕對不能建議修改 SD 本身，只能讓程式碼配合它。
