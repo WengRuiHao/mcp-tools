@@ -132,7 +132,7 @@
   <g font-family="'Noto Sans TC',sans-serif">
     <text x="60" y="694" font-size="15.5" font-weight="700" fill="#345c39">這些寫入動作只有「你在網頁上按按鈕」才會發生，AI 助理沒有任何能改動 SVN 的工具。</text>
     <text x="60" y="720" font-size="14" fill="#345c39">svn-edit 是獨立的本機程式（只接受這台電腦自己連線），沒有註冊成 AI 能呼叫的工具；每次開啟、上傳、放棄、新增都會留一筆稽核紀錄。</text>
-    <text x="60" y="744" font-size="14" fill="#345c39">每個人用自己的 SVN 帳號（鎖定是綁帳號的，才分得出是誰在編輯）；連線設定跟 svn-mcp 的查詢工具共用同一份，只存在自己的電腦上。</text>
+    <text x="60" y="744" font-size="14" fill="#345c39">每個人用自己的 SVN 帳號（鎖定是綁帳號的，才分得出是誰在編輯）；連線設定只要填一次伺服器網址＋帳密就能用所有 repo，跟 svn-mcp 的查詢工具共用，只存在自己的電腦上。</text>
     <text x="60" y="766" font-size="13" fill="#6b6558">需要電腦上有 svn 命令列工具（TortoiseSVN 安裝時勾選 command line client tools）。</text>
   </g>
 </svg>

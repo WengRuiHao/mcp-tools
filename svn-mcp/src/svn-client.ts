@@ -3,6 +3,7 @@ import { readFile, writeFile, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { getConnectionsFilePath, getDefaultConnectionId, getSvnTimeoutMs } from "./config-store.js";
+import { expandConnections, type StoredConnectionEntry } from "./connection-expand.js";
 
 export interface SvnResult {
   success: boolean;
@@ -20,7 +21,7 @@ export interface SvnConnection {
 
 async function loadConnections(): Promise<SvnConnection[]> {
   const raw = await readFile(getConnectionsFilePath(), "utf-8");
-  return JSON.parse(raw) as SvnConnection[];
+  return expandConnections(JSON.parse(raw.replace(/^﻿/, "")) as StoredConnectionEntry[]);
 }
 
 /** Lists connections with credentials stripped — safe to hand back to whatever's driving this MCP. */
@@ -41,7 +42,7 @@ export async function resolveConnection(connectionId?: string): Promise<SvnConne
   }
   const conn = conns.find((c) => c.id === target || c.name === target);
   if (!conn) {
-    throw new Error(`找不到 SVN 連線「${target}」。可用的連線：${conns.map((c) => c.name).join("、") || "(無)"}`);
+    throw new Error(`找不到 SVN 連線「${target}」。可用的連線：${conns.map((c) => c.name).join("、") || "(無)"}。如果是伺服器上新建的 repo，請到 svn-edit 的「連線設定」按「重新載入 repo 清單」。`);
   }
   return conn;
 }

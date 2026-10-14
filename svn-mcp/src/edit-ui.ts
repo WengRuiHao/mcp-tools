@@ -136,7 +136,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
 <script>
 (function () {
   var TOKEN = "__EDIT_TOKEN__";
-  var state = { connections: [], sessions: [], svnAvailable: true, configured: false };
+  var state = { connections: [], servers: [], sessions: [], svnAvailable: true, configured: false };
   var stateLoaded = false;
   var messages = {};
   var cardNotes = {};
@@ -146,6 +146,8 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   var pendingRequest = readQuery();
   var browseRequest = readBrowseQuery();
   var settingsForm = { id: "", name: "", url: "", username: "", password: "" };
+  var serverForm = { id: "", name: "", url: "", username: "", password: "" };
+  var serverBusy = false;
   var settingsNote = null;
 
   function readQuery() {
@@ -709,7 +711,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   var settingsSig = "";
   function renderSettings() {
     var box = document.getElementById("settings");
-    var sig = JSON.stringify([state.connections, ext.view === "conn"]);
+    var sig = JSON.stringify([state.connections, state.servers, ext.view === "conn"]);
     if (sig === settingsSig) return;
     settingsSig = sig;
     box.textContent = "";
@@ -717,9 +719,49 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
       return h("div", { class: "conn" }, h("span", null, c.name + "（" + c.username + "）", h("br", null), h("span", { class: "path" }, c.url)));
     });
     box.appendChild(h("div", { class: "card" },
-      h("h2", null, "連線設定" + (state.connections.length ? "（" + state.connections.length + " 個）" : "（尚未設定）")),
-      list.length ? h("div", null, list) : h("p", { class: "hint" }, "還沒有任何連線，請先新增一個。"),
+      h("h2", null, "連線設定" + (state.connections.length ? "（" + state.connections.length + " 個 repo）" : "（尚未設定）")),
+      state.servers.length ? h("p", { class: "hint" }, "已登入伺服器：" + state.servers.map(function (sv) { return sv.name + "（" + sv.username + "）"; }).join("、")) : null,
+      list.length ? h("div", null, list) : h("p", { class: "hint" }, "還沒有任何連線，請先填寫伺服器網址與帳密。"),
       h("div", { class: "row" }, openerButton("conn", "管理連線", "wide"))));
+  }
+
+  // 伺服器：只填上層網址＋帳密，就能用這個帳號看得到的所有 repo
+  function serverSection() {
+    var inputs = {};
+    function sfield(key, label, type, placeholder) {
+      inputs[key] = h("input", { type: type, placeholder: placeholder || "", autocomplete: "off", oninput: function () { serverForm[key] = inputs[key].value; } });
+      inputs[key].value = serverForm[key];
+      return h("div", null, h("label", null, label), inputs[key]);
+    }
+    function authNote(sv) { return sv.auth === "windows" ? "（這個伺服器用 Windows 登入驗證，已使用你目前登入的 Windows 帳號）" : ""; }
+    function fail(e) { serverBusy = false; settingsNote = { text: e.message, info: false }; extSig = ""; renderExt(); }
+    function busy(text) { serverBusy = true; settingsNote = { text: text, info: true }; extSig = ""; renderExt(); }
+    var save = h("button", { type: "button", class: "primary", disabled: serverBusy ? "disabled" : null, onclick: function () {
+      busy("正在讀取 repo 清單…");
+      api("POST", "/api/servers", serverForm).then(function (r) {
+        serverBusy = false; serverForm = { id: "", name: "", url: "", username: "", password: "" };
+        settingsNote = { text: "已儲存，載入 " + r.server.repoCount + " 個 repo。" + authNote(r.server), info: true }; return refresh();
+      }).catch(fail);
+    } }, serverForm.id ? "更新並重新載入" : "儲存並載入 repo 清單");
+    var list = state.servers.map(function (sv) {
+      return h("div", { class: "conn" }, h("span", null, sv.name + "（" + sv.username + "）・" + sv.repoCount + " 個 repo", h("br", null), h("span", { class: "path" }, sv.url)),
+        h("button", { type: "button", disabled: serverBusy ? "disabled" : null, onclick: function () {
+          busy("正在重新載入 repo 清單…");
+          api("POST", "/api/servers/refresh", { id: sv.id }).then(function (r) {
+            serverBusy = false; settingsNote = { text: "已重新載入，共 " + r.server.repoCount + " 個 repo。" + authNote(r.server), info: true }; return refresh();
+          }).catch(fail);
+        } }, "重新載入"),
+        h("button", { type: "button", onclick: function () { serverForm = { id: sv.id, name: sv.name, url: sv.url, username: sv.username, password: "" }; settingsNote = null; extSig = ""; renderExt(); } }, "編輯"));
+    });
+    return h("div", null,
+      h("h2", { style: "margin-top:14px;font-size:15px" }, "SVN 伺服器（填帳密就能用所有 repo）"),
+      h("p", { class: "hint" }, "填伺服器的上層網址（底下每個子目錄是一個 repo）和你自己的帳密，會自動讀出你看得到的所有 repo，不用一個一個設定。如果公司伺服器用 Windows 登入驗證，帳密可以留空，會直接用你登入電腦的帳號。伺服器上新增 repo 時按「重新載入」。"),
+      list.length ? h("div", null, list) : null,
+      h("form", { autocomplete: "off", onsubmit: function (ev) { ev.preventDefault(); } },
+        sfield("url", "伺服器網址", "text", "https://svn.example.com/svn"),
+        sfield("username", "帳號（請使用你自己的 SVN 帳號；留空＝目前的 Windows 帳號）", "text"),
+        sfield("password", serverForm.id ? "密碼（留空代表不變更）" : "密碼（Windows 登入驗證可留空）", "password"),
+        h("div", { class: "row" }, save, serverForm.id ? h("button", { type: "button", onclick: function () { serverForm = { id: "", name: "", url: "", username: "", password: "" }; extSig = ""; renderExt(); } }, "取消編輯") : null)));
   }
 
   function renderConnView(box) {
@@ -741,6 +783,8 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     box.appendChild(h("div", null,
       h("h2", null, "連線設定" + (state.connections.length ? "（" + state.connections.length + " 個）" : "（尚未設定）")),
       h("p", { class: "hint" }, "這裡的設定跟 svn-mcp 的唯讀工具共用同一份檔案，只存在這台電腦。密碼不會再顯示出來；編輯時密碼留空代表不變更。"),
+      serverSection(),
+      h("h2", { style: "margin-top:18px;font-size:15px" }, "單一 repo 連線"),
       list.length ? h("div", null, list) : h("div", { class: "empty" }, "還沒有任何連線，請先新增一個。"),
       h("form", { autocomplete: "off", onsubmit: function (ev) { ev.preventDefault(); } },
         h("h2", { style: "margin-top:18px;font-size:15px" }, settingsForm.id ? "編輯連線" : "新增連線"),
@@ -815,7 +859,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   }
   function renderExt() {
     var box = document.getElementById("extBody");
-    var sig = JSON.stringify([ext.view, state.connections, browse.connection, browse.path, browse.entries, browse.loading, browse.error, browse.truncated, browse.ticket, pick.path, pick.entries, pick.loading, pick.notice, settingsNote, settingsForm.id]);
+    var sig = JSON.stringify([ext.view, state.connections, state.servers, serverBusy, serverForm.id, browse.connection, browse.path, browse.entries, browse.loading, browse.error, browse.truncated, browse.ticket, pick.path, pick.entries, pick.loading, pick.notice, settingsNote, settingsForm.id]);
     if (sig === extSig) return;
     extSig = sig;
     box.textContent = "";

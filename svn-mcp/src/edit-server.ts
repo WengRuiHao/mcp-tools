@@ -11,7 +11,7 @@
 import { execFile } from "node:child_process";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { listPublicConnections, saveConnection, ConnectionInputError, type ConnectionInput } from "./connections-store.js";
+import { listPublicConnections, listPublicServers, refreshServer, saveConnection, saveServer, ConnectionInputError, type ConnectionInput, type ServerInput } from "./connections-store.js";
 import { FAVICON_ICO_BASE64 } from "./edit-icon-data.js";
 import { renderPage } from "./edit-ui.js";
 import { openFile, revealFile } from "./os-open.js";
@@ -139,9 +139,11 @@ function isSvnAvailable(): Promise<boolean> {
 // ---- API 處理 ----
 async function buildState(): Promise<unknown> {
   let connections: unknown[] = [];
+  let servers: unknown[] = [];
   let connectionsError: string | null = null;
   try {
     connections = await listPublicConnections();
+    servers = await listPublicServers();
   } catch (e) {
     connectionsError = e instanceof Error ? e.message : String(e);
   }
@@ -153,7 +155,7 @@ async function buildState(): Promise<unknown> {
       // 單一項目讀取失敗不影響其他項目
     }
   }
-  return { connections, connectionsError, configured: connections.length > 0, sessions, svnAvailable: await isSvnAvailable() };
+  return { connections, servers, connectionsError, configured: connections.length > 0, sessions, svnAvailable: await isSvnAvailable() };
 }
 
 type ApiHandler = (body: Record<string, unknown>) => Promise<unknown>;
@@ -181,6 +183,8 @@ const API_POST: Record<string, ApiHandler> = {
   "/api/import/commit": (body) =>
     commitImport({ batch: str(body, "batch"), connectionId: str(body, "connection") || undefined, targetDir: str(body, "targetDir"), message: str(body, "message"), ticket: str(body, "ticket") || undefined }),
   "/api/import/cancel": (body) => cancelImport(str(body, "batch")),
+  "/api/servers": async (body) => ({ server: await saveServer(body as unknown as ServerInput) }),
+  "/api/servers/refresh": async (body) => ({ server: await refreshServer(str(body, "id")) }),
   "/api/connections": async (body) => ({ connection: await saveConnection(body as unknown as ConnectionInput) }),
 };
 

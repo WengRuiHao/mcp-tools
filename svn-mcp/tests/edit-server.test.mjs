@@ -187,6 +187,17 @@ test("設定頁 API：新增連線寫進共用的設定檔，回應與狀態都�
   assert.equal(bad.json.code, "INVALID_INPUT");
 });
 
+test("伺服器 API：壞網址回 400、不存檔；狀態有 servers 欄位；找不到的伺服器回 400", async () => {
+  const before = fs.readFileSync(connFile, "utf-8");
+  const bad = await post("/api/servers", { url: "file:///c:/x", username: "u", password: "p" });
+  assert.equal(bad.status, 400);
+  assert.equal(bad.json.code, "INVALID_INPUT");
+  assert.equal(fs.readFileSync(connFile, "utf-8"), before);
+  const missing = await post("/api/servers/refresh", { id: "nope" });
+  assert.equal(missing.status, 400);
+  assert.deepEqual((await call("GET", "/api/state")).json.servers, []);
+});
+
 test("設定檔壞掉時 /api/state 仍可用，並回報 connectionsError", async () => {
   const good = fs.readFileSync(connFile, "utf-8");
   fs.writeFileSync(connFile, "{ 壞掉");
