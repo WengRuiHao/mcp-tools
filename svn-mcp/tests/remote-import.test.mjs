@@ -20,6 +20,7 @@ const repoUrl = pathToFileURL(repoDir).href;
 fs.writeFileSync(connFile, JSON.stringify([{ id: "t1", name: "test", url: repoUrl, username: "u", password: "p" }]));
 process.env.SVN_CONNECTIONS_FILE = connFile;
 process.env.SVN_EDIT_TEMP_DIR = path.join(root, "edit-tmp");
+process.env.SVN_EDIT_AUDIT_LOG = path.join(root, "audit.log"); // 測試的稽核紀錄不要寫進真正的 logs/
 process.env.SVN_EDIT_NO_LAUNCH = "1";
 
 // eol-style=native 的檔案在 Windows 上 svn cat 會轉成 CRLF（倉庫裡存的是 LF），所以比對前先正規化換行
@@ -99,7 +100,7 @@ test("不合法的輸入一律拒絕，且不留暫存", async () => {
 test("稽核紀錄：新增動作留一行，訊息只記長度與前 80 字", async () => {
   const message = `${"稽核".repeat(60)}結尾`;
   await importNewFile({ connectionId: "t1", path: "audit-import.md", content: Buffer.from("a\n"), message, ticket: "GV-7" });
-  const records = fs.readFileSync(path.join(process.env.SVN_EDIT_TEMP_DIR, "audit.log"), "utf-8").trim().split("\n").map((l) => JSON.parse(l)).filter((r) => r.op === "import" && r.path === "audit-import.md");
+  const records = fs.readFileSync(process.env.SVN_EDIT_AUDIT_LOG, "utf-8").trim().split("\n").map((l) => JSON.parse(l)).filter((r) => r.op === "import" && r.path === "audit-import.md");
   assert.equal(records.length, 1);
   assert.equal(records[0].ticket, "GV-7");
   assert.equal(records[0].messageLength, message.length);

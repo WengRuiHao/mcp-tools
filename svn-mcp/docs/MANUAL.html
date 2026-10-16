@@ -232,7 +232,7 @@
   <nav class="toc">
     <a href="#what">這是什麼</a>
     <a href="#flow">運作方式</a>
-    <a href="#connections">多組連線</a>
+    <a href="#connections">帳號與找專案</a>
     <a href="#tools">工具總覽</a>
     <a href="#docflow">讀規格書的流程</a>
     <a href="#edit">編輯 SVN 檔案</a>
@@ -273,20 +273,39 @@
   </section>
 
   <section id="connections" class="reveal">
-    <h2><span class="num">03</span> 可以同時登記多組連線</h2>
+    <h2><span class="num">03</span> 帳號與「找專案」：只要說名字</h2>
     <p class="kicker">
-      這支工具可以同時登記好幾組 SVN 連線，每組給一個好記的名字。問問題時如果沒講清楚要查哪一個，AI 助理會先跟你確認可用的連線有哪些，不會亂猜。
+      連線設定只需要登記你的<b>SVN 帳號</b>（伺服器網址＋帳密），這個帳號看得到的<b>所有專案庫（repo）會自動帶出來</b>，不用一個一個登記；伺服器上新增 repo 時按一下「重新載入」就會補進來。
+      你問問題時只要說專案的名字——<b>repo 名稱、舊版取的名稱（例如「專案甲」）、你自己取的簡稱（例如「丙銀」），甚至是常用目錄的暱稱（例如「後端規格」）</b>都行——AI 助理會先用 <code>svn_find_repo</code> 找到對的專案跟目錄，再去查，不會亂猜。
     </p>
-    <div class="conn-grid">
-      <div class="conn-card"><span class="id">連線 A</span><h3>例如某個專案的規格庫</h3><p>存放這個專案的 SA/SD 規格文件。</p></div>
-      <div class="conn-card"><span class="id">連線 B</span><h3>例如某個專案的程式碼庫</h3><p>存放這個專案實際的程式原始碼。</p></div>
-      <div class="conn-card"><span class="id">連線 C</span><h3>可以視需要再新增</h3><p>連線數量不限，各自獨立、互不影響。</p></div>
+    <div class="diagram-card">
+      <div class="flow-steps">
+        <div class="flow-step"><div class="badge">🗣️</div><div class="label">你說出<br/>專案名稱</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🔎</div><div class="label">svn_find_repo<br/>比對四種名稱</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">📍</div><div class="label">拿到專案與<br/>常用目錄路徑</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🗂️</div><div class="label">svn_browse／svn_cat<br/>svn_log／svn_diff</div></div>
+        <div class="flow-connector animate"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M0 7 H100"/></svg></div>
+        <div class="flow-step"><div class="badge">🤖</div><div class="label">整理成<br/>白話文回答</div></div>
+      </div>
+    </div>
+    <div class="conn-grid" style="margin-top:16px">
+      <div class="conn-card"><span class="id">名稱 ①</span><h3>repo 名稱</h3><p>SVN 伺服器上這個專案庫的名字。</p></div>
+      <div class="conn-card"><span class="id">名稱 ②</span><h3>舊名稱（別名）</h3><p>舊版「一個 repo 一筆連線」時取的名字，升級後仍然可以用。</p></div>
+      <div class="conn-card"><span class="id">名稱 ③</span><h3>你的簡稱</h3><p>在 svn-edit 專案清單點「簡稱」取的暱稱，只存在你自己的電腦。</p></div>
+    </div>
+    <div class="conn-grid" style="margin-top:12px">
+      <div class="conn-card"><span class="id">名稱 ④</span><h3>常用目錄的暱稱</h3><p>深層資料夾加星星後取的名字，AI 直接拿到路徑，不用一層一層找。</p></div>
+      <div class="conn-card"><span class="id">沒說清楚</span><h3>會先問你</h3><p>找不到、或有好幾個都像時，AI 助理會列出候選先跟你確認。</p></div>
+      <div class="conn-card"><span class="id">只說「常用的」</span><h3>星星在最前面</h3><p>不給關鍵字就列出常用專案：你加星星的在前，其次是最近開過的。</p></div>
     </div>
   </section>
 
   <section id="tools" class="reveal">
     <h2><span class="num">04</span> 工具總覽</h2>
-    <p class="kicker">總共 3 大類、7 個工具。每一類點開來看，裡面有實際的工具名稱（給負責設定的 IT 人員對照用）跟白話說明。</p>
+    <p class="kicker">總共 3 大類、8 個工具。每一類點開來看，裡面有實際的工具名稱（給負責設定的 IT 人員對照用）跟白話說明。</p>
 
     <div class="cat-list">
 
@@ -295,13 +314,14 @@
           <span class="emoji">🔌</span>
           <span class="title-block">
             <h3>連線管理</h3>
-            <p class="sub">目前登記了哪些連線、連不連得上</p>
+            <p class="sub">找專案、目前有哪些連線、連不連得上</p>
           </span>
           <span class="chev">▶</span>
         </summary>
         <div class="cat-body">
-          <div class="example"><b>可以這樣問：</b>「現在有設定哪些 SVN 連線？」</div>
-          <div class="tool-row"><code>svn_list_connections</code><span>列出登記的連線（不含帳號密碼）</span></div>
+          <div class="example"><b>可以這樣問：</b>「丙銀的後端規格在哪？」「現在有哪些 SVN 專案？」</div>
+          <div class="tool-row"><code>svn_find_repo</code><span>用名字找專案：同時比對 repo 名稱、舊名稱、你的簡稱、常用目錄暱稱，回傳該用哪個連線與常用目錄的路徑（<b>提到專案名稱時 AI 會先用這個</b>）</span></div>
+          <div class="tool-row"><code>svn_list_connections</code><span>列出所有可用的專案庫（每個 repo 一筆，附簡稱、星星、常用目錄；不含帳號密碼）</span></div>
           <div class="tool-row"><code>svn_test_connection</code><span>實際測試某個連線連不連得上（真的執行一次查詢，不是只看設定檔有沒有資料）</span></div>
         </div>
       </details>
@@ -364,7 +384,7 @@
   <section id="edit" class="reveal">
     <h2><span class="num">06</span> 直接編輯 SVN 上的檔案（svn-edit）</h2>
     <p class="kicker">
-      除了查詢，你也可以<b>不用自己 checkout</b>，直接把 SVN 上的某一份檔案（Word、Excel、md、txt）取出來、用你熟悉的軟體修改，改完一鍵傳回 SVN。
+      除了查詢，你也可以<b>不用自己 checkout</b>，直接把 SVN 上的某一份檔案（Word、Excel、md、txt、csv）取出來、用你熟悉的軟體修改，改完一鍵傳回 SVN。
       這是一個獨立的小程式 <b>svn-edit</b>，在你自己的電腦上開一個網頁（<code>http://127.0.0.1:9097</code>）讓你操作。用的是真正的 Word／Excel，所以圖片、流程圖、公式都不會走樣。
     </p>
     <div class="diagram-card">
@@ -381,8 +401,14 @@
       </div>
     </div>
     <p class="kicker" style="margin-top:16px">
-      <b>怎麼開始：</b>雙擊 <code>svn-edit.exe</code>（或由工程師設定成連上 svn-mcp 時自動啟動），會開出一個獨立的「SVN 遠端編輯」桌面視窗（沒有網址列，關掉視窗服務很快就會自動結束）。第一次使用先到頁面下方的「連線設定」，在最上面的「SVN 伺服器」填<b>伺服器網址</b>（工程師會給你）和你自己的帳號密碼，按「儲存並載入 repo 清單」，你看得到的所有 repo 就會自動出現，不用一個一個設定；以後伺服器上新增了 repo，按「重新載入」就會補進來。如果公司的 SVN 是用電腦登入帳號驗證，帳號密碼也可以留空，系統會直接用你登入電腦的帳號。
-      接著可以用「瀏覽 SVN 目錄」逐層點進資料夾選檔案，或是從 dev-pipeline 待人工處理清單上方的「編輯 SVN 上的規格書」連結直接進來。
+      <b>怎麼開始：</b>雙擊 <code>svn-edit.exe</code>（或由工程師設定成連上 svn-mcp 時自動啟動），會開出一個獨立的「SVN 遠端編輯」桌面視窗（沒有網址列，關掉視窗服務很快就會自動結束）。第一次使用先按「管理連線」，填<b>伺服器網址</b>（工程師會給你）和你自己的帳號密碼，可以先按「測試連線」；<b>儲存前一定會先實際連線測試</b>，連不上就不會存，並顯示原因。成功後你看得到的所有 repo 就會自動出現；以後伺服器上新增了 repo，按「重新載入」就會補進來，公司換網址時按「編輯」改網址即可（簡稱、星星、常用目錄都不會掉）。如果公司的 SVN 是用電腦登入帳號驗證，帳號密碼也可以留空，系統會直接用你登入電腦的帳號。
+    </p>
+    <p class="kicker" style="margin-top:-6px">
+      <b>找檔案：</b>按「瀏覽 SVN 目錄」，先看到專案清單，有「近期 SVN」與「星星 SVN」兩個分頁、一個搜尋框（名稱、舊名稱、簡稱都能搜，多個關鍵字用空白隔開）；點 ☆ 把常用專案放到最上面（可拖曳 ⋮⋮ 調整順序）、點「簡稱」取自己的暱稱。點進專案後逐層點資料夾，點到檔案就跳出確認卡；<b>.pdf 點 👁 只能開啟檢視</b>，不能編輯。也可以從 dev-pipeline 待人工處理清單上方的「編輯 SVN 上的規格書」連結直接進來。經常要傳到的深層資料夾，在「從 SVN 選擇資料夾」面板按 ☆ 加入這個專案的<b>常用目錄</b>（還能取暱稱），之後一點就跳過去。
+    </p>
+    <p class="kicker" style="margin-top:16px">
+      <b>同步本地端（選用）：</b>如果你平常另外用 TortoiseSVN 把專案 Checkout 在自己電腦上，可以在「管理連線」面板最下方打開<b>「同步本地端」</b>開關，並替每個專案填好它在你電腦上的資料夾（例如 <code>D:/svn/projbeta</code>）。打開之後，編輯上傳成功、或刪除檔案成功時，svn-edit 會自動幫你更新那個資料夾，本地端的檔案馬上跟遠端一致，不用再手動按 SVN 更新。<b>關掉開關就維持原本的樣子</b>，只改遠端、不碰你的電腦。
+      萬一你設定的資料夾<b>不是 SVN 工作目錄（沒有 SVN 追蹤）</b>、沒設定、不存在，或不是這個專案的資料夾，會<b>跳出警示</b>告訴你原因並且不更新；遠端的上傳或刪除仍然成功，不會因此失敗。
     </p>
     <div class="conn-grid">
       <div class="conn-card"><span class="id">檢查 ①</span><h3>檔案還開著</h3><p>Word／Excel 還沒關就按上傳，會被擋下，避免傳到存到一半的檔案。</p></div>
@@ -393,7 +419,12 @@
     <div class="conn-grid" style="margin-top:12px">
       <div class="conn-card"><span class="id">功能</span><h3>放棄</h3><p>不想改了，按兩次確認就會解除鎖定、刪掉暫存資料夾。</p></div>
       <div class="conn-card"><span class="id">功能</span><h3>當機復原</h3><p>編輯到一半電腦當機，重開 svn-edit 還找得到，可繼續上傳或放棄，不會被自己的鎖卡住。</p></div>
-      <div class="conn-card"><span class="id">功能</span><h3>上傳檔案／資料夾</h3><p>一次選多個檔案或整個資料夾（也可以直接拖曳進來）傳到 SVN，只產生一個版本；遠端已有同名檔案時會先請你確認才更新成新版本，Word、Excel 新檔會自動設成「編輯前需先鎖定」。</p></div>
+      <div class="conn-card"><span class="id">功能</span><h3>升級版本</h3><p>檔名帶版本號（<code>_v0.7</code>）時，上傳前勾「升級版本」：舊版自動放進同目錄的 <code>old</code> 資料夾，新版變 <code>_v0.8</code>（v0.9 會進位成 v1.0），同一個版本完成；新檔名可以自己改，中途失敗不會弄丟你的編輯。</p></div>
+      <div class="conn-card"><span class="id">功能</span><h3>上傳檔案／資料夾</h3><p>一次選多個檔案或整個資料夾（也可以直接拖曳進來）傳到 SVN，只產生一個版本；遠端已有同名檔案時會先請你確認才更新成新版本，Word、Excel 新檔會自動設成「編輯前需先鎖定」；檔案很多時逾時會自動放寬，一次最多 30 萬個檔案。</p></div>
+      <div class="conn-card"><span class="id">功能</span><h3>自動選對軟體</h3><p>md 用 VS Code、csv 用記事本（避免 Excel 存檔把中文弄成亂碼），其餘用預設程式；只影響這個工具開檔，不會改你電腦的檔案關聯。</p></div>
+      <div class="conn-card"><span class="id">功能</span><h3>同步本地端</h3><p>可開關（預設關閉）。開啟後，上傳或刪除成功就自動更新你電腦上的 SVN 資料夾；每個專案各設一個資料夾，只更新這次動到的檔案。資料夾沒有 SVN 追蹤、沒設定或對不上專案時會跳警示並不更新。</p></div>
+      <div class="conn-card"><span class="id">功能</span><h3>刪除檔案</h3><p>瀏覽 SVN 目錄時，檔案右邊的 🗑 可以刪除 SVN 上的檔案：要填刪除說明並再按一次確認；只能刪單一檔案（不能刪資料夾），正在編輯或被鎖定的檔案不能刪。刪除會產生新版本，之後仍可從 SVN 歷史還原；同步開關開著時，本地的檔案也會一起消失。</p></div>
+      <div class="conn-card"><span class="id">功能</span><h3>自動清暫存</h3><p>啟動與結束時自動清掉檢視檔、上傳殘留；進行中的編輯一律保留，不會被清掉。</p></div>
     </div>
     <p class="kicker" style="margin-top:16px">
       <b>需要準備：</b>電腦上要有 <code>svn</code> 命令列工具（安裝 TortoiseSVN 時勾選 command line client tools）；請用<b>你自己的 SVN 帳號</b>——SVN 的「鎖定」是綁帳號的，這樣才分得出是誰正在編輯同一份檔案。
@@ -421,10 +452,26 @@
     </div>
 
     <div class="scenario">
-      <h3>情境三：不確定要查哪個連線</h3>
+      <h3>情境三：只說專案的暱稱</h3>
+      <div class="bubble user">幫我看丙銀的後端規格資料夾裡有哪些檔案</div>
+      <div class="bubble ai">找到「丙銀」對應的專案，後端規格在 <code>/docs/後端規格</code>，裡面有這些檔案……
+        <span class="steps">背後呼叫：<code>svn_find_repo</code> → <code>svn_browse</code></span>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <h3>情境四：不確定有哪些專案</h3>
       <div class="bubble user">幫我查一下規格書在哪裡</div>
-      <div class="bubble ai">目前登記了兩組連線，你是要查「連線 A」還是「連線 B」？
-        <span class="steps">背後呼叫：<code>svn_list_connections</code></span>
+      <div class="bubble ai">你的帳號底下有不少專案，你常用的是「丙銀」「專案甲」，是要查哪一個？
+        <span class="steps">背後呼叫：<code>svn_find_repo</code>（關鍵字留空，列出常用專案）</span>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <h3>情境五：改完規格書，傳回新版本</h3>
+      <div class="bubble user">（自己在 svn-edit 操作，不用問 AI）</div>
+      <div class="bubble ai">瀏覽 SVN 目錄 → 點規格書 → 開始編輯 → 用 Word 改完存檔關閉 → 勾「升級版本」填上傳說明 → 上傳。舊版 v0.7 進 <code>old</code>，新版 v0.8 成為最新版本。
+        <span class="steps">這一段全是你在網頁上按按鈕，AI 沒有參與</span>
       </div>
     </div>
   </section>
@@ -435,11 +482,11 @@
     <div class="faq-item">
       <h3>這個工具會不會不小心改到或刪除 SVN 上的東西？</h3>
       <p>AI 助理用的查詢工具<b>不會</b>：它們都只查詢、不寫入，AI 沒有任何能改動 SVN 的工具。
-         第 06 節的 svn-edit 是另一個獨立的小程式，只有<b>你自己在網頁上按按鈕</b>才會寫入，而且每次都要你填上傳說明、通過檢查才會送出，每個動作都留稽核紀錄。</p>
+         第 06 節的 svn-edit 是另一個獨立的小程式，只有<b>你自己在網頁上按按鈕</b>才會寫入（包含刪除檔案，刪除要填說明並再確認一次，刪掉的檔案仍可從 SVN 歷史還原），而且每次都要你填說明、通過檢查才會送出，每個動作都留稽核紀錄。「同步本地端」只會對你設定的資料夾做 SVN 更新，開關預設關閉。</p>
     </div>
     <div class="faq-item">
-      <h3>為什麼有時候 AI 助理會問我要用哪個連線？</h3>
-      <p>因為可能登記了不只一組連線，同一個路徑在不同連線底下可能是完全不同的內容。AI 助理不會用猜的，會先跟你確認要查哪一個。</p>
+      <h3>為什麼有時候 AI 助理會問我要用哪個專案？</h3>
+      <p>因為你的帳號底下可能有幾十個專案，同一個路徑在不同專案底下是完全不同的內容。AI 助理會先用名字搜尋，找不到或有好幾個都像時不會用猜的，而是列出候選請你確認。你可以在 svn-edit 替常用專案加星星、取簡稱，下次直接說簡稱就能一次找到。</p>
     </div>
     <div class="faq-item">
       <h3>讀 docx 規格書時，為什麼要額外呼叫抓圖片的工具？</h3>
@@ -447,7 +494,7 @@
     </div>
     <div class="faq-item">
       <h3>如果連不上 SVN 或指令逾時怎麼辦？</h3>
-      <p>可以先用「測試連線連不連得上」這個工具確認，常見原因是網路/VPN 沒開、帳號密碼過期，或連線設定的網址打錯。</p>
+      <p>可以先用「測試連線連不連得上」這個工具確認，常見原因是網路/VPN 沒開、帳號密碼過期，或連線設定的網址打錯。一次上傳非常多檔案時若顯示逾時，請分批上傳，或請工程師調高 <code>SVN_TIMEOUT_MS</code>。</p>
     </div>
     <div class="faq-item">
       <h3>按「上傳」卻說 Word 還開著，但我明明關了？</h3>
@@ -463,11 +510,31 @@
     </div>
     <div class="faq-item">
       <h3>同事也要用的話，要怎麼設定？</h3>
-      <p>每位同事在自己的電腦上準備好 svn 命令列工具，打開 svn-edit 控制頁，在「連線設定」的「SVN 伺服器」填伺服器網址和<b>自己的</b>帳號密碼，就能用你看得到的所有 repo（設定只存在各自的電腦上）。請不要共用同一個 SVN 帳號，否則鎖定就分不出是誰在編輯。</p>
+      <p>每位同事在自己的電腦上準備好 svn 命令列工具，打開 svn-edit 控制頁，按「管理連線」填伺服器網址和<b>自己的</b>帳號密碼，就能用該帳號看得到的所有 repo（設定、星星、簡稱只存在各自的電腦上）。請不要共用同一個 SVN 帳號，否則鎖定就分不出是誰在編輯。</p>
+    </div>
+    <div class="faq-item">
+      <h3>「升級版本」按不了，或提示不能升級？</h3>
+      <p>常見原因：新檔名已經存在於同一個資料夾，或 <code>old</code> 資料夾裡已經有同名的舊版。畫面會寫出原因，可以自己改新檔名再試。檔名沒有版本號也能升級——新版會自動加上 <code>_v0.2</code>，舊版放進 <code>old</code> 時補 <code>_v0.1</code>。升級過程中任何一步失敗，都會把你編輯好的內容放回去，不會遺失。</p>
+    </div>
+    <div class="faq-item">
+      <h3>上傳或刪除之後，跳出「本地端沒有同步」的警示是什麼意思？</h3>
+      <p>代表<b>遠端已經成功了</b>，只是你電腦上的資料夾沒有被更新。警示會寫出原因，常見的有：①「沒有 SVN 追蹤」——設定的資料夾不是用 Checkout 取得的（裡面沒有 SVN 的紀錄），請用 TortoiseSVN 把專案 Checkout 到那裡，或到「管理連線」改成正確的資料夾；②「還沒設定本地目錄」——到「管理連線」最下方替這個專案填資料夾；③「不包含這個檔案」——填的資料夾不是這個專案的，或只 Checkout 了別的子資料夾；④「發生衝突」——你電腦上同一個檔案也有修改，請用 TortoiseSVN 在那個資料夾按右鍵「解決衝突」。不想要自動更新時，把「同步本地端」開關關掉即可。</p>
+    </div>
+    <div class="faq-item">
+      <h3>刪錯檔案了怎麼辦？</h3>
+      <p>SVN 刪除只是產生一個新版本，歷史紀錄都還在。用 TortoiseSVN 在該資料夾按右鍵「顯示記錄」，找到刪除的那一版，對被刪的檔案選「Revert changes from this revision」或從前一版複製回來即可。</p>
+    </div>
+    <div class="faq-item">
+      <h3>換了伺服器網址，星星和簡稱會不見嗎？</h3>
+      <p>不會。星星、簡稱、常用目錄都是用「專案名稱」記的，不綁網址；在「管理連線」編輯那個帳號、把網址改成新的就好。</p>
+    </div>
+    <div class="faq-item">
+      <h3>舊的連線設定（一個 repo 一筆）還能用嗎？</h3>
+      <p>可以。第一次啟動 svn-edit 或寫入設定時會自動升級：同一個伺服器＋同一個帳號的合併成一個帳號，舊名稱與舊連線代號保留成別名，原檔會先備份起來；其他工具照舊用原本的名稱也找得到。</p>
     </div>
   </section>
 
-  <footer>svn-mcp 使用手冊 · 最後更新 2026-10-08</footer>
+  <footer>svn-mcp 使用手冊 · 最後更新 2026-10-16</footer>
 </div>
 
 <script>

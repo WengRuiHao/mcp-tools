@@ -24,6 +24,7 @@ fs.writeFileSync(
 );
 process.env.SVN_CONNECTIONS_FILE = connFile;
 process.env.SVN_EDIT_TEMP_DIR = path.join(root, "edit-tmp");
+process.env.SVN_EDIT_AUDIT_LOG = path.join(root, "audit.log"); // 測試的稽核紀錄不要寫進真正的 logs/
 
 let counter = 0;
 /** 在儲存庫裡新增（或覆蓋）一個檔案，回傳該檔案在遠端的路徑。 */
@@ -210,7 +211,7 @@ test("稽核紀錄：每個動作留一行，commit 訊息只記長度與前 80 
   await commitEdit(session.id, longMessage);
 
   const lines = fs
-    .readFileSync(path.join(process.env.SVN_EDIT_TEMP_DIR, "audit.log"), "utf-8")
+    .readFileSync(process.env.SVN_EDIT_AUDIT_LOG, "utf-8")
     .trim()
     .split("\n")
     .map((l) => JSON.parse(l))

@@ -19,6 +19,7 @@ import os from "node:os";
 import path from "node:path";
 import { getSvnTimeoutMs } from "./config-store.js";
 import { resolveConnection, runSvn, type SvnConnection } from "./svn-client.js";
+import { decodeSvnText } from "./svn-text.js";
 
 export type WcStatusItem =
   | "modified"
@@ -266,7 +267,7 @@ export async function wcDiff(opts: WcOptions, relPath: string): Promise<{ path: 
     }
     const { stdout } = await runSvn(["diff", pegSafe(abs)], conn, getSvnTimeoutMs() * 2);
     if (stdout.length === 0) return { path: relPath, kind: "empty" as const, text: "（沒有可顯示的文字差異；可能只有屬性異動，或是二進位檔）", truncated: false };
-    const text = stdout.subarray(0, MAX_DIFF_BYTES).toString("utf-8");
+    const text = decodeSvnText(stdout.subarray(0, MAX_DIFF_BYTES));
     const binary = /Cannot display: file marked as binary|svn:mime-type = application\/octet-stream/.test(text) || stdout.subarray(0, 8000).includes(0);
     if (binary) return { path: relPath, kind: "binary" as const, text: "（二進位檔，無法顯示文字差異）", truncated: false };
     return { path: relPath, kind: "diff" as const, text, truncated: stdout.length > MAX_DIFF_BYTES };
@@ -296,7 +297,7 @@ export interface WcCommitResult {
  * commit message 一律寫成 UTF-8 暫存檔再用 -F 傳給 svn：Windows 上經由命令列參數（-m）傳中文，會先被轉成系統
  * 預設字碼頁，svn 再當成 UTF-8 驗證就會報 "svn:log ... not encoded in UTF-8"。
  */
-export async function commitWithMessage(conn: SvnConnection, message: string, targets: string[]): Promise<Buffer> {
+export async function commitWithMessage(conn: SvnConnection, message: string, targets: string[], timeoutMs: number = getSvnTimeoutMs() * UPDATE_TIMEOUT_MULTIPLIER, maxBufferBytes?: number): Promise<Buffer> {
   const dir = await mkdtemp(path.join(os.tmpdir(), "svn-mcp-msg-"));
   const messageFile = path.join(dir, "message.txt");
   try {
@@ -304,7 +305,9 @@ export async function commitWithMessage(conn: SvnConnection, message: string, ta
     const { stdout } = await runSvn(
       ["commit", "--encoding", "UTF-8", "-F", messageFile, ...targets.map(pegSafe)],
       conn,
-      getSvnTimeoutMs() * UPDATE_TIMEOUT_MULTIPLIER
+      timeoutMs,
+      undefined,
+      maxBufferBytes
     );
     return stdout;
   } finally {
@@ -388,7 +391,7 @@ export async function wcUpdate(opts: WcOptions): Promise<WcUpdateResult> {
     const { stdout } = await runSvn(["update", "--accept", "postpone", wcAbs], conn, getSvnTimeoutMs() * UPDATE_TIMEOUT_MULTIPLIER);
     const changes: { action: string; path: string }[] = [];
     const conflicts: string[] = [];
-    for (const rawLine of stdout.toString("utf-8").split(/\r?\n/)) {
+    for (const rawLine of decodeSvnText(stdout).split(/\r?\n/)) {
       const m = rawLine.match(UPDATE_LINE_RE);
       if (!m) continue;
       const relPath = toRelative(wcAbs, m[4].trim());

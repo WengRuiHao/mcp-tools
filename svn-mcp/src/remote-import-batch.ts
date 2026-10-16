@@ -19,6 +19,7 @@ import { chmod, copyFile, mkdir, readdir, rm, stat, writeFile } from "node:fs/pr
 import path from "node:path";
 import { getSvnTimeoutMs } from "./config-store.js";
 import { buildFullUrl, runSvn, type SvnConnection } from "./svn-client.js";
+import { removeDirWithRetry } from "./temp-clean.js";
 import { commitWithMessage, pegSafe } from "./workcopy-client.js";
 import {
   audit,
@@ -35,8 +36,10 @@ import {
   xmlUnescape,
 } from "./remote-edit-client.js";
 
-export const MAX_BATCH_FILES = 3000;
-export const MAX_BATCH_BYTES = 500 * 1024 * 1024;
+export const MAX_BATCH_FILES = 300000;
+export const MAX_BATCH_BYTES = 4 * 1024 * 1024 * 1024;
+/** 批次裡 svn add／status／update／commit 的輸出緩衝上限：十萬個檔案時 svn 會逐檔印一行，預設的 50 MB 不夠。 */
+const BATCH_MAX_BUFFER = 512 * 1024 * 1024;
 const STALE_BATCH_MS = 24 * 60 * 60 * 1000;
 /** `svn update` 一次帶的路徑數量上限，避免超過 Windows 命令列長度限制。 */
 const SVN_ARG_CHUNK = 40;
@@ -46,6 +49,12 @@ const FORBIDDEN_CHARS_RE = /[<>:"|?*\u0000-\u001f]/;
 /** 不放進 SVN 的資料夾與系統檔（網頁端也用同一份規則預先略過）。 */
 const EXCLUDED_DIR_NAMES: ReadonlySet<string> = new Set([".svn", ".git", ".hg"]);
 const EXCLUDED_FILE_NAMES: ReadonlySet<string> = new Set(["thumbs.db", "desktop.ini", ".ds_store"]);
+
+/** 批次上傳的逾時：基本逾時之外，每個檔案多給 1 秒、每 MB 多給 5 秒，上限 24 小時（svn 對每個檔案都有固定開銷；實測約 2400 個檔案要 20 分鐘左右，所以每個檔案抓 0.6 秒）。 */
+const MAX_BATCH_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+export function batchTimeoutMs(baseMs: number, files: number, bytes: number): number {
+  return Math.round(Math.min(MAX_BATCH_TIMEOUT_MS, Math.max(baseMs, baseMs + files * 600 + (bytes / (1024 * 1024)) * 5000)));
+}
 
 /** 遠端時間比本機檔案新超過這個誤差，才算「遠端較新」（容許兩邊時鐘與時間精度的小差異）。 */
 const REMOTE_NEWER_TOLERANCE_MS = 60_000;
@@ -140,6 +149,8 @@ function normalizeBatchFilePath(raw: unknown): string {
 const stagedSizes = new Map<string, Map<string, number>>();
 /** 每個批次裡各檔案在使用者電腦上的最後修改時間（毫秒）；比對「遠端是否比本機新」用。只存在記憶體，程式重開就沒有（視為不知道）。 */
 const stagedMtimes = new Map<string, Map<string, number>>();
+/** 每個批次已收到的總位元組數（累計著，收檔案時不用每次掃整張表——十萬個檔案時會變成 O(n²)）。 */
+const stagedTotals = new Map<string, number>();
 
 function assertBatchId(id: unknown): asserts id is string {
   if (typeof id !== "string" || !BATCH_ID_RE.test(id)) throw new EditError("INVALID_INPUT", "上傳批次 id 格式不正確");
@@ -212,13 +223,18 @@ export async function stageImportFile(batch: unknown, relPath: unknown, content:
     stagedSizes.set(id, sizes);
   }
   const othersCount = sizes.has(rel) ? sizes.size - 1 : sizes.size;
-  let othersBytes = 0;
-  for (const [key, size] of sizes) if (key !== rel) othersBytes += size;
+  let total = stagedTotals.get(id);
+  if (total === undefined) {
+    total = 0;
+    for (const size of sizes.values()) total += size;
+  }
+  const othersBytes = total - (sizes.get(rel) ?? 0);
   if (othersCount + 1 > MAX_BATCH_FILES) throw new EditError("INVALID_INPUT", `一次最多上傳 ${MAX_BATCH_FILES} 個檔案`);
   if (othersBytes + content.length > MAX_BATCH_BYTES) {
     throw new EditError("FILE_TOO_LARGE", `一次上傳的總大小上限 ${MAX_BATCH_BYTES / 1024 / 1024} MB`);
   }
   sizes.set(rel, content.length);
+  stagedTotals.set(id, othersBytes + content.length);
   if (typeof localMtimeMs === "number" && Number.isFinite(localMtimeMs) && localMtimeMs > 0) {
     const mtimes = stagedMtimes.get(id) ?? new Map<string, number>();
     mtimes.set(rel, localMtimeMs);
@@ -234,7 +250,8 @@ export async function cancelImport(batch: unknown): Promise<{ cancelled: true }>
   assertBatchId(batch);
   stagedSizes.delete(batch);
   stagedMtimes.delete(batch);
-  await rm(batchDirOf(batch), { recursive: true, force: true });
+  stagedTotals.delete(batch);
+  await removeDirWithRetry(batchDirOf(batch));
   return { cancelled: true };
 }
 
@@ -413,9 +430,9 @@ export async function commitImport(params: { batch: unknown; connectionId?: stri
   const { plan, staged, existingDirs } = await classify(conn, id, params.targetDir);
 
   const wcDir = path.join(batchDirOf(id), "wc");
-  const timeout = longTimeout();
+  const timeout = batchTimeoutMs(longTimeout(), plan.totalFiles, plan.totalBytes);
   try {
-    await rm(wcDir, { recursive: true, force: true });
+    await removeDirWithRetry(wcDir);
     const anchor = await deepestExistingDir(conn, plan.targetDir, new Set(existingDirs));
     await runSvn(["checkout", "--depth", "empty", pegUrl(buildFullUrl(conn.url, anchor)), wcDir], conn, timeout);
     const wcPathOf = (remoteRel: string): string => path.join(wcDir, ...(anchor ? remoteRel.slice(anchor.length).split("/") : remoteRel.split("/")).filter(Boolean));
@@ -428,22 +445,23 @@ export async function commitImport(params: { batch: unknown; connectionId?: stri
     // 要覆蓋的檔案：把遠端現有版本取下來
     const overwriteWcPaths = plan.overwrite.map((rel) => wcPathOf(joinRemote(plan.targetDir, rel)));
     for (const group of chunk(overwriteWcPaths, SVN_ARG_CHUNK)) {
-      await runSvn(["update", "--parents", ...group.map(pegSafe)], conn, timeout);
+      await runSvn(["update", "--parents", ...group.map(pegSafe)], conn, timeout, undefined, BATCH_MAX_BUFFER);
     }
 
     // 內容寫進工作副本（needs-lock 的檔案取下來是唯讀，先解除唯讀）
+    const overwriteSet = new Set(plan.overwrite);
     for (const file of staged) {
       const dest = wcPathOf(joinRemote(plan.targetDir, file.rel));
       await mkdir(path.dirname(dest), { recursive: true });
-      if (plan.overwrite.includes(file.rel)) await chmod(dest, 0o666).catch(() => undefined);
+      if (overwriteSet.has(file.rel)) await chmod(dest, 0o666).catch(() => undefined);
       await copyFile(file.abs, dest);
     }
 
     // 新增的項目：--no-ignore 避免使用者電腦的 global-ignores 悄悄吃掉檔案
-    await runSvn(["add", "--force", "--no-ignore", "--depth", "infinity", ...autoPropArgs(plan.add), pegSafe(wcDir)], conn, timeout);
+    await runSvn(["add", "--force", "--no-ignore", "--depth", "infinity", ...autoPropArgs(plan.add), pegSafe(wcDir)], conn, timeout, undefined, BATCH_MAX_BUFFER);
     await applyEolStyle(conn, plan.add.map((rel) => wcPathOf(joinRemote(plan.targetDir, rel))), timeout);
 
-    const { stdout: statusOut } = await runSvn(["status", "--xml", pegSafe(wcDir)], conn, timeout);
+    const { stdout: statusOut } = await runSvn(["status", "--xml", pegSafe(wcDir)], conn, timeout, undefined, BATCH_MAX_BUFFER);
     const statusText = statusOut.toString("utf-8");
     const changed = modifiedPaths(statusText);
     const modified = overwriteWcPaths.filter((p) => changed.has(path.resolve(p).toLowerCase())).length;
@@ -454,7 +472,7 @@ export async function commitImport(params: { batch: unknown; connectionId?: stri
 
     let stdout: Buffer;
     try {
-      stdout = await commitWithMessage(conn, message, [wcDir]);
+      stdout = await commitWithMessage(conn, message, [wcDir], timeout, BATCH_MAX_BUFFER);
     } catch (e) {
       const text = e instanceof Error ? e.message : String(e);
       if (/E160039|is locked by|locked by user/i.test(text)) {
@@ -468,11 +486,12 @@ export async function commitImport(params: { batch: unknown; connectionId?: stri
     await audit({ op: "import-batch", connection: conn.name, files: staged.length, ...result, ticket: params.ticket?.trim() || null, ok: true, ...describeMessage(message) });
     stagedSizes.delete(id);
     stagedMtimes.delete(id);
-    await rm(batchDirOf(id), { recursive: true, force: true }).catch(() => undefined);
+    stagedTotals.delete(id);
+    await removeDirWithRetry(batchDirOf(id));
     return result;
   } catch (e) {
     // 失敗時只清掉工作副本，保留已上傳的暫存檔，使用者修正問題後可以直接重試，不必重新選檔案
-    await rm(wcDir, { recursive: true, force: true }).catch(() => undefined);
+    await removeDirWithRetry(wcDir);
     await audit({ op: "import-batch", connection: conn.name, targetDir: plan.targetDir, files: staged.length, ok: false, error: e instanceof Error ? e.message : String(e), ...describeMessage(message) });
     throw e;
   }

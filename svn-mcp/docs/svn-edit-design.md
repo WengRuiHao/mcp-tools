@@ -73,7 +73,8 @@ http://127.0.0.1:<port>/edit?connection=<連線名稱>&path=<遠端路徑>&ticke
 - 副檔名白名單：`.docx`、`.xlsx`、`.md`、`.txt`；另設檔案大小上限。
 - 只綁 `127.0.0.1`；所有會改動狀態的請求都要 token。
 - 帳密沿用 `resolveConnection`（`info/svn-connections.json`），不經由網頁傳遞。
-- 每次開啟、上傳、放棄都寫稽核紀錄，commit 訊息只記長度與前 80 字（比照 `svn-workcopy-bridge.ts`）。
+- 每次開啟、上傳、放棄、刪除都寫稽核紀錄，commit 訊息只記長度與前 80 字（比照 `svn-workcopy-bridge.ts`）。
+- 「同步本地端」是選用開關（`prefs.syncLocal`，預設關閉；各專案的本地目錄在 `prefs.localPaths`）：遠端 commit／刪除成功之後才對本地工作目錄做 `svn update`（`src/local-sync.ts`），更新前檢查本地目錄有 SVN 追蹤且包含被動到的檔案，不通過就警示、不更新；同步失敗絕不影響遠端已成功的結果。刪除遠端檔案（`src/remote-delete.ts`）同樣只給網頁按鈕使用、不註冊成 MCP 工具。
 - 中文 commit 訊息寫成 UTF-8 暫存檔，以 `-F` 傳給 svn（比照 `workcopy-client.ts`）。
 - 整個寫入模組不得被 `index.ts` 或 `*-tools.ts` 引用；擴充 `tests/read-only-surface.test.mjs` 鎖住這一點。
 
@@ -104,7 +105,7 @@ P4 只改 dev-pipeline 的頁面產生程式，不新增任何 svn 邏輯。
 | 項目 | 設計 |
 |---|---|
 | 與 dev-pipeline 的關係 | 無依賴。dev-pipeline 只負責產生連結。 |
-| 埠號 | 固定預設埠（暫定 8096），可用環境變數 `SVN_EDIT_PORT` 覆蓋。連結使用預設埠。 |
+| 埠號 | 固定預設埠（9097），可用環境變數 `SVN_EDIT_PORT` 覆蓋。連結使用預設埠。 |
 | 帳密與連線設定 | **與 svn-mcp 唯讀工具共用同一份設定檔**（見下方「共用連線設定」）。每位同事在自己的電腦上維護自己的那一份，使用自己的 SVN 帳號與密碼，不隨執行檔或程式碼散布。 |
 | `svn.exe` | 第一版**不隨附**，要求同事自行安裝 svn 命令列工具（例如 TortoiseSVN 安裝時勾選 command line client tools）。啟動時偵測不到 `svn` 就在控制頁明確提示安裝方式。 |
 | 鎖定 | SVN 的鎖綁定帳號，每人各自帳號才分得出「誰在編輯」，也才能判斷「這是不是我自己的鎖」。 |

@@ -106,6 +106,7 @@ test("沒有服務在跑時會真的拉起一個，且之後再呼叫就是 alre
   process.env.SVN_EDIT_IDLE_MINUTES = "0.02"; // 拉起的服務閒置約 1 分鐘內自己結束：收尾時服務可能還沒綁定埠，killListener 會落空
   const tempBase = fs.mkdtempSync(path.join(os.tmpdir(), "svn-edit-auto-"));
   process.env.SVN_EDIT_TEMP_DIR = path.join(tempBase, "tmp");
+  process.env.SVN_EDIT_AUDIT_LOG = path.join(tempBase, "audit.log");
   t.after(() => {
     killListener(port);
     delete process.env.SVN_EDIT_PORT;

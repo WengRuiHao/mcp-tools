@@ -21,6 +21,7 @@ const repoUrl = pathToFileURL(repoDir).href;
 fs.writeFileSync(connFile, JSON.stringify([{ id: "t1", name: "test", url: repoUrl, username: "u", password: "p" }]));
 process.env.SVN_CONNECTIONS_FILE = connFile;
 process.env.SVN_EDIT_TEMP_DIR = path.join(root, "edit-tmp");
+process.env.SVN_EDIT_AUDIT_LOG = path.join(root, "audit.log"); // 測試的稽核紀錄不要寫進真正的 logs/
 process.env.SVN_EDIT_NO_LAUNCH = "1";
 
 const remoteCat = (rel) => svn("cat", `${repoUrl}/${rel}`).replaceAll("\r\n", "\n");

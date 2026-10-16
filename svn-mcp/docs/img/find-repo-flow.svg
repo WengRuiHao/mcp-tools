@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" role="img" aria-label="AI 助理怎麼找到你說的專案：你只說專案的名字（可以是 repo 名稱、舊名稱、自己取的簡稱，或常用目錄的暱稱），AI 助理呼叫 svn_find_repo 搜尋，拿到 connectionId 與常用目錄路徑，再用 svn_browse、svn_cat、svn_log、svn_diff 這些唯讀工具去查；找不到時會先列出可用的連線問你，不會亂猜。全程只讀取，不會改動 SVN。">
+  <defs>
+    <marker id="frArrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#6b6558"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="520" fill="#f6f2e8"/>
+
+  <g font-family="'Noto Sans TC',sans-serif">
+    <text x="40" y="52" font-size="26" font-weight="700" fill="#2a2620">AI 助理怎麼找到你說的專案？</text>
+    <text x="40" y="82" font-size="15" fill="#6b6558">你只要說專案的名字或「後端規格」這類暱稱，不用記 repo 名稱、連線 id 或路徑；AI 助理先搜尋，再查資料，不用猜。</text>
+  </g>
+
+  <!-- 四個步驟 -->
+  <g font-family="'Noto Sans TC',sans-serif">
+    <g>
+      <rect x="40" y="112" width="250" height="150" rx="10" fill="#eef3ea" stroke="#8aa981"/>
+      <circle cx="64" cy="136" r="13" fill="#345c39"/><text x="64" y="141" font-size="14" font-weight="700" fill="#f6f2e8" text-anchor="middle">1</text>
+      <text x="84" y="141" font-size="16" font-weight="700" fill="#345c39">你說出專案名稱</text>
+      <text x="56" y="172" font-size="13.5" fill="#345c39">例如「幫我看丙銀的後端</text>
+      <text x="56" y="192" font-size="13.5" fill="#345c39">規格」；說 repo 名稱、</text>
+      <text x="56" y="212" font-size="13.5" fill="#345c39">舊名稱、簡稱、常用目錄</text>
+      <text x="56" y="232" font-size="13.5" fill="#345c39">暱稱，都找得到</text>
+    </g>
+    <path d="M292 187 H318" stroke="#6b6558" stroke-width="2" marker-end="url(#frArrow)"/>
+    <g>
+      <rect x="320" y="112" width="250" height="150" rx="10" fill="#f6ecd4" stroke="#c9a24a"/>
+      <circle cx="344" cy="136" r="13" fill="#8a6a1c"/><text x="344" y="141" font-size="14" font-weight="700" fill="#f6f2e8" text-anchor="middle">2</text>
+      <text x="364" y="141" font-size="16" font-weight="700" fill="#8a6a1c">svn_find_repo</text>
+      <text x="336" y="172" font-size="13.5" fill="#8a6a1c">同時比對四種名稱；多個</text>
+      <text x="336" y="192" font-size="13.5" fill="#8a6a1c">關鍵字（空白隔開）要全部</text>
+      <text x="336" y="212" font-size="13.5" fill="#8a6a1c">符合；留空＝列出常用專案</text>
+      <text x="336" y="232" font-size="13.5" fill="#8a6a1c">（星星在前、其次最近開過）</text>
+    </g>
+    <path d="M572 187 H598" stroke="#6b6558" stroke-width="2" marker-end="url(#frArrow)"/>
+    <g>
+      <rect x="600" y="112" width="250" height="150" rx="10" fill="#eef3ea" stroke="#8aa981"/>
+      <circle cx="624" cy="136" r="13" fill="#345c39"/><text x="624" y="141" font-size="14" font-weight="700" fill="#f6f2e8" text-anchor="middle">3</text>
+      <text x="644" y="141" font-size="16" font-weight="700" fill="#345c39">拿到定位資訊</text>
+      <text x="616" y="172" font-size="13.5" fill="#345c39">connectionId（填給其他</text>
+      <text x="616" y="192" font-size="13.5" fill="#345c39">工具）＋符合的常用目錄</text>
+      <text x="616" y="212" font-size="13.5" fill="#345c39">路徑（直接當 path 用），</text>
+      <text x="616" y="232" font-size="13.5" fill="#345c39">不用自己猜</text>
+    </g>
+    <path d="M852 187 H878" stroke="#6b6558" stroke-width="2" marker-end="url(#frArrow)"/>
+    <g>
+      <rect x="880" y="112" width="280" height="150" rx="10" fill="#eef3ea" stroke="#8aa981"/>
+      <circle cx="904" cy="136" r="13" fill="#345c39"/><text x="904" y="141" font-size="14" font-weight="700" fill="#f6f2e8" text-anchor="middle">4</text>
+      <text x="924" y="141" font-size="16" font-weight="700" fill="#345c39">查資料、回答你</text>
+      <text x="896" y="172" font-size="13.5" fill="#345c39">svn_browse 看有哪些檔案、</text>
+      <text x="896" y="192" font-size="13.5" fill="#345c39">svn_cat 讀內容、svn_log／</text>
+      <text x="896" y="212" font-size="13.5" fill="#345c39">svn_diff 看修改歷史；</text>
+      <text x="896" y="232" font-size="13.5" fill="#345c39">整理成白話文</text>
+    </g>
+  </g>
+
+  <!-- 四種名稱 -->
+  <g font-family="'Noto Sans TC',sans-serif">
+    <text x="40" y="312" font-size="19" font-weight="700" fill="#2a2620">svn_find_repo 認得的四種名稱</text>
+    <rect x="40" y="328" width="268" height="116" rx="10" fill="#ede8db" stroke="#cdc4ae"/>
+    <text x="58" y="356" font-size="16" font-weight="700" fill="#2a2620">repo 名稱</text>
+    <text x="58" y="382" font-size="13.5" fill="#6b6558">SVN 伺服器上這個專案庫的</text>
+    <text x="58" y="402" font-size="13.5" fill="#6b6558">名字，也是 connectionId。</text>
+
+    <rect x="326" y="328" width="268" height="116" rx="10" fill="#ede8db" stroke="#cdc4ae"/>
+    <text x="344" y="356" font-size="16" font-weight="700" fill="#2a2620">舊名稱（別名）</text>
+    <text x="344" y="382" font-size="13.5" fill="#6b6558">舊版一個 repo 一筆連線時取</text>
+    <text x="344" y="402" font-size="13.5" fill="#6b6558">的名字（例如「專案甲」），</text>
+    <text x="344" y="422" font-size="13.5" fill="#6b6558">升級後照樣能用。</text>
+
+    <rect x="612" y="328" width="268" height="116" rx="10" fill="#ede8db" stroke="#cdc4ae"/>
+    <text x="630" y="356" font-size="16" font-weight="700" fill="#2a2620">你自己取的簡稱</text>
+    <text x="630" y="382" font-size="13.5" fill="#6b6558">在 svn-edit 專案清單點「簡稱」</text>
+    <text x="630" y="402" font-size="13.5" fill="#6b6558">取的暱稱（例如「丙銀」），</text>
+    <text x="630" y="422" font-size="13.5" fill="#6b6558">只存在你的電腦。</text>
+
+    <rect x="898" y="328" width="262" height="116" rx="10" fill="#ede8db" stroke="#cdc4ae"/>
+    <text x="916" y="356" font-size="16" font-weight="700" fill="#2a2620">常用目錄的暱稱</text>
+    <text x="916" y="382" font-size="13.5" fill="#6b6558">深層資料夾加星星後取的名字</text>
+    <text x="916" y="402" font-size="13.5" fill="#6b6558">（例如「後端規格」），直接</text>
+    <text x="916" y="422" font-size="13.5" fill="#6b6558">回傳路徑，省下一層層找。</text>
+  </g>
+
+  <!-- 底部說明 -->
+  <rect x="40" y="464" width="1120" height="36" rx="10" fill="#e6efe2" stroke="#8aa981"/>
+  <g font-family="'Noto Sans TC',sans-serif">
+    <text x="60" y="488" font-size="14" fill="#345c39">全程唯讀。找不到符合的專案時，AI 助理會先列出可用的連線問你，不會亂猜；伺服器上剛新建的 repo 會自動重新讀取一次再找。</text>
+  </g>
+</svg>

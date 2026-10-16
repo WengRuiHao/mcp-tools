@@ -5,7 +5,11 @@
  * 注意：下面的樣板字串裡不能出現反引號與 `${`，前端程式碼一律用字串串接。
  * 所有動態內容（檔名、路徑、訊息）都用 textContent 填入，不用 innerHTML，避免 XSS。
  */
-import { LOGO_PNG_BASE64 } from "./edit-icon-data.js";
+import { createHash } from "node:crypto";
+import { FAVICON_ICO_BASE64, LOGO_PNG_BASE64 } from "./edit-icon-data.js";
+
+/** 圖示內容的雜湊：換圖後網址跟著變，Edge 才不會沿用快取在專屬設定資料夾裡的舊圖示（視窗標題列／工作列的圖會用到）。 */
+export const ICON_VERSION = createHash("sha256").update(FAVICON_ICO_BASE64).digest("hex").slice(0, 10);
 
 /** 顯示在頁首的版本號；有功能性改版時手動調整。 */
 export const APP_VERSION = "1.0.0";
@@ -16,7 +20,7 @@ const PAGE = String.raw`<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SVN 遠端編輯</title>
-<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="256x256" href="/favicon.png?v=__ICON_VER__">
 <style>
 :root{
   --brand:#e2484c;--brand-hover:#cf3b40;--brand-dark:#b8262b;--brand-soft:#fdecec;
@@ -78,25 +82,95 @@ button:disabled{opacity:.5;cursor:default}
 .msg.info{background:var(--completed-bg);color:var(--completed-ink)}
 .banner{background:var(--pending-bg);color:var(--pending-ink);border-radius:var(--radius-field);padding:10px 14px;margin:12px 0 0;font-size:13.5px}
 .banner .path{color:var(--pending-ink);opacity:.85}
+.banner.info{background:var(--completed-bg);color:var(--completed-ink);cursor:pointer}
+.upgrade{margin:12px 0 4px;padding:10px 12px;border:1px dashed var(--line-strong);border-radius:12px}
+.upgrade>label{display:flex;align-items:center;gap:8px;margin:0;font-weight:600;color:var(--ink);cursor:pointer}
+.upgrade input[type=checkbox]{width:auto;margin:0}
+.upgrade label.upgrade__name{margin-top:8px}
+.upgrade .hint{margin:6px 0 0}
+.modal{position:fixed;top:0;right:0;bottom:0;left:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;background:rgb(51 46 44 / .35)}
+.modal__box{max-width:460px;width:100%;background:var(--surface);border-radius:18px;padding:20px 22px;box-shadow:0 18px 48px rgb(51 46 44 / .3);border-top:5px solid var(--pending-ink)}
+.modal__box h3{margin:0 0 10px;font-size:16px;color:var(--pending-ink)}
+.modal__box p{margin:0 0 14px;line-height:1.6;overflow-wrap:anywhere;white-space:pre-wrap}
+.entryrow{display:flex;gap:6px;align-items:stretch;margin:0 0 4px}
+.entryrow>.entry{margin:0;flex:1 1 auto;min-width:0;width:auto}
+.entryrow .delbtn{flex:0 0 auto;padding:4px 10px;font-size:14px;border-radius:10px}
+.syncbox{margin:8px 0 4px;padding:10px 12px;border:1px dashed var(--line-strong);border-radius:12px}
+.syncbox>label.synctoggle{display:flex;align-items:center;gap:8px;margin:0;font-weight:600;color:var(--ink);cursor:pointer}
+.syncbox input[type=checkbox]{width:auto;margin:0}
+.syncbox .hint{margin:6px 0 0}
+.delbox{margin:0 0 12px;padding:12px 14px;border:1px solid var(--danger);border-radius:12px;background:var(--danger-bg)}
+.delbox p{margin:0 0 8px;overflow-wrap:anywhere}
 
 /* 目錄瀏覽、連線清單 */
 summary{cursor:pointer;font-weight:700;font-size:15.5px}
 summary::marker{color:var(--brand)}
 .crumbs{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
 .crumbs button{padding:3px 11px;font-size:13px;border-radius:10px}
-.entry{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;margin:0 0 4px;padding:8px 12px;border-radius:10px;font-weight:500;color:var(--ink)}
-.entry .path{margin:0;font-size:12px}
+.entry{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;margin:0 0 4px;padding:8px 12px;border-radius:10px;font-weight:500;color:var(--ink);white-space:normal}
+.entry__name{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+.entry__meta{flex:0 0 auto;font-size:12px;font-weight:400;color:var(--muted);text-align:right;white-space:nowrap;line-height:1.35}
+.entry__meta span{display:block}
 .conn{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px;word-break:break-all}
 details>.hint{margin-bottom:8px}
 button{white-space:nowrap}
+.tabs{display:flex;border:1px solid var(--line-strong);border-radius:12px;overflow:hidden;margin:10px 0}
+.tabs button{flex:1;border:0;border-radius:0;background:var(--surface);padding:8px 0}
+.tabs button.on{background:var(--brand);color:#fff}
+.searchrow{display:flex;gap:8px}
+.searchrow input{flex:1;min-width:0}
+.searchrow button.reload{padding:6px 12px;font-size:18px}
+.projlist{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:10px;background:var(--surface)}
+.proj{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+.proj:last-child{border-bottom:0}
+.proj:hover{background:var(--pink-soft)}
+.proj__name{flex:1;min-width:0;overflow-wrap:anywhere;font-weight:500}
+.proj .grip{color:var(--muted);cursor:grab;user-select:none;letter-spacing:-2px}
+.proj.dragging{opacity:.4}
+.proj.drop-before{box-shadow:inset 0 2px 0 var(--brand)}
+.proj.drop-after{box-shadow:inset 0 -2px 0 var(--brand)}
+button.star{border:0;background:none;padding:0 2px;font-size:20px;line-height:1;color:var(--muted);box-shadow:none}
+button.star:hover:not(:disabled){background:none;color:#f0a500}
+button.star.on{color:#f0a500}
+button.nick{flex:0 0 auto;min-width:64px;border-radius:999px;border:1px solid var(--pink-line);background:var(--brand-soft);color:var(--brand-dark);padding:2px 12px;font-size:13px}
+button.nick.alias{color:var(--muted);font-weight:500}
+button.nick.empty{color:#d9b9b8;font-weight:500}
+input.nickinput{flex:0 0 auto;width:110px;padding:3px 10px;font-size:13px;border-radius:999px}
+.combo{position:relative}
+button.combo__field{display:flex;width:100%;justify-content:flex-start;gap:8px;text-align:left;background:var(--field);color:var(--ink);font-weight:500;padding:8px 12px;white-space:normal}
+.combo__name{flex:1;min-width:0;overflow-wrap:anywhere;text-align:left}
+.combo__pill{flex:0 0 auto;border-radius:999px;border:1px solid var(--pink-line);background:var(--brand-soft);color:var(--brand-dark);padding:1px 10px;font-size:12.5px;font-weight:600}
+.combo__caret{flex:0 0 auto;color:var(--muted)}
+.combo__panel{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:30;background:#fff;border:1px solid var(--line-strong);border-radius:12px;box-shadow:0 12px 28px rgb(51 46 44 / .16);padding:8px}
+.combo__list{max-height:280px;overflow-y:auto;margin-top:8px}
+button.combo__item{display:flex;width:100%;justify-content:flex-start;gap:8px;text-align:left;border:0;border-radius:8px;background:none;padding:6px 8px;font-weight:500;color:var(--ink);white-space:normal}
+button.combo__item.on{background:var(--brand-soft)}
+.combo__star{flex:0 0 16px;color:#f0a500}
+.entry--row{cursor:pointer;border:1px solid var(--line-strong);background:#fff;color:var(--ink);font-weight:500;border-radius:10px;align-items:center}
+.entry--row:hover{background:var(--pink-soft)}
+.favbox{border:1px solid var(--pink-line);background:var(--pink-soft);border-radius:12px;padding:8px 12px;margin:10px 0}
+.favbox__title{font-size:13px;font-weight:700;color:var(--brand-dark);margin-bottom:4px}
+.favrow{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--pink-line)}
+.favrow:first-of-type{border-top:0}
+button.favpath{flex:1;min-width:0;justify-content:flex-start;text-align:left;border:0;background:none;padding:0;white-space:normal;overflow-wrap:anywhere;font-weight:500;color:var(--ink)}
+button.small{padding:3px 12px;font-size:13px}
+button.favpath{flex-direction:column;align-items:flex-start;gap:1px}
+.favnick{font-weight:700}
+.favsub{font-size:12px;font-weight:400;color:var(--muted);overflow-wrap:anywhere;text-align:left}
+.favlabel{flex:1;min-width:0}
+input.favnickinput{width:100%;padding:4px 10px;font-size:14px}
+.projbar{display:flex;align-items:center;gap:10px;margin:8px 0}
+.projbar__name{flex:1;min-width:0;overflow-wrap:anywhere}
 .conn button{flex:0 0 auto}
+.conn .btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;flex:0 0 auto}
+button.danger{color:var(--danger);border-color:var(--danger)}
 input+details,select+details{margin-top:12px}
 /* 排版 A：三個功能區塊永遠在主畫面；按「▸」按鈕時視窗往右加寬，右邊出現面板 */
 .layout{display:flex;align-items:flex-start;min-height:100vh}
 main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
-.ext{display:none;flex:0 0 420px;width:420px;position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--surface);border-left:1px solid var(--line-strong);padding:16px 18px 24px}
+.ext{display:none;flex:0 0 var(--ext-w,420px);width:var(--ext-w,420px);position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--surface);border-left:1px solid var(--line-strong);padding:16px 18px 24px}
 .layout.ext-inline .ext{display:block;animation:ext-in .24s ease-out}
-.layout.ext-overlay .ext{display:block;position:fixed;top:0;right:0;bottom:0;height:auto;width:min(420px,94vw);z-index:25;box-shadow:-14px 0 34px rgb(51 46 44 / .18);animation:ext-in .24s ease-out}
+.layout.ext-overlay .ext{display:block;position:fixed;top:0;right:0;bottom:0;height:auto;width:min(var(--ext-w,420px),94vw);z-index:25;box-shadow:-14px 0 34px rgb(51 46 44 / .18);animation:ext-in .24s ease-out}
 @keyframes ext-in{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
 .ext h2{font-size:17px;font-weight:700;margin:0 0 6px;padding-right:40px}
 .ext h2::before{content:"";display:inline-block;width:5px;height:17px;border-radius:3px;background:var(--brand);margin-right:9px;vertical-align:-3px}
@@ -136,18 +210,25 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
 <script>
 (function () {
   var TOKEN = "__EDIT_TOKEN__";
-  var state = { connections: [], servers: [], sessions: [], svnAvailable: true, configured: false };
+  var state = { connections: [], servers: [], repoPrefs: { starred: [], recent: {}, nicknames: {}, folders: {}, folderNicknames: {}, localPaths: {}, syncLocal: false }, sessions: [], svnAvailable: true, configured: false };
   var stateLoaded = false;
   var messages = {};
   var cardNotes = {};
   var busy = {};
   var confirmDiscard = {};
+  /** 每張編輯卡片的「升級版本」狀態：{ on, plan, loading, newName }。 */
+  var upgrades = {};
+  /** 上傳成功後顯示在最上面的提示（點一下或 30 秒後消失）。 */
+  var commitNotice = "";
   var cards = {};
   var pendingRequest = readQuery();
   var browseRequest = readBrowseQuery();
-  var settingsForm = { id: "", name: "", url: "", username: "", password: "" };
   var serverForm = { id: "", name: "", url: "", username: "", password: "" };
   var serverBusy = false;
+  var deleteConfirmId = null;
+  var localForm = { repo: "", path: "" };
+  var localNote = null;
+  var localBusy = false;
   var settingsNote = null;
 
   function readQuery() {
@@ -210,14 +291,14 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   function showBanner(text, isError) {
     var box = document.getElementById("banner");
     box.textContent = "";
-    if (text) box.appendChild(h("div", { class: isError ? "banner" : "banner" }, text));
+    if (text) box.appendChild(h("div", { class: isError ? "banner" : "banner info", onclick: isError ? null : function () { commitNotice = ""; box.textContent = ""; } }, text));
   }
 
   function render() {
     var banner = [];
     if (state.connectionsError) banner.push(state.connectionsError);
     if (!state.svnAvailable) banner.push("找不到 svn 命令列工具。請安裝 TortoiseSVN，並在安裝時勾選「command line client tools」，裝好後重新整理這個頁面。");
-    showBanner(banner.join("\n"), true);
+    showBanner(banner.length ? banner.join("\n") : commitNotice, banner.length > 0);
     renderPending();
     renderSessions();
     renderBrowser();
@@ -227,6 +308,25 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     // 第一次使用、還沒設定任何連線：直接把「連線」面板打開
     if (stateLoaded && !state.configured && !extAutoOpened) { extAutoOpened = true; if (ext.view === null) openExt("conn"); }
   }
+
+  /** 跳出警示視窗（使用者按「知道了」才關）：遠端已經成功、但本地端沒處理好的情況要讓人一定看到。 */
+  var alertBox = null;
+  function showAlert(title, message) {
+    function close() {
+      if (alertBox && alertBox.parentNode) alertBox.parentNode.removeChild(alertBox);
+      alertBox = null;
+      document.removeEventListener("keydown", onKey, true);
+    }
+    function onKey(ev) { if (ev.key === "Escape" || ev.key === "Enter") { ev.preventDefault(); ev.stopPropagation(); close(); } }
+    if (alertBox) close();
+    var ok = h("button", { type: "button", class: "primary", onclick: close }, "知道了");
+    alertBox = h("div", { class: "modal", role: "alertdialog", "aria-modal": "true" },
+      h("div", { class: "modal__box" }, h("h3", null, title), h("p", null, message), h("div", { class: "row" }, ok)));
+    document.body.appendChild(alertBox);
+    document.addEventListener("keydown", onKey, true);
+    ok.focus();
+  }
+  function syncAlertTitle(sync, what) { return what + (sync.status === "failed" ? "，但同步本地端失敗" : "，但本地端沒有同步"); }
 
   // ---- 準備開始編輯（從 dev-pipeline 按鈕或連結進來） ----
   var pendingNote = null;
@@ -241,7 +341,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     var req = pendingRequest;
     var select = null;
     if (!req.connection && state.connections.length !== 1) {
-      select = h("select", { id: "pendingConn" }, state.connections.map(function (c) { return h("option", { value: c.id }, c.name); }));
+      select = h("select", { id: "pendingConn" }, state.connections.map(function (c) { return h("option", { value: c.id }, connLabel(c)); }));
     }
     var connName = req.connection || (state.connections.length === 1 ? state.connections[0].name : "");
     var startBtn = h("button", { class: "primary", onclick: function () {
@@ -267,8 +367,13 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   }
 
   // ---- 編輯清單 ----
+  function upgradeSig(id) {
+    var u = upgrades[id];
+    return u ? JSON.stringify([u.on, u.loading, u.newName, u.plan ? [u.plan.applicable, u.plan.reason, u.plan.newName, u.plan.archiveDirExists] : null]) : "";
+  }
+
   function sessionSig(s) {
-    return [s.session.id, s.modified, s.editorStillOpen, busy[s.session.id] || "", cardNotes[s.session.id] ? cardNotes[s.session.id].text : "", !!confirmDiscard[s.session.id]].join("|");
+    return [s.session.id, s.modified, s.editorStillOpen, busy[s.session.id] || "", cardNotes[s.session.id] ? cardNotes[s.session.id].text : "", !!confirmDiscard[s.session.id], upgradeSig(s.session.id)].join("|");
   }
 
   function renderSessions() {
@@ -304,14 +409,59 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
       fn().then(function (result) { busy[id] = ""; if (result && result.note) cardNotes[id] = { text: result.note, info: true }; return refresh(); })
         .catch(function (e) { busy[id] = ""; cardNotes[id] = { text: e.message + (HINTS[e.code] ? "\n" + HINTS[e.code] : ""), info: false }; return refresh(); });
     }
-    var commit = h("button", { class: "primary", disabled: disabled ? "disabled" : null, onclick: function () {
+    var up = upgrades[id] || (upgrades[id] = { on: false, plan: null, loading: false, newName: "" });
+    function loadPlan(newName) {
+      up.loading = true; render();
+      api("GET", "/api/upgrade-plan?id=" + encodeURIComponent(id) + (newName ? "&newName=" + encodeURIComponent(newName) : "")).then(function (plan) {
+        up.plan = plan; up.newName = plan.newName || newName || ""; up.loading = false; render();
+      }).catch(function (e) {
+        up.loading = false; up.plan = { applicable: false, reason: e.message, newName: newName || null }; render();
+      });
+    }
+    var toggle = h("input", { type: "checkbox", checked: up.on ? "checked" : null, disabled: disabled ? "disabled" : null });
+    toggle.addEventListener("change", function () { up.on = toggle.checked; if (up.on) loadPlan(up.newName); else render(); });
+    var upgradeBox = h("div", { class: "upgrade" },
+      h("label", null, toggle, h("span", null, "升級版本（舊版放進 old 資料夾，新版的版本號 +1）")));
+    if (up.on) {
+      var plan = up.plan;
+      if (up.loading || !plan) {
+        upgradeBox.appendChild(h("p", { class: "hint" }, "正在確認遠端目錄…"));
+      } else {
+        var oldPlace = plan.archiveDirName + "/" + plan.archiveFileName;
+        upgradeBox.appendChild(h("p", { class: "hint" }, "舊版「" + plan.currentName + "」會複製到「" + oldPlace + "」" +
+          (plan.archiveFileName !== plan.currentName ? "（原檔名沒有版次，放進 old 時自動補上 _v0.1）" : "") +
+          (plan.archiveDirExists ? "。" : "。這個目錄下還沒有 old 資料夾，會自動建立。")));
+        if (plan.newName !== null) {
+          var nameInput = h("input", { type: "text", value: up.newName, disabled: disabled ? "disabled" : null });
+          nameInput.addEventListener("change", function () { up.newName = nameInput.value.trim(); loadPlan(up.newName); });
+          upgradeBox.appendChild(h("label", { class: "upgrade__name" }, "新版檔名（可以自己修改）"));
+          upgradeBox.appendChild(nameInput);
+          upgradeBox.appendChild(h("p", { class: "hint" }, plan.implicitVersion ? "原檔名沒有版次，新版自動加上 _v0.2。" : "版本號已自動 +1（" + plan.currentVersion + " → " + plan.newVersion + "）。"));
+        }
+        if (plan.reason) upgradeBox.appendChild(h("div", { class: "msg" }, plan.reason));
+        upgradeBox.appendChild(h("p", { class: "hint" }, "上傳時舊版與新版會在同一個 commit 一起完成，舊版的歷史紀錄都保留。"));
+      }
+    }
+    var upgradeBlocked = up.on && (up.loading || !up.plan || !up.plan.applicable);
+    var commitLabel = busy[id] === "上傳中…" ? "上傳中…" : (up.on && up.plan && up.plan.newVersion ? "上傳並升級到 " + up.plan.newVersion : "上傳");
+    var commit = h("button", { class: "primary", disabled: (disabled || upgradeBlocked) ? "disabled" : null, onclick: function () {
       run("上傳中…", function () {
-        return api("POST", "/api/commit", { id: id, message: messages[id] }).then(function (r) {
-          delete messages[id]; delete cardNotes[id];
+        var body = { id: id, message: messages[id] };
+        if (up.on) body.upgrade = up.newName ? { newName: up.newName } : true;
+        return api("POST", "/api/commit", body).then(function (r) {
+          delete messages[id]; delete cardNotes[id]; delete upgrades[id];
+          var sync = r.localSync;
+          if (r.upgrade || sync) {
+            commitNotice = (r.upgrade
+              ? "已升級並上傳（r" + r.committedRevision + "）：新版「" + r.upgrade.newName + "」；舊版放進「" + r.upgrade.archivedTo + "」。"
+              : "已上傳（r" + r.committedRevision + "）：" + r.path + "。") + (sync && sync.status === "updated" ? " " + sync.message : "");
+            setTimeout(function () { commitNotice = ""; render(); }, 30000);
+          }
+          if (sync && sync.status !== "updated") showAlert(syncAlertTitle(sync, "已上傳到 SVN"), sync.message);
           return { note: null, done: r };
         });
       });
-    } }, busy[id] === "上傳中…" ? "上傳中…" : "上傳");
+    } }, commitLabel);
     var discard = h("button", { class: "danger", disabled: disabled ? "disabled" : null, onclick: function () {
       if (!confirmDiscard[id]) { confirmDiscard[id] = true; render(); return; }
       delete confirmDiscard[id];
@@ -326,6 +476,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
         s.modified ? h("span", { class: "badge ok" }, "已修改") : h("span", { class: "badge" }, "尚未修改"),
         s.editorStillOpen ? h("span", { class: "badge warn" }, "檔案還開著（請先關閉再上傳）") : null),
       h("label", null, "上傳說明（commit 訊息）"), textarea,
+      upgradeBox,
       note ? h("div", { class: note.info ? "msg info" : "msg" }, note.text) : null,
       h("div", { class: "row" },
         commit,
@@ -336,7 +487,9 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   }
 
   // ---- 瀏覽 SVN 目錄（唯讀）：主畫面只放一張卡片，清單在往右延伸的面板裡 ----
-  var browse = { connection: "", path: "", entries: null, truncated: false, loading: false, error: null, ticket: "" };
+  var browse = { connection: "", path: "", entries: null, truncated: false, loading: false, error: null, ticket: "", notice: null, picking: true };
+  // 專案選擇畫面（近期／星星分頁、搜尋、簡稱）的暫時狀態
+  var picker = { tab: "recent", query: "", editing: "", note: null, busy: false };
   var browseSig = "";
   var browseStarted = false;
 
@@ -348,7 +501,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   }
 
   function loadBrowse(path) {
-    browse.path = path; browse.loading = true; browse.error = null; browse.entries = null; renderExt();
+    browse.path = path; browse.loading = true; browse.error = null; browse.notice = null; browse.entries = null; browse.del = null; renderExt();
     api("GET", "/api/browse?connection=" + encodeURIComponent(browse.connection) + "&path=" + encodeURIComponent(path)).then(function (r) {
       browse.loading = false; browse.entries = r.entries; browse.truncated = r.truncated; renderExt();
     }).catch(function (e) {
@@ -362,7 +515,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
       h("span", null, label), h("span", { class: "arrow" }, "▸"));
   }
   function noConnectionHint() {
-    return h("p", { class: "hint" }, "還沒有任何連線，請先到下方的「連線設定」新增一個。");
+    return h("p", { class: "hint" }, "還沒有任何帳號，請先到下方的「連線設定」填寫伺服器網址與帳密。");
   }
 
   function renderBrowser() {
@@ -370,7 +523,8 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     if (browseRequest && !browseStarted && state.connections.length > 0) {
       browseStarted = true;
       var wanted = findConnection(browseRequest.connection) || state.connections[0];
-      browse.connection = wanted.id; browse.ticket = browseRequest.ticket; browse.path = browseRequest.path;
+      browse.connection = wanted.id; browse.ticket = browseRequest.ticket; browse.path = browseRequest.path; browse.picking = false;
+      recordOpened(wanted.name);
       openExt("browse");
     }
     var sig = JSON.stringify([state.connections.length, ext.view === "browse", browse.ticket]);
@@ -383,34 +537,276 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
       state.connections.length === 0 ? noConnectionHint() : h("div", { class: "row" }, openerButton("browse", "瀏覽 SVN 目錄", "wide"))));
   }
 
+  /** repo 連線的顯示名稱：repo 名稱後面帶舊版取的別名（例如 PROJ-One（專案甲））。 */
+  function connLabel(c) { return c.aliases && c.aliases.length ? c.name + "（" + c.aliases.join("、") + "）" : c.name; }
+  function pad2(n) { return n < 10 ? "0" + n : String(n); }
+  /** SVN 回傳的 ISO 時間 → 本機時間 yyyy-MM-dd HH:mm；讀不出來回傳空字串。 */
+  function fmtDate(iso) {
+    var d = iso ? new Date(iso) : null;
+    if (!d || isNaN(d.getTime())) return "";
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+  }
+  function fmtDuration(ms) {
+    var sec = Math.round(ms / 1000);
+    if (sec < 1) return "不到 1 秒";
+    if (sec < 60) return sec + " 秒";
+    return Math.floor(sec / 60) + " 分 " + (sec % 60) + " 秒";
+  }
+  /** 每一列右側的說明（每個元素一行）：版本與作者、最後修改時間；資料夾與不能編輯的檔案顯示類型。 */
+  function entryLines(entry) {
+    var lines = [];
+    if (entry.kind === "dir") lines.push("資料夾");
+    else if (entry.editable || entry.viewable) { var who = (entry.revision ? "r" + entry.revision : "") + (entry.author ? " " + entry.author : ""); if (who) lines.push(who); }
+    else lines.push(entry.tempFile ? "Office 暫存檔，不是文件" : "不支援編輯");
+    var when = fmtDate(entry.date);
+    if (when) lines.push(when);
+    return lines;
+  }
+  function entryMeta(entry) {
+    return h("span", { class: "entry__meta" }, entryLines(entry).map(function (line) { return h("span", null, line); }));
+  }
+  /** 唯讀檢視：請伺服器匯出最新版並用預設程式開啟；結果顯示在面板上方的提示列。 */
+  function viewFile(full) {
+    browse.notice = { text: "正在取出並開啟…", error: false }; renderExt();
+    api("POST", "/api/view", { connection: browse.connection, path: full }).then(function (r) {
+      browse.notice = { text: "已用預設程式開啟最新版（r" + r.revision + "，唯讀）：" + full, error: false }; renderExt();
+    }).catch(function (e) {
+      browse.notice = { text: e.message || "開啟失敗", error: true }; renderExt();
+    });
+  }
+  // ---- 專案選擇：近期／星星分頁、搜尋、星星、簡稱（專案很多時用來快速找）----
+  function prefsNow() { return state.repoPrefs || { starred: [], recent: {}, nicknames: {}, folders: {}, folderNicknames: {}, localPaths: {}, syncLocal: false }; }
+  function isStarred(name) { return prefsNow().starred.indexOf(name) >= 0; }
+  function nicknameOf(c) { return prefsNow().nicknames[c.name] || ""; }
+  /** 簡稱欄顯示什麼：自己取的簡稱優先，沒有就顯示舊版別名當提示。 */
+  function pillOf(c) { var nick = nicknameOf(c); return nick ? { text: nick, kind: "nick" } : (c.aliases && c.aliases.length ? { text: c.aliases[0], kind: "alias" } : { text: "簡稱", kind: "empty" }); }
+  function byName(a, b) { return a.name.localeCompare(b.name, "zh-Hant"); }
+  function recentList() {
+    var recent = prefsNow().recent;
+    return state.connections.slice().sort(function (a, b) {
+      var ta = recent[a.name] || "", tb = recent[b.name] || "";
+      if (ta !== tb) return ta < tb ? 1 : -1;
+      return byName(a, b);
+    });
+  }
+  function starList() {
+    var out = [];
+    prefsNow().starred.forEach(function (name) { var c = state.connections.filter(function (x) { return x.name === name; })[0]; if (c) out.push(c); });
+    return out;
+  }
+  /** 搜尋：空白分隔的每個詞都要出現在「名稱、別名、簡稱」其中之一（不分大小寫）。 */
+  function matchesQuery(c, query) {
+    var hay = (c.name + " " + (c.aliases || []).join(" ") + " " + nicknameOf(c)).toLowerCase();
+    return query.toLowerCase().split(" ").filter(function (t) { return t; }).every(function (t) { return hay.indexOf(t) >= 0; });
+  }
+  function recordOpened(name) {
+    api("POST", "/api/repo-prefs/open", { name: name }).then(function (r) { state.repoPrefs = r.prefs; }).catch(function () {});
+  }
+  function backToPicker() { browse.picking = true; browse.entries = null; browse.error = null; browse.notice = null; renderExt(); }
+  function openProject(c) {
+    browse.connection = c.id; browse.picking = false; browse.path = "";
+    recordOpened(c.name);
+    loadBrowse("");
+  }
+  function savePrefs(call) {
+    return call.then(function (r) { state.repoPrefs = r.prefs; renderPickerList(); importRerender(); }).catch(function (e) {
+      picker.note = { text: e.message || "儲存失敗", error: true }; refresh().then(function () { extSig = ""; renderExt(); });
+    });
+  }
+  function toggleStar(c) {
+    var on = !isStarred(c.name);
+    var p = prefsNow();
+    state.repoPrefs = { starred: on ? p.starred.concat([c.name]) : p.starred.filter(function (n) { return n !== c.name; }), recent: p.recent, nicknames: p.nicknames, folders: p.folders || {}, folderNicknames: p.folderNicknames || {}, localPaths: p.localPaths || {}, syncLocal: !!p.syncLocal };
+    renderPickerList();
+    savePrefs(api("POST", "/api/repo-prefs/star", { name: c.name, starred: on }));
+  }
+  function starButton(c) {
+    var on = isStarred(c.name);
+    var btn = h("button", { type: "button", class: "star" + (on ? " on" : ""), title: on ? "取消星星" : "加入星星（放到「星星 SVN」）", onclick: function (ev) {
+      ev.stopPropagation(); toggleStar(c); var now = isStarred(c.name); btn.textContent = now ? "★" : "☆"; btn.className = "star" + (now ? " on" : "");
+    } }, on ? "★" : "☆");
+    return btn;
+  }
+  function moveStar(dragged, target, after) {
+    var order = starList().map(function (c) { return c.name; }).filter(function (n) { return n !== dragged; });
+    var at = order.indexOf(target) + (after ? 1 : 0);
+    order.splice(at < 0 ? order.length : at, 0, dragged);
+    var p = prefsNow();
+    state.repoPrefs = { starred: order, recent: p.recent, nicknames: p.nicknames, folders: p.folders || {}, folderNicknames: p.folderNicknames || {}, localPaths: p.localPaths || {}, syncLocal: !!p.syncLocal };
+    renderPickerList();
+    savePrefs(api("POST", "/api/repo-prefs/reorder", { order: order }));
+  }
+  var dragName = null;
+  function projectRow(c, canDrag) {
+    var pill = pillOf(c);
+    var right;
+    if (picker.editing === c.name) {
+      var input = h("input", { class: "nickinput", type: "text", maxlength: "30", placeholder: "簡稱", value: nicknameOf(c), onclick: function (ev) { ev.stopPropagation(); } });
+      var finished = false;
+      var finish = function (save) {
+        if (finished) return; finished = true; picker.editing = "";
+        if (save && input.value.trim() !== nicknameOf(c)) savePrefs(api("POST", "/api/repo-prefs/nickname", { name: c.name, nickname: input.value }));
+        else renderPickerList();
+      };
+      input.addEventListener("keydown", function (ev) { ev.stopPropagation(); if (ev.key === "Enter") finish(true); else if (ev.key === "Escape") finish(false); });
+      input.addEventListener("blur", function () { finish(true); });
+      right = input;
+      setTimeout(function () { input.focus(); input.select(); }, 0);
+    } else {
+      right = h("button", { type: "button", class: "nick " + pill.kind, title: pill.kind === "alias" ? "舊版取的名稱；點一下設定你自己的簡稱" : "點一下設定簡稱（只存在你的電腦，搜尋時也會比對）", onclick: function (ev) { ev.stopPropagation(); picker.editing = c.name; renderPickerList(); } }, pill.text);
+    }
+    var row = h("div", { class: "proj" + (canDrag ? " draggable" : ""), role: "button", tabindex: "0", "data-name": c.name, draggable: canDrag ? "true" : null, onclick: function () { openProject(c); } },
+      canDrag ? h("span", { class: "grip", title: "拖曳調整順序" }, "⋮⋮") : null,
+      starButton(c),
+      h("span", { class: "proj__name" }, c.name),
+      right);
+    row.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target === row) openProject(c); });
+    if (canDrag) {
+      var clearMarks = function () { row.classList.remove("drop-before", "drop-after"); };
+      var isAfter = function (ev) { var r = row.getBoundingClientRect(); return ev.clientY > r.top + r.height / 2; };
+      row.addEventListener("dragstart", function (ev) { dragName = c.name; row.classList.add("dragging"); try { ev.dataTransfer.setData("text/plain", c.name); ev.dataTransfer.effectAllowed = "move"; } catch (e) {} });
+      row.addEventListener("dragend", function () { dragName = null; row.classList.remove("dragging"); });
+      row.addEventListener("dragover", function (ev) {
+        if (!dragName || dragName === c.name) return;
+        ev.preventDefault(); clearMarks(); row.classList.add(isAfter(ev) ? "drop-after" : "drop-before");
+      });
+      row.addEventListener("dragleave", clearMarks);
+      row.addEventListener("drop", function (ev) {
+        ev.preventDefault(); clearMarks();
+        if (!dragName || dragName === c.name) return;
+        var moved = dragName; dragName = null; moveStar(moved, c.name, isAfter(ev));
+      });
+    }
+    return row;
+  }
+  /** 只重畫清單與底下的說明（打字搜尋時不能重畫搜尋框，不然會失去焦點）。 */
+  function renderPickerList() {
+    var box = document.getElementById("pickerList");
+    if (!box) return;
+    var foot = document.getElementById("pickerFoot");
+    var query = picker.query.trim();
+    var isStar = picker.tab === "star";
+    var all = isStar ? starList() : recentList();
+    var shown = query ? all.filter(function (c) { return matchesQuery(c, query); }) : all;
+    var canDrag = isStar && !query;
+    box.textContent = "";
+    if (shown.length === 0) {
+      box.appendChild(h("div", { class: "empty" }, query ? "找不到符合「" + query + "」的專案。" : (isStar ? "還沒有星星專案。到「近期 SVN」點 ☆，常用的專案就會放在這裡。" : "還沒有任何專案。")));
+    }
+    shown.forEach(function (c) { box.appendChild(projectRow(c, canDrag)); });
+    if (foot) {
+      foot.textContent = isStar
+        ? "共 " + all.length + " 個星星專案" + (query ? "・符合 " + shown.length + " 個" : "・拖曳 ⋮⋮ 調整順序")
+        : "共 " + state.connections.length + " 個專案" + (query ? "・符合 " + shown.length + " 個" : "・點 ☆ 加入常用，點簡稱可以取自己的暱稱");
+    }
+  }
+  function renderProjectPicker(box) {
+    var search = h("input", { type: "text", placeholder: "搜尋專案（共 " + state.connections.length + " 個）", autocomplete: "off", value: picker.query, oninput: function () { picker.query = search.value; renderPickerList(); } });
+    var reload = h("button", { type: "button", class: "reload", title: "重新載入專案清單（伺服器上新增專案時用）", disabled: picker.busy ? "disabled" : null, onclick: function () {
+      picker.busy = true; picker.note = { text: "正在重新載入專案清單…", error: false }; extSig = ""; renderExt();
+      api("POST", "/api/servers/refresh-all", {}).then(function (r) {
+        picker.busy = false;
+        picker.note = r.failed.length ? { text: "有 " + r.failed.length + " 個帳號沒讀成功：" + r.failed.map(function (f) { return f.name + "（" + f.error + "）"; }).join("；"), error: true } : { text: "已重新載入，共 " + r.repoCount + " 個專案。", error: false };
+        return refresh();
+      }).then(function () { extSig = ""; renderExt(); }).catch(function (e) { picker.busy = false; picker.note = { text: e.message, error: true }; extSig = ""; renderExt(); });
+    } }, "↻");
+    function tab(key, label) {
+      return h("button", { type: "button", class: picker.tab === key ? "on" : "", onclick: function () { if (picker.tab === key) return; picker.tab = key; extSig = ""; renderExt(); } }, label);
+    }
+    box.appendChild(h("div", null,
+      h("h2", null, "選擇專案，瀏覽目錄"),
+      h("p", { class: "hint" }, "近期 SVN：最近點開的在最上面　｜　星星 SVN：★ 在最上面，可拖曳排序"),
+      h("div", { class: "tabs" }, tab("recent", "近期 SVN"), tab("star", "星星 SVN")),
+      h("div", { class: "searchrow" }, search, reload),
+      picker.note ? h("div", { class: picker.note.error ? "msg" : "hint" }, picker.note.text) : null,
+      h("div", { class: "projlist", id: "pickerList" }),
+      h("p", { class: "hint", id: "pickerFoot" })));
+    renderPickerList();
+  }
+
+  function deleteButton(full) {
+    return h("button", { type: "button", class: "delbtn danger", title: "刪除這個檔案（在 SVN 上刪除，歷史紀錄仍可還原）", onclick: function () {
+      browse.del = { path: full, message: "", busy: false, error: null }; browse.notice = null; extSig = ""; renderExt();
+    } }, "🗑");
+  }
+  function deleteBox(current) {
+    var d = browse.del;
+    var prefs = prefsNow();
+    var localDir = prefs.localPaths && prefs.localPaths[current.name];
+    var syncHint = prefs.syncLocal
+      ? (localDir ? "「同步本地端」已開啟：刪除成功後會更新本地目錄 " + localDir + "，本地的這個檔案也會一起被移除。" : "「同步本地端」已開啟，但這個專案還沒設定本地目錄，刪除後不會更新本地端。")
+      : "「同步本地端」目前關閉：只會刪除 SVN 上的檔案，本地端不會動。";
+    var area = h("textarea", { placeholder: "說明為什麼刪除（必填，會寫進 SVN 的 commit 訊息）", disabled: d.busy ? "disabled" : null, oninput: function () { d.message = area.value; } });
+    area.value = d.message;
+    function fail(text) { d.busy = false; d.error = text; extSig = ""; renderExt(); }
+    var confirmBtn = h("button", { type: "button", class: "danger", disabled: d.busy ? "disabled" : null, onclick: function () {
+      if (!d.message.trim()) { fail("請填寫刪除說明"); return; }
+      d.busy = true; d.error = null; extSig = ""; renderExt();
+      api("POST", "/api/delete", { connection: browse.connection, path: d.path, message: d.message }).then(function (r) {
+        var sync = r.localSync;
+        var deleted = d.path;
+        loadBrowse(browse.path);
+        browse.notice = { text: "已刪除（r" + r.deletedRevision + "）：" + deleted + (sync && sync.status === "updated" ? " " + sync.message : ""), error: false };
+        extSig = ""; renderExt();
+        if (sync && sync.status !== "updated") showAlert(syncAlertTitle(sync, "已刪除 SVN 上的檔案"), sync.message);
+      }).catch(function (e) { fail(e.message + (HINTS[e.code] ? String.fromCharCode(10) + HINTS[e.code] : "")); });
+    } }, d.busy ? "刪除中…" : "確定刪除");
+    return h("div", { class: "delbox" },
+      h("p", null, h("strong", null, "要刪除 SVN 上的這個檔案嗎？")),
+      h("p", { class: "path", style: "margin:0 0 8px" }, current.name + " / " + d.path),
+      h("p", { class: "hint", style: "margin:0 0 8px" }, "刪除會在 SVN 產生一個新版本，之後仍可從 SVN 歷史還原。" + syncHint),
+      area,
+      d.error ? h("div", { class: "msg" }, d.error) : null,
+      h("div", { class: "row" }, confirmBtn, h("button", { type: "button", disabled: d.busy ? "disabled" : null, onclick: function () { browse.del = null; extSig = ""; renderExt(); } }, "取消")));
+  }
+
   function renderBrowseView(box) {
     if (state.connections.length === 0) { box.appendChild(h("div", null, h("h2", null, "瀏覽 SVN 目錄"), noConnectionHint())); return; }
-    if (!findConnection(browse.connection)) browse.connection = state.connections[0].id;
-    var select = h("select", { onchange: function () { browse.connection = select.value; loadBrowse(""); } },
-      state.connections.map(function (c) { return h("option", { value: c.id }, c.name); }));
-    select.value = browse.connection;
+    if (browse.picking || !findConnection(browse.connection)) { renderProjectPicker(box); return; }
+    var current = findConnection(browse.connection);
+    var projbar = h("div", { class: "projbar" },
+      h("button", { type: "button", onclick: backToPicker }, "← 專案清單"),
+      h("strong", { class: "projbar__name" }, connLabel(current)),
+      starButton(current));
     var segments = browse.path ? browse.path.split("/") : [];
     var crumbs = [h("button", { type: "button", onclick: function () { loadBrowse(""); } }, "根目錄")];
     segments.forEach(function (seg, index) {
       crumbs.push(h("button", { type: "button", onclick: function () { loadBrowse(segments.slice(0, index + 1).join("/")); } }, seg));
     });
-    var rows = (browse.entries || []).map(function (entry) {
+    function entryNode(entry) {
       var full = browse.path ? browse.path + "/" + entry.name : entry.name;
-      if (entry.kind === "dir") {
-        return h("button", { type: "button", class: "entry", onclick: function () { loadBrowse(full); } }, h("span", null, "📁 " + entry.name), h("span", { class: "path" }, "資料夾"));
+      if (entry.viewable) {
+        return h("button", { type: "button", class: "entry", title: "用電腦預設的程式開啟最新版（唯讀，不能編輯、也不會改動 SVN）", onclick: function () { viewFile(full); } },
+          h("span", { class: "entry__name" }, "👁 " + entry.name), entryMeta(entry));
       }
-      var meta = (entry.revision ? "r" + entry.revision : "") + (entry.author ? " " + entry.author : "");
+      if (entry.kind === "dir") {
+        var dirRow = h("div", { class: "entry entry--row", role: "button", tabindex: "0", onclick: function () { loadBrowse(full); } },
+          folderStarButton(current.name, full), h("span", { class: "entry__name" }, "📁 " + entry.name), entryMeta(entry));
+        dirRow.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target === dirRow) loadBrowse(full); });
+        return dirRow;
+      }
       return h("button", { type: "button", class: "entry", disabled: entry.editable ? null : "disabled", title: entry.editable ? "" : (entry.tempFile ? "這是 Word／Excel 開著文件時自動產生的暫存檔，不是文件本身（可能是被誤提交進 SVN 的）" : "不支援編輯這種檔案類型"),
         onclick: function () {
           pendingRequest = { connection: browse.connection, path: full, ticket: browse.ticket };
           closeExt(); render(); window.scrollTo(0, 0);
-        } }, h("span", null, "📄 " + entry.name), h("span", { class: "path" }, entry.editable ? meta : (entry.tempFile ? "Office 暫存檔，不是文件" : "不支援編輯")));
+        } }, h("span", { class: "entry__name" }, "📄 " + entry.name), entryMeta(entry));
+    }
+    var rows = (browse.entries || []).map(function (entry) {
+      var node = entryNode(entry);
+      if (entry.kind === "dir") return node;
+      return h("div", { class: "entryrow" }, node, deleteButton(browse.path ? browse.path + "/" + entry.name : entry.name));
     });
     box.appendChild(h("div", null,
       h("h2", null, "瀏覽 SVN 目錄"),
-      h("p", { class: "hint" }, "點資料夾進入；點檔案會回到主畫面，出現「開始編輯」的確認卡。"),
-      state.connections.length > 1 ? h("div", null, h("label", null, "連線"), select) : null,
+      h("p", { class: "hint" }, "點資料夾進入；點檔案會回到主畫面，出現「開始編輯」的確認卡。PDF（👁）只能開啟檢視，不能編輯。"),
+      browse.notice ? h("div", { class: browse.notice.error ? "msg" : "hint" }, browse.notice.text) : null,
+      browse.del ? deleteBox(current) : null,
+      projbar,
+      renderFavBox(current.name, loadBrowse, null),
       h("div", { class: "crumbs" }, crumbs),
+      browse.path ? h("div", { class: "hint", style: "margin:0 0 8px;display:flex;align-items:center;gap:8px" },
+        folderStarButton(current.name, browse.path),
+        h("span", { style: "flex:1;min-width:0;overflow-wrap:anywhere" }, "目前位置：" + browse.path + (favFolders(current.name).indexOf(browse.path) >= 0 ? "　（已是常用目錄）" : "　（點 ☆ 加入常用目錄）"))) : null,
       browse.loading ? h("div", { class: "empty" }, "讀取中…") : null,
       browse.error ? h("div", { class: "msg" }, browse.error) : null,
       !browse.loading && !browse.error && browse.entries && browse.entries.length === 0 ? h("div", { class: "empty" }, "這個目錄是空的。") : null,
@@ -420,8 +816,8 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
 
   // ---- 新增檔案到 SVN（多個檔案、整個資料夾）----
   var MAX_FILE_BYTES = 52428800;
-  var MAX_BATCH_FILES = 3000;
-  var MAX_BATCH_BYTES = 524288000;
+  var MAX_BATCH_FILES = 300000;
+  var MAX_BATCH_BYTES = 4294967296;
   var STAGE_PARALLEL = 4;
   var EXCLUDED_DIRS = [".svn", ".git", ".hg"];
   var EXCLUDED_FILES = ["thumbs.db", "desktop.ini", ".ds_store"];
@@ -547,6 +943,152 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   }
   function openPick() { pick.path = cleanDir(importForm.path); openExt("pick"); }
 
+  // ---- 常用目錄（針對每個專案各自的星星目錄）：常傳／常看同幾個深層資料夾時，不用每次一層一層點 ----
+  // 「從 SVN 選擇資料夾」與「瀏覽 SVN 目錄」共用同一份資料與同一個元件，所以星星、暱稱兩邊同步。
+  function uploadRepo() { var c = findConnection(importForm.connection); return c ? c.name : ""; }
+  function favFolders(repo) { return (prefsNow().folders || {})[repo] || []; }
+  function folderNicknameOf(repo, folderPath) { return ((prefsNow().folderNicknames || {})[repo] || {})[folderPath] || ""; }
+  function folderFailed(e) {
+    var text = e.message || "儲存失敗";
+    pick.notice = text; browse.notice = { text: text, error: true };
+    refresh().then(function () { extSig = ""; renderExt(); });
+  }
+  function copyMap(source) { var out = {}; Object.keys(source || {}).forEach(function (k) { out[k] = source[k]; }); return out; }
+  /** 本地先套用（畫面立刻更新）再送出；失敗就重新讀回正確的狀態。 */
+  function saveFolderNickname(repo, folderPath, text) {
+    var p = prefsNow();
+    var all = copyMap(p.folderNicknames);
+    var mine = copyMap(all[repo]);
+    if (text.trim()) mine[folderPath] = text.trim(); else delete mine[folderPath];
+    if (Object.keys(mine).length) all[repo] = mine; else delete all[repo];
+    state.repoPrefs = { starred: p.starred, recent: p.recent, nicknames: p.nicknames, folders: p.folders || {}, folderNicknames: all, localPaths: p.localPaths || {}, syncLocal: !!p.syncLocal };
+    extSig = ""; renderExt();
+    api("POST", "/api/repo-prefs/folder-nickname", { repo: repo, path: folderPath, nickname: text }).then(function (r) { state.repoPrefs = r.prefs; }).catch(folderFailed);
+  }
+  function toggleFolderStar(repo, folderPath) {
+    if (!repo || !folderPath) return;
+    var on = favFolders(repo).indexOf(folderPath) < 0;
+    var p = prefsNow();
+    var folders = copyMap(p.folders);
+    var list = (folders[repo] || []).filter(function (x) { return x !== folderPath; });
+    if (on) list.push(folderPath);
+    if (list.length) folders[repo] = list; else delete folders[repo];
+    var nickAll = copyMap(p.folderNicknames);
+    if (!on && nickAll[repo]) {
+      var rest = copyMap(nickAll[repo]);
+      delete rest[folderPath];
+      if (Object.keys(rest).length) nickAll[repo] = rest; else delete nickAll[repo];
+    }
+    state.repoPrefs = { starred: p.starred, recent: p.recent, nicknames: p.nicknames, folders: folders, folderNicknames: nickAll, localPaths: p.localPaths || {}, syncLocal: !!p.syncLocal };
+    extSig = ""; renderExt();
+    api("POST", "/api/repo-prefs/folder", { repo: repo, path: folderPath, starred: on }).then(function (r) { state.repoPrefs = r.prefs; }).catch(folderFailed);
+  }
+  function folderStarButton(repo, folderPath) {
+    var on = favFolders(repo).indexOf(folderPath) >= 0;
+    return h("button", { type: "button", class: "star" + (on ? " on" : ""), title: on ? "從常用目錄移除" : "加入常用目錄（這個專案）", onclick: function (ev) { ev.stopPropagation(); toggleFolderStar(repo, folderPath); } }, on ? "★" : "☆");
+  }
+  /** 目前正在改暱稱的常用目錄（「專案 | 路徑」）；空字串代表沒有。 */
+  var favEditing = "";
+  /** 這個專案的常用目錄區塊（沒有常用目錄就回傳 null）。goFn：點路徑要做什麼；useFn：有給就多一顆「使用」按鈕。 */
+  function renderFavBox(repo, goFn, useFn) {
+    var list = favFolders(repo);
+    if (list.length === 0) return null;
+    var rows = list.map(function (folder) {
+      var nick = folderNicknameOf(repo, folder);
+      var key = repo + " | " + folder;
+      var label;
+      if (favEditing === key) {
+        var input = h("input", { class: "favnickinput", type: "text", maxlength: "30", placeholder: "暱稱（例如：後端規格）", value: nick });
+        var done = false;
+        var finish = function (save) {
+          if (done) return; done = true; favEditing = "";
+          if (save && input.value.trim() !== nick) saveFolderNickname(repo, folder, input.value);
+          else { extSig = ""; renderExt(); }
+        };
+        input.addEventListener("keydown", function (ev) { if (ev.key === "Enter") finish(true); else if (ev.key === "Escape") finish(false); });
+        input.addEventListener("blur", function () { finish(true); });
+        label = h("div", { class: "favlabel" }, input, h("div", { class: "favsub" }, folder));
+        setTimeout(function () { input.focus(); input.select(); }, 0);
+      } else {
+        label = h("button", { type: "button", class: "favpath", title: "進入這個資料夾：" + folder, onclick: function () { goFn(folder); } },
+          nick ? h("span", { class: "favnick" }, nick) : folder, nick ? h("span", { class: "favsub" }, folder) : null);
+      }
+      return h("div", { class: "favrow" },
+        folderStarButton(repo, folder),
+        label,
+        h("button", { type: "button", class: "small", title: "替這個目錄取一個好認的暱稱（只存在你的電腦）", onclick: function () { favEditing = key; extSig = ""; renderExt(); } }, nick ? "改暱稱" : "取暱稱"),
+        useFn ? h("button", { type: "button", class: "primary small", title: "直接用這個資料夾當上傳位置", onclick: function () { useFn(folder); } }, "使用") : null);
+    });
+    return h("div", { class: "favbox" }, h("div", { class: "favbox__title" }, "★ 常用目錄（只屬於這個專案）"), rows);
+  }
+
+  /** 上傳卡換專案：「放到 SVN 的哪裡」清空（舊專案的路徑在新專案多半不存在）、舊的覆蓋預覽作廢，
+   *  「從 SVN 選擇」面板開著就立刻改列新專案的根目錄。 */
+  function changeUploadProject(c) {
+    var f = importForm;
+    if (f.connection === c.id) return;
+    f.connection = c.id; f.path = ""; f.plan = null;
+    pick.path = ""; pick.loadedFor = null; pick.entries = null; pick.notice = null;
+    recordOpened(c.name);
+    if (ext.view === "pick") loadPick("");
+    importRerender();
+  }
+
+  /** 可搜尋的專案選單（專案很多時取代下拉選單）：星星專案在最上面，其次是最近開過的；右側顯示簡稱。 */
+  function projectCombo(currentId, disabled, onSelect) {
+    var current = findConnection(currentId) || state.connections[0];
+    var wrap = h("div", { class: "combo" });
+    var isOpen = false;
+    var panel = null;
+    var closeOnOutside = function (ev) { if (!wrap.contains(ev.target)) close(); };
+    var closeOnEscape = function (ev) { if (ev.key === "Escape") { ev.stopPropagation(); close(); } };
+    function ordered(query) {
+      var stars = starList();
+      var rest = recentList().filter(function (c) { return !isStarred(c.name); });
+      return stars.concat(rest).filter(function (c) { return !query || matchesQuery(c, query); });
+    }
+    function fieldButton() {
+      var pill = pillOf(current);
+      return h("button", { type: "button", class: "combo__field", disabled: disabled ? "disabled" : null, onclick: function () { if (isOpen) close(); else open(); } },
+        h("span", { class: "combo__name" }, (isStarred(current.name) ? "★ " : "") + current.name),
+        pill.kind === "empty" ? null : h("span", { class: "combo__pill" }, pill.text),
+        h("span", { class: "combo__caret" }, "▾"));
+    }
+    function fillList(list, query) {
+      list.textContent = "";
+      var items = ordered(query);
+      if (items.length === 0) list.appendChild(h("div", { class: "empty" }, "找不到符合「" + query + "」的專案。"));
+      items.forEach(function (c) {
+        var pill = pillOf(c);
+        list.appendChild(h("button", { type: "button", class: "combo__item" + (c.id === current.id ? " on" : ""), onclick: function () { close(); onSelect(c); } },
+          h("span", { class: "combo__star" }, isStarred(c.name) ? "★" : ""),
+          h("span", { class: "combo__name" }, c.name),
+          pill.kind === "empty" ? null : h("span", { class: "combo__pill" }, pill.text)));
+      });
+    }
+    function open() {
+      isOpen = true;
+      var search = h("input", { type: "text", placeholder: "搜尋專案（共 " + state.connections.length + " 個）", autocomplete: "off" });
+      var list = h("div", { class: "combo__list" });
+      search.addEventListener("input", function () { fillList(list, search.value.trim()); });
+      panel = h("div", { class: "combo__panel" }, search, list);
+      wrap.appendChild(panel);
+      fillList(list, "");
+      document.addEventListener("click", closeOnOutside, true);
+      document.addEventListener("keydown", closeOnEscape, true);
+      setTimeout(function () { search.focus(); }, 0);
+    }
+    function close() {
+      isOpen = false;
+      if (panel && panel.parentNode) panel.parentNode.removeChild(panel);
+      panel = null;
+      document.removeEventListener("click", closeOnOutside, true);
+      document.removeEventListener("keydown", closeOnEscape, true);
+    }
+    wrap.appendChild(fieldButton());
+    return wrap;
+  }
+
   // 上傳：逐檔送到暫存區 → 比對遠端 → （有會覆蓋的檔案就先請使用者確認）→ 送出
   function stageAll(batch) {
     var files = importForm.files.slice();
@@ -582,7 +1124,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     if (f.files.length === 0) { importNote("請先選擇要上傳的檔案或資料夾。", false); return; }
     if (!f.message.trim()) { importNote("請填寫上傳說明（commit 訊息）。", false); return; }
     f.path = cleanDir(f.path);
-    f.phase = "staging"; f.progress = 0; f.note = null; f.plan = null;
+    f.phase = "staging"; f.progress = 0; f.note = null; f.plan = null; f.startedAt = Date.now(); f.stagingMs = 0;
     importRerender();
     api("POST", "/api/import/start", {}).then(function (s) {
       f.batch = s.batch;
@@ -590,6 +1132,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     }).then(function () {
       return api("POST", "/api/import/plan", { batch: f.batch, connection: f.connection, targetDir: f.path });
     }).then(function (plan) {
+      f.stagingMs = Date.now() - f.startedAt;
       if (plan.overwrite.length === 0) return commitUpload();
       f.plan = plan; f.phase = "planned"; importRerender();
     }).catch(importFailed);
@@ -597,12 +1140,15 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   function commitUpload() {
     var f = importForm;
     f.phase = "committing"; importRerender();
+    var commitStartedAt = Date.now();
     return api("POST", "/api/import/commit", { batch: f.batch, connection: f.connection, targetDir: f.path, message: f.message, ticket: browse.ticket || undefined }).then(function (r) {
       var parts = ["新增 " + r.added + " 個"];
       if (r.modified) parts.push("更新 " + r.modified + " 個");
       if (r.unchanged) parts.push("內容相同略過 " + r.unchanged + " 個");
+      // 耗時 = 傳檔案 + 送出 commit；不含使用者在覆蓋確認畫面停留的時間
+      var tookMs = (f.stagingMs || 0) + (Date.now() - commitStartedAt);
       f.files = []; f.skipped = { temp: 0, empty: 0, big: 0 }; f.message = ""; f.batch = null; f.plan = null; f.phase = "idle";
-      f.note = { text: "已上傳到 SVN" + (r.committedRevision ? "（r" + r.committedRevision + "）" : "") + "：" + parts.join("、") + "。位置：" + (r.targetDir || "（連線根目錄）"), info: true };
+      f.note = { text: "已上傳到 SVN" + (r.committedRevision ? "（r" + r.committedRevision + "）" : "") + "：" + parts.join("、") + "。位置：" + (r.targetDir || "（連線根目錄）") + "。耗時：" + fmtDuration(tookMs), info: true };
       pick.loadedFor = null;
       importRerender();
     }).catch(importFailed);
@@ -617,18 +1163,16 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   function renderImporter() {
     var box = document.getElementById("importer");
     var f = importForm;
-    var sig = JSON.stringify([state.connections, f.phase, f.note, f.files.length, f.skipped, f.plan, f.connection, ext.view === "pick"]);
+    var sig = JSON.stringify([state.connections, state.repoPrefs, f.phase, f.note, f.files.length, f.skipped, f.plan, f.connection, ext.view === "pick"]);
     if (sig === importerSig) return;
     importerSig = sig;
     box.textContent = "";
     if (state.connections.length === 0) { box.appendChild(noConnectionCard()); return; }
-    if (!state.connections.some(function (c) { return c.id === f.connection; })) f.connection = state.connections[0].id;
+    // 第一次、或原本選的專案不見了：預設選最近開過的專案（沒有就第一個）
+    if (!state.connections.some(function (c) { return c.id === f.connection; })) f.connection = recentList()[0].id;
     var idle = f.phase === "idle";
 
-    var connSelect = h("select", { onchange: function () { f.connection = connSelect.value; pick.loadedFor = null; pick.entries = null; f.plan = null; importRerender(); } },
-      state.connections.map(function (c) { return h("option", { value: c.id }, c.name); }));
-    connSelect.value = f.connection;
-    if (!idle) connSelect.setAttribute("disabled", "disabled");
+    var connSelect = projectCombo(f.connection, !idle, changeUploadProject);
 
     // 選檔案／資料夾
     var fileInput = h("input", { type: "file", multiple: "multiple", style: "display:none", onchange: function () { addFiles(itemsFromInput(fileInput, false)); } });
@@ -711,21 +1255,20 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   var settingsSig = "";
   function renderSettings() {
     var box = document.getElementById("settings");
-    var sig = JSON.stringify([state.connections, state.servers, ext.view === "conn"]);
+    var sig = JSON.stringify([state.servers, ext.view === "conn"]);
     if (sig === settingsSig) return;
     settingsSig = sig;
     box.textContent = "";
-    var list = state.connections.map(function (c) {
-      return h("div", { class: "conn" }, h("span", null, c.name + "（" + c.username + "）", h("br", null), h("span", { class: "path" }, c.url)));
+    var list = state.servers.map(function (sv) {
+      return h("div", { class: "conn" }, h("span", null, sv.name + "（" + sv.username + "）・" + sv.repoCount + " 個 repo", h("br", null), h("span", { class: "path" }, sv.url)));
     });
     box.appendChild(h("div", { class: "card" },
-      h("h2", null, "連線設定" + (state.connections.length ? "（" + state.connections.length + " 個 repo）" : "（尚未設定）")),
-      state.servers.length ? h("p", { class: "hint" }, "已登入伺服器：" + state.servers.map(function (sv) { return sv.name + "（" + sv.username + "）"; }).join("、")) : null,
-      list.length ? h("div", null, list) : h("p", { class: "hint" }, "還沒有任何連線，請先填寫伺服器網址與帳密。"),
+      h("h2", null, "連線設定" + (state.servers.length ? "（" + state.servers.length + " 個帳號）" : "（尚未設定）")),
+      list.length ? h("div", null, list) : h("p", { class: "hint" }, "還沒有任何帳號，請按「管理連線」填寫伺服器網址與帳密。"),
       h("div", { class: "row" }, openerButton("conn", "管理連線", "wide"))));
   }
 
-  // 伺服器：只填上層網址＋帳密，就能用這個帳號看得到的所有 repo
+  // 帳號：只填上層網址＋帳密，就能用這個帳號看得到的所有 repo。新增、更新、測試都會實際連線一次。
   function serverSection() {
     var inputs = {};
     function sfield(key, label, type, placeholder) {
@@ -733,67 +1276,128 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
       inputs[key].value = serverForm[key];
       return h("div", null, h("label", null, label), inputs[key]);
     }
-    function authNote(sv) { return sv.auth === "windows" ? "（這個伺服器用 Windows 登入驗證，已使用你目前登入的 Windows 帳號）" : ""; }
-    function fail(e) { serverBusy = false; settingsNote = { text: e.message, info: false }; extSig = ""; renderExt(); }
+    function authNote(r) { return r.auth === "windows" ? "驗證方式：Windows 登入（這個伺服器用你目前登入電腦的帳號驗證，填的密碼沒有被用到）。" : "驗證方式：你填的帳號密碼。"; }
+    function resetForm() { serverForm = { id: "", name: "", url: "", username: "", password: "" }; }
+    function note(text, info) { serverBusy = false; settingsNote = { text: text, info: info }; extSig = ""; renderExt(); }
+    function fail(e) { note("連線失敗：" + e.message, false); }
     function busy(text) { serverBusy = true; settingsNote = { text: text, info: true }; extSig = ""; renderExt(); }
-    var save = h("button", { type: "button", class: "primary", disabled: serverBusy ? "disabled" : null, onclick: function () {
-      busy("正在讀取 repo 清單…");
-      api("POST", "/api/servers", serverForm).then(function (r) {
-        serverBusy = false; serverForm = { id: "", name: "", url: "", username: "", password: "" };
-        settingsNote = { text: "已儲存，載入 " + r.server.repoCount + " 個 repo。" + authNote(r.server), info: true }; return refresh();
+    var disabled = serverBusy ? "disabled" : null;
+    var testBtn = h("button", { type: "button", disabled: disabled, onclick: function () {
+      busy("正在測試連線…");
+      api("POST", "/api/servers/test", serverForm).then(function (r) {
+        note("連線成功：找得到 " + r.test.repoCount + " 個 repo。" + authNote(r.test) + "（只是測試，還沒有儲存）", true);
       }).catch(fail);
-    } }, serverForm.id ? "更新並重新載入" : "儲存並載入 repo 清單");
+    } }, "測試連線");
+    var save = h("button", { type: "button", class: "primary", disabled: disabled, onclick: function () {
+      var editing = !!serverForm.id;
+      busy("正在測試連線並儲存…");
+      api("POST", "/api/servers", serverForm).then(function (r) {
+        resetForm();
+        settingsNote = { text: "連線成功，已" + (editing ? "更新" : "新增") + "「" + r.server.name + "」：找得到 " + r.server.repoCount + " 個 repo。" + authNote(r.server), info: true };
+        serverBusy = false; return refresh();
+      }).catch(fail);
+    } }, serverForm.id ? "測試並更新" : "測試並儲存");
     var list = state.servers.map(function (sv) {
-      return h("div", { class: "conn" }, h("span", null, sv.name + "（" + sv.username + "）・" + sv.repoCount + " 個 repo", h("br", null), h("span", { class: "path" }, sv.url)),
-        h("button", { type: "button", disabled: serverBusy ? "disabled" : null, onclick: function () {
-          busy("正在重新載入 repo 清單…");
-          api("POST", "/api/servers/refresh", { id: sv.id }).then(function (r) {
-            serverBusy = false; settingsNote = { text: "已重新載入，共 " + r.server.repoCount + " 個 repo。" + authNote(r.server), info: true }; return refresh();
-          }).catch(fail);
-        } }, "重新載入"),
-        h("button", { type: "button", onclick: function () { serverForm = { id: sv.id, name: sv.name, url: sv.url, username: sv.username, password: "" }; settingsNote = null; extSig = ""; renderExt(); } }, "編輯"));
+      var aliasNames = Object.keys(sv.aliases || {});
+      var buttons;
+      if (deleteConfirmId === sv.id) {
+        buttons = [
+          h("button", { type: "button", class: "danger", disabled: disabled, onclick: function () {
+            busy("正在刪除…");
+            api("POST", "/api/servers/delete", { id: sv.id }).then(function () {
+              deleteConfirmId = null; if (serverForm.id === sv.id) resetForm();
+              settingsNote = { text: "已刪除「" + sv.name + "」（SVN 上的資料完全沒有動）。", info: true }; serverBusy = false; return refresh();
+            }).catch(fail);
+          } }, "確定刪除"),
+          h("button", { type: "button", onclick: function () { deleteConfirmId = null; extSig = ""; renderExt(); } }, "取消")];
+      } else {
+        buttons = [
+          h("button", { type: "button", disabled: disabled, onclick: function () {
+            busy("正在重新載入 repo 清單…");
+            api("POST", "/api/servers/refresh", { id: sv.id }).then(function (r) {
+              settingsNote = { text: "已重新載入，共 " + r.server.repoCount + " 個 repo。" + authNote(r.server), info: true }; serverBusy = false; return refresh();
+            }).catch(fail);
+          } }, "重新載入"),
+          h("button", { type: "button", onclick: function () { serverForm = { id: sv.id, name: sv.name, url: sv.url, username: sv.username, password: "" }; settingsNote = null; deleteConfirmId = null; extSig = ""; renderExt(); } }, "編輯"),
+          h("button", { type: "button", class: "danger", onclick: function () { deleteConfirmId = sv.id; settingsNote = null; extSig = ""; renderExt(); } }, "刪除")];
+      }
+      return h("div", { class: "conn" },
+        h("span", null, sv.name + "（" + sv.username + "）・" + sv.repoCount + " 個 repo", h("br", null), h("span", { class: "path" }, sv.url),
+          aliasNames.length ? h("span", { class: "path" }, h("br", null), "別名：" + aliasNames.join("、")) : null),
+        h("span", { class: "btns" }, buttons));
     });
     return h("div", null,
       h("h2", { style: "margin-top:14px;font-size:15px" }, "SVN 伺服器（填帳密就能用所有 repo）"),
-      h("p", { class: "hint" }, "填伺服器的上層網址（底下每個子目錄是一個 repo）和你自己的帳密，會自動讀出你看得到的所有 repo，不用一個一個設定。如果公司伺服器用 Windows 登入驗證，帳密可以留空，會直接用你登入電腦的帳號。伺服器上新增 repo 時按「重新載入」。"),
-      list.length ? h("div", null, list) : null,
+      h("p", { class: "hint" }, "每個 SVN 帳號只要設定一次：填伺服器的上層網址（底下每個子目錄是一個 repo）和帳密，會自動讀出這個帳號看得到的所有 repo。新增、更新前都會先實際連線測試，連不上就不會儲存。公司網址有變時，按「編輯」就能改名稱、網址、帳號、密碼。伺服器上新增 repo 時按「重新載入」。"),
+      list.length ? h("div", null, list) : h("div", { class: "empty" }, "還沒有任何帳號，請在下方新增。"),
       h("form", { autocomplete: "off", onsubmit: function (ev) { ev.preventDefault(); } },
+        h("h2", { style: "margin-top:18px;font-size:15px" }, serverForm.id ? "編輯帳號" : "新增帳號"),
+        sfield("name", "名稱（留空＝用網址）", "text", "例如：公司 SVN"),
         sfield("url", "伺服器網址", "text", "https://svn.example.com/svn"),
         sfield("username", "帳號（請使用你自己的 SVN 帳號；留空＝目前的 Windows 帳號）", "text"),
         sfield("password", serverForm.id ? "密碼（留空代表不變更）" : "密碼（Windows 登入驗證可留空）", "password"),
-        h("div", { class: "row" }, save, serverForm.id ? h("button", { type: "button", onclick: function () { serverForm = { id: "", name: "", url: "", username: "", password: "" }; extSig = ""; renderExt(); } }, "取消編輯") : null)));
+        settingsNote ? h("div", { class: settingsNote.info ? "msg info" : "msg" }, settingsNote.text) : null,
+        h("div", { class: "row" }, testBtn, save, serverForm.id ? h("button", { type: "button", onclick: function () { resetForm(); settingsNote = null; extSig = ""; renderExt(); } }, "取消編輯") : null)));
+  }
+
+  // 同步本地端：開關＋每個專案的本地 SVN 工作目錄。關閉時完全維持原本行為（只改遠端）。
+  function syncSection() {
+    var prefs = prefsNow();
+    var paths = prefs.localPaths || {};
+    function save(call, okText, after) {
+      localBusy = true; extSig = ""; renderExt();
+      return call.then(function (r) {
+        state.repoPrefs = r.prefs; localBusy = false; localNote = okText ? { text: okText, info: true } : null;
+        if (after) after();
+        extSig = ""; renderExt();
+      }).catch(function (e) { localBusy = false; localNote = { text: "儲存失敗：" + e.message, info: false }; extSig = ""; renderExt(); });
+    }
+    var toggle = h("input", { type: "checkbox", checked: prefs.syncLocal ? "checked" : null, disabled: localBusy ? "disabled" : null });
+    toggle.addEventListener("change", function () { save(api("POST", "/api/repo-prefs/sync-local", { enabled: toggle.checked }), null); });
+    var missing = state.connections.length > 0 && Object.keys(paths).length === 0;
+    var rows = Object.keys(paths).sort().map(function (name) {
+      return h("div", { class: "conn" },
+        h("span", null, name, h("br", null), h("span", { class: "path" }, paths[name])),
+        h("span", { class: "btns" },
+          h("button", { type: "button", disabled: localBusy ? "disabled" : null, onclick: function () { localForm = { repo: name, path: paths[name] }; localNote = null; extSig = ""; renderExt(); } }, "修改"),
+          h("button", { type: "button", class: "danger", disabled: localBusy ? "disabled" : null, onclick: function () {
+            save(api("POST", "/api/repo-prefs/local-path", { repo: name, path: "" }), "已清除「" + name + "」的本地目錄。");
+          } }, "清除")));
+    });
+    var select = h("select", { onchange: function () { localForm.repo = select.value; } },
+      [h("option", { value: "" }, "（選擇專案）")].concat(state.connections.map(function (c) { return h("option", { value: c.name }, connLabel(c)); })));
+    select.value = localForm.repo;
+    var pathInput = h("input", { type: "text", placeholder: "例如 D:/svn/專案名稱（要是用 TortoiseSVN Checkout 出來的資料夾）", autocomplete: "off", oninput: function () { localForm.path = pathInput.value; } });
+    pathInput.value = localForm.path;
+    var saveBtn = h("button", { type: "button", class: "primary", disabled: localBusy ? "disabled" : null, onclick: function () {
+      if (!localForm.repo) { localNote = { text: "請先選擇專案。", info: false }; extSig = ""; renderExt(); return; }
+      var repo = localForm.repo;
+      save(api("POST", "/api/repo-prefs/local-path", { repo: repo, path: localForm.path }), localForm.path.trim() ? "已儲存「" + repo + "」的本地目錄。" : "已清除「" + repo + "」的本地目錄。", function () { localForm = { repo: "", path: "" }; });
+    } }, "儲存");
+    return h("div", null,
+      h("h2", { style: "margin-top:22px;font-size:15px" }, "同步本地端（svn update）"),
+      h("div", { class: "syncbox" },
+        h("label", { class: "synctoggle" }, toggle, h("span", null, "遠端編輯上傳、刪除成功後，自動更新本地端的 SVN 工作目錄")),
+        h("p", { class: "hint" }, prefs.syncLocal
+          ? "已開啟：成功上傳或刪除後，會對下方設定的本地目錄執行 svn update。本地目錄沒有 SVN 追蹤、或沒有設定時，會跳出警示（遠端的上傳／刪除仍然成功）。"
+          : "已關閉：維持目前的行為，只修改遠端，不會動本地端。")),
+      h("p", { class: "hint" }, "每個專案各自設定本地端的 SVN 工作目錄（資料夾裡要有 SVN 追蹤，也就是 Checkout 出來的）。只會更新這次動到的檔案，不會把整個專案拉下來。"),
+      prefs.syncLocal && missing ? h("div", { class: "msg" }, "已開啟同步，但還沒有設定任何專案的本地目錄。") : null,
+      rows.length ? h("div", null, rows) : h("div", { class: "empty" }, "還沒有設定任何專案的本地目錄。"),
+      h("form", { autocomplete: "off", onsubmit: function (ev) { ev.preventDefault(); } },
+        h("h2", { style: "margin-top:14px;font-size:15px" }, localForm.repo && paths[localForm.repo] ? "修改本地目錄" : "新增本地目錄"),
+        h("label", null, "專案"), select,
+        h("label", null, "本地 SVN 工作目錄（完整路徑）"), pathInput,
+        localNote ? h("div", { class: localNote.info ? "msg info" : "msg" }, localNote.text) : null,
+        h("div", { class: "row" }, saveBtn)));
   }
 
   function renderConnView(box) {
-    var inputs = {};
-    function field(key, label, type, placeholder) {
-      inputs[key] = h("input", { type: type, placeholder: placeholder || "", autocomplete: "off", oninput: function () { settingsForm[key] = inputs[key].value; } });
-      inputs[key].value = settingsForm[key];
-      return h("div", null, h("label", null, label), inputs[key]);
-    }
-    var save = h("button", { type: "button", class: "primary", onclick: function () {
-      api("POST", "/api/connections", settingsForm).then(function () {
-        settingsForm = { id: "", name: "", url: "", username: "", password: "" }; settingsNote = { text: "已儲存。", info: true }; return refresh();
-      }).catch(function (e) { settingsNote = { text: e.message, info: false }; extSig = ""; renderExt(); });
-    } }, settingsForm.id ? "更新連線" : "新增連線");
-    var list = state.connections.map(function (c) {
-      return h("div", { class: "conn" }, h("span", null, c.name + "（" + c.username + "）", h("br", null), h("span", { class: "path" }, c.url)),
-        h("button", { type: "button", onclick: function () { settingsForm = { id: c.id, name: c.name, url: c.url, username: c.username, password: "" }; settingsNote = null; extSig = ""; renderExt(); } }, "編輯"));
-    });
     box.appendChild(h("div", null,
-      h("h2", null, "連線設定" + (state.connections.length ? "（" + state.connections.length + " 個）" : "（尚未設定）")),
-      h("p", { class: "hint" }, "這裡的設定跟 svn-mcp 的唯讀工具共用同一份檔案，只存在這台電腦。密碼不會再顯示出來；編輯時密碼留空代表不變更。"),
+      h("h2", null, "連線設定" + (state.servers.length ? "（" + state.servers.length + " 個帳號）" : "（尚未設定）")),
+      h("p", { class: "hint" }, "這裡的設定跟 svn-mcp 的唯讀工具共用同一份檔案，只存在這台電腦；只記帳號，底下的 repo 由伺服器自動帶出。密碼不會再顯示出來；編輯時密碼留空代表不變更。"),
       serverSection(),
-      h("h2", { style: "margin-top:18px;font-size:15px" }, "單一 repo 連線"),
-      list.length ? h("div", null, list) : h("div", { class: "empty" }, "還沒有任何連線，請先新增一個。"),
-      h("form", { autocomplete: "off", onsubmit: function (ev) { ev.preventDefault(); } },
-        h("h2", { style: "margin-top:18px;font-size:15px" }, settingsForm.id ? "編輯連線" : "新增連線"),
-        field("name", "名稱", "text", "例如：規格書庫"),
-        field("url", "SVN 網址", "text", "https://svn.example.com/repo"),
-        field("username", "帳號（請使用你自己的 SVN 帳號）", "text"),
-        field("password", settingsForm.id ? "密碼（留空代表不變更）" : "密碼", "password"),
-        settingsNote ? h("div", { class: settingsNote.info ? "msg info" : "msg" }, settingsNote.text) : null,
-        h("div", { class: "row" }, save, settingsForm.id ? h("button", { type: "button", onclick: function () { settingsForm = { id: "", name: "", url: "", username: "", password: "" }; extSig = ""; renderExt(); } }, "取消編輯") : null))));
+      syncSection()));
   }
 
   function renderPickView(box) {
@@ -804,18 +1408,25 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     });
     var rows = (pick.entries || []).map(function (e) {
       var full = pick.path ? pick.path + "/" + e.name : e.name;
-      return h("button", { type: "button", class: "entry", onclick: function () { loadPick(full); } }, h("span", null, "📁 " + e.name), h("span", { class: "path" }, "進入"));
+      var row = h("div", { class: "entry entry--row", role: "button", tabindex: "0", onclick: function () { loadPick(full); } },
+        folderStarButton(uploadRepo(), full), h("span", { class: "entry__name" }, "📁 " + e.name), h("span", { class: "path" }, "進入"));
+      row.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target === row) loadPick(full); });
+      return row;
     });
+    var favBox = renderFavBox(uploadRepo(), loadPick, function (folder) { importForm.path = folder; closeExt(); importRerender(); });
     box.appendChild(h("div", null,
       h("h2", null, "從 SVN 選擇資料夾"),
-      h("p", { class: "hint" }, "點資料夾進入；選好之後按下方「使用這個位置」。"),
+      h("p", { class: "hint" }, "目前專案：" + (findConnection(importForm.connection) ? connLabel(findConnection(importForm.connection)) : "（未選擇）") + "。點資料夾進入；選好之後按下方「使用這個位置」。"),
+      favBox,
       h("div", { class: "crumbs" }, crumbs),
       pick.loading ? h("div", { class: "empty" }, "讀取中…") : null,
       pick.notice ? h("div", { class: "hint" }, pick.notice) : null,
       !pick.loading && pick.entries && pick.entries.length === 0 && !pick.notice ? h("div", { class: "hint" }, "這個資料夾底下沒有子資料夾。") : null,
       rows,
       h("div", { class: "foot" },
-        h("div", { class: "hint", style: "margin:0 0 8px" }, "目前位置：" + (pick.path || "（連線根目錄）")),
+        h("div", { class: "hint", style: "margin:0 0 8px;display:flex;align-items:center;gap:8px" },
+          pick.path ? folderStarButton(uploadRepo(), pick.path) : null,
+          h("span", { style: "flex:1;min-width:0;overflow-wrap:anywhere" }, "目前位置：" + (pick.path || "（連線根目錄）") + (pick.path ? (favFolders(uploadRepo()).indexOf(pick.path) >= 0 ? "　（已是常用目錄）" : "　（點 ☆ 加入常用目錄）") : ""))),
         h("div", { class: "row", style: "margin-top:0" },
           h("button", { type: "button", class: "primary", onclick: function () { importForm.path = pick.path; closeExt(); importRerender(); } }, "使用這個位置"),
           h("button", { type: "button", onclick: closeExt }, "取消")))));
@@ -823,7 +1434,9 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
 
   // ---- 往右延伸的面板：按「▸」按鈕時視窗往右加寬，右邊出現面板；再按一次、按 ✕ 或 Esc 收起，視窗縮回原寬 ----
   var MIN_MAIN_W = 480;
-  var EXT_W = 420;
+  var EXT_MIN_W = 420;
+  var EXT_MAX_W = 760;
+  var EXT_W = EXT_MIN_W;
   var ext = { view: null };
   var extSig = "";
   var extAutoOpened = false;
@@ -836,11 +1449,45 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     if (window.innerWidth >= MIN_MAIN_W + EXT_W || windowBaseWidth !== null) return;
     windowBaseWidth = window.outerWidth;
     try { window.resizeTo(windowBaseWidth + EXT_W, window.outerHeight); } catch (e) { windowBaseWidth = null; return; }
+    keepWindowOnScreen();
+  }
+  function keepWindowOnScreen() {
     setTimeout(function () {
       var screenRight = (screen.availLeft || 0) + screen.availWidth;
       var over = window.screenX + window.outerWidth - screenRight;
       if (over > 0) { try { window.moveBy(-over, 0); } catch (e) {} }
     }, 150);
+  }
+  /** 右邊面板的寬度（只會變寬，關閉面板時才還原）；視窗跟著往右延伸。 */
+  function setExtWidth(w) {
+    if (w <= EXT_W) return;
+    EXT_W = w;
+    document.getElementById("layout").style.setProperty("--ext-w", w + "px");
+    if (windowBaseWidth !== null) {
+      try { window.resizeTo(windowBaseWidth + EXT_W, window.outerHeight); } catch (e) {}
+      keepWindowOnScreen();
+    } else {
+      widenWindow();
+    }
+    setTimeout(applyExtMode, 160);
+  }
+  var fitContext = document.createElement("canvas").getContext("2d");
+  /** 瀏覽清單裡最長的一列需要多寬：檔名一行放得下就加寬面板（上限內），再長才換行。 */
+  function fitExtWidth() {
+    if (ext.view !== "browse" || browse.picking || !browse.entries || !fitContext) return;
+    var family = getComputedStyle(document.body).fontFamily;
+    var need = 0;
+    browse.entries.forEach(function (entry) {
+      fitContext.font = "500 14.5px " + family;
+      var nameW = fitContext.measureText("📄 " + entry.name).width;
+      fitContext.font = "12px " + family;
+      var metaW = 0;
+      entryLines(entry).forEach(function (line) { metaW = Math.max(metaW, fitContext.measureText(line).width); });
+      need = Math.max(need, nameW + metaW);
+    });
+    // 加上每列左右內距、名稱與說明的間距、面板內距、捲軸與邊框
+    var maxW = Math.max(EXT_MIN_W, Math.min(EXT_MAX_W, (screen.availWidth || 1280) - MIN_MAIN_W));
+    setExtWidth(Math.min(maxW, Math.ceil(need + 24 + 10 + 36 + 28)));
   }
   function restoreWindow() {
     if (windowBaseWidth === null) return;
@@ -859,13 +1506,14 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   }
   function renderExt() {
     var box = document.getElementById("extBody");
-    var sig = JSON.stringify([ext.view, state.connections, state.servers, serverBusy, serverForm.id, browse.connection, browse.path, browse.entries, browse.loading, browse.error, browse.truncated, browse.ticket, pick.path, pick.entries, pick.loading, pick.notice, settingsNote, settingsForm.id]);
+    var sig = JSON.stringify([ext.view, state.connections, state.servers, serverBusy, serverForm.id, browse.connection, browse.path, browse.entries, browse.loading, browse.error, browse.truncated, browse.ticket, browse.notice, browse.picking, picker.tab, pick.path, pick.entries, pick.loading, pick.notice, settingsNote, deleteConfirmId, browse.del ? [browse.del.path, browse.del.busy, browse.del.error] : null, state.repoPrefs.syncLocal, state.repoPrefs.localPaths, localNote, localBusy]);
     if (sig === extSig) return;
     extSig = sig;
     box.textContent = "";
     if (ext.view === "browse") renderBrowseView(box);
     else if (ext.view === "pick") renderPickView(box);
     else if (ext.view === "conn") renderConnView(box);
+    fitExtWidth();
   }
   function refreshMainCards() {
     browseSig = ""; settingsSig = ""; importerSig = "";
@@ -873,8 +1521,8 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   }
   function prepareExt(view) {
     if (view === "browse" && state.connections.length > 0) {
-      if (!findConnection(browse.connection)) browse.connection = state.connections[0].id;
-      if (!browse.entries && !browse.loading && !browse.error) loadBrowse(browse.path);
+      if (!browse.picking && !findConnection(browse.connection)) browse.picking = true;
+      if (!browse.picking && !browse.entries && !browse.loading && !browse.error) loadBrowse(browse.path);
     } else if (view === "pick") {
       loadPick(pick.path);
     }
@@ -891,11 +1539,14 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     refreshMainCards();
   }
   function closeExt() {
+    favEditing = "";
     ext.view = null;
     var layout = document.getElementById("layout");
     layout.classList.remove("ext-open", "ext-inline", "ext-overlay");
     document.getElementById("scrim").classList.remove("is-on");
     restoreWindow();
+    EXT_W = EXT_MIN_W;
+    layout.style.removeProperty("--ext-w");
     refreshMainCards();
   }
   document.getElementById("extClose").addEventListener("click", closeExt);
@@ -905,6 +1556,10 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   render();
   refresh();
   setInterval(refresh, 3000);
+  // 視窗關閉（或重新整理）時通知伺服器；keepalive 讓請求在頁面卸載後仍會送出。伺服器會自己判斷是不是只是重新整理。
+  window.addEventListener("pagehide", function () {
+    try { fetch("/api/window-closing", { method: "POST", keepalive: true, headers: { "X-Edit-Token": TOKEN, "Content-Type": "application/json" }, body: "{}" }); } catch (e) { /* 關閉中，失敗就靠閒置逾時 */ }
+  });
 })();
 </script>
 </body>
@@ -913,6 +1568,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
 /** 把這個 process 的一次性 token 嵌進頁面後回傳。 */
 export function renderPage(token: string): string {
   return PAGE.replace("__EDIT_TOKEN__", token)
+    .replace("__ICON_VER__", ICON_VERSION)
     .replace("__LOGO_SRC__", `data:image/png;base64,${LOGO_PNG_BASE64}`)
     .replace("__APP_VERSION__", APP_VERSION);
 }

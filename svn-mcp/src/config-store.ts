@@ -23,9 +23,50 @@ export function getConnectionsFilePath(): string {
   return path.join(getInstallRoot(), "info", "svn-connections.json");
 }
 
+/**
+ * 各帳號底下 repo 清單的快取檔。連線檔只存帳號，repo 清單另外放這裡，要更新就向伺服器重新讀。
+ * 預設跟連線檔放同一個資料夾；`SVN_REPOS_CACHE` 可指定其他位置（測試用）。
+ */
+export function getRepoCachePath(): string {
+  const configured = process.env.SVN_REPOS_CACHE?.trim();
+  if (configured) return path.resolve(configured);
+  return path.join(path.dirname(getConnectionsFilePath()), "svn-repos-cache.json");
+}
+
+/**
+ * 使用者在 svn-edit 的個人偏好（星星專案與排序、最近開過的專案、專案簡稱）。
+ * 預設跟連線檔放在同一個資料夾（info/ 不進版控）；`SVN_REPO_PREFS` 可指定其他位置（測試用）。
+ */
+export function getRepoPrefsPath(): string {
+  const configured = process.env.SVN_REPO_PREFS?.trim();
+  if (configured) return path.resolve(configured);
+  return path.join(path.dirname(getConnectionsFilePath()), "svn-repo-prefs.json");
+}
+
 /** 執行檔所在的 svn-mcp 安裝根目錄，給自動拉起 svn-edit 時找執行檔用。 */
 export function getSvnMcpRoot(): string {
   return getInstallRoot();
+}
+
+/**
+ * svn-edit 的暫存資料夾（取出的檔案、檢視用的 PDF、批次上傳的暫存）。
+ * 直接放在專案自己的 `logs/`（跟稽核紀錄同一個資料夾，只有一處要管）；清理只認 `view-*`、`batch-*` 與沒有 session.json 的空殼，不碰稽核紀錄；有進行中的編輯時會保留，其餘在 svn-edit 啟動與結束時自動清掉。
+ * `SVN_EDIT_TEMP_DIR` 可指定其他位置（測試用）。
+ */
+export function getEditTempDir(): string {
+  const configured = process.env.SVN_EDIT_TEMP_DIR?.trim();
+  return configured ? path.resolve(configured) : path.join(getInstallRoot(), "logs");
+}
+
+/**
+ * svn-edit 稽核紀錄（誰在什麼時候開啟／上傳／放棄／檢視了哪個檔案）的位置。
+ * 放在專案自己的 `logs/`，不放暫存資料夾：暫存資料夾是「用完就丟」的東西，Windows 隨時可能清掉，稽核軌跡不能跟著消失。
+ * `SVN_EDIT_AUDIT_LOG` 可指定其他位置（測試用）。
+ */
+export function getAuditLogPath(): string {
+  const configured = process.env.SVN_EDIT_AUDIT_LOG?.trim();
+  if (configured) return path.resolve(configured);
+  return path.join(getInstallRoot(), "logs", "svn-edit-audit.log");
 }
 
 /** Default connection id/name to use when a tool call doesn't specify one. */

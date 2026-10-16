@@ -3,10 +3,10 @@
   - assets/totoro.ico          多尺寸圖標（exe 圖標、網頁 favicon、桌面視窗圖標共用）
   - src/edit-icon-data.ts      把 ico 與頁首 logo 內嵌成 base64，讓單一 exe 不需要額外檔案
 
-兩套畫法（Windows 會依顯示大小挑最接近的尺寸）：
-  - 72 像素以下（工作列、標題列、檔案總管小圖示；30、36、42 是 125%、150%、175% 縮放下工作列的實際尺寸）：用幾何圖形重畫的「簡化版龍貓」——粗色塊、大眼睛、高對比，
-    跟 Word、VS Code 的圖標一樣在小尺寸也看得清楚。照片縮小到 24 像素只會變成一團糊。
-  - 96 像素以上：由 assets/totoro-src.jpg 原圖裁切縮小，保留細節。
+所有尺寸統一用幾何圖形畫的「簡化版龍貓」——粗色塊、大眼睛、高對比，跟 Word、VS Code 的圖標一樣在小尺寸也看得清楚
+（30、36、42 是 125%、150%、175% 縮放下工作列的實際尺寸）。
+以前 96 像素以上改用 assets/totoro-src.jpg 照片裁切，結果 Windows 在高 DPI 工作列、Alt+Tab、放大圖示時挑到大尺寸，
+看到的就是另一種畫風，跟檔案總管的 exe 圖標對不起來；現在每個尺寸都是同一張設計，到處看起來一致。
 
 需要 Pillow（只有重新產生圖標時才需要，不是專案相依）：python scripts/make-icons.py
 """
@@ -17,10 +17,7 @@ import struct
 
 from PIL import Image, ImageDraw, ImageFilter
 
-SRC = "assets/totoro-src.jpg"
 SIZES = [16, 20, 24, 30, 32, 36, 40, 42, 48, 60, 64, 72, 96, 128, 256]
-SIMPLE_MAX = 72
-FULL_CROP = (545, 535, 290)
 CORNER_RATIO = 0.22
 SUPERSAMPLE = 4
 CANVAS = 1024  # 簡化版先畫在 1024 的畫布，再縮到各尺寸
@@ -79,18 +76,6 @@ def render_simple(size):
     return img
 
 
-def crop_square(img, cx, cy, half):
-    return img.crop((cx - half, cy - half, cx + half, cy + half))
-
-
-def render_photo(src, size):
-    cx, cy, half = FULL_CROP
-    img = crop_square(src, cx, cy, half).resize((size, size), Image.LANCZOS)
-    img = img.filter(ImageFilter.UnsharpMask(radius=1.0, percent=40, threshold=2)).convert("RGBA")
-    img.putalpha(rounded_mask(size))
-    return img
-
-
 def png_bytes(img):
     buf = io.BytesIO()
     img.save(buf, "PNG", optimize=True)
@@ -111,8 +96,7 @@ def build_ico(images):
 
 
 def main():
-    src = Image.open(SRC).convert("RGB")
-    images = [render_simple(s) if s <= SIMPLE_MAX else render_photo(src, s) for s in SIZES]
+    images = [render_simple(s) for s in SIZES]
     ico = build_ico(images)
     open("assets/totoro.ico", "wb").write(ico)
     logo = png_bytes(render_simple(96))

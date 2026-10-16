@@ -8,7 +8,7 @@
  * 設定 `SVN_EDIT_NO_LAUNCH=1` 會完全不開任何視窗（給自動化測試用）。
  */
 import { execFile, spawn } from "node:child_process";
-import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { FAVICON_ICO_BASE64 } from "./edit-icon-data.js";
@@ -87,7 +87,7 @@ function ensureIconFile(): string | null {
     mkdirSync(dir, { recursive: true });
     const file = path.join(dir, ICON_FILE_NAME);
     const bytes = Buffer.from(FAVICON_ICO_BASE64, "base64");
-    if (!existsSync(file) || statSync(file).size !== bytes.length) writeFileSync(file, bytes);
+    if (!existsSync(file) || !readFileSync(file).equals(bytes)) writeFileSync(file, bytes);
     return file;
   } catch (e) {
     console.error(`[svn-edit] 寫入圖標檔失敗：${e instanceof Error ? e.message : String(e)}`);
@@ -165,11 +165,20 @@ public static class SvnEditIcon {
 $deadline = (Get-Date).AddSeconds(__SECONDS__)
 $applied = 0
 $registered = $false
-while ((Get-Date) -lt $deadline) {
+$seen = $false
+$missing = 0
+# 視窗還在就持續覆蓋圖標（Edge 之後重新載入網頁圖標時會換回小圖）；找到過視窗後，連續幾次找不到才結束。
+while ($true) {
   $h = [SvnEditIcon]::Find($title)
   if ($h -ne [IntPtr]::Zero) {
+    $seen = $true; $missing = 0
     if (-not $registered) { $hr = [SvnEditIcon]::RegisterApp($h, 'UEC.SvnRemoteEdit', $relaunch, $iconRes, $displayName); $registered = ($hr -eq 0) }
     if ([SvnEditIcon]::Apply($h, $icon)) { $applied++ }
+  } elseif ($seen) {
+    $missing++
+    if ($missing -ge 4) { break }
+  } elseif ((Get-Date) -ge $deadline) {
+    break
   }
   Start-Sleep -Milliseconds 1500
 }

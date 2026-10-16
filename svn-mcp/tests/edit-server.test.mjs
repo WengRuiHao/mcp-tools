@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createEditServer } from "../dist/edit-server.js";
+import { startFakeSvnServer } from "./fake-svn-server.mjs";
 import { listEdits } from "../dist/remote-edit-client.js";
 
 const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "svn-edit-srv-test-")));
@@ -21,6 +22,7 @@ fs.mkdirSync(path.dirname(connFile), { recursive: true });
 fs.writeFileSync(connFile, JSON.stringify([{ id: "t1", name: "test", url: repoUrl, username: "u", password: "p" }]));
 process.env.SVN_CONNECTIONS_FILE = connFile;
 process.env.SVN_EDIT_TEMP_DIR = path.join(root, "edit-tmp");
+process.env.SVN_EDIT_AUDIT_LOG = path.join(root, "audit.log"); // 測試的稽核紀錄不要寫進真正的 logs/
 process.env.SVN_EDIT_NO_LAUNCH = "1"; // 測試時不要真的打開 Word 或檔案總管
 
 let counter = 0;
@@ -173,18 +175,47 @@ test("錯誤回應不洩漏帳密", async () => {
   fs.writeFileSync(connFile, JSON.stringify([{ id: "t1", name: "test", url: repoUrl, username: "u", password: "p" }]));
 });
 
-test("設定頁 API：新增連線寫進共用的設定檔，回應與狀態都不含密碼；壞輸入回 400", async () => {
-  const added = await post("/api/connections", { name: "新連線", url: "https://svn.example.com/r", username: "bob", password: "pw-123" });
-  assert.equal(added.status, 200);
-  assert.equal(added.text.includes("pw-123"), false);
-  const state = (await call("GET", "/api/state")).json;
-  assert.equal(state.connections.some((c) => c.name === "新連線"), true);
-  assert.equal(JSON.stringify(state).includes("pw-123"), false);
-  assert.equal(JSON.parse(fs.readFileSync(connFile, "utf-8")).find((c) => c.name === "新連線").password, "pw-123");
+test("設定頁 API：新增帳號先測試連線再存進共用的設定檔；回應與狀態都不含密碼；測試、刪除、壞輸入都正確", async () => {
+  const original = fs.readFileSync(connFile, "utf-8");
+  const fakeServer = await startFakeSvnServer({ repos: ["alpha", "beta"], users: { bob: "pw-123" } });
+  try {
+    // 密碼錯：回 400、不存檔
+    const wrong = await post("/api/servers", { name: "新帳號", url: fakeServer.url, username: "bob", password: "bad" });
+    assert.equal(wrong.status, 400);
+    assert.match(wrong.json.error, /帳號或密碼不正確/);
+    assert.equal(fs.readFileSync(connFile, "utf-8"), original);
 
-  const bad = await post("/api/connections", { name: "壞的", url: "file:///c:/x", username: "u", password: "p" });
-  assert.equal(bad.status, 400);
-  assert.equal(bad.json.code, "INVALID_INPUT");
+    // 測試連線：只測不存
+    const tested = await post("/api/servers/test", { url: fakeServer.url, username: "bob", password: "pw-123" });
+    assert.equal(tested.status, 200);
+    assert.deepEqual(tested.json.test, { repoCount: 2, auth: "credentials" });
+    assert.equal(fs.readFileSync(connFile, "utf-8"), original);
+
+    // 新增
+    const added = await post("/api/servers", { name: "新帳號", url: fakeServer.url, username: "bob", password: "pw-123" });
+    assert.equal(added.status, 200);
+    assert.equal(added.text.includes("pw-123"), false);
+    assert.equal(added.json.server.repoCount, 2);
+    const state = (await call("GET", "/api/state")).json;
+    assert.equal(state.servers.some((sv) => sv.name === "新帳號"), true);
+    assert.equal(state.connections.some((c) => c.name === "alpha"), true);
+    assert.equal(JSON.stringify(state).includes("pw-123"), false);
+    const saved = JSON.parse(fs.readFileSync(connFile, "utf-8")).accounts.find((c) => c.name === "新帳號");
+    assert.equal(saved.password, "pw-123");
+    assert.equal("repos" in saved, false, "連線檔只存帳號，不存 repo 清單");
+
+    // 刪除
+    const deleted = await post("/api/servers/delete", { id: saved.id });
+    assert.equal(deleted.status, 200);
+    assert.equal((await call("GET", "/api/state")).json.servers.some((sv) => sv.name === "新帳號"), false);
+    assert.equal((await post("/api/servers/delete", { id: saved.id })).status, 400);
+
+    // 舊的單一 repo 連線 API 已移除
+    assert.equal((await post("/api/connections", { name: "x", url: "https://svn.example.com/r", username: "u", password: "p" })).status, 404);
+  } finally {
+    await fakeServer.close();
+    fs.writeFileSync(connFile, original);
+  }
 });
 
 test("伺服器 API：壞網址回 400、不存檔；狀態有 servers 欄位；找不到的伺服器回 400", async () => {
@@ -253,4 +284,92 @@ test("沒指定連線、或連線名稱不存在：回 400（輸入問題），�
   } finally {
     fs.writeFileSync(connFile, JSON.stringify([{ id: "t1", name: "test", url: repoUrl, username: "u", password: "p" }]));
   }
+});
+
+function postRaw(route, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: "127.0.0.1", port, path: route, method: "POST", headers: { "Content-Type": "application/json", ...headers } }, (res) => {
+      res.resume();
+      res.on("end", () => resolve(res.statusCode));
+    });
+    req.on("error", reject);
+    req.end("{}");
+  });
+}
+
+test("視窗關閉通知：沒帶 token 會被拒絕、不會觸發監聽者", async () => {
+  let called = 0;
+  edit.onWindowClosing(() => called++);
+  assert.equal(await postRaw("/api/window-closing"), 401);
+  assert.equal(called, 0);
+});
+
+test("視窗關閉通知：帶 token 會通知監聽者，處理完 inflight 歸零", async () => {
+  let called = 0;
+  edit.onWindowClosing(() => called++);
+  assert.equal(await postRaw("/api/window-closing", { "X-Edit-Token": TOKEN }), 200);
+  assert.equal(called, 1);
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(edit.inflight(), 0);
+});
+
+test("專案偏好 API：星星、排序、最近、簡稱都存得起來，狀態帶回整份偏好；壞輸入回 400；要 token", async () => {
+  const star = async (name, starred) => (await post("/api/repo-prefs/star", { name, starred })).json.prefs;
+  await star("alpha", true);
+  await star("beta", true);
+  await star("gamma", true);
+  const reordered = await post("/api/repo-prefs/reorder", { order: ["gamma", "alpha", "beta"] });
+  assert.equal(reordered.status, 200);
+  assert.deepEqual(reordered.json.prefs.starred, ["gamma", "alpha", "beta"]);
+  assert.equal((await post("/api/repo-prefs/open", { name: "alpha" })).json.prefs.recent.alpha.length > 10, true);
+  assert.equal((await post("/api/repo-prefs/nickname", { name: "beta", nickname: " 乙 " })).json.prefs.nicknames.beta, "乙");
+
+  const state = (await call("GET", "/api/state")).json;
+  assert.deepEqual(state.repoPrefs.starred, ["gamma", "alpha", "beta"]);
+  assert.equal(state.repoPrefs.nicknames.beta, "乙");
+  assert.deepEqual((await star("alpha", false)).starred, ["gamma", "beta"]);
+
+  const bad = await post("/api/repo-prefs/star", { name: "", starred: true });
+  assert.equal(bad.status, 400);
+  assert.equal(bad.json.code, "INVALID_INPUT");
+  assert.equal((await post("/api/repo-prefs/nickname", { name: "beta", nickname: "x".repeat(31) })).status, 400);
+  assert.equal((await post("/api/repo-prefs/reorder", { order: "nope" })).status, 400);
+
+  const noToken = await new Promise((resolve, reject) => {
+    const req = http.request({ host: "127.0.0.1", port, path: "/api/repo-prefs/star", method: "POST", headers: { "Content-Type": "application/json" } }, (res) => { res.resume(); res.on("end", () => resolve(res.statusCode)); });
+    req.on("error", reject);
+    req.end(JSON.stringify({ name: "x", starred: true }));
+  });
+  assert.equal(noToken, 401);
+});
+
+test("常用目錄 API：加、拿掉、狀態帶回；每個專案各自一份；壞輸入回 400", async () => {
+  const add = (repo, p, starred = true) => post("/api/repo-prefs/folder", { repo, path: p, starred });
+  assert.equal((await add("規格庫", "3-SD/9-SOURCE")).json.prefs.folders["規格庫"][0], "3-SD/9-SOURCE");
+  await add("規格庫", "2-SA");
+  await add("另一個", "docs");
+  const state = (await call("GET", "/api/state")).json;
+  assert.deepEqual(state.repoPrefs.folders, { 規格庫: ["3-SD/9-SOURCE", "2-SA"], 另一個: ["docs"] });
+  assert.deepEqual((await add("規格庫", "2-SA", false)).json.prefs.folders["規格庫"], ["3-SD/9-SOURCE"]);
+  for (const bad of [{ repo: "", path: "x" }, { repo: "p", path: "" }, { repo: "p", path: "../x" }, { repo: "p", path: "a:b" }]) {
+    const r = await post("/api/repo-prefs/folder", { ...bad, starred: true });
+    assert.equal(r.status, 400, JSON.stringify(bad));
+    assert.equal(r.json.code, "INVALID_INPUT");
+  }
+});
+
+test("常用目錄暱稱 API：存得起來、狀態帶回；不是常用目錄回 400；拿掉常用目錄暱稱跟著消失", async () => {
+  await post("/api/repo-prefs/folder", { repo: "暱稱專案", path: "x/y", starred: true });
+  const named = await post("/api/repo-prefs/folder-nickname", { repo: "暱稱專案", path: "x/y", nickname: "好認的名字" });
+  assert.equal(named.status, 200);
+  assert.equal(named.json.prefs.folderNicknames["暱稱專案"]["x/y"], "好認的名字");
+  assert.equal((await call("GET", "/api/state")).json.repoPrefs.folderNicknames["暱稱專案"]["x/y"], "好認的名字");
+
+  const notFav = await post("/api/repo-prefs/folder-nickname", { repo: "暱稱專案", path: "不是常用", nickname: "x" });
+  assert.equal(notFav.status, 400);
+  assert.equal(notFav.json.code, "INVALID_INPUT");
+  assert.equal((await post("/api/repo-prefs/folder-nickname", { repo: "暱稱專案", path: "x/y", nickname: "x".repeat(31) })).status, 400);
+
+  const removed = await post("/api/repo-prefs/folder", { repo: "暱稱專案", path: "x/y", starred: false });
+  assert.equal("暱稱專案" in removed.json.prefs.folderNicknames, false);
 });

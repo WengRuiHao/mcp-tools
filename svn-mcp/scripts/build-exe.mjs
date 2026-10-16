@@ -4,9 +4,9 @@
 // 圖標做法：pkg 會驗證自己快取的 Node 基底 hash，直接改快取會被它重新下載蓋掉；
 // 所以複製一份基底、用 rcedit 改圖標，再以 PKG_NODE_PATH 指給 pkg（設了就跳過 hash 檢查）。
 import { execFileSync } from "node:child_process";
-import { closeSync, copyFileSync, mkdirSync, openSync, readSync, readdirSync, writeSync } from "node:fs";
+import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readSync, readdirSync, realpathSync, writeSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -14,8 +14,8 @@ const { rcedit } = require("rcedit");
 
 // gui：改成「視窗程式」，雙擊時不會跳出黑色主控台視窗（svn-edit 自己會開桌面視窗）；背景服務類的 exe 維持主控台程式。
 const TARGETS = {
-  edit: { entry: "dist/svn-edit.bundle.cjs", out: "svn-edit.exe", bundle: true, gui: true },
-  bridge: { entry: "pkg/http-server.cjs", out: "svn-http-bridge.exe", bundle: false, gui: false },
+  edit: { entry: "dist/svn-edit.bundle.cjs", out: "svn-edit.exe", bundleScript: "bundle:edit", gui: true },
+  bridge: { entry: "dist/svn-http-bridge.bundle.cjs", out: "svn-http-bridge.exe", bundleScript: "bundle:bridge", gui: false },
 };
 
 const SUBSYSTEM_WINDOWS_GUI = 2;
@@ -35,6 +35,36 @@ function setGuiSubsystem(file) {
     writeSync(fd, value, 0, 2, subsystemOffset);
   } finally {
     closeSync(fd);
+  }
+}
+
+/**
+ * 結束「正是要被覆蓋的那個 exe」的執行中程序：Windows 不准覆蓋執行中的檔案（EPERM）。
+ * 用 realpath 比對，所以經過 junction（例如 C:\Tool\svn-mcp → mcp-tools\svn-mcp）啟動的也找得到。
+ */
+function stopRunningInstances(exePath) {
+  if (process.platform !== "win32" || !existsSync(exePath)) return;
+  const name = basename(exePath, ".exe");
+  const target = realpathSync(exePath).toLowerCase();
+  let rows = [];
+  try {
+    const out = execFileSync(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-Command", `Get-Process -Name '${name}' -ErrorAction SilentlyContinue | ForEach-Object { "$($_.Id)|$($_.Path)" }`],
+      { encoding: "utf-8" },
+    );
+    rows = out.split(/\r?\n/).filter(Boolean).map((line) => line.split("|"));
+  } catch {
+    return;
+  }
+  for (const [pid, path] of rows) {
+    if (!path || !existsSync(path) || realpathSync(path).toLowerCase() !== target) continue;
+    console.log(`結束執行中的 ${name}.exe（PID ${pid}），才能覆蓋它`);
+    try {
+      process.kill(Number(pid));
+    } catch (e) {
+      console.error(`無法結束 PID ${pid}：${e.message}`);
+    }
   }
 }
 
@@ -64,7 +94,8 @@ const run = (cmd, args, env = process.env) =>
 
 for (const key of which === "all" ? Object.keys(TARGETS) : [which]) {
   const t = TARGETS[key];
-  if (t.bundle) run("npm", ["run", "bundle:edit"]);
+  if (t.bundleScript) run("npm", ["run", t.bundleScript]);
+  stopRunningInstances(join(outDir, t.out));
   run("npx", ["pkg", t.entry, "--targets", "node22-win-x64", "--output", join(outDir, t.out)], {
     ...process.env,
     PKG_NODE_PATH: iconBase,

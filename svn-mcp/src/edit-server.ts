@@ -11,12 +11,15 @@
 import { execFile } from "node:child_process";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { listPublicConnections, listPublicServers, refreshServer, saveConnection, saveServer, ConnectionInputError, type ConnectionInput, type ServerInput } from "./connections-store.js";
+import { deleteServer, listPublicConnections, listPublicServers, refreshAllServers, refreshServer, saveServer, testServerLogin, ConnectionInputError, type ServerInput } from "./connections-store.js";
 import { FAVICON_ICO_BASE64 } from "./edit-icon-data.js";
+import { markOpened, readRepoPrefs, reorderStars, setFolderNickname, setFolderStar, setLocalPath, setNickname, setStar, setSyncLocal } from "./repo-prefs.js";
+import { commitEditAndSync } from "./local-sync.js";
+import { deleteRemoteFileAndSync } from "./remote-delete.js";
 import { renderPage } from "./edit-ui.js";
-import { openFile, revealFile } from "./os-open.js";
+import { openForEdit, openFile, revealFile } from "./os-open.js";
 import { cancelImport, commitImport, planImport, stageImportFile, startImportBatch } from "./remote-import-batch.js";
-import { browseRemote, commitEdit, discardEdit, EditError, exportLatest, getEditStatus, importNewFile, listEdits, openEdit, type EditErrorCode } from "./remote-edit-client.js";
+import { browseRemote, discardEdit, EditError, exportLatest, getEditStatus, getUpgradePlan, importNewFile, listEdits, openEdit, viewRemoteFile, type EditErrorCode } from "./remote-edit-client.js";
 
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
@@ -40,6 +43,10 @@ export interface EditServer {
   token: string;
   /** 最近一次收到請求的時間（毫秒），給閒置自動結束判斷用。 */
   lastActivity(): number;
+  /** 目前還在處理中的請求數（例如正在上傳／commit）；有的話不能結束。 */
+  inflight(): number;
+  /** 控制頁的視窗被關掉（pagehide）時，網頁會通知一次；重新整理也會通知，所以呼叫端要自己確認之後有沒有新請求。 */
+  onWindowClosing(listener: () => void): void;
 }
 
 class HttpError extends Error {
@@ -60,6 +67,31 @@ const FAVICON_ICO = Buffer.from(FAVICON_ICO_BASE64, "base64");
 function sendIcon(res: ServerResponse): void {
   res.writeHead(200, { "Content-Type": "image/x-icon", "Content-Length": FAVICON_ICO.length, "Cache-Control": "public, max-age=3600" });
   res.end(FAVICON_ICO);
+}
+
+const LARGE_ICON_SIZE = 256;
+
+/** 從 ICO 容器取出指定尺寸的 PNG 內容（本專案產生的 ICO 每筆都是 PNG）；找不到回傳 null。 */
+function extractPngFromIco(ico: Buffer, size: number): Buffer | null {
+  const count = ico.readUInt16LE(4);
+  for (let i = 0; i < count; i++) {
+    const entry = 6 + 16 * i;
+    const width = ico[entry] || 256;
+    if (width !== size) continue;
+    const length = ico.readUInt32LE(entry + 8);
+    const offset = ico.readUInt32LE(entry + 12);
+    return ico.subarray(offset, offset + length);
+  }
+  return null;
+}
+
+const FAVICON_PNG = extractPngFromIco(FAVICON_ICO, LARGE_ICON_SIZE);
+
+/** 統一的大圖（256px PNG）：Edge 應用程式視窗只拿網頁圖標縮放，給單一大圖才不會被小尺寸硬放大。 */
+function sendLargeIcon(res: ServerResponse): void {
+  if (!FAVICON_PNG) return sendIcon(res);
+  res.writeHead(200, { "Content-Type": "image/png", "Content-Length": FAVICON_PNG.length, "Cache-Control": "public, max-age=3600" });
+  res.end(FAVICON_PNG);
 }
 
 function sendPage(res: ServerResponse, html: string): void {
@@ -155,7 +187,7 @@ async function buildState(): Promise<unknown> {
       // 單一項目讀取失敗不影響其他項目
     }
   }
-  return { connections, servers, connectionsError, configured: connections.length > 0, sessions, svnAvailable: await isSvnAvailable() };
+  return { connections, servers, repoPrefs: await readRepoPrefs(), connectionsError, configured: connections.length > 0, sessions, svnAvailable: await isSvnAvailable() };
 }
 
 type ApiHandler = (body: Record<string, unknown>) => Promise<unknown>;
@@ -163,14 +195,27 @@ type ApiHandler = (body: Record<string, unknown>) => Promise<unknown>;
 const API_POST: Record<string, ApiHandler> = {
   "/api/open": async (body) => {
     const session = await openEdit({ connectionId: str(body, "connection") || undefined, path: str(body, "path"), ticket: str(body, "ticket") || undefined });
-    openFile(session.filePath);
+    openForEdit(session.filePath);
     return { session };
   },
-  "/api/commit": (body) => commitEdit(str(body, "id"), str(body, "message")),
+  "/api/view": async (body) => {
+    // 唯讀檢視（PDF 等）：匯出最新版到暫存資料夾，用預設程式開啟；不建立編輯項目
+    const result = await viewRemoteFile({ connectionId: str(body, "connection") || undefined, path: str(body, "path") });
+    openFile(result.path);
+    return result;
+  },
+  "/api/commit": (body) => {
+    // upgrade：true 或 { newName }＝升級版本（舊版複製到 old 資料夾、新版版本號 +1）
+    const up = body.upgrade;
+    const upgrade = up && typeof up === "object" ? { newName: str(up as Record<string, unknown>, "newName") || undefined } : up === true ? {} : undefined;
+    return commitEditAndSync(str(body, "id"), str(body, "message"), upgrade);
+  },
+  // 刪除遠端單一檔案（成功後依「同步本地端」開關更新本地工作目錄）
+  "/api/delete": (body) => deleteRemoteFileAndSync({ connectionId: str(body, "connection") || undefined, path: str(body, "path"), message: str(body, "message") }),
   "/api/discard": (body) => discardEdit(str(body, "id")),
   "/api/reopen": async (body) => {
     const { session } = await getEditStatus(str(body, "id"));
-    openFile(session.filePath);
+    openForEdit(session.filePath);
     return { path: session.filePath };
   },
   "/api/export-latest": async (body) => {
@@ -184,8 +229,19 @@ const API_POST: Record<string, ApiHandler> = {
     commitImport({ batch: str(body, "batch"), connectionId: str(body, "connection") || undefined, targetDir: str(body, "targetDir"), message: str(body, "message"), ticket: str(body, "ticket") || undefined }),
   "/api/import/cancel": (body) => cancelImport(str(body, "batch")),
   "/api/servers": async (body) => ({ server: await saveServer(body as unknown as ServerInput) }),
+  "/api/servers/test": async (body) => ({ test: await testServerLogin(body as unknown as ServerInput) }),
   "/api/servers/refresh": async (body) => ({ server: await refreshServer(str(body, "id")) }),
-  "/api/connections": async (body) => ({ connection: await saveConnection(body as unknown as ConnectionInput) }),
+  "/api/servers/delete": async (body) => deleteServer(str(body, "id")),
+  "/api/servers/refresh-all": () => refreshAllServers(),
+  // 瀏覽 SVN 目錄的偏好：星星、排序、最近開過、簡稱（都回傳最新的整份偏好）
+  "/api/repo-prefs/star": async (body) => ({ prefs: await setStar(body.name, body.starred === true) }),
+  "/api/repo-prefs/reorder": async (body) => ({ prefs: await reorderStars(body.order) }),
+  "/api/repo-prefs/open": async (body) => ({ prefs: await markOpened(body.name) }),
+  "/api/repo-prefs/nickname": async (body) => ({ prefs: await setNickname(body.name, body.nickname) }),
+  "/api/repo-prefs/sync-local": async (body) => ({ prefs: await setSyncLocal(body.enabled) }),
+  "/api/repo-prefs/local-path": async (body) => ({ prefs: await setLocalPath(body.repo, body.path) }),
+  "/api/repo-prefs/folder": async (body) => ({ prefs: await setFolderStar(body.repo, body.path, body.starred === true) }),
+  "/api/repo-prefs/folder-nickname": async (body) => ({ prefs: await setFolderNickname(body.repo, body.path, body.nickname) }),
 };
 
 function errorResponse(res: ServerResponse, error: unknown): void {
@@ -201,6 +257,8 @@ export function createEditServer(): EditServer {
   const token = randomBytes(32).toString("hex");
   const tokenBuffer = Buffer.from(token);
   let lastActivityAt = Date.now();
+  let inflightCount = 0;
+  const closingListeners: Array<() => void> = [];
 
   function tokenOk(req: IncomingMessage): boolean {
     const given = req.headers["x-edit-token"];
@@ -220,13 +278,21 @@ export function createEditServer(): EditServer {
     if (req.method === "GET" && route === "/health") return sendJson(res, 200, { ok: true, service: "svn-edit" });
     if (req.method === "GET" && (route === "/" || route === "/edit")) return sendPage(res, renderPage(token));
     if (req.method === "GET" && route === "/favicon.ico") return sendIcon(res);
+    if (req.method === "GET" && route === "/favicon.png") return sendLargeIcon(res);
 
     if (!route.startsWith("/api/")) throw new HttpError(404, "not found");
     if (!tokenOk(req)) throw new HttpError(401, "unauthorized");
     const origin = req.headers.origin;
     if (typeof origin === "string" && !allowedHosts.map((h) => `http://${h}`).includes(origin.toLowerCase())) throw new HttpError(403, "不允許的 Origin");
 
+    if (req.method === "POST" && route === "/api/window-closing") {
+      closingListeners.forEach((listener) => listener());
+      return sendJson(res, 200, { ok: true });
+    }
     if (req.method === "GET" && route === "/api/state") return sendJson(res, 200, await buildState());
+    if (req.method === "GET" && route === "/api/upgrade-plan") {
+      return sendJson(res, 200, await getUpgradePlan(url.searchParams.get("id") ?? "", url.searchParams.get("newName") || undefined));
+    }
     if (req.method === "GET" && route === "/api/browse") {
       return sendJson(res, 200, await browseRemote(url.searchParams.get("connection") || undefined, url.searchParams.get("path") ?? ""));
     }
@@ -250,7 +316,9 @@ export function createEditServer(): EditServer {
 
   const server = createServer((req, res) => {
     lastActivityAt = Date.now();
+    inflightCount++;
+    res.on("close", () => void inflightCount--);
     handle(req, res).catch((e) => errorResponse(res, e));
   });
-  return { server, token, lastActivity: () => lastActivityAt };
+  return { server, token, lastActivity: () => lastActivityAt, inflight: () => inflightCount, onWindowClosing: (listener) => void closingListeners.push(listener) };
 }

@@ -15,6 +15,7 @@
     "test": "npm run build && node --test",
     "start:edit": "node dist/edit-main.js",
     "bundle:edit": "esbuild src/edit-main.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/svn-edit.bundle.cjs --define:import.meta.url=undefined --log-level=warning",
+    "bundle:bridge": "esbuild src/http-server.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/svn-http-bridge.bundle.cjs --define:import.meta.url=undefined --log-level=warning",
     "build:exe": "node scripts/build-exe.mjs all"
   },
   "dependencies": {

@@ -3,7 +3,12 @@ import { readFile, writeFile, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { getConnectionsFilePath, getDefaultConnectionId, getSvnTimeoutMs } from "./config-store.js";
-import { expandConnections, type StoredConnectionEntry } from "./connection-expand.js";
+import { expandConnections, findConnection, knownNames, type RepoCache, type StoredConnectionEntry } from "./connection-expand.js";
+import type { RepoPrefs } from "./prefs-model.js";
+import { readProfileStrict } from "./profile-store.js";
+import { searchRepos } from "./repo-search.js";
+import { decodeSvnText } from "./svn-text.js";
+import { isStale, readRepoCache, refreshRepoCache } from "./repo-cache.js";
 
 export interface SvnResult {
   success: boolean;
@@ -19,16 +24,48 @@ export interface SvnConnection {
   password: string;
 }
 
+/** 同一個行程裡，同一個帳號重新讀 repo 清單的最短間隔：伺服器連不上時，連續打錯名稱不會每次都卡 30 秒。 */
+const REFRESH_RETRY_MS = 60_000;
+const lastRefreshAttempt = new Map<string, number>();
+
+async function refreshOnce(servers: StoredConnectionEntry[]): Promise<RepoCache> {
+  const due = servers.filter((s) => Date.now() - (lastRefreshAttempt.get(s.id) ?? 0) > REFRESH_RETRY_MS);
+  for (const s of due) lastRefreshAttempt.set(s.id, Date.now());
+  return due.length ? refreshRepoCache(due) : readRepoCache();
+}
+
+/** 連線檔＋repo 清單快取；帳號還沒有快取（剛遷移、或快取檔被刪）就先向伺服器讀一次補上。 */
+async function loadState(): Promise<{ entries: StoredConnectionEntry[]; cache: RepoCache; prefs: RepoPrefs }> {
+  const profile = await readProfileStrict();
+  const entries = profile.accounts;
+  let cache = profile.repoCache;
+  const missing = entries.filter((e) => e.kind === "server" && !cache[e.id] && !e.repos);
+  if (missing.length) cache = await refreshOnce(missing);
+  return { entries, cache, prefs: profile.prefs };
+}
+
 async function loadConnections(): Promise<SvnConnection[]> {
-  const raw = await readFile(getConnectionsFilePath(), "utf-8");
-  return expandConnections(JSON.parse(raw.replace(/^﻿/, "")) as StoredConnectionEntry[]);
+  const { entries, cache } = await loadState();
+  return expandConnections(entries, cache);
 }
 
 /** Lists connections with credentials stripped — safe to hand back to whatever's driving this MCP. */
 export async function listConnections(): Promise<SvnResult> {
   try {
-    const conns = await loadConnections();
-    return { success: true, data: conns.map((c) => ({ id: c.id, name: c.name, url: c.url })) };
+    const { entries, cache, prefs } = await loadState();
+    const conns = expandConnections(entries, cache);
+    return {
+      success: true,
+      data: conns.map((c) => ({
+        id: c.id,
+        name: c.name,
+        url: c.url,
+        aliases: c.aliases,
+        nickname: prefs.nicknames[c.name] ?? null,
+        starred: prefs.starred.includes(c.name),
+        folders: (prefs.folders[c.name] ?? []).map((path) => ({ path, nickname: prefs.folderNicknames[c.name]?.[path] ?? null })),
+      })),
+    };
   } catch (e) {
     return { success: false, message: `讀取 SVN 連線清單失敗（${getConnectionsFilePath()}）：${e instanceof Error ? e.message : String(e)}` };
   }
@@ -36,13 +73,22 @@ export async function listConnections(): Promise<SvnResult> {
 
 export async function resolveConnection(connectionId?: string): Promise<SvnConnection> {
   const target = connectionId?.trim() || getDefaultConnectionId();
-  const conns = await loadConnections();
+  let { entries, cache, prefs } = await loadState();
+  const available = (): string => knownNames(entries, cache, prefs.nicknames).join("、") || "(無)";
   if (!target) {
-    throw new Error(`沒有指定 connectionId，也沒有設定 SVN_CONNECTION_ID 環境變數。可用的連線：${conns.map((c) => c.name).join("、") || "(無)"}`);
+    throw new Error(`沒有指定 connectionId，也沒有設定 SVN_CONNECTION_ID 環境變數。可用的連線：${available()}`);
   }
-  const conn = conns.find((c) => c.id === target || c.name === target);
+  let conn = findConnection(entries, cache, target, prefs.nicknames);
   if (!conn) {
-    throw new Error(`找不到 SVN 連線「${target}」。可用的連線：${conns.map((c) => c.name).join("、") || "(無)"}。如果是伺服器上新建的 repo，請到 svn-edit 的「連線設定」按「重新載入 repo 清單」。`);
+    // 可能是伺服器上剛新建的 repo：快取過期的帳號重新讀一次再找
+    const stale = entries.filter((e) => e.kind === "server" && isStale(cache[e.id]));
+    if (stale.length) {
+      cache = await refreshOnce(stale);
+      conn = findConnection(entries, cache, target, prefs.nicknames);
+    }
+  }
+  if (!conn) {
+    throw new Error(`找不到 SVN 連線「${target}」。可用的連線：${available()}。如果是伺服器上新建的 repo，請到 svn-edit 的「連線設定」按「重新載入」。`);
   }
   return conn;
 }
@@ -70,16 +116,18 @@ export function runSvn(
   args: string[],
   conn: SvnConnection,
   timeoutMs: number,
-  extraEnv?: Record<string, string>
+  extraEnv?: Record<string, string>,
+  /** svn 輸出（stdout）的緩衝上限；預設 50 MB，批次上傳十萬個檔案時 add／commit 會逐檔印一行，要調大。 */
+  maxBufferBytes: number = 50 * 1024 * 1024
 ): Promise<{ stdout: Buffer; stderr: string }> {
   const fullArgs = [...args, "--non-interactive", "--trust-server-cert", "--username", conn.username, "--password", conn.password];
   return new Promise((resolve, reject) => {
     execFile(
       "svn",
       fullArgs,
-      { timeout: timeoutMs, maxBuffer: 50 * 1024 * 1024, encoding: "buffer", windowsHide: true, env: extraEnv ? { ...process.env, ...extraEnv } : process.env },
+      { timeout: timeoutMs, maxBuffer: maxBufferBytes, encoding: "buffer", windowsHide: true, env: extraEnv ? { ...process.env, ...extraEnv } : process.env },
       (error, stdout, stderr) => {
-        const stderrText = Buffer.isBuffer(stderr) ? stderr.toString("utf-8") : String(stderr ?? "");
+        const stderrText = Buffer.isBuffer(stderr) ? decodeSvnText(stderr) : String(stderr ?? "");
         if (error) {
           // Never surface error.message to the caller: on failures where stderr is empty (svn
           // binary missing, timeout, connection-layer failure), Node bakes the full invoked
@@ -88,6 +136,10 @@ export function runSvn(
           // output) or a generic fallback.
           if (!stderrText.trim()) {
             console.error(`[svn-mcp] svn 指令失敗，未回傳給呼叫端的完整錯誤：${error.message}`);
+          }
+          if (!stderrText.trim() && (error as any).killed) {
+            reject(new Error(`SVN 指令執行逾時（超過 ${Math.round(timeoutMs / 1000)} 秒被中止），檔案數量或網路傳輸量太大，請分批上傳或調高 SVN_TIMEOUT_MS`));
+            return;
           }
           reject(new Error(stderrText.trim() || `SVN 指令執行失敗（exit code: ${(error as any).code ?? "unknown"}），請確認 svn 執行檔存在且連線設定正確`));
           return;
@@ -164,7 +216,7 @@ export async function testConnection(connectionId?: string): Promise<SvnResult> 
   }
   try {
     const { stdout } = await runSvn(["info", conn.url], conn, getSvnTimeoutMs());
-    return { success: true, data: { connectionId: conn.id, name: conn.name, url: conn.url, info: stdout.toString("utf-8") } };
+    return { success: true, data: { connectionId: conn.id, name: conn.name, url: conn.url, info: decodeSvnText(stdout) } };
   } catch (e) {
     return {
       success: false,
@@ -232,7 +284,7 @@ export async function svnDiff(path_: string, r1: string, r2: string, connectionI
     const conn = await resolveConnection(connectionId);
     const fullUrl = buildFullUrl(conn.url, path_);
     const { stdout } = await runSvn(["diff", "-r", `${r1}:${r2}`, fullUrl], conn, getSvnTimeoutMs());
-    return { success: true, data: { diff: stdout.toString("utf-8") } };
+    return { success: true, data: { diff: decodeSvnText(stdout) } };
   } catch (e) {
     return { success: false, message: e instanceof Error ? e.message : String(e) };
   }
@@ -265,4 +317,35 @@ export async function svnDocImages(path_: string, rev = "HEAD", connectionId?: s
       message: "已寫入本機暫存檔，請用專案既有的 docx 圖片抽取流程（python-docx 讀 inline shapes）處理這個路徑，讀完記得清掉暫存目錄。",
     },
   };
+}
+
+/**
+ * 依關鍵字找專案庫（svn_find_repo）：比對 repo 名稱、舊名稱（別名）、簡稱、常用目錄的暱稱與路徑。
+ * 找不到而且有帳號的 repo 清單快取過期時，向伺服器重讀一次再找（可能是剛新建的 repo）。
+ */
+export async function findRepos(query: string, limit?: number): Promise<SvnResult> {
+  try {
+    let { entries, cache, prefs } = await loadState();
+    let hits = searchRepos(entries, cache, prefs, query, limit);
+    if (hits.length === 0 && query.trim()) {
+      const stale = entries.filter((e) => e.kind === "server" && isStale(cache[e.id]));
+      if (stale.length) {
+        cache = await refreshOnce(stale);
+        hits = searchRepos(entries, cache, prefs, query, limit);
+      }
+    }
+    return {
+      success: true,
+      data: {
+        query,
+        count: hits.length,
+        hits,
+        hint: hits.length
+          ? "把 hits[].connectionId 填給 svn_browse、svn_cat 等工具；hits[].folders[].path 是相對於該 repo 根目錄的常用目錄，可以直接當 path 用（matched 為 true 的是這次關鍵字比對到的）。多個都像時，先用 svn_browse 看一下內容再決定，不要猜。"
+          : "沒有找到符合的專案庫。可以換個關鍵字（例如 repo 名稱的一部分、簡稱、常用目錄暱稱），或呼叫 svn_list_connections 看完整清單。",
+      },
+    };
+  } catch (e) {
+    return { success: false, message: `搜尋專案庫失敗（${getConnectionsFilePath()}）：${e instanceof Error ? e.message : String(e)}` };
+  }
 }

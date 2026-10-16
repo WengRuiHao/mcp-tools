@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-label="svn-edit 說明圖：不用手動 checkout，就能編輯 SVN 上的單一檔案（docx、xlsx、md、txt）。流程六步：一、你在控制頁選好要編輯的檔案（用瀏覽 SVN 目錄選，或從 dev-pipeline 報告頁的連結進來）；二、svn-edit 把這一個檔案取到暫存資料夾，Word 和 Excel 檔會先在 SVN 上鎖定，避免別人同時修改；三、你用 Word、Excel 等熟悉的軟體修改並存檔、關閉；四、按上傳時自動做四道檢查：Word 或 Excel 還開著就擋下、內容沒有變就擋下、沒填說明就擋下、遠端在你編輯期間被別人更新就擋下（不會蓋掉對方，可以下載最新版另存比對）；五、通過檢查才提交回 SVN；六、自動清掉暫存資料夾並解除鎖定。另外也可以隨時放棄（解鎖並清掉暫存）；電腦當機後重開，還找得到沒做完的編輯可以繼續上傳或放棄；也可以把多個本機檔案或整個資料夾一次上傳到 SVN（只產生一個版本，遠端已有同名檔案會先請你確認才更新，Word 和 Excel 新檔自動設定成編輯前需先鎖定）。所有寫入都只有你在網頁上按按鈕才會發生，AI 沒有任何能改動 SVN 的工具；服務只綁本機 127.0.0.1，每個動作都留稽核紀錄。">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1096" role="img" aria-label="svn-edit 說明圖：不用手動 checkout，就能編輯 SVN 上的單一檔案（docx、xlsx、xls、md、txt、csv）。流程六步：一、你在控制頁選好要編輯的檔案（用瀏覽 SVN 目錄選，或從 dev-pipeline 報告頁的連結進來）；二、svn-edit 把這一個檔案取到暫存資料夾，Word 和 Excel 檔會先在 SVN 上鎖定，避免別人同時修改；三、你用 Word、Excel 等熟悉的軟體修改並存檔、關閉；四、按上傳時自動做四道檢查：Word 或 Excel 還開著就擋下、內容沒有變就擋下、沒填說明就擋下、遠端在你編輯期間被別人更新就擋下（不會蓋掉對方，可以下載最新版另存比對）；五、通過檢查才提交回 SVN；六、自動清掉暫存資料夾並解除鎖定。另外也可以隨時放棄（解鎖並清掉暫存）；電腦當機後重開，還找得到沒做完的編輯可以繼續上傳或放棄；也可以勾選「升級版本」讓舊版自動放進 old 資料夾、新版版本號加一；PDF 可以開啟檢視（唯讀）；專案很多時可加星星、取簡稱、記常用目錄；也可以把多個本機檔案或整個資料夾一次上傳到 SVN（只產生一個版本，遠端已有同名檔案會先請你確認才更新，Word 和 Excel 新檔自動設定成編輯前需先鎖定）；也可以刪除 SVN 上的單一檔案（要填說明、再確認，歷史仍可還原）；另有可開關的「同步本地端」：開啟後上傳或刪除成功就自動 svn update 你電腦上的 SVN 工作目錄，若資料夾沒有 SVN 追蹤則跳出警示、不更新，遠端的結果不受影響。所有寫入都只有你在網頁上按按鈕才會發生，AI 沒有任何能改動 SVN 的工具；服務只綁本機 127.0.0.1，每個動作都留稽核紀錄。">
   <defs>
     <marker id="seArrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" fill="#6b6558"/>
     </marker>
   </defs>
-  <rect width="1200" height="800" fill="#f6f2e8"/>
+  <rect width="1200" height="1096" fill="#f6f2e8"/>
 
   <g font-family="'Noto Sans TC',sans-serif">
     <text x="40" y="52" font-size="26" font-weight="700" fill="#2a2620">svn-edit：不用 checkout，直接編輯 SVN 上的檔案</text>
@@ -125,14 +125,44 @@
     <text x="916" y="578" font-size="13.5" fill="#6b6558">逐層點進資料夾找檔案，不用</text>
     <text x="916" y="598" font-size="13.5" fill="#6b6558">記路徑；只讀取，不會改動</text>
     <text x="916" y="618" font-size="13.5" fill="#6b6558">任何東西。</text>
+    <rect x="40" y="660" width="268" height="116" rx="10" fill="#ede8db" stroke="#cdc4ae"/>
+    <text x="58" y="688" font-size="16" font-weight="700" fill="#2a2620">升級版本</text>
+    <text x="58" y="714" font-size="13.5" fill="#6b6558">上傳時勾選：舊版自動放進</text>
+    <text x="58" y="734" font-size="13.5" fill="#6b6558">old 資料夾、新版版本號 +1</text>
+    <text x="58" y="754" font-size="13.5" fill="#6b6558">（v0.7→v0.8），同一個版本。</text>
+    <rect x="326" y="660" width="268" height="116" rx="10" fill="#ede8db" stroke="#cdc4ae"/>
+    <text x="344" y="688" font-size="16" font-weight="700" fill="#2a2620">專案很多也找得到</text>
+    <text x="344" y="714" font-size="13.5" fill="#6b6558">星星、簡稱、搜尋框；每個</text>
+    <text x="344" y="734" font-size="13.5" fill="#6b6558">專案可記「常用目錄」並取暱</text>
+    <text x="344" y="754" font-size="13.5" fill="#6b6558">稱，不用一層一層點。</text>
+    <rect x="612" y="660" width="268" height="116" rx="10" fill="#ede8db" stroke="#cdc4ae"/>
+    <text x="630" y="688" font-size="16" font-weight="700" fill="#2a2620">PDF 只看不改</text>
+    <text x="630" y="714" font-size="13.5" fill="#6b6558">PDF 可開啟檢視（唯讀），</text>
+    <text x="630" y="734" font-size="13.5" fill="#6b6558">不上鎖、不建立編輯項目，</text>
+    <text x="630" y="754" font-size="13.5" fill="#6b6558">也不會傳任何東西到 SVN。</text>
+    <rect x="898" y="660" width="262" height="116" rx="10" fill="#ede8db" stroke="#cdc4ae"/>
+    <text x="916" y="688" font-size="16" font-weight="700" fill="#2a2620">自動選對軟體</text>
+    <text x="916" y="714" font-size="13.5" fill="#6b6558">md 用 VS Code、csv 用記事本、</text>
+    <text x="916" y="734" font-size="13.5" fill="#6b6558">其餘用預設程式；只影響這個</text>
+    <text x="916" y="754" font-size="13.5" fill="#6b6558">工具開檔，不改你的檔案關聯。</text>
+    <rect x="40" y="796" width="554" height="116" rx="10" fill="#f6ecd4" stroke="#c9a24a"/>
+    <text x="58" y="824" font-size="16" font-weight="700" fill="#8a6a1c">同步本地端（可開關，預設關閉）</text>
+    <text x="58" y="850" font-size="13.5" fill="#8a6a1c">開啟後，上傳或刪除成功就自動 svn update 你電腦上的 SVN 工作目錄，</text>
+    <text x="58" y="870" font-size="13.5" fill="#8a6a1c">只更新這次動到的檔案；每個專案各設一個本地資料夾。</text>
+    <text x="58" y="896" font-size="13" fill="#8e3a30">⚠ 資料夾沒有 SVN 追蹤、沒設定或對不上專案 → 跳警示、不更新（遠端仍成功）</text>
+    <rect x="612" y="796" width="548" height="116" rx="10" fill="#f6dcd8" stroke="#c0675c"/>
+    <text x="630" y="824" font-size="16" font-weight="700" fill="#8e3a30">刪除遠端檔案</text>
+    <text x="630" y="850" font-size="13.5" fill="#8e3a30">瀏覽目錄時按檔案旁的 🗑，填刪除說明並再確認；只能刪單一檔案，</text>
+    <text x="630" y="870" font-size="13.5" fill="#8e3a30">正在編輯或被鎖定的不能刪。會產生新版本，歷史仍可還原；</text>
+    <text x="630" y="896" font-size="13" fill="#6b6558">→ 同步開關開著時，本地的檔案也會一起消失</text>
   </g>
 
   <!-- 底部說明 -->
-  <rect x="40" y="664" width="1120" height="112" rx="10" fill="#e6efe2" stroke="#8aa981"/>
+  <rect x="40" y="960" width="1120" height="112" rx="10" fill="#e6efe2" stroke="#8aa981"/>
   <g font-family="'Noto Sans TC',sans-serif">
-    <text x="60" y="694" font-size="15.5" font-weight="700" fill="#345c39">這些寫入動作只有「你在網頁上按按鈕」才會發生，AI 助理沒有任何能改動 SVN 的工具。</text>
-    <text x="60" y="720" font-size="14" fill="#345c39">svn-edit 是獨立的本機程式（只接受這台電腦自己連線），沒有註冊成 AI 能呼叫的工具；每次開啟、上傳、放棄、新增都會留一筆稽核紀錄。</text>
-    <text x="60" y="744" font-size="14" fill="#345c39">每個人用自己的 SVN 帳號（鎖定是綁帳號的，才分得出是誰在編輯）；連線設定只要填一次伺服器網址＋帳密就能用所有 repo，跟 svn-mcp 的查詢工具共用，只存在自己的電腦上。</text>
-    <text x="60" y="766" font-size="13" fill="#6b6558">需要電腦上有 svn 命令列工具（TortoiseSVN 安裝時勾選 command line client tools）。</text>
+    <text x="60" y="990" font-size="15.5" font-weight="700" fill="#345c39">這些寫入動作只有「你在網頁上按按鈕」才會發生，AI 助理沒有任何能改動 SVN 的工具。</text>
+    <text x="60" y="1016" font-size="14" fill="#345c39">svn-edit 是獨立的本機程式（只接受這台電腦自己連線），沒有註冊成 AI 能呼叫的工具；每次開啟、上傳、放棄、新增、刪除都會留一筆稽核紀錄。</text>
+    <text x="60" y="1040" font-size="14" fill="#345c39">每個人用自己的 SVN 帳號（鎖定是綁帳號的，才分得出是誰在編輯）；連線設定只要填一次伺服器網址＋帳密就能用所有 repo，跟 svn-mcp 的查詢工具共用，只存在自己的電腦上。</text>
+    <text x="60" y="1062" font-size="13" fill="#6b6558">需要電腦上有 svn 命令列工具（TortoiseSVN 安裝時勾選 command line client tools）。</text>
   </g>
 </svg>

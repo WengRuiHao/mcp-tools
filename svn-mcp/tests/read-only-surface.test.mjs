@@ -10,7 +10,7 @@ import { registerConnectionTools } from "../dist/connection-tools.js";
 import { registerReadTools } from "../dist/read-tools.js";
 import { registerHistoryTools } from "../dist/history-tools.js";
 
-const READ_ONLY_TOOLS = ["svn_browse", "svn_cat", "svn_diff", "svn_doc_images", "svn_list_connections", "svn_log", "svn_test_connection"];
+const READ_ONLY_TOOLS = ["svn_browse", "svn_cat", "svn_diff", "svn_doc_images", "svn_find_repo", "svn_list_connections", "svn_log", "svn_test_connection"];
 
 test("the registered MCP tools are exactly the read-only set", async () => {
   const server = new McpServer({ name: "svn-mcp-test", version: "0.0.0" });
@@ -37,5 +37,7 @@ test("no MCP entrypoint or tool file references the SVN write modules", () => {
     const text = fs.readFileSync(path.join(srcDir, file), "utf-8");
     assert.doesNotMatch(text, /workcopy-client/, `${file} 不能引用 workcopy-client（會讓 AI 拿到寫入 SVN 的能力）`);
     assert.doesNotMatch(text, /remote-edit-client/, `${file} 不能引用 remote-edit-client（會讓 AI 拿到寫入 SVN 的能力）`);
+    assert.doesNotMatch(text, /remote-delete/, `${file} 不能引用 remote-delete（會讓 AI 拿到刪除 SVN 檔案的能力）`);
+    assert.doesNotMatch(text, /local-sync/, `${file} 不能引用 local-sync（會讓 AI 拿到對本機執行 svn update 的能力）`);
   }
 });
