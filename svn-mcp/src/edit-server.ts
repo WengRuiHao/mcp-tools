@@ -211,7 +211,7 @@ const API_POST: Record<string, ApiHandler> = {
     return commitEditAndSync(str(body, "id"), str(body, "message"), upgrade);
   },
   // 刪除遠端單一檔案（成功後依「同步本地端」開關更新本地工作目錄）
-  "/api/delete": (body) => deleteRemoteFileAndSync({ connectionId: str(body, "connection") || undefined, path: str(body, "path"), message: str(body, "message") }),
+  "/api/delete": (body) => deleteRemoteFileAndSync({ connectionId: str(body, "connection") || undefined, path: str(body, "path"), paths: body.paths, message: str(body, "message") }),
   "/api/discard": (body) => discardEdit(str(body, "id")),
   "/api/reopen": async (body) => {
     const { session } = await getEditStatus(str(body, "id"));

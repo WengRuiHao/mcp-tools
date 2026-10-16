@@ -62,7 +62,18 @@
 | `SVN_BRIDGE_HOST` | 綁定的網路介面 | `127.0.0.1`（只接受本機連線） |
 | `SVN_BRIDGE_TOKEN` | 選配的共用密鑰，設定後 `POST /run` 要求 `Authorization: Bearer <token>` | 未設定（不驗證，僅靠 host 綁定防護） |
 
-`POST /run` 只允許 `list`/`cat`/`log`/`diff`/`info` 這幾個唯讀子命令，且拒絕任何 `file://` 開頭的參數——這是給 claudeweb 瀏覽/讀取 SVN 用的橋接，不是任意執行 `svn` 指令的通道。
+**連線資料只在 svn-mcp 這邊維護**（`info/svn-connections.json`，用 svn-edit 的「連線設定」管理）；claudeweb 不存連線資料，也拿不到帳密：
+
+| 端點 | 說明 |
+|---|---|
+| `GET /connections` | 列出所有連線（每個 repo 一筆；id、name、url、nickname、aliases、starred、folders，**不含帳密**） |
+| `GET /connection?id=` | 查單一連線，`id` 可以是連線 id、repo 名稱、舊版 id（`legacyIds`）、別名或簡稱；找不到回 404 |
+| `POST /run` | 本體 `{ connectionId, args, timeoutMs? }`：svn-mcp 解析連線、自己附上帳密後執行；`args` 是 `svn` 後面的參數（不含帳密） |
+| `GET /health` | 健康檢查 |
+
+`POST /run` 只允許 `list`/`ls`/`cat`/`log`/`diff`/`info` 這幾個唯讀子命令，且拒絕任何 `file://` 開頭的參數；以 `connectionId` 呼叫時，所有 URL 參數都必須在該連線的 URL 底下（帳密不能拿去打別的主機），`args` 也不可自帶 `--username`／`--password`。舊的 `{ args }`（帳密已寫在參數裡）形式仍可用，僅為相容舊呼叫端。這是給 claudeweb 瀏覽/讀取 SVN 用的橋接，不是任意執行 `svn` 指令的通道。
+
+執行檔版（`dist-exe/svn-http-bridge.exe`）直接由 `src/http-server.ts` 打包（`npm run build:exe`，會先跑 `bundle:bridge`），不再另外維護一份複製的 `pkg/http-server.cjs`。
 
 ## 工作副本操作（不是 MCP 工具，AI 碰不到）
 
@@ -97,12 +108,12 @@
 - **上傳檔案／資料夾（批次）**：控制頁的「新增檔案到 SVN」可一次選多個檔案或整個資料夾（也能拖曳，資料夾連同子資料夾、保留資料夾名稱），指定遠端目的地（可直接輸入，或按「從 SVN 選擇」在右側面板點選資料夾；不存在會自動建立），**只產生一個 commit**（核心在 `src/remote-import-batch.ts`，同樣刻意不註冊成 MCP 工具）。網頁逐檔送到暫存區 → 預覽哪些是新增、哪些會覆蓋 → 使用者確認後才送出。遠端已有的同名檔案會更新成新版本（內容相同的不產生變更，SVN 有歷史可還原）；遠端版本比本機檔案新時會另外顯示警告，需再按「我確認，仍要覆蓋」。做法是只 checkout 目標目錄最近的已存在祖先（depth empty），再逐一 update 要覆蓋的檔案，目標目錄再大也不影響速度。依副檔名自動設定屬性：docx／xlsx／xls 設 `svn:needs-lock`，md／txt 設 `svn:eol-style=native`（盡力而為：SVN 會把「小而全是中文」的文字檔誤判成二進位而拒絕設定，這種情況略過、不讓整批上傳失敗）。上限：單檔 50 MB、一次 300000 個檔案、總共 4 GB；`svn` 逾時會依檔案數與大小自動放寬（基本逾時＋每個檔案 0.6 秒＋每 MB 5 秒，上限 24 小時，svn 輸出緩衝同步加大），逾時時會明確回報「檔案數量或網路傳輸量太大，請分批上傳或調高 `SVN_TIMEOUT_MS`」，而不是只丟一串 exit code。API：`POST /api/import/start` → `POST /api/import/stage?batch=…&path=…`（檔案內容放請求本文，原始位元組）→ `POST /api/import/plan` → `POST /api/import/commit`（或 `POST /api/import/cancel` 放棄並清掉暫存）。舊的單檔 `POST /api/import?connection=…&path=…&message=…` 仍保留（遠端已有同名檔案拒絕、不覆蓋）。
 - **一次編輯的流程**：取出單一檔案到專案的 `logs\<id>\`（docx、xlsx、xls 預設先 `svn lock`）→ 開啟（md 用 VS Code、csv 用記事本——避免 Excel 用 ANSI 存檔把 UTF-8 中文弄成亂碼，其餘用預設程式；VS Code 位置可用 `SVN_EDIT_VSCODE` 指定，沒設會找常見安裝位置，找不到退回預設程式）→ 使用者改完按「上傳」。檔案被關掉想再開，按卡片上的「重新開啟檔案」。上傳前檢查：Word／Excel 暫存鎖定檔（`~$`）還在就拒絕、內容沒變就拒絕、commit 訊息不能空、**遠端在你開啟後被別人更新就拒絕**（不自動合併，可「下載最新版另存」手動比對）。
 - **升級版本（上傳時勾選）**：規格書檔名帶版本號（例如 `SPEC_MF04_營業人銷售額與稅額申報書_v0.7.docx`）時，編輯卡片的「升級版本」勾下去，上傳會在**同一個 commit** 做三件事：確保同目錄有 `old` 資料夾（遠端已有 `old`／`Old` 就沿用原本的大小寫，沒有就新建）→ 把開啟編輯當時的版本 `svn copy` 進去（保留歷史）→ 編輯好的檔案 `svn move` 成新檔名（`_v0.8`）。版本號規則（`src/version-bump.ts`）：取檔名（副檔名前）最後一個 `v數字.數字…`（大小寫 V 都行，前面不能緊接英數字，避免誤抓 `rev1.2`）；兩段版本最後一段 +1、遇 9 進位（`v0.9` → `v1.0`），三段以上只把最後一段 +1；原檔名沒有版本號時，新版自動加 `_v0.2`、放進 `old` 的舊版補 `_v0.1`。勾選後畫面會先預覽舊版與新版會放哪裡、新檔名可以自己改（要同副檔名、不能跟目錄裡既有檔案同名）；新檔名已存在、`old` 裡已有同名舊版時不能升級並說明原因。**中途任何一步失敗都會把工作副本還原、把你編輯好的內容放回去**，不會因為升級失敗弄丟編輯。API：`GET /api/upgrade-plan?id=…&newName=…`（預覽）、`POST /api/commit` 帶 `upgrade`（上傳）。
-- **同步本地端（開關）與刪除遠端檔案**：使用者平常另外用 TortoiseSVN checkout 了一份本地工作目錄時，遠端改完要再手動 update 很容易忘；這個功能讓 svn-edit 在遠端寫入成功後自動幫你 `svn update`。**預設關閉**，關閉時行為跟以前完全一樣（只動遠端、不碰本機）。開關與設定放在「管理連線」往右延伸的面板最下方「同步本地端（svn update）」：一個開關，加上**每個專案各自一個本地 SVN 工作目錄**（完整路徑，例如 `D:/svn/projbeta`）。存在共用設定檔 `prefs` 的 `syncLocal`（布林）與 `localPaths`（專案名稱 → 目錄，`src/prefs-model.ts` 整理、`src/repo-prefs.ts` 的 `setSyncLocal`／`setLocalPath` 寫入；只收 `C:\…` 或 `\\主機\…` 這種完整路徑，拒絕 `< > " | ? *`，結尾斜線自動去掉，空白代表清掉）。開啟後：
+- **同步本地端（開關）與刪除遠端檔案**：使用者平常另外用 TortoiseSVN checkout 了一份本地工作目錄時，遠端改完要再手動 update 很容易忘；這個功能讓 svn-edit 在遠端寫入成功後自動幫你 `svn update`。**預設關閉**，關閉時行為跟以前完全一樣（只動遠端、不碰本機）。開關放在「管理連線」往右延伸的面板最下方「同步本地端」（一個切換開關）；開啟後才會出現**每個專案各自一個本地 SVN 工作目錄**的設定（完整路徑，例如 `D:/svn/專案名稱`）。存在共用設定檔 `prefs` 的 `syncLocal`（布林）與 `localPaths`（專案名稱 → 目錄，`src/prefs-model.ts` 整理、`src/repo-prefs.ts` 的 `setSyncLocal`／`setLocalPath` 寫入；只收 `C:\…` 或 `\\主機\…` 這種完整路徑，拒絕 `< > " | ? *`，結尾斜線自動去掉，空白代表清掉）。開啟後：
   - **編輯上傳成功後**（`POST /api/commit`，核心 `src/local-sync.ts` 的 `commitEditAndSync`）更新本地的那個檔案（本地沒有也會取回）；用了「升級版本」就更新它所在的資料夾，讓舊版（`old`）與新版一起出現。
-  - **刪除遠端檔案**：瀏覽 SVN 目錄時每個檔案右邊有 🗑，按下去要填刪除說明（commit 訊息，必填）再確認；`POST /api/delete`（核心 `src/remote-delete.ts`，同樣**刻意不註冊成 MCP 工具**）直接對遠端 `svn delete <網址>` 並 commit，不需要工作副本，SVN 歷史仍找得回來。只能刪單一檔案（資料夾拒絕）、路徑檢查與編輯共用（拒絕 `..`、完整網址、Windows 不允許的字元），檔案正在編輯中或被鎖定時拒絕，被誤提交進 SVN 的 Office 暫存檔（`~$` 開頭）也能刪；稽核紀錄多一種 `delete`。成功後更新該檔案所在的本地資料夾，本地的檔案就跟著消失。
+  - **刪除遠端檔案**：瀏覽 SVN 目錄時每個檔案左邊有勾選框（上方有「全選」），勾選一個或多個後按「刪除所選」，列出檔案清單、填刪除說明（commit 訊息，必填）再確認；`POST /api/delete`（`{ paths: [...] }` 或單一 `path`，一次最多 100 個；核心 `src/remote-delete.ts`，同樣**刻意不註冊成 MCP 工具**）對遠端一次 `svn delete <網址…>` 並 commit，不需要工作副本，**只產生一個 revision**，SVN 歷史仍找得回來。**全有或全無**：每個檔案都先檢查過，任何一個不符合（不存在、是資料夾、正在編輯、被鎖定）整批拒絕、一個都不刪。只能刪檔案（資料夾拒絕）、路徑檢查與編輯共用（拒絕 `..`、完整網址、Windows 不允許的字元），檔案正在編輯中或被鎖定時拒絕，被誤提交進 SVN 的 Office 暫存檔（`~$` 開頭）也能刪；稽核紀錄多一種 `delete`。成功後更新該檔案所在的本地資料夾，本地的檔案就跟著消失。
   - **更新前先檢查**（`syncLocalAfterChange`）：專案有沒有設定本地目錄 → 目錄存在 → 目錄真的是 SVN 工作目錄（`svn info --show-item url` 讀得出來，也就是有 SVN 追蹤）→ 這個工作目錄對應的 SVN 位置包含被動到的檔案（只比對網址的路徑部分，用 IP 或別的主機名稱 checkout 也對得上；只 checkout 子資料夾也能用）。任何一項不通過就**不更新**、跳出警示視窗說明原因，不會對無關的資料夾亂跑 `svn update`。更新時只動這次動到的檔案（或所在資料夾），不會把整個專案拉下來；本機同一個檔案也有修改而衝突時，也會警示並請用 TortoiseSVN「解決衝突」。
   - **遠端成功是前提，同步只是事後補做**：同步失敗或有警示時，上傳／刪除的結果仍然是成功（畫面會先顯示「已上傳（r123）」再跳出「但本地端沒有同步」的警示）；`POST /api/commit`、`POST /api/delete` 的回應多一個 `localSync`：`{ status: "updated" | "warning" | "failed", message, localPath? }`，開關關閉時沒有這個欄位。
-  - API：`POST /api/repo-prefs/sync-local`（`{ enabled }`）、`POST /api/repo-prefs/local-path`（`{ repo, path }`）；`GET /api/state` 的 `repoPrefs` 多了 `syncLocal`、`localPaths`。測試：`tests/local-sync.test.mjs`（本機臨時 SVN 儲存庫，涵蓋開關關閉／開啟、子目錄工作目錄、沒有 SVN 追蹤、沒設定、目錄不存在、位置不符、衝突、刪除各情境）。
+  - API：`POST /api/repo-prefs/sync-local`（`{ enabled }`）、`POST /api/repo-prefs/local-path`（`{ repo, path }`）；`GET /api/state` 的 `repoPrefs` 多了 `syncLocal`、`localPaths`。測試：`tests/local-sync.test.mjs`（本機臨時 SVN 儲存庫，涵蓋開關關閉／開啟、子目錄工作目錄、沒有 SVN 追蹤、沒設定、目錄不存在、位置不符、衝突、單檔與批次刪除各情境）。
 - **PDF 檢視**：`.pdf` 只能檢視——`POST /api/view` 把最新版匯出到暫存資料夾的 `view-*` 用預設程式開啟，不建立編輯項目、不上鎖、不會上傳任何東西；瀏覽面板上 PDF 旁是 👁。
 - **暫存清理**：暫存資料夾放專案的 `logs\`，svn-edit 啟動與結束時（`src/temp-clean.ts`、`cleanupTransientDirs`）會清掉檢視用的 `view-*`、批次上傳殘留的 `batch-*`，以及沒有 `session.json` 的空殼資料夾；**有 `session.json` 的是進行中的編輯，絕對保留**（程式重開後還要能復原）。Windows 上檔案常被 TortoiseSVN 快取程式或防毒軟體短暫鎖住，所以刪除會自動重試幾秒，還是刪不掉就放到背景每 5 秒再試（最多 12 次），不會因此卡住放棄編輯的動作。
 

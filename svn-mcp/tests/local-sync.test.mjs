@@ -257,3 +257,37 @@ test("刪除：可以刪被誤提交進 SVN 的 Office 暫存檔（~$ 開頭）"
   assert.ok(result.deletedRevision > 0);
   assert.equal(remoteExists("del/~$report.docx"), false);
 });
+
+// ---- 批次刪除 ----
+
+test("批次刪除：多個檔案（跨資料夾）一次刪完、只產生一個 revision，本地的檔案也都消失", async () => {
+  seed("batch/a.md", "a\n");
+  seed("batch/b.md", "b\n");
+  seed("batch/deep/c.md", "c\n");
+  const local = checkoutLocal("local-batch");
+  await configure({ sync: true, localPath: local });
+  const before = Number(svn("info", "--show-item", "revision", repoUrl).trim());
+  const result = await deleteRemoteFileAndSync({ connectionId: CONN, paths: ["batch/a.md", "batch/b.md", "batch/deep/c.md", "BATCH/A.md"], message: "批次清掉" });
+  assert.deepEqual(result.paths, ["batch/a.md", "batch/b.md", "batch/deep/c.md"], "重複的路徑只算一次");
+  assert.equal(result.deletedRevision, before + 1, "只產生一個 revision");
+  assert.equal(result.localSync?.status, "updated", result.localSync?.message);
+  for (const f of ["a.md", "b.md", path.join("deep", "c.md")]) assert.equal(fs.existsSync(path.join(local, "batch", f)), false, `${f} 本地也應該消失`);
+  for (const f of ["batch/a.md", "batch/b.md", "batch/deep/c.md"]) assert.equal(remoteExists(f), false);
+});
+
+test("批次刪除：只要有一個不符合（資料夾、不存在）就整批拒絕，一個都不刪", async () => {
+  seed("allnone/x.md", "x\n");
+  seed("allnone/y.md", "y\n");
+  await configure({ sync: false, localPath: "" });
+  const code = (c) => (e) => e instanceof EditError && e.code === c;
+  await assert.rejects(deleteRemoteFileAndSync({ connectionId: CONN, paths: ["allnone/x.md", "allnone"], message: "x" }), code("INVALID_INPUT"));
+  await assert.rejects(deleteRemoteFileAndSync({ connectionId: CONN, paths: ["allnone/x.md", "allnone/missing.md"], message: "x" }), code("NOT_FOUND"));
+  assert.ok(remoteExists("allnone/x.md") && remoteExists("allnone/y.md"), "合法的那些也不會被刪");
+});
+
+test("批次刪除：空清單與超過上限都拒絕", async () => {
+  const code = (e) => e instanceof EditError && e.code === "INVALID_INPUT";
+  await assert.rejects(deleteRemoteFileAndSync({ connectionId: CONN, paths: [], message: "x" }), code);
+  const tooMany = Array.from({ length: 101 }, (_, i) => `many/f${i}.md`);
+  await assert.rejects(deleteRemoteFileAndSync({ connectionId: CONN, paths: tooMany, message: "x" }), code);
+});

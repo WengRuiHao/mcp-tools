@@ -94,11 +94,20 @@ button:disabled{opacity:.5;cursor:default}
 .modal__box p{margin:0 0 14px;line-height:1.6;overflow-wrap:anywhere;white-space:pre-wrap}
 .entryrow{display:flex;gap:6px;align-items:stretch;margin:0 0 4px}
 .entryrow>.entry{margin:0;flex:1 1 auto;min-width:0;width:auto}
-.entryrow .delbtn{flex:0 0 auto;padding:4px 10px;font-size:14px;border-radius:10px}
-.syncbox{margin:8px 0 4px;padding:10px 12px;border:1px dashed var(--line-strong);border-radius:12px}
-.syncbox>label.synctoggle{display:flex;align-items:center;gap:8px;margin:0;font-weight:600;color:var(--ink);cursor:pointer}
-.syncbox input[type=checkbox]{width:auto;margin:0}
-.syncbox .hint{margin:6px 0 0}
+.entryrow>.pick{flex:0 0 auto;width:18px;height:18px;margin:0;padding:0;align-self:center;accent-color:var(--brand)}
+.selbar{display:flex;align-items:center;gap:10px;margin:0 0 8px;font-size:13.5px;color:var(--ink-soft)}
+.selbar label{display:flex;align-items:center;gap:6px;margin:0;font-weight:500;cursor:pointer}
+.selbar input{width:auto;margin:0;padding:0;accent-color:var(--brand)}
+.selbar .grow{flex:1}
+.switchrow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0;font-weight:600;color:var(--ink);cursor:pointer}
+.switch{position:relative;flex:0 0 auto;width:46px;height:26px}
+.switch input{position:absolute;top:0;left:0;width:100%;height:100%;margin:0;padding:0;border:0;background:transparent;opacity:0;cursor:pointer;z-index:1}
+.switch__track{position:absolute;top:0;right:0;bottom:0;left:0;border-radius:13px;background:#c8c8c8;transition:background .2s}
+.switch__track::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgb(0 0 0 / .3);transition:transform .2s}
+.switch input:checked+.switch__track{background:#2196f3}
+.switch input:checked+.switch__track::after{transform:translateX(20px)}
+.switch input:focus-visible+.switch__track{outline:2px solid #2196f3;outline-offset:2px}
+.switch input:disabled{cursor:default}
 .delbox{margin:0 0 12px;padding:12px 14px;border:1px solid var(--danger);border-radius:12px;background:var(--danger-bg)}
 .delbox p{margin:0 0 8px;overflow-wrap:anywhere}
 
@@ -501,7 +510,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   }
 
   function loadBrowse(path) {
-    browse.path = path; browse.loading = true; browse.error = null; browse.notice = null; browse.entries = null; browse.del = null; renderExt();
+    browse.path = path; browse.loading = true; browse.error = null; browse.notice = null; browse.entries = null; browse.del = null; browse.sel = {}; renderExt();
     api("GET", "/api/browse?connection=" + encodeURIComponent(browse.connection) + "&path=" + encodeURIComponent(path)).then(function (r) {
       browse.loading = false; browse.entries = r.entries; browse.truncated = r.truncated; renderExt();
     }).catch(function (e) {
@@ -724,37 +733,42 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     renderPickerList();
   }
 
-  function deleteButton(full) {
-    return h("button", { type: "button", class: "delbtn danger", title: "刪除這個檔案（在 SVN 上刪除，歷史紀錄仍可還原）", onclick: function () {
-      browse.del = { path: full, message: "", busy: false, error: null }; browse.notice = null; extSig = ""; renderExt();
-    } }, "🗑");
+  function pickBox(full) {
+    var box = h("input", { type: "checkbox", class: "pick", title: "勾選（可多選，一起刪除）", checked: (browse.sel && browse.sel[full]) ? "checked" : null });
+    box.addEventListener("change", function () {
+      browse.sel = browse.sel || {};
+      if (box.checked) browse.sel[full] = true; else delete browse.sel[full];
+      extSig = ""; renderExt();
+    });
+    return box;
   }
   function deleteBox(current) {
     var d = browse.del;
     var prefs = prefsNow();
     var localDir = prefs.localPaths && prefs.localPaths[current.name];
     var syncHint = prefs.syncLocal
-      ? (localDir ? "「同步本地端」已開啟：刪除成功後會更新本地目錄 " + localDir + "，本地的這個檔案也會一起被移除。" : "「同步本地端」已開啟，但這個專案還沒設定本地目錄，刪除後不會更新本地端。")
-      : "「同步本地端」目前關閉：只會刪除 SVN 上的檔案，本地端不會動。";
+      ? (localDir ? "同步本地端已開啟：本地目錄 " + localDir + " 也會一起更新。" : "同步本地端已開啟，但這個專案還沒設定本地目錄，本地端不會更新。")
+      : "";
+    var shown = d.paths.slice(0, 8).map(function (p) { return h("div", { class: "path", style: "margin:0" }, p); });
     var area = h("textarea", { placeholder: "說明為什麼刪除（必填，會寫進 SVN 的 commit 訊息）", disabled: d.busy ? "disabled" : null, oninput: function () { d.message = area.value; } });
     area.value = d.message;
     function fail(text) { d.busy = false; d.error = text; extSig = ""; renderExt(); }
     var confirmBtn = h("button", { type: "button", class: "danger", disabled: d.busy ? "disabled" : null, onclick: function () {
       if (!d.message.trim()) { fail("請填寫刪除說明"); return; }
       d.busy = true; d.error = null; extSig = ""; renderExt();
-      api("POST", "/api/delete", { connection: browse.connection, path: d.path, message: d.message }).then(function (r) {
+      api("POST", "/api/delete", { connection: browse.connection, paths: d.paths, message: d.message }).then(function (r) {
         var sync = r.localSync;
-        var deleted = d.path;
+        var count = r.paths.length;
         loadBrowse(browse.path);
-        browse.notice = { text: "已刪除（r" + r.deletedRevision + "）：" + deleted + (sync && sync.status === "updated" ? " " + sync.message : ""), error: false };
+        browse.notice = { text: "已刪除 " + count + " 個檔案（r" + r.deletedRevision + "）" + (sync && sync.status === "updated" ? "。" + sync.message : ""), error: false };
         extSig = ""; renderExt();
         if (sync && sync.status !== "updated") showAlert(syncAlertTitle(sync, "已刪除 SVN 上的檔案"), sync.message);
       }).catch(function (e) { fail(e.message + (HINTS[e.code] ? String.fromCharCode(10) + HINTS[e.code] : "")); });
-    } }, d.busy ? "刪除中…" : "確定刪除");
+    } }, d.busy ? "刪除中…" : "確定刪除 " + d.paths.length + " 個檔案");
     return h("div", { class: "delbox" },
-      h("p", null, h("strong", null, "要刪除 SVN 上的這個檔案嗎？")),
-      h("p", { class: "path", style: "margin:0 0 8px" }, current.name + " / " + d.path),
-      h("p", { class: "hint", style: "margin:0 0 8px" }, "刪除會在 SVN 產生一個新版本，之後仍可從 SVN 歷史還原。" + syncHint),
+      h("p", null, h("strong", null, "要刪除 SVN 上的這 " + d.paths.length + " 個檔案嗎？")),
+      h("div", { style: "margin:0 0 8px" }, shown, d.paths.length > shown.length ? h("div", { class: "path", style: "margin:0" }, "…另外還有 " + (d.paths.length - shown.length) + " 個") : null),
+      h("p", { class: "hint", style: "margin:0 0 8px" }, "會產生一個新版本，之後仍可從 SVN 歷史還原。" + syncHint),
       area,
       d.error ? h("div", { class: "msg" }, d.error) : null,
       h("div", { class: "row" }, confirmBtn, h("button", { type: "button", disabled: d.busy ? "disabled" : null, onclick: function () { browse.del = null; extSig = ""; renderExt(); } }, "取消")));
@@ -794,8 +808,23 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     var rows = (browse.entries || []).map(function (entry) {
       var node = entryNode(entry);
       if (entry.kind === "dir") return node;
-      return h("div", { class: "entryrow" }, node, deleteButton(browse.path ? browse.path + "/" + entry.name : entry.name));
+      return h("div", { class: "entryrow" }, pickBox(browse.path ? browse.path + "/" + entry.name : entry.name), node);
     });
+    var fileEntries = (browse.entries || []).filter(function (e) { return e.kind !== "dir"; });
+    function fullOf(e) { return browse.path ? browse.path + "/" + e.name : e.name; }
+    var sel = browse.sel || (browse.sel = {});
+    var picked = fileEntries.filter(function (e) { return sel[fullOf(e)]; });
+    var allBox = h("input", { type: "checkbox", checked: (fileEntries.length && picked.length === fileEntries.length) ? "checked" : null });
+    allBox.addEventListener("change", function () {
+      fileEntries.forEach(function (e) { if (allBox.checked) sel[fullOf(e)] = true; else delete sel[fullOf(e)]; });
+      extSig = ""; renderExt();
+    });
+    var selBar = fileEntries.length ? h("div", { class: "selbar" },
+      h("label", null, allBox, "全選"),
+      h("span", { class: "grow" }, picked.length ? "已選 " + picked.length + " 個檔案" : ""),
+      picked.length ? h("button", { type: "button", class: "danger", onclick: function () {
+        browse.del = { paths: picked.map(fullOf), message: "", busy: false, error: null }; browse.notice = null; extSig = ""; renderExt();
+      } }, "刪除所選") : null) : null;
     box.appendChild(h("div", null,
       h("h2", null, "瀏覽 SVN 目錄"),
       h("p", { class: "hint" }, "點資料夾進入；點檔案會回到主畫面，出現「開始編輯」的確認卡。PDF（👁）只能開啟檢視，不能編輯。"),
@@ -810,6 +839,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
       browse.loading ? h("div", { class: "empty" }, "讀取中…") : null,
       browse.error ? h("div", { class: "msg" }, browse.error) : null,
       !browse.loading && !browse.error && browse.entries && browse.entries.length === 0 ? h("div", { class: "empty" }, "這個目錄是空的。") : null,
+      selBar,
       rows,
       browse.truncated ? h("p", { class: "hint" }, "項目太多，只顯示前 1000 個。") : null));
   }
@@ -1340,7 +1370,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
         h("div", { class: "row" }, testBtn, save, serverForm.id ? h("button", { type: "button", onclick: function () { resetForm(); settingsNote = null; extSig = ""; renderExt(); } }, "取消編輯") : null)));
   }
 
-  // 同步本地端：開關＋每個專案的本地 SVN 工作目錄。關閉時完全維持原本行為（只改遠端）。
+  // 同步本地端：一個開關；開啟後才需要替各專案填本地 SVN 資料夾。
   function syncSection() {
     var prefs = prefsNow();
     var paths = prefs.localPaths || {};
@@ -1354,40 +1384,34 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     }
     var toggle = h("input", { type: "checkbox", checked: prefs.syncLocal ? "checked" : null, disabled: localBusy ? "disabled" : null });
     toggle.addEventListener("change", function () { save(api("POST", "/api/repo-prefs/sync-local", { enabled: toggle.checked }), null); });
-    var missing = state.connections.length > 0 && Object.keys(paths).length === 0;
+    var head = h("div", null,
+      h("h2", { style: "margin-top:22px;font-size:15px" }, "同步本地端"),
+      h("label", { class: "switchrow" }, h("span", null, "上傳、刪除後自動 svn update"), h("span", { class: "switch" }, toggle, h("span", { class: "switch__track" }))));
+    if (!prefs.syncLocal) return head;
+
     var rows = Object.keys(paths).sort().map(function (name) {
       return h("div", { class: "conn" },
         h("span", null, name, h("br", null), h("span", { class: "path" }, paths[name])),
         h("span", { class: "btns" },
           h("button", { type: "button", disabled: localBusy ? "disabled" : null, onclick: function () { localForm = { repo: name, path: paths[name] }; localNote = null; extSig = ""; renderExt(); } }, "修改"),
           h("button", { type: "button", class: "danger", disabled: localBusy ? "disabled" : null, onclick: function () {
-            save(api("POST", "/api/repo-prefs/local-path", { repo: name, path: "" }), "已清除「" + name + "」的本地目錄。");
+            save(api("POST", "/api/repo-prefs/local-path", { repo: name, path: "" }), "已清除「" + name + "」。");
           } }, "清除")));
     });
     var select = h("select", { onchange: function () { localForm.repo = select.value; } },
       [h("option", { value: "" }, "（選擇專案）")].concat(state.connections.map(function (c) { return h("option", { value: c.name }, connLabel(c)); })));
     select.value = localForm.repo;
-    var pathInput = h("input", { type: "text", placeholder: "例如 D:/svn/專案名稱（要是用 TortoiseSVN Checkout 出來的資料夾）", autocomplete: "off", oninput: function () { localForm.path = pathInput.value; } });
+    var pathInput = h("input", { type: "text", placeholder: "本地資料夾，例如 D:/svn/專案名稱", autocomplete: "off", oninput: function () { localForm.path = pathInput.value; } });
     pathInput.value = localForm.path;
     var saveBtn = h("button", { type: "button", class: "primary", disabled: localBusy ? "disabled" : null, onclick: function () {
       if (!localForm.repo) { localNote = { text: "請先選擇專案。", info: false }; extSig = ""; renderExt(); return; }
       var repo = localForm.repo;
-      save(api("POST", "/api/repo-prefs/local-path", { repo: repo, path: localForm.path }), localForm.path.trim() ? "已儲存「" + repo + "」的本地目錄。" : "已清除「" + repo + "」的本地目錄。", function () { localForm = { repo: "", path: "" }; });
+      save(api("POST", "/api/repo-prefs/local-path", { repo: repo, path: localForm.path }), "已儲存「" + repo + "」。", function () { localForm = { repo: "", path: "" }; });
     } }, "儲存");
-    return h("div", null,
-      h("h2", { style: "margin-top:22px;font-size:15px" }, "同步本地端（svn update）"),
-      h("div", { class: "syncbox" },
-        h("label", { class: "synctoggle" }, toggle, h("span", null, "遠端編輯上傳、刪除成功後，自動更新本地端的 SVN 工作目錄")),
-        h("p", { class: "hint" }, prefs.syncLocal
-          ? "已開啟：成功上傳或刪除後，會對下方設定的本地目錄執行 svn update。本地目錄沒有 SVN 追蹤、或沒有設定時，會跳出警示（遠端的上傳／刪除仍然成功）。"
-          : "已關閉：維持目前的行為，只修改遠端，不會動本地端。")),
-      h("p", { class: "hint" }, "每個專案各自設定本地端的 SVN 工作目錄（資料夾裡要有 SVN 追蹤，也就是 Checkout 出來的）。只會更新這次動到的檔案，不會把整個專案拉下來。"),
-      prefs.syncLocal && missing ? h("div", { class: "msg" }, "已開啟同步，但還沒有設定任何專案的本地目錄。") : null,
-      rows.length ? h("div", null, rows) : h("div", { class: "empty" }, "還沒有設定任何專案的本地目錄。"),
+    return h("div", null, head,
+      rows.length ? h("div", null, rows) : null,
       h("form", { autocomplete: "off", onsubmit: function (ev) { ev.preventDefault(); } },
-        h("h2", { style: "margin-top:14px;font-size:15px" }, localForm.repo && paths[localForm.repo] ? "修改本地目錄" : "新增本地目錄"),
-        h("label", null, "專案"), select,
-        h("label", null, "本地 SVN 工作目錄（完整路徑）"), pathInput,
+        select, pathInput,
         localNote ? h("div", { class: localNote.info ? "msg info" : "msg" }, localNote.text) : null,
         h("div", { class: "row" }, saveBtn)));
   }
@@ -1506,7 +1530,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   }
   function renderExt() {
     var box = document.getElementById("extBody");
-    var sig = JSON.stringify([ext.view, state.connections, state.servers, serverBusy, serverForm.id, browse.connection, browse.path, browse.entries, browse.loading, browse.error, browse.truncated, browse.ticket, browse.notice, browse.picking, picker.tab, pick.path, pick.entries, pick.loading, pick.notice, settingsNote, deleteConfirmId, browse.del ? [browse.del.path, browse.del.busy, browse.del.error] : null, state.repoPrefs.syncLocal, state.repoPrefs.localPaths, localNote, localBusy]);
+    var sig = JSON.stringify([ext.view, state.connections, state.servers, serverBusy, serverForm.id, browse.connection, browse.path, browse.entries, browse.loading, browse.error, browse.truncated, browse.ticket, browse.notice, browse.picking, picker.tab, pick.path, pick.entries, pick.loading, pick.notice, settingsNote, deleteConfirmId, browse.del ? [browse.del.paths, browse.del.busy, browse.del.error] : null, browse.sel, state.repoPrefs.syncLocal, state.repoPrefs.localPaths, localNote, localBusy]);
     if (sig === extSig) return;
     extSig = sig;
     box.textContent = "";
