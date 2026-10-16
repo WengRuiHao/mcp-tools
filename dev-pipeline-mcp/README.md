@@ -75,6 +75,7 @@ npm run build
 ![SA/SD 規格四種模式：external 只能參考不能建議修改；self 可在報告建議修改但不寫回 SVN；self-generated 由 AI 維護並多一關規格確認 sd_drafted；unregistered 每張票單獨詢問。self-generated 再依 specOrder 分兩種順序：spec_first 先定規格再寫程式碼，擋在推進到 implemented 之前；code_first 先寫程式碼再反推規格，擋在推進到 verified 之前](docs/img/sasd-modes.svg)
 
 - `self-generated` 的規格確認用 `record_spec_confirmation`；`specOrder`（`spec_first`／`code_first`）在 `register_sasd_config` 時一併登記，`spec_first` 是原本唯一支援的順序。
+- **登記時的檢查**（`register_sasd_config`）：只要 SA 有真實的 SVN 路徑（`saRoot` 不是 `N/A` 開頭的占位），任何模式都要帶 `svnConnectionId`（`external`／`self` 一律要）——分析師一定要到 SVN 讀 SA，沒登記連線就讀不到。工具會先 `svn_test_connection`，再用 `svn_browse` 確認 `saRoot`／`sdRoot` 真的存在於該連線的 repo；路徑要用正斜線、相對於 repo 根目錄，**不含本機工作副本的資料夾名**（例如不要寫 `WC資料夾\2-SA\…`），含反斜線、本機絕對路徑、`..` 或路徑不存在都會被拒絕登記。專案真的沒有 SA 文件時，`saRoot` 填 `N/A-無SA文件` 這類 N/A 開頭的占位即可免連線。
 - `advance_ticket_stage` 本身不需要知道 `specOrder` 是什麼：只要票單目前卡在 `sd_drafted` 又還沒確認，就會擋下推進，擋的是 `implemented` 或 `verified`，視卡住的時間點而定。
 
 ---
@@ -242,7 +243,7 @@ npm run build
 }
 ```
 
-**這段範例刻意不讀 hook 傳入的 stdin**（改用 `process.cwd()` + `git rev-parse --show-toplevel` 自己算出 gitRoot）——在 Windows 上，`Edit`/`Write` 這個 matcher 讀 stdin 曾經實測完全不可靠（hook 像沒執行一樣，見內部記憶 `feedback_windows_hook_stdin`），所以完全繞開這個依賴。
+**這段範例刻意不讀 hook 傳入的 stdin**（改用 `process.cwd()` + `git rev-parse --show-toplevel` 自己算出 gitRoot）——在 Windows 上，`Edit`/`Write` 這個 matcher 讀 stdin 曾經實測完全不可靠（hook 像沒執行一樣，見內部記憶 `feedback_mcp_hook_dev`），所以完全繞開這個依賴。
 
 **要注意這裡分兩層，不要混為一談**：「補上編輯完但還沒 commit 這段空窗的可見度」是通用概念，任何 AI/CLI 只要自己有 hook 機制都可以做到；**但上面這份 `.claude/settings.json` 設定是 Claude Code 專屬的語法，只有跑在 Claude Code 底下才會生效**——用別的 AI/CLI 或人手動編輯不會觸發*這份設定*，但不代表那些工具就做不到同樣的事，只是要照各自的 hook 語法另外寫一份等效邏輯。也正因為這個輔助層天生就是「每個 AI/CLI 要各自設定，沒設定就沒有」，才會被定位成錦上添花的輔助層，而不是核心防線——核心防線永遠是 `install_git_hooks` 裝的 git 原生 hook（跟用哪個 AI/CLI 無關，git 一動就會觸發）。
 
@@ -332,7 +333,7 @@ npm run build
 
 用環境變數縮小工具清單（tools/list）送進 AI 上下文的量；**預設（沒設）全部註冊**。
 
-![工具群組可關閉：預設全部註冊共 60 個工具；用環境變數 DEV_PIPELINE_DISABLE_TOOLSETS 可關掉 worktree 群組（8 個，關後剩 52 個）或 bridge 群組（9 個，關後剩 51 個），兩個都關剩 43 個核心工具；內部流程不經過這些可關閉的工具，關閉不影響運作](docs/img/toolsets.svg)
+![工具群組可關閉：預設全部註冊共 62 個工具；用環境變數 DEV_PIPELINE_DISABLE_TOOLSETS 可關掉 worktree 群組（8 個，關後剩 54 個）或 bridge 群組（11 個，關後剩 51 個），兩個都關剩 43 個核心工具；內部流程不經過這些可關閉的工具，關閉不影響運作](docs/img/toolsets.svg)
 
 ```json
 "env": { "DEV_PIPELINE_DISABLE_TOOLSETS": "worktree,bridge" }
@@ -359,7 +360,7 @@ node --test tests/gates.test.mjs   # 單檔（要先 npm run build）
 ## 提供的工具
 
 <details>
-<summary>展開完整工具清單（60 個）</summary>
+<summary>展開完整工具清單（62 個）</summary>
 
 | 工具 | 用途 |
 |---|---|
@@ -375,14 +376,15 @@ node --test tests/gates.test.mjs   # 單檔（要先 npm run build）
 | `get_ticket_activity` | 取得票單完整活動時間軸（留言＋系統事件＋附件，依時間排序）；使用者說「查看測試員回報的測試狀況」時用這個 |
 | `download_ticket_attachment` | 下載某個附件到本機暫存檔（`attachmentGid` 來自 `get_ticket_activity`） |
 | `resolve_project_dir` / `register_project_dir` | 查詢/登記 Asana 專案 → 程式碼目錄 |
-| `resolve_sasd_config` / `register_sasd_config` | 查詢/登記 SA/SD 規格設定；`external`/`self` 會真的驗證 SVN 連線才登記成功；`self-generated` 還要額外登記 `specOrder`（`spec_first`/`code_first`） |
+| `resolve_sasd_config` / `register_sasd_config` | 查詢/登記 SA/SD 規格設定；`external`/`self`（或 `saRoot` 是 SVN 真實路徑）一定要帶 `svnConnectionId`，會真的驗證 SVN 連線、並確認 `saRoot`／`sdRoot` 存在於該 repo（正斜線、相對於 repo 根）才登記成功；`self-generated` 還要額外登記 `specOrder`（`spec_first`/`code_first`） |
 | `resolve_legacy_test_profile` / `register_legacy_test_profile` | 查詢/登記這個專案要不要套用測試工程師說明書的「老舊系統測試」章節（JDK6+舊IE這類，預設 `false`，只有使用者明確告知才登記為 `true`，不自動偵測） |
 | `resolve_test_capability` / `register_test_capability` | 查詢/登記這個專案工程師階段能不能寫自動化測試、用哪套工具鏈（`modern`/`legacy_junit4`/`none`）；測試工程師階段會依這個設定決定要不要重跑工程師補的測試當交叉核對證據 |
 | `read_project_sd_doc` / `write_project_sd_doc` | 讀寫「自維護」SD 文件（`self-generated` 專用），寫在 `sdOutputPath` 真實本機檔案；`sdOutputPath` 登記的是目錄（一支功能一份規格）時帶 `fileName` 指定目錄底下那一份，`fileName` 只能是檔名 |
 | `get_sd_spec_template` / `get_sd_spec_versioning_rules` | SD 規格撰寫範本／版更規範，寫入前應先呼叫其中之一 |
 | `get_test_engineer_guide` | 取得測試工程師說明書：通用測試框架／報表測試／老舊系統測試三章檢查清單，另有第五章「測試證據」（`record_test_evidence` 做法、測試層級、機密遮蔽、假資料標註、Excel/PDF 截圖），供設計測試案例、跑手動/情境測試時查，跟驗證師角色的規格/程式碼交叉核對是不同用途 |
+| `svn_find_repo` | 轉呼叫 svn-mcp，依關鍵字（repo 名稱、舊名稱、簡稱、常用目錄暱稱）找 SVN 專案庫，回傳 connectionId 與常用目錄；使用者提到專案名稱或要找規格位置時先用它 |
 | `svn_list_connections` / `svn_test_connection` | 轉呼叫 svn-mcp，列出/測試 SVN 連線 |
-| `svn_browse` / `svn_cat` / `svn_doc_images` / `svn_log` | 轉呼叫 svn-mcp 讀 SVN 上的規格（唯讀），一律讀遠端不讀本機 checkout |
+| `svn_browse` / `svn_cat` / `svn_doc_images` / `svn_log` / `svn_diff` | 轉呼叫 svn-mcp 讀 SVN 上的規格（唯讀），一律讀遠端不讀本機 checkout |
 | `get_recent_commits` | 查某目錄最近的 git commit |
 | `read_project_file` / `write_project_file` / `list_project_dir` / `search_project_text` | 讀寫/搜尋專案檔案（限 `projectDir` 範圍內）；偵測外部修改，見下方安全限制。`read_project_file` 可用 `startLine`／`endLine` 讀指定行範圍；沒帶範圍且超過 40,000 字時在行尾截斷，並回 `truncated`／`totalChars`／`totalLines`／`returnedLines`／`truncatedNote`，**被截斷時不可據此整份覆寫檔案** |
 | `resolve_git_roots` / `register_git_roots` | 查詢/登記專案目錄實際的 git 版控根目錄（可前後端分開） |

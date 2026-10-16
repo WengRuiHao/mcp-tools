@@ -353,7 +353,7 @@
       <div class="conn-card">
         <span class="id">SA/SD 規格模式</span>
         <h3>規格放哪裡、誰維護</h3>
-        <p>客戶給的規格、你們自己團隊的規格、還是 AI 自己維護——四選一，決定 AI 能不能建議修改規格本身。</p>
+        <p>客戶給的規格、你們自己團隊的規格、還是 AI 自己維護——四選一，決定 AI 能不能建議修改規格本身。規格放在 SVN 上就一定要登記是哪個 SVN 專案庫；登記時會真的連線確認規格資料夾存在（路徑要寫 SVN 上的路徑，不是你電腦上 checkout 的資料夾名），填錯會被拒絕，不會等到處理票單才發現讀不到。</p>
       </div>
       <div class="conn-card">
         <span class="id">Git 版控根目錄</span>
@@ -370,7 +370,7 @@
 
   <section id="tools" class="reveal">
     <h2><span class="num">06</span> 工具總覽</h2>
-    <p class="kicker">總共 60 個工具，分成幾大類。每一類點開來看，裡面有實際的工具名稱（給負責設定的工程師對照用）跟白話說明——大多數情況下你不需要知道這些名字，AI 助理會自己判斷該呼叫哪一個。</p>
+    <p class="kicker">總共 62 個工具，分成幾大類。每一類點開來看，裡面有實際的工具名稱（給負責設定的工程師對照用）跟白話說明——大多數情況下你不需要知道這些名字，AI 助理會自己判斷該呼叫哪一個。</p>
 
     <div class="cat-list">
       <details class="cat" open>
@@ -432,7 +432,7 @@
         </summary>
         <div class="cat-body">
           <div class="example"><b>可以這樣問：</b>（設定一次即可，通常不用主動問）</div>
-          <div class="tool-row"><code>resolve_sasd_config</code> / <code>register_sasd_config</code><span>查詢/登記這個專案的規格模式</span></div>
+          <div class="tool-row"><code>resolve_sasd_config</code> / <code>register_sasd_config</code><span>查詢/登記這個專案的規格模式；規格在 SVN 上時會驗證連線與資料夾真的存在才登記</span></div>
           <div class="tool-row"><code>resolve_svn_workcopies</code> / <code>register_svn_workcopies</code><span>查詢/登記這個專案對應的 SVN 工作副本資料夾（登記前會驗證）。只存設定，不能改動 SVN；上傳/更新/刪除只能由你在報告網頁上按按鈕</span></div>
           <div class="tool-row"><code>read_project_sd_doc</code> / <code>write_project_sd_doc</code><span>讀寫「AI 自己維護」的規格文件；規格是一支功能一份檔案時，會用檔名指定要讀寫哪一份</span></div>
           <div class="tool-row"><code>get_sd_spec_template</code> / <code>get_sd_spec_versioning_rules</code><span>規格撰寫範本／修改既有規格的版更規範，AI 寫規格前會先讀其中之一</span></div>
@@ -464,7 +464,8 @@
         <div class="cat-body">
           <div class="example"><b>可以這樣問：</b>（AI 依需要自動呼叫）</div>
           <div class="tool-row"><code>read_project_file</code> / <code>write_project_file</code> / <code>list_project_dir</code> / <code>search_project_text</code><span>讀寫/列目錄/搜尋專案裡的程式碼檔案</span></div>
-          <div class="tool-row"><code>svn_cat</code> / <code>svn_browse</code> / <code>svn_doc_images</code> / <code>svn_log</code><span>唯讀查詢 SVN 上的規格書（含圖片）與修改紀錄</span></div>
+          <div class="tool-row"><code>svn_cat</code> / <code>svn_browse</code> / <code>svn_doc_images</code> / <code>svn_log</code> / <code>svn_diff</code><span>唯讀查詢 SVN 上的規格書（含圖片）、修改紀錄與版本差異</span></div>
+          <div class="tool-row"><code>svn_find_repo</code><span>依關鍵字（repo 名稱、舊名稱、簡稱、常用目錄暱稱）找 SVN 專案庫，回傳 connectionId 與常用目錄；提到專案名稱時先用它</span></div>
           <div class="tool-row"><code>svn_list_connections</code> / <code>svn_test_connection</code><span>列出/測試可用的 SVN 連線</span></div>
           <div class="tool-row"><code>run_project_shell</code><span>執行編譯/測試指令；git 指令會核對版控根目錄</span></div>
           <div class="tool-row"><code>get_recent_commits</code><span>查最近的 git 修改紀錄</span></div>

@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 610" role="img" aria-label="SA/SD 規格四種模式：external 只能參考不能建議修改；self 可在報告建議修改但不寫回 SVN；self-generated 由 AI 維護並多一關規格確認 sd_drafted；unregistered 每張票單獨詢問。self-generated 再依 specOrder 分兩種順序：spec_first 先定規格再寫程式碼，擋在推進到 implemented 之前；code_first 先寫程式碼再反推規格，擋在推進到 verified 之前">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 650" role="img" aria-label="SA/SD 規格四種模式：external 只能參考不能建議修改；self 可在報告建議修改但不寫回 SVN；self-generated 由 AI 維護並多一關規格確認 sd_drafted；unregistered 每張票單獨詢問。登記時會驗證：SA 在 SVN 上就必須登記連線，saRoot／sdRoot 必須是 SVN 上真實存在的路徑（正斜線、相對於 repo 根目錄）。self-generated 再依 specOrder 分兩種順序：spec_first 先定規格再寫程式碼，擋在推進到 implemented 之前；code_first 先寫程式碼再反推規格，擋在推進到 verified 之前">
   <defs><marker id="sasdmodesmain" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/></marker><marker id="sasdmodesacc" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2b6777"/></marker><marker id="sasdmodeswarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b9782e"/></marker></defs>
-  <rect x="0" y="0" width="1000" height="610" fill="#f5f2ea"/>
+  <rect x="0" y="0" width="1000" height="650" fill="#f5f2ea"/>
   <rect x="300" y="18" width="400" height="44" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
   <text x="500" y="46" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">這個專案的規格（SA/SD）從哪裡來？</text>
   <rect x="12" y="110" width="225" height="190" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
@@ -79,4 +79,5 @@
   <line x1="765" y1="530" x2="802" y2="530" stroke="#2a2620" stroke-width="1.7" marker-end="url(#sasdmodesmain)"/>
   <text x="682.5" y="582" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c" font-weight="700">▲ 卡在「推進到 verified」之前：沒確認規格，票單不能推進到驗證完成</text>
   <text x="500" y="600" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">兩種順序共用同一套 sd_drafted／spec_confirmation 機制：只看票單是不是卡在 sd_drafted 又還沒確認，就擋下推進，不需要知道 specOrder</text>
+  <text x="500" y="632" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c" font-weight="700">登記時的檢查：SA 在 SVN 上（saRoot 不是 N/A 占位）就必須登記連線；saRoot／sdRoot 要用正斜線、相對 repo 根目錄，且真的存在才會登記成功</text>
 </svg>

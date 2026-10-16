@@ -27,14 +27,14 @@ const EXPECTED_TOOLS = [
   "relocate_ticket_project", "request_reanalysis", "resolve_default_project", "resolve_git_roots", "resolve_legacy_test_profile",
   "resolve_manual_action", "resolve_project_dir", "resolve_sasd_config", "resolve_svn_workcopies", "resolve_test_capability", "restore_rule_file",
   "resync_ticket_artifact", "run_project_shell", "search_project_text", "svn_browse", "svn_cat", "svn_doc_images",
-  "svn_list_connections", "svn_log", "svn_test_connection", "write_project_file", "write_project_sd_doc", "write_ticket_artifact",
+  "svn_diff", "svn_find_repo", "svn_list_connections", "svn_log", "svn_test_connection", "write_project_file", "write_project_sd_doc", "write_ticket_artifact",
 ];
 const WORKTREE_TOOLS = [
   "create_ticket_worktree", "join_ticket_worktree", "list_worktrees", "get_worktree_status", "merge_ticket_worktree",
   "finalize_ticket_worktree", "abandon_ticket_round", "install_git_hooks",
 ];
 const BRIDGE_TOOLS = [
-  "svn_list_connections", "svn_test_connection", "svn_browse", "svn_cat", "svn_doc_images", "svn_log",
+  "svn_find_repo", "svn_list_connections", "svn_test_connection", "svn_browse", "svn_cat", "svn_doc_images", "svn_log", "svn_diff",
   "get_ticket_activity", "download_ticket_attachment", "get_recent_commits",
 ];
 
@@ -58,8 +58,8 @@ test("parseDisabledToolsets: unknown names are reported once, undefined/empty me
 });
 
 test("registerAllTools: tool counts by disabled group", async () => {
-  assert.equal((await listToolsWith()).length, 60);
-  assert.equal((await listToolsWith(["worktree"])).length, 52);
+  assert.equal((await listToolsWith()).length, 62);
+  assert.equal((await listToolsWith(["worktree"])).length, 54);
   assert.equal((await listToolsWith(["bridge"])).length, 51);
   assert.equal((await listToolsWith(["worktree", "bridge"])).length, 43);
 });

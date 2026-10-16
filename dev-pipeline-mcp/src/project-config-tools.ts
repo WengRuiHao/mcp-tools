@@ -4,6 +4,7 @@ import path from "node:path";
 import { stat } from "node:fs/promises";
 import { GATES_FILE_CANDIDATES } from "./project-rule-files.js";
 import { callSvnTool } from "./mcp-clients.js";
+import { isNoSaPlaceholder, requiresSvnConnection, verifySvnRoots } from "./sasd-path-check.js";
 import { resolveGitRoots, registerGitRoots, type GitRootEntry } from "./git-roots-store.js";
 import { resolveSvnWorkCopies, registerSvnWorkCopies, type SvnWorkCopyEntry } from "./svn-workcopy-store.js";
 import { loadWorkCopyClient } from "./svn-workcopy-bridge.js";
@@ -82,7 +83,7 @@ export function registerProjectConfigTools(server: McpServer): void {
       "\"self\"（SD 由我方產，需要時在報告建議修改段落，SVN 唯讀所以交由人工事後更新）、" +
       "\"self-generated\"（無既有 SD，AI 維護寫在 sdOutputPath 真實本機路徑的 living document，用 read_project_sd_doc/write_project_sd_doc 讀寫；還要決定 specOrder）、" +
       "\"unregistered\"（不登記也不自動產生，每張票都要單獨問使用者有無對應 SD）。" +
-      "**\"external\"/\"self\" 一定要帶 svnConnectionId，且會真的呼叫 svn_test_connection 驗證，連不上就拒絕登記。**",
+      "**\"external\"/\"self\"，或 saRoot 是 SVN 真實路徑（非 N/A 占位）時，一定要帶 svnConnectionId，且會真的呼叫 svn_test_connection 驗證，連不上就拒絕登記；saRoot／sdRoot 也會用 svn_browse 確認真的存在於該連線的 repo（要用正斜線、相對於 repo 根目錄，不含本機工作副本的資料夾名），不存在就拒絕登記。**",
     {
       projectGid: z.string().describe("Asana 專案 gid"),
       saRoot: z.string().describe("SA 規格存放位置，SVN 上的正式路徑（例如 \"doc/sa\"，相對於 svnConnectionId 對應 repo 的根目錄）"),
@@ -93,7 +94,7 @@ export function registerProjectConfigTools(server: McpServer): void {
         .nullable()
         .optional()
         .describe(
-          "saRoot/sdRoot 所在的 SVN 連線（svn_list_connections 回傳的 id 或 name），只有 sdMode 是 \"external\" 或 \"self\" 時需要。"
+          "saRoot/sdRoot 所在的 SVN 連線（svn_find_repo 回傳的 connectionId，或 svn_list_connections 回傳的 id 或 name），只有 sdMode 是 \"external\" 或 \"self\" 時需要。"
         ),
       sdOutputPath: z
         .string()
@@ -128,9 +129,13 @@ export function registerProjectConfigTools(server: McpServer): void {
           true
         );
       }
-      if ((sdMode === "external" || sdMode === "self") && !svnConnectionId) {
+      if (requiresSvnConnection(sdMode, saRoot) && !svnConnectionId) {
         return textResult(
-          { success: false, message: "sdMode 是 external/self 時必須提供 svnConnectionId——請先呼叫 svn_list_connections 確認可用的連線，問清楚使用者要用哪一個，再重新呼叫。" },
+          {
+            success: false,
+            message:
+              "必須提供 svnConnectionId：sdMode 是 external/self，或 saRoot 是 SVN 上的真實路徑（分析師一定要到 SVN 讀 SA，沒連線就讀不到）時都要——請先用 svn_find_repo（用使用者說的專案名稱搜尋）或 svn_list_connections 確認可用的連線，問清楚使用者要用哪一個，再重新呼叫。若這個專案真的沒有 SA 文件，saRoot 請填 N/A 開頭的占位（例如 \"N/A-無SA文件\"）。",
+          },
           true
         );
       }
@@ -145,6 +150,12 @@ export function registerProjectConfigTools(server: McpServer): void {
             true
           );
         }
+        const roots = [
+          ...(isNoSaPlaceholder(saRoot) ? [] : [{ field: "saRoot" as const, value: saRoot }]),
+          ...(sdRoot ? [{ field: "sdRoot" as const, value: sdRoot }] : []),
+        ];
+        const rootProblem = await verifySvnRoots(svnConnectionId, roots, (args) => callSvnTool("svn_browse", args));
+        if (rootProblem) return textResult({ success: false, message: `拒絕登記：${rootProblem}` }, true);
       }
       const resolvedSpecOrder = sdMode === "self-generated" ? specOrder ?? null : null;
       await registerSasdConfig(projectGid, {
@@ -298,7 +309,7 @@ export function registerProjectConfigTools(server: McpServer): void {
           z.object({
             label: z.string().describe("用途標籤，例如「規格書」「程式規格」；同一專案內不可重複，網頁按鈕靠它指定操作對象"),
             workCopyPath: z.string().describe("SVN 工作副本資料夾的本機絕對路徑"),
-            connectionId: z.string().describe("svn-mcp 的連線 id 或名稱（用 svn_list_connections 查）"),
+            connectionId: z.string().describe("svn-mcp 的連線 id 或名稱（用 svn_find_repo 或 svn_list_connections 查）"),
           })
         )
         .min(1)

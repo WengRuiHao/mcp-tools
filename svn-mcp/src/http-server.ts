@@ -11,18 +11,17 @@
  * (credentials stripped), then calls POST /run with `{ connectionId, args }` — this process resolves the
  * connection, appends --username/--password itself and refuses any URL argument that is not under
  * that connection's base URL (so a connection's credentials can never be pointed at another host).
- * The legacy form `{ args }` with credentials already embedded is still accepted for old callers.
+ * Hardening: read-only subcommands only, an svn-option whitelist (no --diff-cmd / --config-* etc.), positional
+ * arguments must be URLs under the connection's base URL (no `..`), loopback Host header only, JSON bodies only.
+ * The old `{ args }`-with-embedded-credentials form has been removed: every call now needs a connectionId.
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { execFile } from "node:child_process";
 import { listConnections, resolveConnection, runSvn } from "./svn-client.js";
-import { decodeSvnText } from "./svn-text.js";
 
 const PORT = Number(process.env.SVN_MCP_HTTP_PORT) || 9095;
 const HOST = process.env.SVN_BRIDGE_HOST || "127.0.0.1";
 const AUTH_TOKEN = process.env.SVN_BRIDGE_TOKEN || "";
 const MAX_BODY_BYTES = 1 * 1024 * 1024; // request bodies are just {args, timeoutMs} — small
-const MAX_OUTPUT_BYTES = 50 * 1024 * 1024;
 
 // Read-only browsing subcommands only — this bridge exists so claudeweb can browse/read SVN,
 // never to run arbitrary `svn` invocations from the network.
@@ -89,31 +88,59 @@ async function handleRun(req: IncomingMessage, res: ServerResponse) {
 
   const timeoutMs = Number(body?.timeoutMs) > 0 ? Number(body.timeoutMs) : 30000;
 
-  if (typeof body?.connectionId === "string" && body.connectionId.trim()) {
-    await runWithConnection(res, body.connectionId, args, timeoutMs);
+  if (typeof body?.connectionId !== "string" || !body.connectionId.trim()) {
+    sendJson(res, 400, { error: "缺少 connectionId（連線資料與帳密只在 svn-mcp：先用 GET /connections 查可用的連線）" });
     return;
   }
-
-  execFile("svn", args, { timeout: timeoutMs, maxBuffer: MAX_OUTPUT_BYTES, encoding: "buffer" }, (error, stdout, stderr) => {
-    if (error) {
-      const stderrText = Buffer.isBuffer(stderr) ? decodeSvnText(stderr) : String(stderr ?? "");
-      // Never fall back to error.message here: on failures where stderr is empty (svn binary
-      // missing, timeout, connection-layer failure), Node's execFile bakes the full invoked
-      // command — including --username/--password — into error.message. Log the real detail
-      // server-side only; the caller gets a message that can never contain credentials.
-      if (!stderrText.trim()) {
-        console.error(`[svn-mcp-http] svn 執行失敗，未回傳給呼叫端的完整錯誤：${error.message}`);
-      }
-      sendJson(res, 500, { error: stderrText.trim() || `SVN 指令執行失敗（exit code: ${(error as any).code ?? "unknown"}），請確認 svn 執行檔存在且連線設定正確` });
-      return;
-    }
-    const out = Buffer.isBuffer(stdout) ? stdout : Buffer.from(String(stdout));
-    res.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": out.length });
-    res.end(out);
-  });
+  await runWithConnection(res, body.connectionId, args, timeoutMs);
 }
 
 const URL_ARG = /^(https?|svn|svn\+ssh):\/\//i;
+
+// svn 選項白名單：只放行瀏覽／讀取需要的。其餘一律拒絕——例如 `diff --diff-cmd <程式>` 會執行任意程式、
+// `--config-option`／`--config-dir` 可以改 proxy 或設定把帳密送去別處。
+const FLAGS_NO_VALUE = new Set(["--xml", "-v", "--verbose", "-q", "--quiet"]);
+const FLAGS_WITH_VALUE = new Set(["-r", "--revision", "-l", "--limit", "--depth"]);
+
+/** 拆解 args（第 0 個是子命令）：回傳第一個不在白名單的選項（沒有則 null）與所有位置參數。 */
+function parseArgs(args: string[]): { disallowed: string | null; positionals: string[] } {
+  const positionals: string[] = [];
+  for (let i = 1; i < args.length; i++) {
+    const a = args[i];
+    if (!a.startsWith("-") || a === "-") {
+      positionals.push(a);
+      continue;
+    }
+    const eq = a.indexOf("=");
+    const name = eq === -1 ? a : a.slice(0, eq);
+    if (FLAGS_NO_VALUE.has(name) && eq === -1) continue;
+    if (FLAGS_WITH_VALUE.has(name)) {
+      if (eq === -1) i++; // 下一個參數是這個選項的值
+      continue;
+    }
+    return { disallowed: a, positionals };
+  }
+  return { disallowed: null, positionals };
+}
+
+/** url 必須等於 base，或在 base 底下（下一個字元是 / 或 @peg）；避免 base=.../repo-a 誤放行 .../repo-a2。 */
+function isUnderBase(url: string, base: string): boolean {
+  const u = url.trim().toLowerCase();
+  if (!u.startsWith(base)) return false;
+  const next = u.charAt(base.length);
+  return next === "" || next === "/" || next === "@";
+}
+
+/** 路徑裡有 .. 區段（含 %2e%2e 編碼）就拒絕，避免從連線底下爬到別的 repo。 */
+function hasDotDotSegment(url: string): boolean {
+  let decoded = url;
+  try {
+    decoded = decodeURIComponent(url);
+  } catch {
+    // 無法解碼就用原字串判斷
+  }
+  return decoded.split(/[/\\]/).some((seg) => seg.replace(/@.*$/, "") === "..");
+}
 
 /** 以 connectionId 執行：帳密由這裡解析並附上，且所有 URL 參數都必須在該連線的 base URL 底下。 */
 async function runWithConnection(res: ServerResponse, connectionId: string, args: string[], timeoutMs: number) {
@@ -124,14 +151,15 @@ async function runWithConnection(res: ServerResponse, connectionId: string, args
     sendJson(res, 404, { error: e instanceof Error ? e.message : String(e) });
     return;
   }
-  if (args.some((a) => a === "--username" || a === "--password")) {
-    sendJson(res, 400, { error: "以 connectionId 呼叫時，args 不可自帶 --username／--password（帳密由 svn-mcp 附上）" });
+  const { disallowed, positionals } = parseArgs(args);
+  if (disallowed) {
+    sendJson(res, 403, { error: `不允許的 svn 選項：${disallowed}（只放行 ${[...FLAGS_NO_VALUE, ...FLAGS_WITH_VALUE].join(" ")}；帳密由 svn-mcp 附上，不可自帶）` });
     return;
   }
   const base = conn.url.replace(/\/+$/, "").toLowerCase();
-  const outside = args.find((a) => URL_ARG.test(a.trim()) && !a.trim().toLowerCase().startsWith(base));
-  if (outside) {
-    sendJson(res, 403, { error: `URL 不在連線「${conn.name}」的範圍內，已拒絕（帳密只能用在該連線自己的 URL 底下）` });
+  const bad = positionals.find((a) => !URL_ARG.test(a.trim()) || !isUnderBase(a, base) || hasDotDotSegment(a));
+  if (bad !== undefined) {
+    sendJson(res, 403, { error: `參數不是連線「${conn.name}」底下的 URL，已拒絕（只接受該連線 URL 底下的路徑，不可含 ..，帳密不能拿去打別的位置）` });
     return;
   }
   try {
@@ -164,6 +192,21 @@ async function handleConnections(res: ServerResponse, id: string | null) {
   }
 }
 
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+
+/** 綁在本機（預設）時，只接受 Host 是本機名稱的請求：擋掉 DNS rebinding（惡意網站把網域指到 127.0.0.1 來讀這裡的資料）。 */
+function isAllowedHost(req: IncomingMessage): boolean {
+  if (!LOOPBACK_HOSTS.has(HOST)) return true; // 刻意對外綁定時改靠 SVN_BRIDGE_TOKEN
+  const host = req.headers.host;
+  if (!host) return true;
+  const name = host.toLowerCase().replace(/:\d+$/, "");
+  return LOOPBACK_HOSTS.has(name);
+}
+
+function isJsonRequest(req: IncomingMessage): boolean {
+  return String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json");
+}
+
 function isAuthorized(req: IncomingMessage): boolean {
   if (!AUTH_TOKEN) return true; // no token configured — rely on host-binding only, stays backward compatible
   const header = req.headers["authorization"];
@@ -171,6 +214,10 @@ function isAuthorized(req: IncomingMessage): boolean {
 }
 
 const server = createServer((req, res) => {
+  if (!isAllowedHost(req)) {
+    sendJson(res, 403, { error: "forbidden host" });
+    return;
+  }
   if (req.method === "GET" && req.url === "/health") {
     sendJson(res, 200, { ok: true, service: "svn-mcp-http" });
     return;
@@ -178,6 +225,10 @@ const server = createServer((req, res) => {
   if (req.method === "POST" && req.url === "/run") {
     if (!isAuthorized(req)) {
       sendJson(res, 401, { error: "unauthorized" });
+      return;
+    }
+    if (!isJsonRequest(req)) {
+      sendJson(res, 415, { error: "Content-Type 必須是 application/json" });
       return;
     }
     handleRun(req, res).catch((e) => sendJson(res, 500, { error: e instanceof Error ? e.message : String(e) }));

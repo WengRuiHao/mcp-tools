@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 560" role="img" aria-label="SVN 連線資料只有一份：只有 svn-edit 的連線設定能新增、修改、刪除 SVN 帳號，資料全部存在 info/svn-connections.json。svn-mcp 唯讀工具（AI 助理用）、dev-pipeline-mcp（票單流程，轉呼叫 svn-mcp）、claudeweb 網站（經 svn-mcp 的 HTTP bridge）都只讀取：claudeweb 只拿到不含帳密的連線清單，用 connectionId 請 svn-mcp 執行，帳密不離開 svn-mcp。bridge 另有防護：只放行唯讀子命令、svn 選項白名單、URL 必須在該連線底下且不含 ..、只接受本機 Host、只收 JSON。">
+  <defs>
+    <marker id="csArrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#6b6558"/>
+    </marker>
+    <marker id="csArrowWrite" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#b9782e"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="560" fill="#f6f2e8"/>
+
+  <g font-family="'Noto Sans TC',sans-serif">
+    <text x="40" y="52" font-size="26" font-weight="700" fill="#2a2620">SVN 連線資料，只有一份</text>
+    <text x="40" y="82" font-size="15" fill="#6b6558">帳號與帳密只在 svn-edit 管理、只存一個檔案；AI 助理、票單流程、claudeweb 網站全部是「讀取」，沒有各自的副本。</text>
+  </g>
+
+  <!-- 左：svn-edit（唯一能改的地方） -->
+  <g font-family="'Noto Sans TC',sans-serif">
+    <rect x="40" y="130" width="270" height="200" rx="10" fill="#fbeedd" stroke="#b9782e"/>
+    <text x="175" y="162" font-size="16" font-weight="700" fill="#7a4a13" text-anchor="middle">svn-edit「連線設定」</text>
+    <text x="175" y="194" font-size="13.5" fill="#7a4a13" text-anchor="middle">唯一能新增、修改、刪除</text>
+    <text x="175" y="214" font-size="13.5" fill="#7a4a13" text-anchor="middle">SVN 帳號的地方</text>
+    <text x="175" y="246" font-size="13" fill="#7a4a13" text-anchor="middle">填一次伺服器網址＋帳密，</text>
+    <text x="175" y="266" font-size="13" fill="#7a4a13" text-anchor="middle">底下所有 repo 自動帶出</text>
+    <text x="175" y="306" font-size="12" fill="#6b6558" text-anchor="middle">預設 http://127.0.0.1:9097</text>
+  </g>
+
+  <!-- 中：單一設定檔 -->
+  <g font-family="'Noto Sans TC',sans-serif">
+    <rect x="410" y="130" width="300" height="200" rx="10" fill="#dbe9ea" stroke="#2b6777"/>
+    <text x="560" y="162" font-size="15" font-weight="700" fill="#17414c" text-anchor="middle">info/svn-connections.json</text>
+    <text x="560" y="194" font-size="13.5" fill="#17414c" text-anchor="middle">帳號與帳密、repo 清單快取、</text>
+    <text x="560" y="214" font-size="13.5" fill="#17414c" text-anchor="middle">簡稱、常用目錄、</text>
+    <text x="560" y="234" font-size="13.5" fill="#17414c" text-anchor="middle">舊版 id（legacyIds）</text>
+    <text x="560" y="272" font-size="13" font-weight="700" fill="#17414c" text-anchor="middle">全部只存在這一份</text>
+    <text x="560" y="306" font-size="12" fill="#6b6558" text-anchor="middle">不進版控；舊 id 仍然查得到</text>
+  </g>
+
+  <!-- 右：三個讀取者 -->
+  <g font-family="'Noto Sans TC',sans-serif">
+    <rect x="810" y="112" width="350" height="96" rx="10" fill="#eef3ea" stroke="#8aa981"/>
+    <text x="826" y="140" font-size="15" font-weight="700" fill="#345c39">svn-mcp 唯讀工具（AI 助理用）</text>
+    <text x="826" y="166" font-size="13" fill="#345c39">svn_find_repo／svn_browse／svn_cat／</text>
+    <text x="826" y="186" font-size="13" fill="#345c39">svn_log／svn_diff…，只讀不改</text>
+
+    <rect x="810" y="226" width="350" height="96" rx="10" fill="#eef3ea" stroke="#8aa981"/>
+    <text x="826" y="254" font-size="15" font-weight="700" fill="#345c39">dev-pipeline-mcp（票單流程）</text>
+    <text x="826" y="280" font-size="13" fill="#345c39">轉呼叫 svn-mcp 讀規格，自己不存</text>
+    <text x="826" y="300" font-size="13" fill="#345c39">任何 SVN 連線資料</text>
+
+    <rect x="810" y="340" width="350" height="116" rx="10" fill="#eef3ea" stroke="#8aa981"/>
+    <text x="826" y="368" font-size="15" font-weight="700" fill="#345c39">claudeweb 網站（經 HTTP bridge）</text>
+    <text x="826" y="394" font-size="13" fill="#345c39">只拿到不含帳密的連線清單；</text>
+    <text x="826" y="414" font-size="13" fill="#345c39">用 connectionId 請 svn-mcp 執行，</text>
+    <text x="826" y="434" font-size="13" fill="#345c39">帳密不離開 svn-mcp</text>
+  </g>
+
+  <!-- 箭頭：寫入（橘） -->
+  <line x1="310" y1="230" x2="408" y2="230" stroke="#b9782e" stroke-width="2" marker-end="url(#csArrowWrite)"/>
+  <text x="359" y="220" font-family="'Noto Sans TC',sans-serif" font-size="12" font-weight="700" fill="#b9782e" text-anchor="middle">寫入</text>
+
+  <!-- 箭頭：讀取（灰） -->
+  <path d="M 710 200 C 760 200, 760 160, 808 160" fill="none" stroke="#6b6558" stroke-width="1.8" marker-end="url(#csArrow)"/>
+  <path d="M 710 230 C 760 230, 760 274, 808 274" fill="none" stroke="#6b6558" stroke-width="1.8" marker-end="url(#csArrow)"/>
+  <path d="M 710 260 C 770 260, 750 398, 808 398" fill="none" stroke="#6b6558" stroke-width="1.8" marker-end="url(#csArrow)"/>
+  <text x="716" y="188" font-family="'Noto Sans TC',sans-serif" font-size="12" font-weight="700" fill="#6b6558">讀取</text>
+
+  <!-- 下方：bridge 防護 -->
+  <g font-family="'Noto Sans TC',sans-serif">
+    <rect x="40" y="474" width="1120" height="62" rx="10" fill="#ece7da" stroke="#2a2620" stroke-opacity="0.5"/>
+    <text x="60" y="500" font-size="14" font-weight="700" fill="#2a2620">HTTP bridge 的防護（claudeweb 走這條路）</text>
+    <text x="60" y="522" font-size="13" fill="#2a2620">只放行唯讀子命令 · svn 選項白名單（擋 --diff-cmd、--config-* 等） · URL 必須在該連線底下、不含 .. · 只接受本機 Host · 只收 JSON · 錯誤訊息不含密碼</text>
+  </g>
+</svg>

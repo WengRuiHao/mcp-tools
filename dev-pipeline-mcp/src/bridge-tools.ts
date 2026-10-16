@@ -13,7 +13,8 @@ import { textResult } from "./shared.js";
 export function registerBridgeTools(server: McpServer): void {
   server.tool(
     "svn_list_connections",
-    "【唯讀】列出 svn-mcp 登記的所有 SVN 連線（id/name/url，不含帳密）。登記某個 Asana 專案的 SA/SD 規格是 SVN 路徑之前，先呼叫這個確認可用的連線有哪些、該用哪一個。",
+    "【唯讀】列出 svn-mcp 所有可用的 SVN 連線（每個專案庫 repo 一筆：id/name/url/aliases 舊名稱/nickname 簡稱/starred 星星/folders 常用目錄，不含帳密）。" +
+      "**知道使用者說的專案名稱時，請改用 svn_find_repo 直接搜尋**；不確定有哪些專案、或搜尋找不到時才用這個列出完整清單。",
     {},
     async () => {
       const result = await callSvnTool("svn_list_connections", {});
@@ -22,9 +23,26 @@ export function registerBridgeTools(server: McpServer): void {
   );
 
   server.tool(
+    "svn_find_repo",
+    "【唯讀】依關鍵字找 SVN 專案庫（repo），回答「使用者說的這個專案在哪個連線、規格大概放在哪個目錄」。" +
+      "會同時比對 repo 名稱、舊版「一個 repo 一筆連線」時取的名稱、使用者自己替專案取的簡稱，以及常用目錄的暱稱與路徑（例如「後端規格」）；" +
+      "多個關鍵字用空白隔開，要全部符合；關鍵字留空＝列出常用專案（星星專案在最前面、其次是最近開過的）。" +
+      "回傳每個專案的 connectionId（填給 svn_browse／svn_cat／svn_test_connection／register_sasd_config 的 svnConnectionId 等）與它的常用目錄（folders[].path 可以直接當 path 或 saRoot／sdRoot 的起點）。" +
+      "**使用者提到專案名稱、或要找規格存放位置時，先呼叫這個，不要自己猜連線或路徑。**",
+    {
+      query: z.string().describe("關鍵字：repo 名稱、簡稱、舊名稱、常用目錄暱稱的全部或一部分；空白隔開多個關鍵字；留空列出常用專案"),
+      limit: z.number().int().min(1).max(50).default(10).describe("最多回傳幾個專案，預設 10"),
+    },
+    async ({ query, limit }) => {
+      const result = await callSvnTool("svn_find_repo", { query, limit });
+      return textResult(result, result?.success === false);
+    }
+  );
+
+  server.tool(
     "svn_test_connection",
     "【唯讀】實際測試某個 SVN 連線能不能連上（真的執行一次 svn info）。**這是硬性把關**：register_sasd_config 在 sdMode 是 external/self 時會自動呼叫這個驗證，連不上會直接拒絕註冊；也可以在那之前自己先呼叫確認。",
-    { connectionId: z.string().describe("svn_list_connections 回傳的 id 或 name") },
+    { connectionId: z.string().describe("svn_find_repo／svn_list_connections 回傳的 connectionId、id 或 name") },
     async ({ connectionId }) => {
       const result = await callSvnTool("svn_test_connection", { connectionId });
       return textResult(result, result?.success === false);
@@ -79,6 +97,21 @@ export function registerBridgeTools(server: McpServer): void {
     },
     async ({ path, limit, connectionId }) => {
       const result = await callSvnTool("svn_log", { path, limit, connectionId: connectionId ?? undefined });
+      return textResult(result, result?.success === false);
+    }
+  );
+
+  server.tool(
+    "svn_diff",
+    "【唯讀】比較某個 SVN 路徑在兩個版本之間的差異。",
+    {
+      path: z.string().describe("SVN 路徑（相對於連線的 repo 根目錄）"),
+      r1: z.string().describe("舊版本號"),
+      r2: z.string().describe("新版本號"),
+      connectionId: z.string().nullable().optional().describe("svn_list_connections 回傳的 id 或 name"),
+    },
+    async ({ path, r1, r2, connectionId }) => {
+      const result = await callSvnTool("svn_diff", { path, r1, r2, connectionId: connectionId ?? undefined });
       return textResult(result, result?.success === false);
     }
   );

@@ -301,6 +301,12 @@
       <div class="conn-card"><span class="id">沒說清楚</span><h3>會先問你</h3><p>找不到、或有好幾個都像時，AI 助理會列出候選先跟你確認。</p></div>
       <div class="conn-card"><span class="id">只說「常用的」</span><h3>星星在最前面</h3><p>不給關鍵字就列出常用專案：你加星星的在前，其次是最近開過的。</p></div>
     </div>
+    <p class="kicker" style="margin-top:28px">
+      <b>連線只要在 svn-edit 設定一次。</b>AI 助理、票單流程、claudeweb 網站讀的是<b>同一份</b>連線設定，不用在每個地方重複填帳密；要新增、修改或刪除帳號，一律到 svn-edit 的「連線設定」。claudeweb 網站的 SVN 頁面現在只能瀏覽，旁邊的「連線管理」按鈕會直接打開 svn-edit。舊版留下的連線代號仍然有效，不用重新設定。
+    </p>
+    <div class="diagram-card">
+      <img src="img/connection-sources.svg" alt="SVN 連線資料只有一份：只有 svn-edit 的連線設定能新增、修改、刪除 SVN 帳號，資料全部存在 info/svn-connections.json；svn-mcp 唯讀工具（AI 助理用）、dev-pipeline-mcp（票單流程）、claudeweb 網站（經 HTTP bridge）都只讀取，claudeweb 只拿到不含帳密的連線清單、用 connectionId 請 svn-mcp 執行，帳密不離開 svn-mcp。bridge 另有防護：只放行唯讀子命令、svn 選項白名單、URL 必須在該連線底下且不含 ..、只接受本機 Host、只收 JSON。" style="width:100%;height:auto;display:block;min-width:640px" />
+    </div>
   </section>
 
   <section id="tools" class="reveal">

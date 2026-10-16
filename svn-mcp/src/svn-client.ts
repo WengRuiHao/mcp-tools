@@ -120,7 +120,7 @@ export function runSvn(
   /** svn 輸出（stdout）的緩衝上限；預設 50 MB，批次上傳十萬個檔案時 add／commit 會逐檔印一行，要調大。 */
   maxBufferBytes: number = 50 * 1024 * 1024
 ): Promise<{ stdout: Buffer; stderr: string }> {
-  const fullArgs = [...args, "--non-interactive", "--trust-server-cert", "--username", conn.username, "--password", conn.password];
+  const fullArgs = [...args, "--non-interactive", "--no-auth-cache", "--trust-server-cert", "--username", conn.username, "--password", conn.password];
   return new Promise((resolve, reject) => {
     execFile(
       "svn",

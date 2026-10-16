@@ -217,7 +217,7 @@ test("AI-facing tool surface has no SVN write tool", async () => {
   try {
     const names = (await client.listTools()).tools.map((t) => t.name);
     const svnTools = names.filter((n) => n.startsWith("svn_"));
-    assert.deepEqual(svnTools.sort(), ["svn_browse", "svn_cat", "svn_doc_images", "svn_list_connections", "svn_log", "svn_test_connection"]);
+    assert.deepEqual(svnTools.sort(), ["svn_browse", "svn_cat", "svn_diff", "svn_doc_images", "svn_find_repo", "svn_list_connections", "svn_log", "svn_test_connection"]);
     // 登記/查詢工作副本的工具只存設定，名稱不含任何寫入動詞
     const workCopyTools = names.filter((n) => /workcop/i.test(n)).sort();
     assert.deepEqual(workCopyTools, ["register_svn_workcopies", "resolve_svn_workcopies"]);

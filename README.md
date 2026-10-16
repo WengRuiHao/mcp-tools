@@ -33,7 +33,7 @@
 
 ## 各自的連線/憑證資料
 
-每個 MCP 的連線資訊（token、SVN 帳密等）都放在自己目錄底下的 `info/`（已加進 `.gitignore`，不會進版控），是各自獨立維護的個人副本，不跟任何其他系統共用同一份檔案。
+每個 MCP 的連線資訊（token、SVN 帳密等）都放在自己目錄底下的 `info/`（已加進 `.gitignore`，不會進版控），是各自獨立維護的個人副本。唯一的例外是 SVN：SVN 帳號與帳密只存在 svn-mcp 的 `info/svn-connections.json`（用 svn-edit 管理），dev-pipeline-mcp 與 claudeweb 都是向 svn-mcp 讀取，自己不留任何副本。
 
 ## 安裝
 
