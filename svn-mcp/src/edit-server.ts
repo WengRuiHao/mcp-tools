@@ -13,7 +13,9 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { deleteServer, listPublicConnections, listPublicServers, refreshAllServers, refreshServer, saveServer, testServerLogin, ConnectionInputError, type ServerInput } from "./connections-store.js";
 import { FAVICON_ICO_BASE64 } from "./edit-icon-data.js";
-import { markOpened, readRepoPrefs, reorderStars, setFolderNickname, setFolderStar, setLocalPath, setNickname, setStar, setSyncLocal } from "./repo-prefs.js";
+import { markOpened, readRepoPrefs, reorderStars, setFolderNickname, addLocalPath, removeLocalPath, setFolderStar, setNickname, setStar, setSyncLocal } from "./repo-prefs.js";
+import { checkoutToLocal } from "./local-checkout.js";
+import { inspectLocalDirs, listLocalDirs } from "./local-fs.js";
 import { commitEditAndSync } from "./local-sync.js";
 import { deleteRemoteFileAndSync } from "./remote-delete.js";
 import { renderPage } from "./edit-ui.js";
@@ -239,7 +241,12 @@ const API_POST: Record<string, ApiHandler> = {
   "/api/repo-prefs/open": async (body) => ({ prefs: await markOpened(body.name) }),
   "/api/repo-prefs/nickname": async (body) => ({ prefs: await setNickname(body.name, body.nickname) }),
   "/api/repo-prefs/sync-local": async (body) => ({ prefs: await setSyncLocal(body.enabled) }),
-  "/api/repo-prefs/local-path": async (body) => ({ prefs: await setLocalPath(body.repo, body.path) }),
+  "/api/repo-prefs/local-path/add": async (body) => ({ prefs: await addLocalPath(body.repo, body.path) }),
+  "/api/repo-prefs/local-path/remove": async (body) => ({ prefs: await removeLocalPath(body.repo, body.path) }),
+  // 本機資料夾：檢查狀態（有沒有 SVN 追蹤、對應哪個遠端位置）與 Checkout 到本地
+  "/api/local/inspect": async (body) => ({ results: await inspectLocalDirs(body.paths) }),
+  "/api/checkout": (body) =>
+    checkoutToLocal({ connectionId: str(body, "connection") || undefined, remotePath: body.remotePath, parent: body.parent, name: body.name, scope: body.scope, setSync: body.setSync === true }),
   "/api/repo-prefs/folder": async (body) => ({ prefs: await setFolderStar(body.repo, body.path, body.starred === true) }),
   "/api/repo-prefs/folder-nickname": async (body) => ({ prefs: await setFolderNickname(body.repo, body.path, body.nickname) }),
 };
@@ -293,6 +300,7 @@ export function createEditServer(): EditServer {
     if (req.method === "GET" && route === "/api/upgrade-plan") {
       return sendJson(res, 200, await getUpgradePlan(url.searchParams.get("id") ?? "", url.searchParams.get("newName") || undefined));
     }
+    if (req.method === "GET" && route === "/api/local/list") return sendJson(res, 200, listLocalDirs(url.searchParams.get("path") ?? ""));
     if (req.method === "GET" && route === "/api/browse") {
       return sendJson(res, 200, await browseRemote(url.searchParams.get("connection") || undefined, url.searchParams.get("path") ?? ""));
     }

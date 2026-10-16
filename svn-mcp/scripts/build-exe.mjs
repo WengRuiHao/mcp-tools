@@ -19,9 +19,28 @@ const TARGETS = {
 };
 
 const SUBSYSTEM_WINDOWS_GUI = 2;
+const OPEN_RETRIES = 30;
+const OPEN_RETRY_DELAY_MS = 1000;
+
+/**
+ * pkg 剛寫好的 exe 常會被防毒軟體（Windows Defender）或檔案索引短暫鎖住，直接開會 EBUSY／EPERM；
+ * 這種暫時性的占用等一下就會放開，所以重試幾秒，不是一碰到就失敗。
+ */
+function openWithRetry(file) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return openSync(file, "r+");
+    } catch (e) {
+      const busy = e && (e.code === "EBUSY" || e.code === "EPERM" || e.code === "EACCES");
+      if (!busy || attempt >= OPEN_RETRIES) throw e;
+      if (attempt === 1) console.log(`${file} 暫時被占用（可能是防毒軟體在掃描），等待放開後重試…`);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, OPEN_RETRY_DELAY_MS);
+    }
+  }
+}
 /** 改 PE 檔頭的 Subsystem 欄位（選用標頭第 68 個位元組；32／64 位元格式位置相同）。 */
 function setGuiSubsystem(file) {
-  const fd = openSync(file, "r+");
+  const fd = openWithRetry(file);
   try {
     const dos = Buffer.alloc(64);
     readSync(fd, dos, 0, 64, 0);

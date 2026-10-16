@@ -114,8 +114,82 @@ button:disabled{opacity:.5;cursor:default}
 /* 目錄瀏覽、連線清單 */
 summary{cursor:pointer;font-weight:700;font-size:15.5px}
 summary::marker{color:var(--brand)}
-.crumbs{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
-.crumbs button{padding:3px 11px;font-size:13px;border-radius:10px}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;margin:10px 0;font-size:14px}
+.crumbs button{border:0;background:none;padding:2px 6px;color:var(--brand);font-weight:600;border-radius:6px;font-size:14px}
+.crumbs button:hover{background:var(--brand-soft);text-decoration:underline}
+.crumbs .sep{color:var(--muted);font-size:13px}
+.crumbs .cur{padding:2px 6px;font-weight:700;color:var(--ink)}
+/* 檔案／資料夾清單：彩色圖示＋檔名＋「版本・作者・時間」 */
+.entry.fi{justify-content:flex-start;gap:12px;padding:10px 14px;border-radius:12px;font-weight:500}
+.entry.fi:hover:not(:disabled){background:var(--brand-soft)}
+.entry.fi:disabled{opacity:.6}
+.fi__main{flex:1 1 auto;min-width:0;text-align:left}
+.fi__name{font-weight:700;overflow-wrap:anywhere;line-height:1.35}
+.fi__meta{font-size:12px;font-weight:400;color:var(--muted);margin-top:1px}
+.fb{flex:0 0 auto;width:36px;height:36px;border-radius:9px;color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+.fb--dir{background:#e9b44c;font-size:15px}
+.fb--docx{background:#2b579a;font-size:17px}
+.fb--xlsx{background:#217346;font-size:17px}
+.fb--pdf{background:#c8453b;font-size:11.5px}
+.fb--img{background:#8c8079;font-size:10.5px}
+.fb--md{background:#5a4fcf;font-size:11.5px}
+.fb--txt{background:#6f8190;font-size:11.5px}
+.fb--csv{background:#2e9c87;font-size:11px}
+.fb--other{background:#9a8f8b;font-size:10.5px}
+.fb--sm{width:28px;height:28px;border-radius:7px;font-size:12px}
+.stat{margin:10px 2px 0;font-size:12.5px;color:var(--muted)}
+.trackbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;font-size:13px;color:var(--ink-soft)}
+.trackbar span{min-width:0;overflow-wrap:anywhere}
+.trackbar button{padding:3px 12px;font-size:12.5px;border-radius:9px;flex:0 0 auto}
+/* 開始編輯確認卡：遠端完整位置＋複製 */
+.loc{border:1px solid var(--line-strong);background:var(--field);border-radius:12px;padding:10px 12px;margin:10px 0 12px}
+.loc__label{font-size:12px;color:var(--muted);margin-bottom:4px}
+.loc__row{display:flex;gap:8px;align-items:flex-start}
+.loc__url{flex:1;min-width:0;font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px;line-height:1.55;word-break:break-all;user-select:all}
+.loc button{padding:3px 12px;font-size:12.5px;border-radius:9px;flex:0 0 auto}
+button.copied{background:var(--completed-bg);border-color:#b9e0c7;color:var(--completed-ink)}
+/* 管理連線：本地目錄清單、本機資料夾點選、Checkout */
+.pill{display:inline-flex;align-items:center;font-size:12px;border-radius:999px;padding:1px 9px;font-weight:600;margin-left:6px}
+.pill--ok{background:var(--completed-bg);color:var(--completed-ink)}
+.pill--warn{background:var(--pending-bg);color:var(--pending-ink)}
+.pill--none{background:#f1ecea;color:var(--ink-soft)}
+.conn--local{align-items:flex-start}
+.conn__main{min-width:0;flex:1}
+.conn__main .nm{font-weight:700}
+.conn__main .pth{font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px;color:var(--ink-soft);word-break:break-all}
+.warnline{font-size:12.5px;color:var(--pending-ink);margin-top:3px}
+.addrow{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px;align-items:center}
+.shade{display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:40;background:rgb(51 46 44 / .35);align-items:flex-end;justify-content:center}
+.shade.on{display:flex}
+.shade--top{z-index:50}
+.sheet2{width:100%;max-width:560px;max-height:92vh;overflow:auto;background:var(--surface);border-radius:18px 18px 0 0;padding:16px 16px 14px;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgb(51 46 44 / .2)}
+.sheet2__title{margin:0 0 4px;font-size:16px}
+.sheet2 .hint{margin:0 0 10px}
+.fslist{overflow:auto;border:1px solid var(--line-strong);border-radius:12px;flex:1;min-height:150px;max-height:46vh}
+.fsrow{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+.fsrow:last-child{border-bottom:0}
+.fsrow:hover{background:var(--brand-soft)}
+.fsrow .n{flex:1;min-width:0;overflow-wrap:anywhere}
+.sheet2__foot{display:flex;align-items:center;gap:8px;margin-top:10px}
+.sheet2__foot .cur{flex:1;min-width:0;font-size:12px;color:var(--ink-soft);word-break:break-all}
+.lbl{font-size:12.5px;color:var(--muted);margin:12px 0 4px}
+.pathrow{display:flex;gap:8px;align-items:center}
+.pathrow .v{flex:1;min-width:0;font-family:Consolas,"Cascadia Mono",monospace;font-size:12.5px;word-break:break-all;border:1px solid var(--line-strong);background:var(--field);border-radius:10px;padding:7px 10px}
+.pathrow .v.empty{color:var(--muted);font-family:var(--font-sans)}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--line-strong);border-radius:10px;margin:0 0 6px;cursor:pointer}
+.opt.on{border-color:var(--brand);background:var(--brand-soft)}
+.opt input{margin-top:3px;width:auto;accent-color:var(--brand)}
+.opt b{display:block;font-size:13.5px}
+.opt small{color:var(--ink-soft);font-size:12.5px}
+.st{margin-top:8px;font-size:12.5px;border-radius:8px;padding:6px 10px}
+.st.ok{background:var(--completed-bg);color:var(--completed-ink)}
+.st.err{background:var(--danger-bg);color:var(--danger)}
+.st.info{background:var(--processing-bg);color:var(--processing-ink)}
+.bar{height:10px;border-radius:5px;background:#f1ecea;overflow:hidden;margin:12px 0 6px;position:relative}
+.bar>i{position:absolute;top:0;bottom:0;width:35%;background:var(--brand);animation:bar-slide 1.1s ease-in-out infinite}
+@keyframes bar-slide{0%{left:-35%}100%{left:100%}}
+.chk{display:flex;gap:8px;align-items:flex-start;margin-top:12px;font-size:13px;cursor:pointer}
+.chk input{width:auto;margin:3px 0 0;accent-color:var(--brand)}
 .entry{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;margin:0 0 4px;padding:8px 12px;border-radius:10px;font-weight:500;color:var(--ink);white-space:normal}
 .entry__name{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
 .entry__meta{flex:0 0 auto;font-size:12px;font-weight:400;color:var(--muted);text-align:right;white-space:nowrap;line-height:1.35}
@@ -176,8 +250,10 @@ button.danger{color:var(--danger);border-color:var(--danger)}
 input+details,select+details{margin-top:12px}
 /* 排版 A：三個功能區塊永遠在主畫面；按「▸」按鈕時視窗往右加寬，右邊出現面板 */
 .layout{display:flex;align-items:flex-start;min-height:100vh}
-main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
-.ext{display:none;flex:0 0 var(--ext-w,420px);width:var(--ext-w,420px);position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--surface);border-left:1px solid var(--line-strong);padding:16px 18px 24px}
+main{flex:1 1 560px;min-width:0;padding:14px 16px 28px}
+/* 視窗放大（全螢幕）時，主畫面內容維持舒適的閱讀寬度並置中，多出來的空間留給右邊面板 */
+main>*{max-width:760px;margin-left:auto!important;margin-right:auto!important}
+.ext{display:none;flex:0 0 auto;width:clamp(var(--ext-w,420px),38vw,960px);position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--surface);border-left:1px solid var(--line-strong);padding:16px 18px 24px}
 .layout.ext-inline .ext{display:block;animation:ext-in .24s ease-out}
 .layout.ext-overlay .ext{display:block;position:fixed;top:0;right:0;bottom:0;height:auto;width:min(var(--ext-w,420px),94vw);z-index:25;box-shadow:-14px 0 34px rgb(51 46 44 / .18);animation:ext-in .24s ease-out}
 @keyframes ext-in{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
@@ -352,7 +428,8 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     if (!req.connection && state.connections.length !== 1) {
       select = h("select", { id: "pendingConn" }, state.connections.map(function (c) { return h("option", { value: c.id }, connLabel(c)); }));
     }
-    var connName = req.connection || (state.connections.length === 1 ? state.connections[0].name : "");
+    var reqConn = req.connection ? findConnection(req.connection) : null;
+    var connName = reqConn ? reqConn.name : (req.connection || (state.connections.length === 1 ? state.connections[0].name : ""));
     var startBtn = h("button", { class: "primary", onclick: function () {
       var conn = req.connection || (select ? select.value : (state.connections[0] && state.connections[0].id));
       if (!conn) { pendingNote = "請先在下方「連線設定」新增 SVN 連線。"; renderPending(); return; }
@@ -364,11 +441,23 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
         pendingNote = e.message + (HINTS[e.code] ? "\n" + HINTS[e.code] : ""); renderPending();
       });
     } }, "開始編輯");
+    function pendingConn() { return findConnection(req.connection || (select ? select.value : (state.connections[0] && state.connections[0].id))); }
+    function fullUrlOf() { var c = pendingConn(); return c ? String(c.url).replace(/[/]+$/, "") + "/" + String(req.path).replace(/^[/]+/, "") : ""; }
+    var urlText = h("div", { class: "loc__url" }, fullUrlOf());
+    if (select) select.addEventListener("change", function () { urlText.textContent = fullUrlOf(); });
+    var copyBtn = h("button", { type: "button", class: "primary", onclick: function () {
+      copyText(fullUrlOf(), function () {
+        copyBtn.textContent = "已複製 ✓"; copyBtn.classList.add("copied");
+        setTimeout(function () { copyBtn.textContent = "複製位置"; copyBtn.classList.remove("copied"); }, 1800);
+      });
+    } }, "複製位置");
+    var locBox = h("div", { class: "loc" }, h("div", { class: "loc__label" }, "遠端位置（完整 URL）"), h("div", { class: "loc__row" }, urlText, copyBtn));
     box.appendChild(h("div", { class: "card" },
       h("h2", null, "要開始編輯這個檔案嗎？"),
       h("p", { class: "path" }, req.path),
       h("div", { class: "badges" }, connName ? h("span", { class: "badge" }, "連線：" + connName) : null, req.ticket ? h("span", { class: "badge" }, "票號：" + req.ticket) : null),
       select ? h("div", null, h("label", null, "選擇連線"), select) : null,
+      locBox,
       h("p", { class: "hint" }, "會把檔案取到暫存資料夾並用預設程式開啟；Word、Excel 檔會先在 SVN 上鎖定，避免別人同時修改。"),
       pendingNote ? h("div", { class: "msg" }, pendingNote) : null,
       h("div", { class: "row" }, startBtn, h("button", { onclick: function () { pendingRequest = null; pendingNote = null; history.replaceState(null, "", location.pathname); render(); } }, "取消"))
@@ -546,6 +635,12 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
       state.connections.length === 0 ? noConnectionHint() : h("div", { class: "row" }, openerButton("browse", "瀏覽 SVN 目錄", "wide"))));
   }
 
+  /** 帳號的顯示文字：名稱是使用者自己填的就只顯示名稱；留空（系統自動用主機名稱）才補上帳號，不然分不出是誰。 */
+  function accountLabel(sv) {
+    var host = String(sv.url || "").replace(/^[a-z]+:[/][/]/i, "").split("/")[0];
+    var named = sv.name && sv.name !== host && sv.name !== sv.url;
+    return (named ? sv.name : sv.name + "（" + sv.username + "）") + "・" + sv.repoCount + " 個 repo";
+  }
   /** repo 連線的顯示名稱：repo 名稱後面帶舊版取的別名（例如 PROJ-One（專案甲））。 */
   function connLabel(c) { return c.aliases && c.aliases.length ? c.name + "（" + c.aliases.join("、") + "）" : c.name; }
   function pad2(n) { return n < 10 ? "0" + n : String(n); }
@@ -561,18 +656,53 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     if (sec < 60) return sec + " 秒";
     return Math.floor(sec / 60) + " 分 " + (sec % 60) + " 秒";
   }
-  /** 每一列右側的說明（每個元素一行）：版本與作者、最後修改時間；資料夾與不能編輯的檔案顯示類型。 */
-  function entryLines(entry) {
-    var lines = [];
-    if (entry.kind === "dir") lines.push("資料夾");
-    else if (entry.editable || entry.viewable) { var who = (entry.revision ? "r" + entry.revision : "") + (entry.author ? " " + entry.author : ""); if (who) lines.push(who); }
-    else lines.push(entry.tempFile ? "Office 暫存檔，不是文件" : "不支援編輯");
-    var when = fmtDate(entry.date);
-    if (when) lines.push(when);
-    return lines;
+  /** 複製文字到剪貼簿（Edge 沒給權限時退回舊做法），完成後呼叫 done。 */
+  function copyText(text, done) {
+    function fallback() {
+      var ta = document.createElement("textarea"); ta.value = text; ta.style.cssText = "position:fixed;opacity:0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); } catch (e) { /* 複製失敗就算了 */ }
+      document.body.removeChild(ta); done();
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
   }
-  function entryMeta(entry) {
-    return h("span", { class: "entry__meta" }, entryLines(entry).map(function (line) { return h("span", null, line); }));
+  function safeDecode(text) { try { return decodeURIComponent(text); } catch (e) { return text; } }
+  /** 路徑列：「根目錄 → 3-SD → 9-SOURCE」，每一段都能點回那一層，目前這一層是粗體黑字、不能點。 */
+  function crumbNodes(segments, go) {
+    var levels = [{ label: "根目錄", target: "" }].concat(segments.map(function (seg, i) { return { label: seg, target: segments.slice(0, i + 1).join("/") }; }));
+    var nodes = [];
+    levels.forEach(function (lv, i) {
+      if (i > 0) nodes.push(h("span", { class: "sep" }, "→"));
+      if (i === levels.length - 1) nodes.push(h("span", { class: "cur" }, lv.label));
+      else nodes.push(h("button", { type: "button", title: "回到這一層", onclick: function () { go(lv.target); } }, lv.label));
+    });
+    return nodes;
+  }
+  /** 清單圖示：資料夾「夾」、Word「W」、Excel「X」（.xls 與 .xlsx 同一種）、PDF、圖片等各有顏色。 */
+  var BADGE_BY_EXT = { doc: ["docx", "W"], docx: ["docx", "W"], xls: ["xlsx", "X"], xlsx: ["xlsx", "X"], pdf: ["pdf", "PDF"], md: ["md", "MD"], txt: ["txt", "TXT"], csv: ["csv", "CSV"],
+    png: ["img", "PNG"], jpg: ["img", "JPG"], jpeg: ["img", "JPG"], gif: ["img", "GIF"], bmp: ["img", "BMP"] };
+  function badgeOf(entry) {
+    if (entry.kind === "dir") return { cls: "dir", text: "夾" };
+    var m = /[.]([a-z0-9]+)$/i.exec(entry.name || "");
+    var ext = m ? m[1].toLowerCase() : "";
+    var hit = BADGE_BY_EXT[ext];
+    return hit ? { cls: hit[0], text: hit[1] } : { cls: "other", text: (ext || "檔").slice(0, 4).toUpperCase() };
+  }
+  function fileBadge(entry, small) { var b = badgeOf(entry); return h("div", { class: "fb fb--" + b.cls + (small ? " fb--sm" : "") }, b.text); }
+  /** 檔名下面那一行小字：「r2238 ・ 作者 ・ 2026-07-31 15:24」；不能編輯的檔案補上原因。 */
+  function entryMetaText(entry) {
+    if (entry.kind === "dir") return "";
+    var parts = [];
+    if (entry.revision) parts.push("r" + entry.revision);
+    if (entry.author) parts.push(entry.author);
+    var when = fmtDate(entry.date);
+    if (when) parts.push(when);
+    if (!entry.editable && !entry.viewable) parts.push(entry.tempFile ? "Office 暫存檔，不是文件" : "不支援編輯");
+    return parts.join(" • ");
+  }
+  function fiMain(entry) {
+    var meta = entryMetaText(entry);
+    return h("div", { class: "fi__main" }, h("div", { class: "fi__name" }, entry.name + (entry.kind === "dir" ? " /" : "")), meta ? h("div", { class: "fi__meta" }, meta) : null);
   }
   /** 唯讀檢視：請伺服器匯出最新版並用預設程式開啟；結果顯示在面板上方的提示列。 */
   function viewFile(full) {
@@ -734,7 +864,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   }
 
   function pickBox(full) {
-    var box = h("input", { type: "checkbox", class: "pick", title: "勾選（可多選，一起刪除）", checked: (browse.sel && browse.sel[full]) ? "checked" : null });
+    var box = h("input", { type: "checkbox", class: "pick", title: "勾選（檔案或資料夾，可多選一起刪除）", checked: (browse.sel && browse.sel[full]) ? "checked" : null });
     box.addEventListener("change", function () {
       browse.sel = browse.sel || {};
       if (box.checked) browse.sel[full] = true; else delete browse.sel[full];
@@ -749,7 +879,8 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     var syncHint = prefs.syncLocal
       ? (localDir ? "同步本地端已開啟：本地目錄 " + localDir + " 也會一起更新。" : "同步本地端已開啟，但這個專案還沒設定本地目錄，本地端不會更新。")
       : "";
-    var shown = d.paths.slice(0, 8).map(function (p) { return h("div", { class: "path", style: "margin:0" }, p); });
+    var dirs = d.dirs || [];
+    var shown = d.paths.slice(0, 8).map(function (p) { return h("div", { class: "path", style: "margin:0" }, (dirs.indexOf(p) >= 0 ? "📁 " : "📄 ") + p); });
     var area = h("textarea", { placeholder: "說明為什麼刪除（必填，會寫進 SVN 的 commit 訊息）", disabled: d.busy ? "disabled" : null, oninput: function () { d.message = area.value; } });
     area.value = d.message;
     function fail(text) { d.busy = false; d.error = text; extSig = ""; renderExt(); }
@@ -760,14 +891,15 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
         var sync = r.localSync;
         var count = r.paths.length;
         loadBrowse(browse.path);
-        browse.notice = { text: "已刪除 " + count + " 個檔案（r" + r.deletedRevision + "）" + (sync && sync.status === "updated" ? "。" + sync.message : ""), error: false };
+        browse.notice = { text: "已刪除 " + count + " 個項目（r" + r.deletedRevision + "）" + (sync && sync.status === "updated" ? "。" + sync.message : ""), error: false };
         extSig = ""; renderExt();
-        if (sync && sync.status !== "updated") showAlert(syncAlertTitle(sync, "已刪除 SVN 上的檔案"), sync.message);
+        if (sync && sync.status !== "updated") showAlert(syncAlertTitle(sync, "已刪除 SVN 上的項目"), sync.message);
       }).catch(function (e) { fail(e.message + (HINTS[e.code] ? String.fromCharCode(10) + HINTS[e.code] : "")); });
-    } }, d.busy ? "刪除中…" : "確定刪除 " + d.paths.length + " 個檔案");
+    } }, d.busy ? "刪除中…" : "確定刪除 " + d.paths.length + " 個項目");
     return h("div", { class: "delbox" },
-      h("p", null, h("strong", null, "要刪除 SVN 上的這 " + d.paths.length + " 個檔案嗎？")),
+      h("p", null, h("strong", null, "要刪除 SVN 上的這 " + d.paths.length + " 個項目嗎？")),
       h("div", { style: "margin:0 0 8px" }, shown, d.paths.length > shown.length ? h("div", { class: "path", style: "margin:0" }, "…另外還有 " + (d.paths.length - shown.length) + " 個") : null),
+      dirs.length ? h("div", { class: "warnbox" }, "其中 " + dirs.length + " 個是資料夾，會連同底下所有檔案一起刪除。") : null,
       h("p", { class: "hint", style: "margin:0 0 8px" }, "會產生一個新版本，之後仍可從 SVN 歷史還原。" + syncHint),
       area,
       d.error ? h("div", { class: "msg" }, d.error) : null,
@@ -783,34 +915,30 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
       h("strong", { class: "projbar__name" }, connLabel(current)),
       starButton(current));
     var segments = browse.path ? browse.path.split("/") : [];
-    var crumbs = [h("button", { type: "button", onclick: function () { loadBrowse(""); } }, "根目錄")];
-    segments.forEach(function (seg, index) {
-      crumbs.push(h("button", { type: "button", onclick: function () { loadBrowse(segments.slice(0, index + 1).join("/")); } }, seg));
-    });
+    var crumbs = crumbNodes(segments, loadBrowse);
     function entryNode(entry) {
       var full = browse.path ? browse.path + "/" + entry.name : entry.name;
       if (entry.viewable) {
-        return h("button", { type: "button", class: "entry", title: "用電腦預設的程式開啟最新版（唯讀，不能編輯、也不會改動 SVN）", onclick: function () { viewFile(full); } },
-          h("span", { class: "entry__name" }, "👁 " + entry.name), entryMeta(entry));
+        return h("button", { type: "button", class: "entry fi", title: "用電腦預設的程式開啟最新版（唯讀，不能編輯、也不會改動 SVN）", onclick: function () { viewFile(full); } },
+          fileBadge(entry), fiMain(entry));
       }
       if (entry.kind === "dir") {
-        var dirRow = h("div", { class: "entry entry--row", role: "button", tabindex: "0", onclick: function () { loadBrowse(full); } },
-          folderStarButton(current.name, full), h("span", { class: "entry__name" }, "📁 " + entry.name), entryMeta(entry));
+        var dirRow = h("div", { class: "entry entry--row fi", role: "button", tabindex: "0", onclick: function () { loadBrowse(full); } },
+          folderStarButton(current.name, full), fileBadge(entry), fiMain(entry));
         dirRow.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target === dirRow) loadBrowse(full); });
         return dirRow;
       }
-      return h("button", { type: "button", class: "entry", disabled: entry.editable ? null : "disabled", title: entry.editable ? "" : (entry.tempFile ? "這是 Word／Excel 開著文件時自動產生的暫存檔，不是文件本身（可能是被誤提交進 SVN 的）" : "不支援編輯這種檔案類型"),
+      return h("button", { type: "button", class: "entry fi", disabled: entry.editable ? null : "disabled", title: entry.editable ? "" : (entry.tempFile ? "這是 Word／Excel 開著文件時自動產生的暫存檔，不是文件本身（可能是被誤提交進 SVN 的）" : "不支援編輯這種檔案類型"),
         onclick: function () {
           pendingRequest = { connection: browse.connection, path: full, ticket: browse.ticket };
           closeExt(); render(); window.scrollTo(0, 0);
-        } }, h("span", { class: "entry__name" }, "📄 " + entry.name), entryMeta(entry));
+        } }, fileBadge(entry), fiMain(entry));
     }
     var rows = (browse.entries || []).map(function (entry) {
       var node = entryNode(entry);
-      if (entry.kind === "dir") return node;
       return h("div", { class: "entryrow" }, pickBox(browse.path ? browse.path + "/" + entry.name : entry.name), node);
     });
-    var fileEntries = (browse.entries || []).filter(function (e) { return e.kind !== "dir"; });
+    var fileEntries = browse.entries || []; // 檔案與資料夾都能勾選刪除
     function fullOf(e) { return browse.path ? browse.path + "/" + e.name : e.name; }
     var sel = browse.sel || (browse.sel = {});
     var picked = fileEntries.filter(function (e) { return sel[fullOf(e)]; });
@@ -821,10 +949,15 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     });
     var selBar = fileEntries.length ? h("div", { class: "selbar" },
       h("label", null, allBox, "全選"),
-      h("span", { class: "grow" }, picked.length ? "已選 " + picked.length + " 個檔案" : ""),
+      h("span", { class: "grow" }, picked.length ? "已選 " + picked.length + " 個項目" : ""),
       picked.length ? h("button", { type: "button", class: "danger", onclick: function () {
-        browse.del = { paths: picked.map(fullOf), message: "", busy: false, error: null }; browse.notice = null; extSig = ""; renderExt();
+        browse.del = { paths: picked.map(fullOf), dirs: picked.filter(function (e) { return e.kind === "dir"; }).map(fullOf), message: "", busy: false, error: null }; browse.notice = null; extSig = ""; renderExt();
       } }, "刪除所選") : null) : null;
+    var dirCount = fileEntries.filter(function (e) { return e.kind === "dir"; }).length;
+    var stats = fileEntries.length ? h("div", { class: "stat" }, dirCount + " 個資料夾、" + (fileEntries.length - dirCount) + " 個檔案") : null;
+    var trackbar = h("div", { class: "trackbar" },
+      h("span", null, "目前這一層：", h("b", null, browse.path || "（整個專案）")),
+      h("button", { type: "button", class: "primary", title: "把這個目錄取到你的電腦，建立 SVN 追蹤", onclick: function () { openCheckout(current); } }, "⬇ Checkout 到本地"));
     box.appendChild(h("div", null,
       h("h2", null, "瀏覽 SVN 目錄"),
       h("p", { class: "hint" }, "點資料夾進入；點檔案會回到主畫面，出現「開始編輯」的確認卡。PDF（👁）只能開啟檢視，不能編輯。"),
@@ -833,6 +966,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
       projbar,
       renderFavBox(current.name, loadBrowse, null),
       h("div", { class: "crumbs" }, crumbs),
+      trackbar,
       browse.path ? h("div", { class: "hint", style: "margin:0 0 8px;display:flex;align-items:center;gap:8px" },
         folderStarButton(current.name, browse.path),
         h("span", { style: "flex:1;min-width:0;overflow-wrap:anywhere" }, "目前位置：" + browse.path + (favFolders(current.name).indexOf(browse.path) >= 0 ? "　（已是常用目錄）" : "　（點 ☆ 加入常用目錄）"))) : null,
@@ -841,6 +975,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
       !browse.loading && !browse.error && browse.entries && browse.entries.length === 0 ? h("div", { class: "empty" }, "這個目錄是空的。") : null,
       selBar,
       rows,
+      stats,
       browse.truncated ? h("p", { class: "hint" }, "項目太多，只顯示前 1000 個。") : null));
   }
 
@@ -1290,7 +1425,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     settingsSig = sig;
     box.textContent = "";
     var list = state.servers.map(function (sv) {
-      return h("div", { class: "conn" }, h("span", null, sv.name + "（" + sv.username + "）・" + sv.repoCount + " 個 repo", h("br", null), h("span", { class: "path" }, sv.url)));
+      return h("div", { class: "conn" }, h("span", null, accountLabel(sv), h("br", null), h("span", { class: "path" }, sv.url)));
     });
     box.appendChild(h("div", { class: "card" },
       h("h2", null, "連線設定" + (state.servers.length ? "（" + state.servers.length + " 個帳號）" : "（尚未設定）")),
@@ -1352,13 +1487,12 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
           h("button", { type: "button", class: "danger", onclick: function () { deleteConfirmId = sv.id; settingsNote = null; extSig = ""; renderExt(); } }, "刪除")];
       }
       return h("div", { class: "conn" },
-        h("span", null, sv.name + "（" + sv.username + "）・" + sv.repoCount + " 個 repo", h("br", null), h("span", { class: "path" }, sv.url),
+        h("span", null, accountLabel(sv), h("br", null), h("span", { class: "path" }, sv.url),
           aliasNames.length ? h("span", { class: "path" }, h("br", null), "別名：" + aliasNames.join("、")) : null),
         h("span", { class: "btns" }, buttons));
     });
     return h("div", null,
       h("h2", { style: "margin-top:14px;font-size:15px" }, "SVN 伺服器（填帳密就能用所有 repo）"),
-      h("p", { class: "hint" }, "每個 SVN 帳號只要設定一次：填伺服器的上層網址（底下每個子目錄是一個 repo）和帳密，會自動讀出這個帳號看得到的所有 repo。新增、更新前都會先實際連線測試，連不上就不會儲存。公司網址有變時，按「編輯」就能改名稱、網址、帳號、密碼。伺服器上新增 repo 時按「重新載入」。"),
       list.length ? h("div", null, list) : h("div", { class: "empty" }, "還沒有任何帳號，請在下方新增。"),
       h("form", { autocomplete: "off", onsubmit: function (ev) { ev.preventDefault(); } },
         h("h2", { style: "margin-top:18px;font-size:15px" }, serverForm.id ? "編輯帳號" : "新增帳號"),
@@ -1370,10 +1504,37 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
         h("div", { class: "row" }, testBtn, save, serverForm.id ? h("button", { type: "button", onclick: function () { resetForm(); settingsNote = null; extSig = ""; renderExt(); } }, "取消編輯") : null)));
   }
 
-  // 同步本地端：一個開關；開啟後才需要替各專案填本地 SVN 資料夾。
+  // ---- 同步本地端（管理連線）、本機資料夾點選、Checkout 到本地 ----
+  var addRepo = "";
+  var localInfo = {};
+  var localInfoAsked = {};
+  function localPathsOf(repo) { var v = (prefsNow().localPaths || {})[repo]; return Array.isArray(v) ? v : (v ? [v] : []); }
+  function forgetLocalInfo(dir) { delete localInfo[dir]; delete localInfoAsked[dir]; }
+  /** 向伺服器問「這些本地目錄有沒有 SVN 追蹤、對應哪個遠端位置」（問過的不再問，目錄有變動才重問）。 */
+  function askLocalInfo() {
+    var need = [];
+    Object.keys(prefsNow().localPaths || {}).forEach(function (repo) {
+      localPathsOf(repo).forEach(function (dir) { if (!localInfo[dir] && !localInfoAsked[dir]) { localInfoAsked[dir] = true; need.push(dir); } });
+    });
+    if (!need.length) return;
+    api("POST", "/api/local/inspect", { paths: need }).then(function (r) {
+      r.results.forEach(function (x) { localInfo[x.path] = x; });
+      extSig = ""; renderExt();
+    }).catch(function () { need.forEach(function (d) { delete localInfoAsked[d]; }); });
+  }
+  /** 本地工作目錄對應的遠端位置（相對於專案根目錄）。 */
+  function remoteOfLocal(repo, info) {
+    if (!info || !info.url) return "";
+    var u = safeDecode(info.url).replace(/[/]+$/, "");
+    var marker = "/" + repo.toLowerCase();
+    var i = u.toLowerCase().lastIndexOf(marker + "/");
+    if (i >= 0) return u.slice(i + marker.length + 1);
+    if (u.toLowerCase().slice(-marker.length) === marker) return "（整個專案）";
+    return u;
+  }
+
   function syncSection() {
     var prefs = prefsNow();
-    var paths = prefs.localPaths || {};
     function save(call, okText, after) {
       localBusy = true; extSig = ""; renderExt();
       return call.then(function (r) {
@@ -1388,33 +1549,234 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
       h("h2", { style: "margin-top:22px;font-size:15px" }, "同步本地端"),
       h("label", { class: "switchrow" }, h("span", null, "上傳、刪除後自動 svn update"), h("span", { class: "switch" }, toggle, h("span", { class: "switch__track" }))));
     if (!prefs.syncLocal) return head;
+    askLocalInfo();
 
-    var rows = Object.keys(paths).sort().map(function (name) {
-      return h("div", { class: "conn" },
-        h("span", null, name, h("br", null), h("span", { class: "path" }, paths[name])),
-        h("span", { class: "btns" },
-          h("button", { type: "button", disabled: localBusy ? "disabled" : null, onclick: function () { localForm = { repo: name, path: paths[name] }; localNote = null; extSig = ""; renderExt(); } }, "修改"),
-          h("button", { type: "button", class: "danger", disabled: localBusy ? "disabled" : null, onclick: function () {
-            save(api("POST", "/api/repo-prefs/local-path", { repo: name, path: "" }), "已清除「" + name + "」。");
-          } }, "清除")));
+    var rows = [];
+    Object.keys(prefs.localPaths || {}).sort().forEach(function (repo) {
+      localPathsOf(repo).forEach(function (dir) {
+        var info = localInfo[dir];
+        var status = !info ? { cls: "none", text: "檢查中…" } : !info.exists ? { cls: "warn", text: "⚠ 目錄不存在" } : info.isWc ? { cls: "ok", text: "✓ 有 SVN 追蹤" } : { cls: "warn", text: "⚠ 沒有 SVN 追蹤" };
+        var remote = remoteOfLocal(repo, info);
+        rows.push(h("div", { class: "conn conn--local" },
+          h("div", { class: "conn__main" },
+            h("div", { class: "nm" }, repo, h("span", { class: "pill pill--" + status.cls }, status.text)),
+            remote ? h("div", { class: "pth" }, "遠端：" + remote) : null,
+            h("div", { class: "pth" }, "本地：" + dir),
+            info && info.exists && !info.isWc ? h("div", { class: "warnline" }, "同步時不會更新，請重新選擇 Checkout 出來的資料夾。") : null),
+          h("span", { class: "btns" },
+            h("button", { type: "button", disabled: localBusy ? "disabled" : null, onclick: function () {
+              openLocalPicker("重新選擇「" + repo + "」的本地資料夾", function (picked) {
+                save(api("POST", "/api/repo-prefs/local-path/add", { repo: repo, path: picked }).then(function () {
+                  return api("POST", "/api/repo-prefs/local-path/remove", { repo: repo, path: dir });
+                }), "已儲存。", function () { forgetLocalInfo(dir); forgetLocalInfo(picked); });
+              });
+            } }, "重新選擇…"),
+            h("button", { type: "button", class: "danger", disabled: localBusy ? "disabled" : null, onclick: function () {
+              save(api("POST", "/api/repo-prefs/local-path/remove", { repo: repo, path: dir }), "已清除。", function () { forgetLocalInfo(dir); });
+            } }, "清除"))));
+      });
     });
-    var select = h("select", { onchange: function () { localForm.repo = select.value; } },
-      [h("option", { value: "" }, "（選擇專案）")].concat(state.connections.map(function (c) { return h("option", { value: c.name }, connLabel(c)); })));
-    select.value = localForm.repo;
-    var pathInput = h("input", { type: "text", placeholder: "本地資料夾，例如 D:/svn/專案名稱", autocomplete: "off", oninput: function () { localForm.path = pathInput.value; } });
-    pathInput.value = localForm.path;
-    var saveBtn = h("button", { type: "button", class: "primary", disabled: localBusy ? "disabled" : null, onclick: function () {
-      if (!localForm.repo) { localNote = { text: "請先選擇專案。", info: false }; extSig = ""; renderExt(); return; }
-      var repo = localForm.repo;
-      save(api("POST", "/api/repo-prefs/local-path", { repo: repo, path: localForm.path }), "已儲存「" + repo + "」。", function () { localForm = { repo: "", path: "" }; });
-    } }, "儲存");
+
+    var select = h("select", { onchange: function () { addRepo = select.value; } },
+      [h("option", { value: "" }, "（選擇專案，指向電腦上已有的資料夾）")].concat(state.connections.map(function (c) { return h("option", { value: c.name }, connLabel(c)); })));
+    select.value = addRepo;
+    var pick = h("button", { type: "button", class: "primary", disabled: localBusy ? "disabled" : null, onclick: function () {
+      if (!select.value) { localNote = { text: "請先選擇專案。", info: false }; extSig = ""; renderExt(); return; }
+      var repo = select.value;
+      openLocalPicker("選擇「" + repo + "」的本地資料夾", function (picked) {
+        save(api("POST", "/api/repo-prefs/local-path/add", { repo: repo, path: picked }), "已儲存。", function () { addRepo = ""; forgetLocalInfo(picked); });
+      });
+    } }, "選擇資料夾…");
     return h("div", null, head,
       rows.length ? h("div", null, rows) : null,
-      h("form", { autocomplete: "off", onsubmit: function (ev) { ev.preventDefault(); } },
-        select, pathInput,
-        localNote ? h("div", { class: localNote.info ? "msg info" : "msg" }, localNote.text) : null,
-        h("div", { class: "row" }, saveBtn)));
+      h("div", { class: "addrow" }, select, pick),
+      localNote ? h("div", { class: localNote.info ? "msg info" : "msg" }, localNote.text) : null,
+      h("p", { class: "hint", style: "margin-top:8px" }, "還沒有本地資料夾？到「瀏覽 SVN 目錄」按「⬇ Checkout 到本地」就能建立。"));
   }
+
+  // ---- 本機資料夾點選（不用複製貼上路徑）----
+  var lp = null;
+  function openLocalPicker(title, onPick) {
+    closeLocalPicker();
+    lp = { title: title, onPick: onPick, listing: null, loading: true, error: null };
+    var overlay = h("div", { class: "shade shade--top on" }, h("div", { class: "sheet2" }));
+    lp.el = overlay;
+    // 用區域變數：按「選擇這個資料夾」時視窗已先關閉、lp 已清空，事件才往上傳到這裡
+    overlay.addEventListener("click", function (ev) { if (ev.target === overlay) closeLocalPicker(); });
+    document.body.appendChild(overlay);
+    loadLocal("");
+  }
+  function closeLocalPicker() { if (lp && lp.el && lp.el.parentNode) lp.el.parentNode.removeChild(lp.el); lp = null; }
+  function loadLocal(p) {
+    var cur = lp;
+    if (!cur) return;
+    cur.loading = true; cur.error = null; renderLocalPicker();
+    api("GET", "/api/local/list?path=" + encodeURIComponent(p)).then(function (r) {
+      if (lp !== cur) return;
+      cur.listing = r; cur.loading = false; renderLocalPicker();
+    }).catch(function (e) {
+      if (lp !== cur) return;
+      cur.loading = false; cur.error = e.message; renderLocalPicker();
+    });
+  }
+  function renderLocalPicker() {
+    if (!lp) return;
+    var cur = lp;
+    var sheet = cur.el.firstChild;
+    sheet.textContent = "";
+    var L = cur.listing;
+    sheet.appendChild(h("h3", { class: "sheet2__title" }, cur.title));
+    sheet.appendChild(h("p", { class: "hint" }, "點資料夾進入，找到後按「選擇這個資料夾」。有 ", h("span", { class: "pill pill--ok", style: "margin:0" }, "SVN"), " 標記的，就是有 SVN 追蹤的資料夾。"));
+    var segs = L && L.path ? L.path.split("/").filter(Boolean) : [];
+    var crumbs = h("div", { class: "crumbs" });
+    crumbs.appendChild(segs.length ? h("button", { type: "button", onclick: function () { loadLocal(""); } }, "本機") : h("span", { class: "cur" }, "本機"));
+    segs.forEach(function (seg, i) {
+      var target = segs.slice(0, i + 1).join("/") + (i === 0 ? "/" : "");
+      crumbs.appendChild(h("span", { class: "sep" }, "→"));
+      crumbs.appendChild(i === segs.length - 1 ? h("span", { class: "cur" }, seg) : h("button", { type: "button", onclick: function () { loadLocal(target); } }, seg));
+    });
+    sheet.appendChild(crumbs);
+    var list = h("div", { class: "fslist" });
+    if (cur.loading) list.appendChild(h("div", { class: "empty" }, "讀取中…"));
+    else if (cur.error) list.appendChild(h("div", { class: "msg" }, cur.error));
+    else if (L) {
+      if (!L.entries.length) list.appendChild(h("div", { class: "empty" }, "（這個資料夾底下沒有子資料夾）"));
+      L.entries.forEach(function (e) {
+        list.appendChild(h("div", { class: "fsrow", onclick: function () { loadLocal(e.path); } },
+          fileBadge({ kind: "dir", name: e.name }, true), h("span", { class: "n" }, e.name), e.isWc ? h("span", { class: "pill pill--ok" }, "SVN") : null));
+      });
+      if (L.truncated) list.appendChild(h("div", { class: "hint", style: "padding:8px 12px" }, "項目太多，只顯示前面一部分。"));
+    }
+    sheet.appendChild(list);
+    var canPick = !!(L && L.path) && !cur.loading;
+    sheet.appendChild(h("div", { class: "sheet2__foot" },
+      h("div", { class: "cur" }, L && L.path ? "目前：" + L.path + (L.inWc ? "（在 SVN 工作目錄內）" : "") : "請先選擇磁碟"),
+      h("button", { type: "button", onclick: closeLocalPicker }, "取消"),
+      h("button", { type: "button", class: "primary", disabled: canPick ? null : "disabled", onclick: function () { var cb = cur.onPick; var p = L.path; closeLocalPicker(); cb(p); } }, "選擇這個資料夾")));
+  }
+
+  // ---- Checkout 到本地 ----
+  var co = null;
+  var coTimer = null;
+  var CO_SCOPES = [
+    { k: "all", t: "整個目錄（含所有子資料夾）", d: "最完整；檔案多時要等一陣子。" },
+    { k: "files", t: "只取這一層的檔案（不含子資料夾）", d: "之後要用到子資料夾再另外取。" },
+    { k: "empty", t: "只建立追蹤（先不下載檔案）", d: "馬上完成；之後編輯、上傳到哪個檔案，才取回哪個檔案。" }
+  ];
+  function openCheckout(current) {
+    closeCheckout();
+    var leaf = browse.path ? browse.path.split("/").pop() : current.name;
+    co = { conn: current, remotePath: browse.path || "", name: leaf, parent: "", scope: "all", setSync: true, phase: "form", error: null, result: null, status: { k: "none", m: "" } };
+    var overlay = h("div", { class: "shade on" }, h("div", { class: "sheet2" }));
+    var state0 = co;
+    co.el = overlay;
+    overlay.addEventListener("click", function (ev) { if (ev.target === overlay && state0.phase !== "run" && co === state0) closeCheckout(); });
+    document.body.appendChild(overlay);
+    renderCheckout();
+  }
+  function closeCheckout() { clearTimeout(coTimer); if (co && co.el && co.el.parentNode) co.el.parentNode.removeChild(co.el); co = null; }
+  function coTarget() { return co && co.parent ? co.parent + "/" + co.name.trim() : ""; }
+  /** 預先檢查放的位置（只是讓使用者早點知道；真正的保護在伺服器端）。 */
+  function checkCoTarget() {
+    var cur = co;
+    if (!cur) return;
+    if (!cur.parent || !cur.name.trim()) { cur.status = { k: "none", m: "" }; updateCoStatus(); return; }
+    api("POST", "/api/local/inspect", { paths: [coTarget(), cur.parent] }).then(function (r) {
+      if (co !== cur) return;
+      var t = r.results[0], p = r.results[1];
+      if (t.exists && t.isWc) cur.status = { k: "info", m: "這個位置已經是 SVN 工作目錄，不需要 Checkout。可以到「管理連線」直接指定它。", blocked: true };
+      else if (t.exists && t.nonEmpty) cur.status = { k: "err", m: "這個資料夾已經有內容，為了不弄亂你原有的檔案，不能 Checkout 到這裡。請換一個新的資料夾名稱。", blocked: true };
+      else if (!t.exists && p.inWc) cur.status = { k: "err", m: "選的位置已經在另一個 SVN 工作目錄裡面，不能在裡面再 Checkout 一層。請換一個位置。", blocked: true };
+      else cur.status = { k: "ok", m: t.exists ? "✓ 可以 Checkout（這是空的資料夾）" : "✓ 可以 Checkout（會自動建立這個資料夾）" };
+      updateCoStatus();
+    }).catch(function () { /* 預先檢查失敗不擋，交給伺服器判斷 */ });
+  }
+  function updateCoStatus() {
+    if (!co || !co.statusEl) return;
+    co.statusEl.className = "st " + (co.status.k === "none" ? "" : co.status.k);
+    co.statusEl.textContent = co.status.m;
+    co.statusEl.style.display = co.status.m ? "" : "none";
+    co.previewEl.textContent = co.parent ? "會建立：" + coTarget() : "";
+    var ready = !!co.parent && !!co.name.trim() && !co.status.blocked;
+    co.startBtn.disabled = !ready;
+  }
+  function renderCheckout() {
+    if (!co) return;
+    var cur = co;
+    var sheet = cur.el.firstChild;
+    sheet.textContent = "";
+    sheet.appendChild(h("h3", { class: "sheet2__title" }, "Checkout 到本地"));
+
+    if (cur.phase === "run") {
+      sheet.appendChild(h("p", { class: "hint" }, "正在 Checkout，請不要關閉視窗…（整個目錄很大時需要一陣子）"));
+      sheet.appendChild(h("div", { class: "bar" }, h("i", null)));
+      return;
+    }
+    if (cur.phase === "done") {
+      var r = cur.result;
+      sheet.appendChild(h("div", { class: "st ok" }, "✓ 完成：" + (r.revision ? "r" + r.revision + "，" : "") + r.itemCount + " 個項目，放在 " + r.target));
+      if (r.synced) {
+        sheet.appendChild(h("div", { class: "st info" }, "已設為「" + cur.conn.name + "」的同步目錄。" + (prefsNow().syncLocal ? "之後上傳、刪除會自動更新這裡。" : "目前「同步本地端」是關閉的，到「管理連線」打開後，上傳、刪除才會自動更新這裡。")));
+      }
+      sheet.appendChild(h("div", { class: "row", style: "margin-top:12px" }, h("button", { type: "button", class: "primary", onclick: closeCheckout }, "完成")));
+      return;
+    }
+
+    sheet.appendChild(h("div", { class: "lbl" }, "遠端目錄"));
+    sheet.appendChild(h("div", { class: "loc__url", style: "border:1px solid var(--line-strong);background:var(--field);border-radius:10px;padding:7px 10px" },
+      String(cur.conn.url).replace(/[/]+$/, "") + (cur.remotePath ? "/" + cur.remotePath : "")));
+
+    sheet.appendChild(h("div", { class: "lbl" }, "放到本地哪個資料夾底下"));
+    sheet.appendChild(h("div", { class: "pathrow" },
+      h("div", { class: "v" + (cur.parent ? "" : " empty") }, cur.parent || "（尚未選擇）"),
+      h("button", { type: "button", class: "primary", onclick: function () {
+        openLocalPicker("Checkout 要放在哪個資料夾底下？", function (picked) { cur.parent = picked; renderCheckout(); checkCoTarget(); });
+      } }, "選擇資料夾…")));
+
+    sheet.appendChild(h("div", { class: "lbl" }, "新資料夾名稱（預設跟遠端目錄同名，可以改）"));
+    var nameIn = h("input", { type: "text", autocomplete: "off" });
+    nameIn.value = cur.name;
+    nameIn.addEventListener("input", function () { cur.name = nameIn.value; cur.status = { k: "none", m: "" }; updateCoStatus(); clearTimeout(coTimer); coTimer = setTimeout(checkCoTarget, 250); });
+    cur.previewEl = h("div", { class: "hint", style: "margin:6px 0 0" });
+    cur.statusEl = h("div", { class: "st" });
+    sheet.appendChild(nameIn); sheet.appendChild(cur.previewEl); sheet.appendChild(cur.statusEl);
+
+    sheet.appendChild(h("div", { class: "lbl" }, "Checkout 範圍"));
+    CO_SCOPES.forEach(function (o) {
+      var radio = h("input", { type: "radio", name: "coScope", checked: cur.scope === o.k ? "checked" : null });
+      radio.addEventListener("change", function () { cur.scope = o.k; renderCheckout(); checkCoTarget(); });
+      sheet.appendChild(h("label", { class: "opt" + (cur.scope === o.k ? " on" : "") }, radio, h("div", null, h("b", null, o.t), h("small", null, o.d))));
+    });
+
+    var chk = h("input", { type: "checkbox", checked: cur.setSync ? "checked" : null });
+    chk.addEventListener("change", function () { cur.setSync = chk.checked; });
+    sheet.appendChild(h("label", { class: "chk" }, chk, h("span", null, "完成後設為「" + cur.conn.name + "」的同步目錄（上傳、刪除後自動更新這裡）")));
+    if (cur.error) sheet.appendChild(h("div", { class: "st err" }, cur.error));
+
+    cur.startBtn = h("button", { type: "button", class: "primary", onclick: function () {
+      cur.phase = "run"; cur.error = null; renderCheckout();
+      api("POST", "/api/checkout", { connection: cur.conn.id, remotePath: cur.remotePath, parent: cur.parent, name: cur.name.trim(), scope: cur.scope, setSync: cur.setSync }).then(function (res) {
+        if (co !== cur) return;
+        forgetLocalInfo(res.target);
+        cur.phase = "done"; cur.result = res; renderCheckout();
+        refresh();
+      }).catch(function (e) {
+        if (co !== cur) return;
+        cur.phase = "form"; cur.error = e.message + (HINTS[e.code] ? String.fromCharCode(10) + HINTS[e.code] : "");
+        renderCheckout(); checkCoTarget();
+      });
+    } }, "開始 Checkout");
+    sheet.appendChild(h("div", { class: "sheet2__foot", style: "margin-top:14px" }, h("div", { class: "cur" }), h("button", { type: "button", onclick: closeCheckout }, "取消"), cur.startBtn));
+    updateCoStatus();
+  }
+  // Esc 先關掉最上面的視窗（本機資料夾點選 → Checkout），不要連右邊面板一起收掉
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Escape") return;
+    if (lp) closeLocalPicker();
+    else if (co && co.phase !== "run") closeCheckout();
+    else return;
+    ev.preventDefault(); ev.stopPropagation();
+  }, true);
 
   function renderConnView(box) {
     box.appendChild(h("div", null,
@@ -1426,10 +1788,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
 
   function renderPickView(box) {
     var segments = pick.path ? pick.path.split("/") : [];
-    var crumbs = [h("button", { type: "button", onclick: function () { loadPick(""); } }, "根目錄")];
-    segments.forEach(function (seg, i) {
-      crumbs.push(h("button", { type: "button", onclick: function () { loadPick(segments.slice(0, i + 1).join("/")); } }, seg));
-    });
+    var crumbs = crumbNodes(segments, loadPick);
     var rows = (pick.entries || []).map(function (e) {
       var full = pick.path ? pick.path + "/" + e.name : e.name;
       var row = h("div", { class: "entry entry--row", role: "button", tabindex: "0", onclick: function () { loadPick(full); } },
@@ -1502,16 +1861,15 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
     var family = getComputedStyle(document.body).fontFamily;
     var need = 0;
     browse.entries.forEach(function (entry) {
-      fitContext.font = "500 14.5px " + family;
-      var nameW = fitContext.measureText("📄 " + entry.name).width;
+      fitContext.font = "700 14.5px " + family;
+      var nameW = fitContext.measureText(entry.name + (entry.kind === "dir" ? " /" : "")).width;
       fitContext.font = "12px " + family;
-      var metaW = 0;
-      entryLines(entry).forEach(function (line) { metaW = Math.max(metaW, fitContext.measureText(line).width); });
-      need = Math.max(need, nameW + metaW);
+      var metaW = fitContext.measureText(entryMetaText(entry)).width;
+      need = Math.max(need, nameW, metaW);
     });
-    // 加上每列左右內距、名稱與說明的間距、面板內距、捲軸與邊框
+    // 加上勾選框、圖示、星星鈕、每列內距、面板內距、捲軸與邊框
     var maxW = Math.max(EXT_MIN_W, Math.min(EXT_MAX_W, (screen.availWidth || 1280) - MIN_MAIN_W));
-    setExtWidth(Math.min(maxW, Math.ceil(need + 24 + 10 + 36 + 28)));
+    setExtWidth(Math.min(maxW, Math.ceil(need + 200)));
   }
   function restoreWindow() {
     if (windowBaseWidth === null) return;
@@ -1530,7 +1888,7 @@ main{flex:0 1 560px;min-width:0;padding:14px 16px 28px}
   }
   function renderExt() {
     var box = document.getElementById("extBody");
-    var sig = JSON.stringify([ext.view, state.connections, state.servers, serverBusy, serverForm.id, browse.connection, browse.path, browse.entries, browse.loading, browse.error, browse.truncated, browse.ticket, browse.notice, browse.picking, picker.tab, pick.path, pick.entries, pick.loading, pick.notice, settingsNote, deleteConfirmId, browse.del ? [browse.del.paths, browse.del.busy, browse.del.error] : null, browse.sel, state.repoPrefs.syncLocal, state.repoPrefs.localPaths, localNote, localBusy]);
+    var sig = JSON.stringify([ext.view, state.connections, state.servers, serverBusy, serverForm.id, browse.connection, browse.path, browse.entries, browse.loading, browse.error, browse.truncated, browse.ticket, browse.notice, browse.picking, picker.tab, pick.path, pick.entries, pick.loading, pick.notice, settingsNote, deleteConfirmId, browse.del ? [browse.del.paths, browse.del.busy, browse.del.error] : null, browse.sel, state.repoPrefs.syncLocal, state.repoPrefs.localPaths, localNote, localBusy, Object.keys(localInfo).length]);
     if (sig === extSig) return;
     extSig = sig;
     box.textContent = "";

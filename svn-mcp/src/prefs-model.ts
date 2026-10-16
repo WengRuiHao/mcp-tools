@@ -13,8 +13,8 @@ export interface RepoPrefs {
   folders: Record<string, string[]>;
   /** 專案名稱 → 目錄路徑 → 常用目錄的暱稱（路徑很長時用暱稱比較好認）。只會有「已經是常用目錄」的路徑。 */
   folderNicknames: Record<string, Record<string, string>>;
-  /** 專案名稱 → 這個專案在本機的 SVN 工作目錄（絕對路徑）。「同步本地端」開啟時，編輯／刪除成功後會 svn update 這個目錄。 */
-  localPaths: Record<string, string>;
+  /** 專案名稱 → 這個專案在本機的 SVN 工作目錄清單（絕對路徑，一個專案可以追蹤多個遠端目錄）。「同步本地端」開啟時，編輯／刪除成功後會 svn update 包含該檔案的那個目錄。 */
+  localPaths: Record<string, string[]>;
   /** 「同步本地端」開關：開啟時，遠端編輯上傳或刪除成功後自動 svn update 本地工作目錄。預設關閉（維持原本行為）。 */
   syncLocal: boolean;
 }
@@ -27,6 +27,7 @@ export const MAX_RECENT = 500;
 export const MAX_FOLDERS_PER_REPO = 100;
 export const MAX_FOLDER_PATH_LENGTH = 500;
 export const MAX_LOCAL_PATH_LENGTH = 400;
+export const MAX_LOCAL_PATHS_PER_REPO = 20;
 export const FORBIDDEN_FOLDER_CHARS = /[<>:"|?*\u0000-\u001f]/;
 
 export function emptyPrefs(): RepoPrefs {
@@ -63,10 +64,22 @@ export function isLocalDirPath(value: string): boolean {
   return /^[a-zA-Z]:[\\/]/.test(value) || /^\\\\[^\\/]+[\\/][^\\/]+/.test(value);
 }
 
-function localPathRecord(value: unknown): Record<string, string> {
-  const out: Record<string, string> = {};
+/** 去掉前後空白與結尾的斜線；不合法回傳空字串。 */
+export function cleanLocalDir(value: unknown): string {
+  const text = typeof value === "string" ? value.trim().replace(/[\\/]+$/, "") : "";
+  return text && isLocalDirPath(text) ? text : "";
+}
+
+/** 新格式是清單；舊格式（一個專案一個字串）自動升級成只有一筆的清單。 */
+function localPathRecord(value: unknown): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
   if (value && typeof value === "object" && !Array.isArray(value)) {
-    for (const [repo, dir] of Object.entries(value as Record<string, unknown>)) if (isName(repo) && typeof dir === "string" && isLocalDirPath(dir)) out[repo] = dir;
+    for (const [repo, raw] of Object.entries(value as Record<string, unknown>)) {
+      if (!isName(repo)) continue;
+      const list = (Array.isArray(raw) ? raw : [raw]).map(cleanLocalDir).filter(Boolean);
+      const unique = list.filter((dir, index) => list.findIndex((other) => other.toLowerCase() === dir.toLowerCase()) === index);
+      if (unique.length) out[repo] = unique.slice(0, MAX_LOCAL_PATHS_PER_REPO);
+    }
   }
   return out;
 }

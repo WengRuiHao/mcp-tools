@@ -3,3 +3,7 @@ dist/
 dist-exe/
 info/
 logs/
+
+# 設計草稿與 mockup 只留在本機，不進版控
+docs/svn-edit-design.md
+docs/*-mock.html

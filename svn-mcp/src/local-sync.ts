@@ -30,6 +30,7 @@ export interface LocalSyncResult {
 /** file＝更新這個檔案本身（本地沒有也會取回）；parent＝更新它所在的資料夾（刪除檔案、升級版本時用，讓檔案消失／出現）。 */
 export type LocalSyncScope = "file" | "parent";
 
+const NEWLINE = String.fromCharCode(10);
 const NOT_A_WORKING_COPY = /E155007|not a working copy/i;
 
 function decode(value: string): string {
@@ -76,47 +77,72 @@ function summarizeUpdate(output: string, localPath: string): LocalSyncResult {
   return { status: "updated", message: `已同步本地端${revision ? `（r${revision}）` : ""}：${localPath}`, localPath };
 }
 
+interface RootCheck {
+  dir: string;
+  kind: "missing" | "notwc" | "mismatch" | "match";
+  /** 工作目錄對應的 SVN 網址（有追蹤才有）。 */
+  url?: string;
+  /** 工作目錄對應的 SVN 路徑（比對用，已解碼、小寫）。 */
+  urlPath?: string;
+}
+
+/** 檢查一個本地目錄：存在嗎、有 SVN 追蹤嗎、對應的 SVN 位置包不包含這個檔案。 */
+async function checkRoot(conn: SvnConnection, dir: string, filePath: string): Promise<RootCheck> {
+  if (!existsSync(dir) || !statSync(dir).isDirectory()) return { dir, kind: "missing" };
+  const url = await workCopyUrl(conn, dir);
+  if (url === null) return { dir, kind: "notwc" };
+  const urlPath = urlPathOf(url);
+  const inside = filePath === urlPath || filePath.startsWith(`${urlPath}/`);
+  return { dir, kind: inside ? "match" : "mismatch", url, urlPath };
+}
+
+/** 一個目錄都沒辦法更新時，告訴使用者為什麼。只設定一個目錄時說得最具體；有多個時逐一列出。 */
+function explainNoMatch(conn: SvnConnection, remotePath: string, checks: RootCheck[]): LocalSyncResult {
+  const text = (check: RootCheck): string => {
+    if (check.kind === "missing") return `專案「${conn.name}」設定的本地目錄不存在：${check.dir}，所以沒有更新本地端。請到「管理連線」確認路徑。`;
+    if (check.kind === "notwc") return `本地目錄「${check.dir}」沒有 SVN 追蹤（不是 SVN 工作目錄，找不到 .svn），所以沒有更新。請先用 TortoiseSVN 或「瀏覽 SVN 目錄」的「Checkout 到本地」建立追蹤，或到「管理連線」改成正確的目錄。`;
+    return `本地目錄「${check.dir}」對應的 SVN 位置（${check.url}）不包含這個檔案（${remotePath}），所以沒有更新。請確認這個目錄是不是專案「${conn.name}」的工作目錄。`;
+  };
+  if (checks.length === 1) return warn(text(checks[0]), checks[0].kind === "missing" ? undefined : checks[0].dir);
+  const lines = checks.map((check) => `• ${check.dir}：${check.kind === "missing" ? "目錄不存在" : check.kind === "notwc" ? "沒有 SVN 追蹤" : "對應的 SVN 位置不包含這個檔案"}`);
+  return warn(`專案「${conn.name}」設定的 ${checks.length} 個本地目錄，沒有一個能更新這個檔案（${remotePath}），所以沒有更新本地端：${NEWLINE}${lines.join(NEWLINE)}`);
+}
+
 /**
  * 開關開啟時，把本地工作目錄更新到跟遠端一致；開關關閉回傳 null。**不會丟錯誤**。
- * `remotePath` 是這次動到的遠端檔案路徑（相對於連線根目錄）。
+ * `remotePath` 是這次動到的遠端檔案路徑（相對於連線根目錄）。專案設定了多個本地目錄時，
+ * 挑「對應的 SVN 位置包含這個檔案、而且最深的那一個」來更新。
  */
 export async function syncLocalAfterChange(conn: SvnConnection, remotePath: string, scope: LocalSyncScope): Promise<LocalSyncResult | null> {
   try {
     const prefs = await readRepoPrefs();
     if (!prefs.syncLocal) return null;
 
-    const localRoot = prefs.localPaths[conn.name];
-    if (!localRoot) {
+    const roots = prefs.localPaths[conn.name] ?? [];
+    if (roots.length === 0) {
       return warn(`已開啟「同步本地端」，但專案「${conn.name}」還沒設定本地目錄，所以沒有更新本地端。請到「管理連線」設定這個專案的本地目錄。`);
     }
-    if (!existsSync(localRoot) || !statSync(localRoot).isDirectory()) {
-      return warn(`專案「${conn.name}」設定的本地目錄不存在：${localRoot}，所以沒有更新本地端。請到「管理連線」確認路徑。`);
-    }
 
-    const rootUrl = await workCopyUrl(conn, localRoot);
-    if (rootUrl === null) {
-      return warn(`本地目錄「${localRoot}」沒有 SVN 追蹤（不是 SVN 工作目錄，找不到 .svn），所以沒有更新。請先用 TortoiseSVN 把專案 Checkout 到這個目錄，或到「管理連線」改成正確的目錄。`, localRoot);
-    }
-
-    const rootPath = urlPathOf(rootUrl);
     const filePath = urlPathOf(buildFullUrl(conn.url, remotePath));
-    if (filePath !== rootPath && !filePath.startsWith(`${rootPath}/`)) {
-      return warn(`本地目錄「${localRoot}」對應的 SVN 位置（${rootUrl}）不包含這個檔案（${remotePath}），所以沒有更新。請確認這個目錄是不是專案「${conn.name}」的工作目錄。`, localRoot);
-    }
+    const checks: RootCheck[] = [];
+    for (const dir of roots) checks.push(await checkRoot(conn, dir, filePath));
+    const matches = checks.filter((check) => check.kind === "match").sort((a, b) => (b.urlPath?.length ?? 0) - (a.urlPath?.length ?? 0));
+    if (matches.length === 0) return explainNoMatch(conn, remotePath, checks);
 
-    const relative = filePath.slice(rootPath.length).split("/").filter(Boolean);
-    const fileLocal = path.join(localRoot, ...relative);
+    const best = matches[0];
+    const relative = filePath.slice((best.urlPath ?? "").length).split("/").filter(Boolean);
+    const fileLocal = path.join(best.dir, ...relative);
     const target = scope === "parent" ? path.dirname(fileLocal) : fileLocal;
-    const inside = path.relative(localRoot, target);
+    const inside = path.relative(best.dir, target);
     if (inside.startsWith("..") || path.isAbsolute(inside)) {
-      return warn(`要更新的位置不在本地目錄「${localRoot}」之內，已略過。`, localRoot);
+      return warn(`要更新的位置不在本地目錄「${best.dir}」之內，已略過。`, best.dir);
     }
     if (scope === "parent" && !existsSync(target)) {
       return { status: "updated", message: `本地端沒有這個位置（${target}），不需要更新。`, localPath: target };
     }
 
     const args = ["update", ...(existsSync(target) ? [] : ["--parents"]), pegSafe(target)];
-    const stdout = await withWcLock(localRoot, async () => (await runSvn(args, conn, longTimeout())).stdout.toString("utf-8"));
+    const stdout = await withWcLock(best.dir, async () => (await runSvn(args, conn, longTimeout())).stdout.toString("utf-8"));
     return summarizeUpdate(stdout, target);
   } catch (e) {
     const text = e instanceof Error ? e.message : String(e);

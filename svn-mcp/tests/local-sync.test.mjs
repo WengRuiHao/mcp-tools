@@ -9,7 +9,7 @@ import { pathToFileURL } from "node:url";
 import { openEdit, getEditStatus, EditError } from "../dist/remote-edit-client.js";
 import { commitEditAndSync } from "../dist/local-sync.js";
 import { deleteRemoteFileAndSync } from "../dist/remote-delete.js";
-import { readRepoPrefs, setLocalPath, setSyncLocal } from "../dist/repo-prefs.js";
+import { addLocalPath, readRepoPrefs, removeLocalPath, setSyncLocal } from "../dist/repo-prefs.js";
 import { ConnectionInputError } from "../dist/connections-store.js";
 
 const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "svn-sync-test-")));
@@ -62,9 +62,11 @@ const remoteExists = (relPath) => {
     return false;
   }
 };
+/** 設定開關與這個專案的本地目錄（先清掉舊的，再依參數加上；localPath 可以是單一路徑或清單）。 */
 async function configure({ sync, localPath }) {
   await setSyncLocal(sync);
-  await setLocalPath("myrepo", localPath ?? "");
+  for (const existing of (await readRepoPrefs()).localPaths.myrepo ?? []) await removeLocalPath("myrepo", existing);
+  for (const dir of [].concat(localPath || [])) await addLocalPath("myrepo", dir);
 }
 async function edit(relPath, newContent) {
   const session = await openEdit({ connectionId: CONN, path: relPath });
@@ -76,17 +78,21 @@ test.after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 // ---- 設定 ----
 
-test("設定：預設關閉；本地目錄只收完整路徑，結尾斜線會去掉，空白代表清掉", async () => {
+test("設定：預設關閉；本地目錄只收完整路徑、結尾斜線會去掉、重複不會再加、可以有多個、可以單獨移除", async () => {
+  const BS = String.fromCharCode(92); // 反斜線
+  const unc = `${BS}${BS}server${BS}share${BS}repo`;
   assert.equal((await readRepoPrefs()).syncLocal, false);
   assert.deepEqual((await readRepoPrefs()).localPaths, {});
   assert.equal((await setSyncLocal(true)).syncLocal, true);
-  assert.equal((await setLocalPath("myrepo", "  D:\\svn\\myrepo\\  ")).localPaths.myrepo, "D:\\svn\\myrepo");
-  assert.equal((await setLocalPath("myrepo", "\\\\server\\share\\repo")).localPaths.myrepo, "\\\\server\\share\\repo");
-  for (const bad of ["relative\\path", "D:svn", "/etc", "D:\\a|b", "D:\\a?b", "x".repeat(500)]) {
-    await assert.rejects(setLocalPath("myrepo", bad), ConnectionInputError, `應該拒絕：${bad}`);
+  assert.deepEqual((await addLocalPath("myrepo", `  D:/svn/myrepo${BS}  `)).localPaths.myrepo, ["D:/svn/myrepo"], "前後空白與結尾斜線會去掉");
+  assert.deepEqual((await addLocalPath("myrepo", "d:/SVN/MYREPO/")).localPaths.myrepo, ["D:/svn/myrepo"], "同一個目錄（不分大小寫）不會重複加");
+  assert.deepEqual((await addLocalPath("myrepo", unc)).localPaths.myrepo, ["D:/svn/myrepo", unc], "同一個專案可以有多個目錄");
+  for (const bad of ["relative/path", "D:svn", "/etc", "D:/a|b", "D:/a?b", "x".repeat(500), ""]) {
+    await assert.rejects(addLocalPath("myrepo", bad), ConnectionInputError, `應該拒絕：${bad}`);
   }
-  assert.equal((await readRepoPrefs()).localPaths.myrepo, "\\\\server\\share\\repo", "被拒絕的不會改掉原本的設定");
-  assert.deepEqual((await setLocalPath("myrepo", "   ")).localPaths, {});
+  assert.equal((await readRepoPrefs()).localPaths.myrepo.length, 2, "被拒絕的不會改掉原本的設定");
+  assert.deepEqual((await removeLocalPath("myrepo", "D:/svn/myrepo")).localPaths.myrepo, [unc]);
+  assert.deepEqual((await removeLocalPath("myrepo", unc)).localPaths, {}, "最後一個移除後整筆清掉");
   await assert.rejects(setSyncLocal("yes"), ConnectionInputError);
   await setSyncLocal(false);
 });
@@ -225,12 +231,11 @@ test("刪除（開關開啟、本地不是工作目錄）：遠端照刪，警�
   assert.match(result.localSync.message, /沒有 SVN 追蹤/);
 });
 
-test("刪除：說明必填；只能刪檔案（資料夾拒絕）；找不到、路徑跳出範圍都拒絕", async () => {
+test("刪除：說明必填；找不到、路徑跳出範圍都拒絕", async () => {
   seed("del/keep.md", "x\n");
   await configure({ sync: false, localPath: "" });
   const code = (c) => (e) => e instanceof EditError && e.code === c;
   await assert.rejects(deleteRemoteFileAndSync({ connectionId: CONN, path: "del/keep.md", message: "   " }), code("INVALID_INPUT"));
-  await assert.rejects(deleteRemoteFileAndSync({ connectionId: CONN, path: "del", message: "刪資料夾" }), code("INVALID_INPUT"));
   await assert.rejects(deleteRemoteFileAndSync({ connectionId: CONN, path: "del/nope.md", message: "x" }), code("NOT_FOUND"));
   await assert.rejects(deleteRemoteFileAndSync({ connectionId: CONN, path: "../etc/passwd", message: "x" }), code("INVALID_INPUT"));
   assert.ok(remoteExists("del/keep.md"), "被拒絕的刪除不會動到遠端");
@@ -275,12 +280,12 @@ test("批次刪除：多個檔案（跨資料夾）一次刪完、只產生一�
   for (const f of ["batch/a.md", "batch/b.md", "batch/deep/c.md"]) assert.equal(remoteExists(f), false);
 });
 
-test("批次刪除：只要有一個不符合（資料夾、不存在）就整批拒絕，一個都不刪", async () => {
+test("批次刪除：只要有一個不符合（不存在、路徑不合法）就整批拒絕，一個都不刪", async () => {
   seed("allnone/x.md", "x\n");
   seed("allnone/y.md", "y\n");
   await configure({ sync: false, localPath: "" });
   const code = (c) => (e) => e instanceof EditError && e.code === c;
-  await assert.rejects(deleteRemoteFileAndSync({ connectionId: CONN, paths: ["allnone/x.md", "allnone"], message: "x" }), code("INVALID_INPUT"));
+  await assert.rejects(deleteRemoteFileAndSync({ connectionId: CONN, paths: ["allnone/x.md", "../outside.md"], message: "x" }), code("INVALID_INPUT"));
   await assert.rejects(deleteRemoteFileAndSync({ connectionId: CONN, paths: ["allnone/x.md", "allnone/missing.md"], message: "x" }), code("NOT_FOUND"));
   assert.ok(remoteExists("allnone/x.md") && remoteExists("allnone/y.md"), "合法的那些也不會被刪");
 });
@@ -290,4 +295,41 @@ test("批次刪除：空清單與超過上限都拒絕", async () => {
   await assert.rejects(deleteRemoteFileAndSync({ connectionId: CONN, paths: [], message: "x" }), code);
   const tooMany = Array.from({ length: 101 }, (_, i) => `many/f${i}.md`);
   await assert.rejects(deleteRemoteFileAndSync({ connectionId: CONN, paths: tooMany, message: "x" }), code);
+});
+
+// ---- 刪除資料夾 ----
+
+test("刪除資料夾：連同底下所有內容一起刪，同步開啟時本地的資料夾也消失", async () => {
+  seed("dirdel/keep.md", "k\n");
+  seed("dirdel/gone/a.md", "a\n");
+  seed("dirdel/gone/sub/b.md", "b\n");
+  const local = checkoutLocal("local-dirdel");
+  await configure({ sync: true, localPath: local });
+  const result = await deleteRemoteFileAndSync({ connectionId: CONN, path: "dirdel/gone", message: "整個資料夾不要了" });
+  assert.deepEqual(result.paths, ["dirdel/gone"]);
+  assert.equal(result.localSync?.status, "updated", result.localSync?.message);
+  assert.equal(remoteExists("dirdel/gone"), false);
+  assert.equal(remoteExists("dirdel/gone/sub/b.md"), false);
+  assert.ok(remoteExists("dirdel/keep.md"), "同層其他檔案不受影響");
+  assert.equal(fs.existsSync(path.join(local, "dirdel", "gone")), false, "本地的資料夾也被移除");
+  assert.ok(fs.existsSync(path.join(local, "dirdel", "keep.md")));
+});
+
+test("同時選了資料夾和它裡面的檔案：只送上層一個，不會因父子同時刪而失敗", async () => {
+  seed("nested/dir/x.md", "x\n");
+  seed("nested/dir/y.md", "y\n");
+  seed("nested/other.md", "o\n");
+  await configure({ sync: false, localPath: "" });
+  const result = await deleteRemoteFileAndSync({ connectionId: CONN, paths: ["nested/dir/x.md", "nested/dir", "nested/other.md"], message: "清理" });
+  assert.deepEqual(result.paths.sort(), ["nested/dir", "nested/other.md"]);
+  assert.equal(remoteExists("nested/dir"), false);
+  assert.equal(remoteExists("nested/other.md"), false);
+});
+
+test("資料夾底下有檔案正在編輯：整個資料夾不能刪", async () => {
+  seed("busydir/inner/doc.md", "d\n");
+  await openEdit({ connectionId: CONN, path: "busydir/inner/doc.md" });
+  await configure({ sync: false, localPath: "" });
+  await assert.rejects(deleteRemoteFileAndSync({ connectionId: CONN, path: "busydir", message: "x" }), (e) => e instanceof EditError && e.code === "ALREADY_EDITING" && /底下有檔案正在編輯/.test(e.message));
+  assert.ok(remoteExists("busydir/inner/doc.md"), "什麼都沒被刪");
 });

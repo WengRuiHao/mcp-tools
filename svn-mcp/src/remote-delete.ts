@@ -1,12 +1,12 @@
 /**
- * 刪除 SVN 上的檔案（可一次刪多個）：在遠端直接 `svn delete <網址…>` 並 commit，不需要工作副本。
+ * 刪除 SVN 上的檔案或資料夾（可一次刪多個）：在遠端直接 `svn delete <網址…>` 並 commit，不需要工作副本。
  *
  * **刻意不註冊成 MCP 工具**——跟 remote-edit-client 一樣只給 svn-edit 的網頁按鈕呼叫，AI 維持唯讀。
  *
  * 安全邊界：
- * - 只能刪「單一檔案」（資料夾一律拒絕），路徑檢查跟編輯共用（拒絕 `..`、完整網址、Windows 不允許的字元）；
+ * - 檔案與資料夾都能刪（資料夾連同底下所有內容一起刪）；路徑檢查跟編輯共用（拒絕 `..`、完整網址、Windows 不允許的字元）；
  * - commit 訊息一定要填；一次最多 MAX_DELETE_BATCH 個；
- * - 全有或全無：每個檔案都先檢查過（存在、是檔案、沒在編輯、沒被鎖定），任何一個不符就整批拒絕、什麼都不刪；
+ * - 全有或全無：每個項目都先檢查過（存在、沒在編輯（資料夾底下有編輯中的檔案也算）、檔案沒被鎖定），任何一個不符就整批拒絕、什麼都不刪；
  *   通過後用「一個 svn delete 指令」送出，只會產生一個 revision；
  * - SVN 刪除是一個新的 revision，歷史裡還找得回來；
  * - 成功之後依「同步本地端」開關更新本地工作目錄（失敗只提示，不影響刪除結果）；
@@ -70,13 +70,17 @@ function normalizePaths(params: DeleteParams): string[] {
       result.push(subPath);
     }
   }
-  return result;
+  return result.filter((p) => !result.some((other) => other !== p && p.toLowerCase().startsWith(`${other.toLowerCase()}/`)));
 }
 
 async function assertDeletable(conn: SvnConnection, subPath: string, editingPaths: Set<string>): Promise<void> {
-  if (editingPaths.has(subPath.toLowerCase())) throw new EditError("ALREADY_EDITING", `「${subPath}」正在編輯中，請先上傳或放棄後再刪除。`);
+  const lower = subPath.toLowerCase();
+  for (const editing of editingPaths) {
+    if (editing === lower) throw new EditError("ALREADY_EDITING", `「${subPath}」正在編輯中，請先上傳或放棄後再刪除。`);
+    if (editing.startsWith(`${lower}/`)) throw new EditError("ALREADY_EDITING", `資料夾「${subPath}」底下有檔案正在編輯中（${editing}），請先上傳或放棄後再刪除。`);
+  }
   const info = await remoteInfo(conn, buildFullUrl(conn.url, subPath));
-  if (info.kind !== "file") throw new EditError("INVALID_INPUT", `「${subPath}」不是檔案，只能刪除檔案（不能刪資料夾）。`);
+  if (info.kind !== "file" && info.kind !== "dir") throw new EditError("INVALID_INPUT", `「${subPath}」不是檔案或資料夾，無法刪除。`);
   if (info.lockOwner) {
     const who = info.lockOwner === conn.username ? `你自己的帳號（${conn.username}）` : `「${info.lockOwner}」`;
     throw new EditError("FILE_LOCKED", `「${subPath}」被${who}鎖定中，請先解除鎖定（或等對方上傳／解鎖）後再刪除。`);

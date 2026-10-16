@@ -14,10 +14,11 @@
 import { ConnectionInputError } from "./connections-store.js";
 import {
   FORBIDDEN_FOLDER_CHARS,
-  isLocalDirPath,
+  cleanLocalDir,
   isName,
   MAX_FOLDER_PATH_LENGTH,
   MAX_LOCAL_PATH_LENGTH,
+  MAX_LOCAL_PATHS_PER_REPO,
   MAX_FOLDERS_PER_REPO,
   MAX_NICKNAME_LENGTH,
   MAX_RECENT,
@@ -89,16 +90,29 @@ export async function setSyncLocal(enabled: unknown): Promise<RepoPrefs> {
   return update((prefs) => ({ ...prefs, syncLocal: enabled }));
 }
 
-/** 設定專案在本機的 SVN 工作目錄（絕對路徑）；空白代表清掉。只檢查格式，是不是工作目錄要到真的同步時才檢查。 */
-export async function setLocalPath(name: unknown, dir: unknown): Promise<RepoPrefs> {
+/** 替專案多加一個本地 SVN 工作目錄（完整路徑）；重複的（不分大小寫）不會再加。只檢查格式，是不是工作目錄要到真的同步時才檢查。 */
+export async function addLocalPath(name: unknown, dir: unknown): Promise<RepoPrefs> {
   const repo = requireName(name);
-  const text = typeof dir === "string" ? dir.trim().replace(/[\\/]+$/, "") : "";
-  if (text && !isLocalDirPath(text)) {
-    throw new ConnectionInputError(`本地目錄必須是完整路徑（例如 D:\\svn\\${repo}），且不能含 < > " | ? * 這些字元，長度不超過 ${MAX_LOCAL_PATH_LENGTH} 字`);
+  const text = cleanLocalDir(dir);
+  if (!text) {
+    throw new ConnectionInputError(`本地目錄必須是完整路徑（例如 D:/svn/${repo}），且不能含 < > " | ? * 這些字元，長度不超過 ${MAX_LOCAL_PATH_LENGTH} 字`);
   }
   return update((prefs) => {
+    const current = prefs.localPaths[repo] ?? [];
+    if (current.some((existing) => existing.toLowerCase() === text.toLowerCase())) return prefs;
+    if (current.length >= MAX_LOCAL_PATHS_PER_REPO) throw new ConnectionInputError(`每個專案最多設定 ${MAX_LOCAL_PATHS_PER_REPO} 個本地目錄`);
+    return { ...prefs, localPaths: { ...prefs.localPaths, [repo]: [...current, text] } };
+  });
+}
+
+/** 移除專案的某一個本地目錄；那個專案沒有任何本地目錄時整筆清掉。 */
+export async function removeLocalPath(name: unknown, dir: unknown): Promise<RepoPrefs> {
+  const repo = requireName(name);
+  const text = cleanLocalDir(dir).toLowerCase();
+  return update((prefs) => {
+    const remaining = (prefs.localPaths[repo] ?? []).filter((existing) => existing.toLowerCase() !== text);
     const localPaths = { ...prefs.localPaths };
-    if (text) localPaths[repo] = text;
+    if (remaining.length) localPaths[repo] = remaining;
     else delete localPaths[repo];
     return { ...prefs, localPaths };
   });
