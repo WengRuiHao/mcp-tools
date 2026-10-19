@@ -79,3 +79,9 @@ export function getSvnTimeoutMs(): number {
   const parsed = raw ? Number(raw) : NaN;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 30000;
 }
+
+/** 會花比較久的操作（checkout／update／export／commit…）的逾時：一般逾時的 10 倍。 */
+export const LONG_TIMEOUT_MULTIPLIER = 10;
+export function getLongSvnTimeoutMs(): number {
+  return getSvnTimeoutMs() * LONG_TIMEOUT_MULTIPLIER;
+}

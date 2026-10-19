@@ -155,9 +155,9 @@ svn-mcp 的唯讀工具、svn-edit、dev-pipeline-mcp（轉呼叫 svn-mcp）、�
 </details>
 
 <details>
-<summary><b>常用目錄（每個專案各自的星星目錄）</b></summary>
+<summary><b>常用目錄（每個專案各自釘選的目錄）</b></summary>
 
-經常要把規格傳到某幾個深層資料夾時，在「從 SVN 選擇資料夾」面板裡，每個資料夾列左邊的 ☆、以及底下「目前位置」旁的 ☆ 都能把那個目錄加入**這個專案**的常用目錄（每個專案各自一份、互不影響）；加了之後面板最上面會出現「★ 常用目錄」區，點路徑直接跳到那個資料夾、按「使用」直接把它填進「放到 SVN 的哪裡」並關閉面板，不用一層一層點。路徑很長時可以按「取暱稱」替目錄取個好認的名字（例如「後端規格」，最多 30 字）；暱稱只能取在「已經是常用目錄」的路徑上，取消星星時一併清掉。存在共用設定檔 `prefs` 的 `folders`（專案名稱 → 目錄清單，每個專案最多 100 個，路徑拒絕 `..`、Windows 不允許的字元）與 `folderNicknames`（專案名稱 → 路徑 → 暱稱），API：`POST /api/repo-prefs/folder`、`POST /api/repo-prefs/folder-nickname`。`svn_find_repo` 會比對暱稱與路徑，並把符合的常用目錄 `path` 直接回傳給 AI。
+經常要把規格傳到某幾個深層資料夾時，在「從 SVN 選擇資料夾」面板裡，每個資料夾列左邊的 📌（圖釘，沒釘是灰色、釘選後變成粉紅底的紅色圖釘）、以及底下「目前位置」旁的 📌 都能把那個目錄釘選成**這個專案**的常用目錄（每個專案各自一份、互不影響）；加了之後面板最上面會出現「★ 常用目錄」區，點路徑直接跳到那個資料夾、按「使用」直接把它填進「放到 SVN 的哪裡」並關閉面板，不用一層一層點。路徑很長時可以按「取暱稱」替目錄取個好認的名字（例如「後端規格」，最多 30 字）；暱稱只能取在「已經是常用目錄」的路徑上，取消星星時一併清掉。存在共用設定檔 `prefs` 的 `folders`（專案名稱 → 目錄清單，每個專案最多 100 個，路徑拒絕 `..`、Windows 不允許的字元）與 `folderNicknames`（專案名稱 → 路徑 → 暱稱），API：`POST /api/repo-prefs/folder`、`POST /api/repo-prefs/folder-nickname`。`svn_find_repo` 會比對暱稱與路徑，並把符合的常用目錄 `path` 直接回傳給 AI。
 
 </details>
 
@@ -226,7 +226,7 @@ svn-mcp 的唯讀工具、svn-edit、dev-pipeline-mcp（轉呼叫 svn-mcp）、�
 <details>
 <summary><b>本機資料夾點選</b></summary>
 
-選本地目錄時從畫面底下滑出「本機資料夾瀏覽」（磁碟機 → 一層一層點，路徑列可跳回任一層），有 `.svn` 的資料夾標「SVN」。`GET /api/local/list?path=`（只列資料夾，空路徑列出磁碟機；`src/local-fs.ts`）、`POST /api/local/inspect`（`{ paths }`，回報存在、有沒有 SVN 追蹤、對應的遠端網址、有沒有內容、在不在工作目錄裡）。同樣不註冊成 MCP 工具，而且只綁 `127.0.0.1`＋token。
+選本地目錄時（「選擇資料夾…」）**優先叫出 Windows 系統內建的「選擇資料夾」視窗**（跟檔案總管、TortoiseSVN 看到的同一個，資料夾上有 SVN 圖示），選好後把完整路徑回傳給頁面，不用複製貼上。`POST /api/local/pick`（`{ title, start }`；`src/local-picker.ts`）由本機服務透過 PowerShell 叫出 Vista 以後的 `IFileDialog`（選資料夾模式），掛在目前最上層的 svn-edit 視窗底下，使用者按取消回傳空字串；一次只開一個視窗；結果用 base64 傳回避免中文被主控台字碼頁弄壞。網頁自己的「上傳資料夾」視窗拿不到完整路徑，所以才由本機服務來叫。叫不出系統視窗（不是 Windows 等）時，頁面退回**頁面內的資料夾點選視窗**（從畫面底下滑出：磁碟機 → 一層一層點，路徑列可跳回任一層，有 `.svn` 的資料夾標「SVN」；系統視窗開著時也能按「改用頁面內的選擇視窗」）。`SVN_EDIT_NO_LAUNCH=1`（自動化測試）時不叫視窗，直接回傳 `SVN_EDIT_PICK_RESULT`。`GET /api/local/list?path=`（只列資料夾，空路徑列出磁碟機；`src/local-fs.ts`）、`POST /api/local/inspect`（`{ paths }`，回報存在、有沒有 SVN 追蹤、對應的遠端網址、有沒有內容、在不在工作目錄裡）。同樣不註冊成 MCP 工具，而且只綁 `127.0.0.1`＋token。
 
 </details>
 

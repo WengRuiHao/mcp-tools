@@ -11,11 +11,12 @@
  */
 import { existsSync, statSync } from "node:fs";
 import path from "node:path";
-import { getSvnTimeoutMs } from "./config-store.js";
-import { commitEdit, getEditStatus, longTimeout, resolveConn, type EditCommitResult, type UpgradeOptions } from "./remote-edit-client.js";
+import { getLongSvnTimeoutMs, getSvnTimeoutMs } from "./config-store.js";
+import { commitEdit, getEditStatus, resolveConn, type EditCommitResult, type UpgradeOptions } from "./remote-edit-client.js";
 import { readRepoPrefs } from "./repo-prefs.js";
 import { buildFullUrl, runSvn, type SvnConnection } from "./svn-client.js";
 import { pegSafe, withWcLock } from "./workcopy-client.js";
+import { errorMessage } from "./util.js";
 
 export type LocalSyncStatus = "updated" | "warning" | "failed";
 
@@ -62,7 +63,7 @@ async function workCopyUrl(conn: SvnConnection, dir: string): Promise<string | n
     const { stdout } = await runSvn(["info", "--show-item", "url", pegSafe(dir)], conn, getSvnTimeoutMs());
     return stdout.toString("utf-8").trim();
   } catch (e) {
-    const text = e instanceof Error ? e.message : String(e);
+    const text = errorMessage(e);
     if (NOT_A_WORKING_COPY.test(text)) return null;
     throw e;
   }
@@ -142,10 +143,10 @@ export async function syncLocalAfterChange(conn: SvnConnection, remotePath: stri
     }
 
     const args = ["update", ...(existsSync(target) ? [] : ["--parents"]), pegSafe(target)];
-    const stdout = await withWcLock(best.dir, async () => (await runSvn(args, conn, longTimeout())).stdout.toString("utf-8"));
+    const stdout = await withWcLock(best.dir, async () => (await runSvn(args, conn, getLongSvnTimeoutMs())).stdout.toString("utf-8"));
     return summarizeUpdate(stdout, target);
   } catch (e) {
-    const text = e instanceof Error ? e.message : String(e);
+    const text = errorMessage(e);
     return { status: "failed", message: `遠端已經完成，但更新本地端失敗：${text}` };
   }
 }

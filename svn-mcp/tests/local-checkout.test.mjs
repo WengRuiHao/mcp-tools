@@ -1,40 +1,17 @@
 // 本機資料夾瀏覽／檢查、Checkout 到本地、多個本地目錄的同步：用本機臨時 SVN 儲存庫，不連任何真實 SVN。
 import test from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { createSvnFixture } from "./helpers/svn-fixture.mjs";
 import { checkoutToLocal } from "../dist/local-checkout.js";
 import { inspectLocalDirs, listLocalDirs } from "../dist/local-fs.js";
 import { commitEditAndSync } from "../dist/local-sync.js";
 import { EditError, openEdit } from "../dist/remote-edit-client.js";
 import { addLocalPath, readRepoPrefs, removeLocalPath, setSyncLocal } from "../dist/repo-prefs.js";
 
-const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "svn-checkout-test-")));
-const parentDir = path.join(root, "repos");
-const repoDir = path.join(parentDir, "myrepo");
-const profileFile = path.join(root, "info", "svn-connections.json");
-const svn = (...args) => execFileSync("svn", [...args, "--non-interactive"], { encoding: "utf-8" });
+const { root, repoUrl, svn } = createSvnFixture({ prefix: "svn-checkout-test-", v2: true });
 const CONN = "s1:myrepo";
-
-fs.mkdirSync(parentDir, { recursive: true });
-execFileSync("svnadmin", ["create", repoDir]);
-const repoUrl = pathToFileURL(repoDir).href;
-fs.mkdirSync(path.dirname(profileFile), { recursive: true });
-fs.writeFileSync(
-  profileFile,
-  JSON.stringify({
-    version: 2,
-    accounts: [{ id: "s1", name: "srv", url: pathToFileURL(parentDir).href, username: "u", password: "p", kind: "server" }],
-    repoCache: { s1: { repos: ["myrepo"], fetchedAt: new Date().toISOString(), auth: "credentials" } },
-    prefs: {},
-  })
-);
-process.env.SVN_CONNECTIONS_FILE = profileFile;
-process.env.SVN_EDIT_TEMP_DIR = path.join(root, "edit-tmp");
-process.env.SVN_EDIT_AUDIT_LOG = path.join(root, "audit.log");
 
 const seedWc = path.join(root, "seed");
 svn("checkout", repoUrl, seedWc);
@@ -65,8 +42,6 @@ async function resetPrefs() {
   await setSyncLocal(false);
   for (const dir of (await readRepoPrefs()).localPaths.myrepo ?? []) await removeLocalPath("myrepo", dir);
 }
-
-test.after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 // ---- 本機資料夾瀏覽 ----
 

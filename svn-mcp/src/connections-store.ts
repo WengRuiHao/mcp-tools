@@ -18,9 +18,10 @@ import os from "node:os";
 import path from "node:path";
 import { getConnectionsFilePath } from "./config-store.js";
 import { expandConnections, type StoredConnectionEntry } from "./connection-expand.js";
-import { readProfileStrict, updateProfile, type Profile } from "./profile-store.js";
+import { readProfileStrict, updateProfile } from "./profile-store.js";
 import { newCacheEntry, setRepoCacheEntry } from "./repo-cache.js";
 import { fetchServerRepos, ServerReposError, type ServerAuthMode } from "./server-repos.js";
+import { errorMessage } from "./util.js";
 
 export interface PublicConnection {
   id: string;
@@ -67,11 +68,6 @@ export class ConnectionInputError extends Error {}
 /** 嚴格讀取所有帳號：設定檔壞掉（不是合法 JSON）就丟錯誤，不能拿壞掉的檔案當依據去寫。 */
 async function readAll(): Promise<StoredConnection[]> {
   return (await readProfileStrict()).accounts;
-}
-
-/** 在跨程式的鎖裡改帳號清單；cache 有給就一併更新對應帳號的 repo 清單（同一次寫入完成）。 */
-function updateAccounts(change: (accounts: StoredConnection[], profile: Profile) => StoredConnection[]): Promise<Profile> {
-  return updateProfile((profile) => ({ ...profile, accounts: change(profile.accounts, profile) }));
 }
 
 /** 同一時間只允許一個寫入，避免兩個設定請求互相蓋掉。 */
@@ -212,7 +208,7 @@ export function refreshAllServers(): Promise<RefreshAllResult> {
         repos.forEach((r) => names.add(r));
         refreshed++;
       } catch (e) {
-        failed.push({ name: server.name, error: e instanceof Error ? e.message : String(e) });
+        failed.push({ name: server.name, error: errorMessage(e) });
       }
     }
     for (const c of await listPublicConnections()) names.add(c.name);

@@ -17,6 +17,7 @@
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { listConnections, resolveConnection, runSvn } from "./svn-client.js";
+import { errorMessage } from "./util.js";
 
 const PORT = Number(process.env.SVN_MCP_HTTP_PORT) || 9095;
 const HOST = process.env.SVN_BRIDGE_HOST || "127.0.0.1";
@@ -66,7 +67,7 @@ async function handleRun(req: IncomingMessage, res: ServerResponse) {
   try {
     body = await readJsonBody(req);
   } catch (e) {
-    sendJson(res, 400, { error: `無法解析請求內容：${e instanceof Error ? e.message : String(e)}` });
+    sendJson(res, 400, { error: `無法解析請求內容：${errorMessage(e)}` });
     return;
   }
 
@@ -148,7 +149,7 @@ async function runWithConnection(res: ServerResponse, connectionId: string, args
   try {
     conn = await resolveConnection(connectionId);
   } catch (e) {
-    sendJson(res, 404, { error: e instanceof Error ? e.message : String(e) });
+    sendJson(res, 404, { error: errorMessage(e) });
     return;
   }
   const { disallowed, positionals } = parseArgs(args);
@@ -167,7 +168,7 @@ async function runWithConnection(res: ServerResponse, connectionId: string, args
     res.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": stdout.length });
     res.end(stdout);
   } catch (e) {
-    sendJson(res, 500, { error: e instanceof Error ? e.message : String(e) });
+    sendJson(res, 500, { error: errorMessage(e) });
   }
 }
 
@@ -188,7 +189,7 @@ async function handleConnections(res: ServerResponse, id: string | null) {
     const hit = all.find((c) => c.id === conn.id);
     sendJson(res, 200, hit ?? { id: conn.id, name: conn.name, url: conn.url });
   } catch (e) {
-    sendJson(res, 404, { error: e instanceof Error ? e.message : String(e) });
+    sendJson(res, 404, { error: errorMessage(e) });
   }
 }
 
@@ -231,7 +232,7 @@ const server = createServer((req, res) => {
       sendJson(res, 415, { error: "Content-Type 必須是 application/json" });
       return;
     }
-    handleRun(req, res).catch((e) => sendJson(res, 500, { error: e instanceof Error ? e.message : String(e) }));
+    handleRun(req, res).catch((e) => sendJson(res, 500, { error: errorMessage(e) }));
     return;
   }
   if (req.method === "GET" && (req.url === "/connections" || req.url?.startsWith("/connections?") || req.url?.startsWith("/connection?"))) {
@@ -240,7 +241,7 @@ const server = createServer((req, res) => {
       return;
     }
     const id = req.url.startsWith("/connection?") ? new URL(req.url, "http://x").searchParams.get("id") || "" : null;
-    handleConnections(res, id).catch((e) => sendJson(res, 500, { error: e instanceof Error ? e.message : String(e) }));
+    handleConnections(res, id).catch((e) => sendJson(res, 500, { error: errorMessage(e) }));
     return;
   }
   sendJson(res, 404, { error: "not found" });

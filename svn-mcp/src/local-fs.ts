@@ -10,6 +10,8 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { getSvnTimeoutMs } from "./config-store.js";
 import { EditError } from "./remote-edit-client.js";
+import { errorMessage } from "./util.js";
+import { toSlash } from "./util.js";
 
 export const MAX_LOCAL_ENTRIES = 500;
 /** 不是使用者的資料夾、列出來只會造成混亂的系統資料夾。 */
@@ -32,10 +34,6 @@ export interface LocalListing {
   inWc: boolean;
   entries: LocalDirEntry[];
   truncated: boolean;
-}
-
-function slash(p: string): string {
-  return p.split(path.sep).join("/");
 }
 
 /** 這個資料夾自己有 .svn 嗎。 */
@@ -80,7 +78,7 @@ function listDirectory(raw: string): LocalListing {
   try {
     dirents = readdirSync(dir, { withFileTypes: true });
   } catch (e) {
-    throw new EditError("INVALID_INPUT", `讀不到這個資料夾的內容（可能沒有權限）：${e instanceof Error ? e.message : String(e)}`);
+    throw new EditError("INVALID_INPUT", `讀不到這個資料夾的內容（可能沒有權限）：${errorMessage(e)}`);
   }
   const folders = dirents.filter((d) => d.isDirectory() && !HIDDEN_NAMES.has(d.name.toLowerCase())).sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"));
   for (const folder of folders) {
@@ -89,11 +87,11 @@ function listDirectory(raw: string): LocalListing {
       break;
     }
     const full = path.join(dir, folder.name);
-    entries.push({ name: folder.name, path: slash(full), isWc: hasSvnMetadata(full) });
+    entries.push({ name: folder.name, path: toSlash(full), isWc: hasSvnMetadata(full) });
   }
 
   const parentDir = path.dirname(dir);
-  return { path: slash(dir), parent: parentDir === dir ? "" : slash(parentDir), inWc: isInsideWorkCopy(dir), entries, truncated };
+  return { path: toSlash(dir), parent: parentDir === dir ? "" : toSlash(parentDir), inWc: isInsideWorkCopy(dir), entries, truncated };
 }
 
 /** 列出一個本機資料夾底下的子資料夾；`raw` 為空字串時列出磁碟機。 */

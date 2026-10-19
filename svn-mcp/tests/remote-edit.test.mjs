@@ -1,52 +1,21 @@
 // 遠端單一檔案編輯：用本機臨時 SVN 儲存庫（svnadmin + file://），不連任何真實 SVN。
 import test from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { createSvnFixture } from "./helpers/svn-fixture.mjs";
 import { openEdit, commitEdit, discardEdit, exportLatest, getEditStatus, listEdits, EditError } from "../dist/remote-edit-client.js";
 
-const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "svn-edit-test-")));
-const repoDir = path.join(root, "repo");
-const connFile = path.join(root, "connections.json");
-const svn = (...args) => execFileSync("svn", [...args, "--non-interactive"], { encoding: "utf-8" });
-
-execFileSync("svnadmin", ["create", repoDir]);
-const repoUrl = pathToFileURL(repoDir).href;
-fs.writeFileSync(
-  connFile,
-  JSON.stringify([
-    { id: "t1", name: "test", url: repoUrl, username: "u", password: "p" },
-    { id: "t2", name: "other", url: repoUrl, username: "other", password: "p" },
-  ])
-);
-process.env.SVN_CONNECTIONS_FILE = connFile;
-process.env.SVN_EDIT_TEMP_DIR = path.join(root, "edit-tmp");
-process.env.SVN_EDIT_AUDIT_LOG = path.join(root, "audit.log"); // 測試的稽核紀錄不要寫進真正的 logs/
-
-let counter = 0;
-/** 在儲存庫裡新增（或覆蓋）一個檔案，回傳該檔案在遠端的路徑。 */
-function seed(relPath, content) {
-  const wc = path.join(root, `seed${counter++}`);
-  svn("checkout", repoUrl, wc);
-  const abs = path.join(wc, relPath);
-  fs.mkdirSync(path.dirname(abs), { recursive: true });
-  const existed = fs.existsSync(abs);
-  fs.writeFileSync(abs, content);
-  if (!existed) {
-    // 逐層 add 目錄（--parents 讓新目錄一起加入）
-    svn("add", "--parents", abs);
-  }
-  svn("commit", "-m", "seed", "--encoding", "UTF-8", wc);
-  return relPath;
-}
+const { repoUrl, svn, seed } = createSvnFixture({
+  prefix: "svn-edit-test-",
+  connections: (url) => [
+    { id: "t1", name: "test", url, username: "u", password: "p" },
+    { id: "t2", name: "other", url, username: "other", password: "p" },
+  ],
+});
 const remoteCat = (relPath) => svn("cat", `${repoUrl}/${relPath}`);
 const remoteInfoXml = (relPath) => svn("info", "--xml", `${repoUrl}/${relPath}`);
 const sessionDirs = () => (fs.existsSync(process.env.SVN_EDIT_TEMP_DIR) ? fs.readdirSync(process.env.SVN_EDIT_TEMP_DIR).filter((n) => /^[0-9a-f-]{36}$/.test(n)) : []);
-
-test.after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 async function assertEditError(promise, code, messagePattern) {
   await assert.rejects(promise, (err) => {

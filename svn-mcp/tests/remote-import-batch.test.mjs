@@ -4,25 +4,12 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
-import os from "node:os";
-import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { createSvnFixture } from "./helpers/svn-fixture.mjs";
 import { EditError } from "../dist/remote-edit-client.js";
 import { cancelImport, commitImport, planImport, stageImportFile, startImportBatch } from "../dist/remote-import-batch.js";
 import { createEditServer } from "../dist/edit-server.js";
 
-const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "svn-batch-test-")));
-const repoDir = path.join(root, "repo");
-const connFile = path.join(root, "connections.json");
-const svn = (...args) => execFileSync("svn", [...args, "--non-interactive"], { encoding: "utf-8" });
-
-execFileSync("svnadmin", ["create", repoDir]);
-const repoUrl = pathToFileURL(repoDir).href;
-fs.writeFileSync(connFile, JSON.stringify([{ id: "t1", name: "test", url: repoUrl, username: "u", password: "p" }]));
-process.env.SVN_CONNECTIONS_FILE = connFile;
-process.env.SVN_EDIT_TEMP_DIR = path.join(root, "edit-tmp");
-process.env.SVN_EDIT_AUDIT_LOG = path.join(root, "audit.log"); // 測試的稽核紀錄不要寫進真正的 logs/
-process.env.SVN_EDIT_NO_LAUNCH = "1";
+const { svn, repoUrl } = createSvnFixture({ prefix: "svn-batch-test-", noLaunch: true });
 
 const remoteCat = (rel) => svn("cat", `${repoUrl}/${rel}`).replaceAll("\r\n", "\n");
 const youngest = () => Number(svn("info", "--show-item", "revision", repoUrl).trim());
@@ -34,8 +21,6 @@ const propget = (name, rel) => {
   }
 };
 const batchDirs = () => (fs.existsSync(process.env.SVN_EDIT_TEMP_DIR) ? fs.readdirSync(process.env.SVN_EDIT_TEMP_DIR).filter((n) => n.startsWith("batch-")) : []);
-
-test.after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 async function assertEditError(promise, code, pattern) {
   await assert.rejects(promise, (err) => {

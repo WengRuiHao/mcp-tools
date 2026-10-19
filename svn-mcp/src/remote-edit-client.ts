@@ -19,13 +19,14 @@
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, readdirSync, realpathSync, rmSync } from "node:fs";
 import { appendFile, chmod, copyFile, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
-import { getAuditLogPath, getEditTempDir, getSvnTimeoutMs } from "./config-store.js";
-import { buildFullUrl, resolveConnection, runSvn, svnBrowse, type SvnConnection } from "./svn-client.js";
+import { getAuditLogPath, getEditTempDir, getLongSvnTimeoutMs, getSvnTimeoutMs } from "./config-store.js";
+import { buildFullUrl, resolveConnection, runSvn, runSvnWithMessage, svnBrowse, type SvnConnection } from "./svn-client.js";
 import { removeDirWithRetry } from "./temp-clean.js";
 import { archiveFileName, parseVersion, suggestUpgradeName } from "./version-bump.js";
 import { commitWithMessage, pegSafe, withWcLock } from "./workcopy-client.js";
+import { errorMessage } from "./util.js";
+import { parseRevision } from "./util.js";
 
 export const ALLOWED_EXTENSIONS: ReadonlySet<string> = new Set(["docx", "xlsx", "xls", "md", "txt", "csv"]);
 /** 只能開啟檢視（唯讀）、不能編輯上傳的檔案類型：取出最新版放到暫存資料夾，用預設程式開啟，不會動到 SVN。 */
@@ -34,7 +35,6 @@ export const VIEW_EXTENSIONS: ReadonlySet<string> = new Set(["pdf"]);
 export const LOCK_EXTENSIONS: ReadonlySet<string> = new Set(["docx", "xlsx", "xls"]);
 export const MAX_FILE_BYTES = 50 * 1024 * 1024;
 export const MAX_COMMIT_MESSAGE_LENGTH = 4000;
-const LONG_OPERATION_TIMEOUT_MULTIPLIER = 10;
 /** Word／Excel 是 `~$`，LibreOffice 是 `.~lock.`；暫存資料夾裡只有一個被編輯的檔案，出現這些就代表還開著。 */
 const EDITOR_LOCK_PREFIXES = ["~$", ".~lock."];
 /**
@@ -220,7 +220,7 @@ export async function audit(record: Record<string, unknown>): Promise<void> {
     await mkdir(path.dirname(file), { recursive: true });
     await appendFile(file, `${JSON.stringify({ at: new Date().toISOString(), ...record })}\n`, "utf-8");
   } catch (e) {
-    console.error(`[svn-edit] 寫稽核紀錄失敗：${e instanceof Error ? e.message : String(e)}`);
+    console.error(`[svn-edit] 寫稽核紀錄失敗：${errorMessage(e)}`);
   }
 }
 
@@ -235,7 +235,7 @@ export async function resolveConn(connectionId?: string): Promise<SvnConnection>
   try {
     return await resolveConnection(connectionId);
   } catch (e) {
-    throw new EditError("INVALID_INPUT", e instanceof Error ? e.message : String(e));
+    throw new EditError("INVALID_INPUT", errorMessage(e));
   }
 }
 
@@ -251,8 +251,11 @@ async function hashFile(filePath: string): Promise<string> {
   return createHash("sha256").update(await readFile(filePath)).digest("hex");
 }
 
-export function longTimeout(): number {
-  return getSvnTimeoutMs() * LONG_OPERATION_TIMEOUT_MULTIPLIER;
+
+/** 整理遠端路徑（不限檔案類型，也允許 Office 暫存檔）：刪除、Checkout 用。回傳相對於連線根目錄的 `a/b/c`。 */
+export function normalizeRemoteEntryPath(raw: unknown, purpose: string): string {
+  const ext = path.posix.extname(typeof raw === "string" ? raw.split(path.sep).join("/") : "").slice(1).toLowerCase();
+  return normalizeRemotePath(raw, new Set([ext]), purpose, true).subPath;
 }
 
 /** 把使用者傳來的路徑整理成 `a/b/c.docx` 形式，並檢查是個允許的檔案類型；跳出連線範圍的寫法由 buildFullUrl 拒絕。 */
@@ -288,7 +291,7 @@ export async function remoteInfo(conn: SvnConnection, fileUrl: string): Promise<
     const { stdout } = await runSvn(["info", "--xml", pegUrl(fileUrl)], conn, getSvnTimeoutMs());
     xml = stdout.toString("utf-8");
   } catch (e) {
-    throw new EditError("NOT_FOUND", `遠端找不到這個檔案或讀取失敗：${e instanceof Error ? e.message : String(e)}`);
+    throw new EditError("NOT_FOUND", `遠端找不到這個檔案或讀取失敗：${errorMessage(e)}`);
   }
   const owner = xml.match(/<lock>[\s\S]*?<owner>([^<]*)<\/owner>/);
   return { kind: (xml.match(/<entry[^>]*\bkind="([^"]+)"/) ?? [])[1] ?? null, lockOwner: owner ? xmlUnescape(owner[1]) : null };
@@ -343,8 +346,8 @@ export async function openEdit(params: OpenEditParams): Promise<EditSession> {
   let locked = false;
   try {
     await mkdir(sessionDir, { recursive: true });
-    await runSvn(["checkout", "--depth", "empty", pegUrl(parentUrl), wcDir], conn, longTimeout());
-    await runSvn(["update", "--set-depth", "infinity", pegSafe(filePath)], conn, longTimeout());
+    await runSvn(["checkout", "--depth", "empty", pegUrl(parentUrl), wcDir], conn, getLongSvnTimeoutMs());
+    await runSvn(["update", "--set-depth", "infinity", pegSafe(filePath)], conn, getLongSvnTimeoutMs());
 
     const fileStat = await stat(filePath).catch(() => null);
     if (!fileStat || !fileStat.isFile()) throw new EditError("NOT_FOUND", `取出「${subPath}」失敗：暫存資料夾裡沒有這個檔案`);
@@ -381,7 +384,7 @@ export async function openEdit(params: OpenEditParams): Promise<EditSession> {
   } catch (e) {
     if (locked) await runSvn(["unlock", pegSafe(filePath)], conn, getSvnTimeoutMs()).catch(() => undefined);
     await removeDirWithRetry(sessionDir);
-    await audit({ op: "open", id, connection: conn.name, path: subPath, ok: false, error: e instanceof Error ? e.message : String(e) });
+    await audit({ op: "open", id, connection: conn.name, path: subPath, ok: false, error: errorMessage(e) });
     throw e;
   }
 }
@@ -416,7 +419,7 @@ async function listRemoteEntries(conn: SvnConnection, dirUrl: string): Promise<A
     }
     return entries;
   } catch (e) {
-    const text = e instanceof Error ? e.message : String(e);
+    const text = errorMessage(e);
     if (/E170000|E160013|E200009|non-existent|doesn't exist|does not exist|path not found|not found/i.test(text)) return null;
     throw new EditError("NOT_FOUND", `讀取遠端目錄失敗：${text}`);
   }
@@ -496,7 +499,7 @@ export async function getUpgradePlan(id: string, newNameOverride?: string): Prom
  * 中途任何一步失敗，都會把工作副本還原，並把使用者編輯好的內容放回去——絕不能因為升級失敗弄丟編輯。
  */
 async function commitWithUpgrade(conn: SvnConnection, session: EditSession, plan: UpgradePlan, message: string): Promise<Buffer> {
-  const timeout = longTimeout();
+  const timeout = getLongSvnTimeoutMs();
   const newName = plan.newName as string;
   // 舊版程式建立的編輯項目可能記著 8.3 短檔名路徑（svn move 會失敗），這裡一律改用真實長路徑操作
   const wcDir = await realpath(session.wcDir).catch(() => session.wcDir);
@@ -570,7 +573,7 @@ export async function commitEdit(id: string, message: string, upgrade?: UpgradeO
       await audit({ op: "commit", id, connection: conn.name, path: session.path, committedRevision, ok: true, ...(upgradeResult ? { upgrade: upgradeResult } : {}), ...describeMessage(trimmed) });
       return { committedRevision, path: plan ? (plan.newPath as string) : session.path, cleanedUp, ...(upgradeResult ? { upgrade: upgradeResult } : {}) };
     } catch (e) {
-      await audit({ op: "commit", id, connection: conn.name, path: session.path, ok: false, error: e instanceof Error ? e.message : String(e), ...describeMessage(trimmed) });
+      await audit({ op: "commit", id, connection: conn.name, path: session.path, ok: false, error: errorMessage(e), ...describeMessage(trimmed) });
       throw e;
     }
   });
@@ -591,7 +594,7 @@ export async function discardEdit(id: string): Promise<{ path: string; cleanedUp
           // 鎖已經不在了（被別人用管理權限解開，或前一次放棄做到一半）就不必擋著，其他錯誤才擋
           const remote = await remoteInfo(conn, remoteUrlOf(conn, session)).catch(() => null);
           if (!remote || remote.lockOwner === conn.username) {
-            throw new EditError("UNLOCK_FAILED", `解除鎖定失敗，暫存資料夾已保留，請稍後再試：${e instanceof Error ? e.message : String(e)}`);
+            throw new EditError("UNLOCK_FAILED", `解除鎖定失敗，暫存資料夾已保留，請稍後再試：${errorMessage(e)}`);
           }
         }
       }
@@ -600,7 +603,7 @@ export async function discardEdit(id: string): Promise<{ path: string; cleanedUp
       await audit({ op: "discard", id, connection: conn.name, path: session.path, ok: true, cleanedUp });
       return { path: session.path, cleanedUp };
     } catch (e) {
-      await audit({ op: "discard", id, connection: conn.name, path: session.path, ok: false, error: e instanceof Error ? e.message : String(e) });
+      await audit({ op: "discard", id, connection: conn.name, path: session.path, ok: false, error: errorMessage(e) });
       throw e;
     }
   });
@@ -673,14 +676,14 @@ export async function viewRemoteFile(params: { connectionId?: string; path: unkn
   const dest = path.join(dir, fileName);
   try {
     await mkdir(dir, { recursive: true });
-    await runSvn(["export", "--force", "-r", String(revision), pegUrl(fileUrl), dest], conn, longTimeout());
+    await runSvn(["export", "--force", "-r", String(revision), pegUrl(fileUrl), dest], conn, getLongSvnTimeoutMs());
     const size = (await stat(dest)).size;
     if (size > MAX_FILE_BYTES) {
       throw new EditError("FILE_TOO_LARGE", `檔案太大（${Math.round(size / 1024 / 1024)} MB），上限 ${MAX_FILE_BYTES / 1024 / 1024} MB`);
     }
   } catch (e) {
     await rm(dir, { recursive: true, force: true }).catch(() => undefined);
-    await audit({ op: "view", connection: conn.name, path: subPath, ok: false, error: e instanceof Error ? e.message : String(e) });
+    await audit({ op: "view", connection: conn.name, path: subPath, ok: false, error: errorMessage(e) });
     throw e;
   }
   await audit({ op: "view", connection: conn.name, path: subPath, revision, ok: true });
@@ -696,7 +699,7 @@ export async function exportLatest(id: string): Promise<{ path: string; revision
   const fileUrl = remoteUrlOf(conn, session);
   const revision = await remoteLastChangedRevision(conn, fileUrl);
   const dest = path.join(session.sessionDir, `最新版_r${revision}_${session.fileName}`);
-  await runSvn(["export", "--force", "-r", String(revision), pegUrl(fileUrl), dest], conn, longTimeout());
+  await runSvn(["export", "--force", "-r", String(revision), pegUrl(fileUrl), dest], conn, getLongSvnTimeoutMs());
   return { path: dest, revision };
 }
 
@@ -743,18 +746,15 @@ export async function importNewFile(params: ImportParams): Promise<{ committedRe
   const dir = await mkdtemp(path.join(getEditBaseDir(), "import-"));
   try {
     const localFile = path.join(dir, fileName);
-    const messageFile = path.join(dir, ".message.txt");
     await writeFile(localFile, params.content);
-    await writeFile(messageFile, message, "utf-8");
     const props = IMPORT_AUTO_PROPS[ext];
     const propArgs = props ? ["--config-option", "config:miscellany:enable-auto-props=yes", "--config-option", `config:auto-props:*.${ext}=${props}`] : [];
-    const { stdout } = await runSvn(["import", "--encoding", "UTF-8", "-F", messageFile, ...propArgs, pegSafe(localFile), pegUrl(fileUrl)], conn, longTimeout());
-    const revMatch = stdout.toString("utf-8").match(/revision (\d+)/i);
-    const committedRevision = revMatch ? Number(revMatch[1]) : null;
+    const { stdout } = await runSvnWithMessage("import", conn, message, [...propArgs, pegSafe(localFile), pegUrl(fileUrl)], getLongSvnTimeoutMs());
+    const committedRevision = parseRevision(stdout);
     await audit({ op: "import", connection: conn.name, path: subPath, size: params.content.length, committedRevision, ticket: params.ticket?.trim() || null, ok: true, ...describeMessage(message) });
     return { committedRevision, path: subPath };
   } catch (e) {
-    await audit({ op: "import", connection: conn.name, path: subPath, ok: false, error: e instanceof Error ? e.message : String(e), ...describeMessage(message) });
+    await audit({ op: "import", connection: conn.name, path: subPath, ok: false, error: errorMessage(e), ...describeMessage(message) });
     throw e;
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => undefined);

@@ -4,24 +4,11 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
-import os from "node:os";
-import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { createSvnFixture } from "./helpers/svn-fixture.mjs";
 import { importNewFile, openEdit, discardEdit, EditError } from "../dist/remote-edit-client.js";
 import { createEditServer } from "../dist/edit-server.js";
 
-const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "svn-import-test-")));
-const repoDir = path.join(root, "repo");
-const connFile = path.join(root, "connections.json");
-const svn = (...args) => execFileSync("svn", [...args, "--non-interactive"], { encoding: "utf-8" });
-
-execFileSync("svnadmin", ["create", repoDir]);
-const repoUrl = pathToFileURL(repoDir).href;
-fs.writeFileSync(connFile, JSON.stringify([{ id: "t1", name: "test", url: repoUrl, username: "u", password: "p" }]));
-process.env.SVN_CONNECTIONS_FILE = connFile;
-process.env.SVN_EDIT_TEMP_DIR = path.join(root, "edit-tmp");
-process.env.SVN_EDIT_AUDIT_LOG = path.join(root, "audit.log"); // 測試的稽核紀錄不要寫進真正的 logs/
-process.env.SVN_EDIT_NO_LAUNCH = "1";
+const { svn, repoUrl } = createSvnFixture({ prefix: "svn-import-test-", noLaunch: true });
 
 // eol-style=native 的檔案在 Windows 上 svn cat 會轉成 CRLF（倉庫裡存的是 LF），所以比對前先正規化換行
 const remoteCat = (rel) => svn("cat", `${repoUrl}/${rel}`).replaceAll("\r\n", "\n");
@@ -33,8 +20,6 @@ const propget = (name, rel) => {
   }
 };
 const baseDirEntries = () => (fs.existsSync(process.env.SVN_EDIT_TEMP_DIR) ? fs.readdirSync(process.env.SVN_EDIT_TEMP_DIR).filter((n) => n.startsWith("import-")) : []);
-
-test.after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 async function assertEditError(promise, code, pattern) {
   await assert.rejects(promise, (err) => {

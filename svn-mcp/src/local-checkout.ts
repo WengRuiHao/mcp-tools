@@ -17,9 +17,11 @@ import path from "node:path";
 import { getSvnTimeoutMs } from "./config-store.js";
 import { isInsideWorkCopy } from "./local-fs.js";
 import { cleanLocalDir } from "./prefs-model.js";
-import { audit, EditError, normalizeRemotePath, pegUrl, remoteInfo, resolveConn } from "./remote-edit-client.js";
+import { audit, EditError, normalizeRemoteEntryPath, pegUrl, remoteInfo, resolveConn } from "./remote-edit-client.js";
 import { addLocalPath } from "./repo-prefs.js";
 import { buildFullUrl, runSvn } from "./svn-client.js";
+import { errorMessage } from "./util.js";
+import { parseRevision, toSlash } from "./util.js";
 
 export type CheckoutScope = "all" | "files" | "empty";
 const SCOPES: ReadonlySet<string> = new Set(["all", "files", "empty"]);
@@ -54,15 +56,9 @@ export interface CheckoutResult {
   synced: boolean;
 }
 
-function slash(p: string): string {
-  return p.split(path.sep).join("/");
-}
-
 function normalizeRemoteDir(raw: unknown): string {
   const text = typeof raw === "string" ? raw.trim() : "";
-  if (text === "" || text === "/") return "";
-  const ext = path.posix.extname(text.split(path.sep).join("/")).slice(1).toLowerCase();
-  return normalizeRemotePath(text, new Set([ext]), "Checkout", true).subPath;
+  return text === "" || text === "/" ? "" : normalizeRemoteEntryPath(text, "Checkout");
 }
 
 function normalizeFolderName(raw: unknown): string {
@@ -108,17 +104,16 @@ export async function checkoutToLocal(params: CheckoutParams): Promise<CheckoutR
   try {
     const { stdout } = await runSvn(args, conn, getSvnTimeoutMs() * CHECKOUT_TIMEOUT_MULTIPLIER, undefined, CHECKOUT_MAX_BUFFER_BYTES);
     const output = stdout.toString("utf-8");
-    const revision = /Checked out revision (\d+)/i.exec(output)?.[1];
     const itemCount = output.split(/\r?\n/).filter((line) => /^A\s/.test(line)).length;
-    const targetText = slash(target);
+    const targetText = toSlash(target);
     if (params.setSync) await addLocalPath(conn.name, targetText);
     await audit({ op: "checkout", connection: conn.name, path: remotePath, target: targetText, scope, itemCount, ok: true, synced: !!params.setSync });
-    return { revision: revision ? Number(revision) : null, itemCount, target: targetText, remotePath, synced: !!params.setSync };
+    return { revision: parseRevision(output), itemCount, target: targetText, remotePath, synced: !!params.setSync };
   } catch (e) {
     // 這次新建立的資料夾（或原本是空的）清掉，不留下半套工作目錄
     if (existsSync(target)) await rm(target, { recursive: true, force: true }).catch(() => undefined);
     if (existed) await mkdir(target, { recursive: true }).catch(() => undefined);
-    await audit({ op: "checkout", connection: conn.name, path: remotePath, target: slash(target), scope, ok: false, error: e instanceof Error ? e.message : String(e) });
+    await audit({ op: "checkout", connection: conn.name, path: remotePath, target: toSlash(target), scope, ok: false, error: errorMessage(e) });
     throw e;
   }
 }

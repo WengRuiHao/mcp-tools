@@ -1,59 +1,17 @@
 // 「同步本地端」與「刪除遠端檔案」：用本機臨時 SVN 儲存庫（svnadmin + file://），不連任何真實 SVN。
 import test from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { createSvnFixture } from "./helpers/svn-fixture.mjs";
 import { openEdit, getEditStatus, EditError } from "../dist/remote-edit-client.js";
 import { commitEditAndSync } from "../dist/local-sync.js";
 import { deleteRemoteFileAndSync } from "../dist/remote-delete.js";
 import { addLocalPath, readRepoPrefs, removeLocalPath, setSyncLocal } from "../dist/repo-prefs.js";
 import { ConnectionInputError } from "../dist/connections-store.js";
 
-const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "svn-sync-test-")));
-const parentDir = path.join(root, "repos");
-const repoDir = path.join(parentDir, "myrepo");
-const profileFile = path.join(root, "info", "svn-connections.json");
-const svn = (...args) => execFileSync("svn", [...args, "--non-interactive"], { encoding: "utf-8" });
+const { root, repoUrl, svn, seed, checkoutLocal } = createSvnFixture({ prefix: "svn-sync-test-", v2: true });
 const CONN = "s1:myrepo";
-
-fs.mkdirSync(parentDir, { recursive: true });
-execFileSync("svnadmin", ["create", repoDir]);
-const repoUrl = pathToFileURL(repoDir).href;
-fs.mkdirSync(path.dirname(profileFile), { recursive: true });
-fs.writeFileSync(
-  profileFile,
-  JSON.stringify({
-    version: 2,
-    accounts: [{ id: "s1", name: "srv", url: pathToFileURL(parentDir).href, username: "u", password: "p", kind: "server" }],
-    repoCache: { s1: { repos: ["myrepo"], fetchedAt: new Date().toISOString(), auth: "credentials" } },
-    prefs: {},
-  })
-);
-process.env.SVN_CONNECTIONS_FILE = profileFile;
-process.env.SVN_EDIT_TEMP_DIR = path.join(root, "edit-tmp");
-process.env.SVN_EDIT_AUDIT_LOG = path.join(root, "audit.log");
-
-let counter = 0;
-/** 在遠端新增（或覆蓋）一個檔案。 */
-function seed(relPath, content) {
-  const wc = path.join(root, `seed${counter++}`);
-  svn("checkout", repoUrl, wc);
-  const abs = path.join(wc, relPath);
-  fs.mkdirSync(path.dirname(abs), { recursive: true });
-  const existed = fs.existsSync(abs);
-  fs.writeFileSync(abs, content);
-  if (!existed) svn("add", "--parents", abs);
-  svn("commit", "-m", "seed", "--encoding", "UTF-8", wc);
-}
-/** 本機工作目錄：checkout 整個專案，或只 checkout 某個子目錄。 */
-function checkoutLocal(name, sub = "") {
-  const dir = path.join(root, name);
-  svn("checkout", sub ? `${repoUrl}/${sub}` : repoUrl, dir);
-  return dir;
-}
 const remoteExists = (relPath) => {
   try {
     svn("info", `${repoUrl}/${relPath}`);
@@ -73,8 +31,6 @@ async function edit(relPath, newContent) {
   fs.writeFileSync(session.filePath, newContent);
   return session;
 }
-
-test.after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 // ---- 設定 ----
 

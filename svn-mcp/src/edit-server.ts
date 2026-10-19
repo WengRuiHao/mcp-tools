@@ -16,12 +16,14 @@ import { FAVICON_ICO_BASE64 } from "./edit-icon-data.js";
 import { markOpened, readRepoPrefs, reorderStars, setFolderNickname, addLocalPath, removeLocalPath, setFolderStar, setNickname, setStar, setSyncLocal } from "./repo-prefs.js";
 import { checkoutToLocal } from "./local-checkout.js";
 import { inspectLocalDirs, listLocalDirs } from "./local-fs.js";
+import { pickLocalFolder } from "./local-picker.js";
 import { commitEditAndSync } from "./local-sync.js";
 import { deleteRemoteFileAndSync } from "./remote-delete.js";
 import { renderPage } from "./edit-ui.js";
 import { openForEdit, openFile, revealFile } from "./os-open.js";
 import { cancelImport, commitImport, planImport, stageImportFile, startImportBatch } from "./remote-import-batch.js";
 import { browseRemote, discardEdit, EditError, exportLatest, getEditStatus, getUpgradePlan, importNewFile, listEdits, openEdit, viewRemoteFile, type EditErrorCode } from "./remote-edit-client.js";
+import { errorMessage } from "./util.js";
 
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
@@ -179,7 +181,7 @@ async function buildState(): Promise<unknown> {
     connections = await listPublicConnections();
     servers = await listPublicServers();
   } catch (e) {
-    connectionsError = e instanceof Error ? e.message : String(e);
+    connectionsError = errorMessage(e);
   }
   const sessions = [];
   for (const session of await listEdits()) {
@@ -245,6 +247,8 @@ const API_POST: Record<string, ApiHandler> = {
   "/api/repo-prefs/local-path/remove": async (body) => ({ prefs: await removeLocalPath(body.repo, body.path) }),
   // 本機資料夾：檢查狀態（有沒有 SVN 追蹤、對應哪個遠端位置）與 Checkout 到本地
   "/api/local/inspect": async (body) => ({ results: await inspectLocalDirs(body.paths) }),
+  // 叫出 Windows 系統的「選擇資料夾」視窗（使用者選好或取消才回應；取消回傳空字串）
+  "/api/local/pick": (body) => pickLocalFolder({ title: body.title, start: body.start }),
   "/api/checkout": (body) =>
     checkoutToLocal({ connectionId: str(body, "connection") || undefined, remotePath: body.remotePath, parent: body.parent, name: body.name, scope: body.scope, setSync: body.setSync === true }),
   "/api/repo-prefs/folder": async (body) => ({ prefs: await setFolderStar(body.repo, body.path, body.starred === true) }),
@@ -255,7 +259,7 @@ function errorResponse(res: ServerResponse, error: unknown): void {
   if (error instanceof HttpError) return sendJson(res, error.status, { error: error.message, code: error.code });
   if (error instanceof EditError) return sendJson(res, STATUS_BY_CODE[error.code] ?? 500, { error: error.message, code: error.code });
   if (error instanceof ConnectionInputError) return sendJson(res, 400, { error: error.message, code: "INVALID_INPUT" });
-  const message = error instanceof Error ? error.message : String(error);
+  const message = errorMessage(error);
   console.error(`[svn-edit] 未預期的錯誤：${message}`);
   sendJson(res, 500, { error: message });
 }

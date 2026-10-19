@@ -39,6 +39,7 @@ test("no MCP entrypoint or tool file references the SVN write modules", () => {
     assert.doesNotMatch(text, /remote-edit-client/, `${file} 不能引用 remote-edit-client（會讓 AI 拿到寫入 SVN 的能力）`);
     assert.doesNotMatch(text, /remote-delete/, `${file} 不能引用 remote-delete（會讓 AI 拿到刪除 SVN 檔案的能力）`);
     assert.doesNotMatch(text, /local-checkout/, `${file} 不能引用 local-checkout（會讓 AI 拿到對本機執行 svn checkout 的能力）`);
+    assert.doesNotMatch(text, /local-picker/, `${file} 不能引用 local-picker（會讓 AI 拿到在使用者電腦上叫出視窗的能力）`);
     assert.doesNotMatch(text, /local-fs/, `${file} 不能引用 local-fs（會讓 AI 拿到瀏覽使用者電腦資料夾的能力）`);
     assert.doesNotMatch(text, /local-sync/, `${file} 不能引用 local-sync（會讓 AI 拿到對本機執行 svn update 的能力）`);
   }

@@ -13,6 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import { FAVICON_ICO_BASE64 } from "./edit-icon-data.js";
 import { openUrl } from "./os-open.js";
+import { errorMessage } from "./util.js";
 
 /** 視窗標題（等於控制頁的 <title>）；叫出既有視窗時靠它辨認。 */
 export const WINDOW_TITLE = "SVN 遠端編輯";
@@ -70,7 +71,7 @@ export function openAppWindow(url: string, width = DEFAULT_WINDOW_WIDTH, height 
     child.unref();
     applyWindowIconLater();
   } catch (e) {
-    console.error(`[svn-edit] 開啟 Edge 視窗失敗：${e instanceof Error ? e.message : String(e)}`);
+    console.error(`[svn-edit] 開啟 Edge 視窗失敗：${errorMessage(e)}`);
     openUrl(url);
   }
 }
@@ -90,7 +91,7 @@ function ensureIconFile(): string | null {
     if (!existsSync(file) || !readFileSync(file).equals(bytes)) writeFileSync(file, bytes);
     return file;
   } catch (e) {
-    console.error(`[svn-edit] 寫入圖標檔失敗：${e instanceof Error ? e.message : String(e)}`);
+    console.error(`[svn-edit] 寫入圖標檔失敗：${errorMessage(e)}`);
     return null;
   }
 }

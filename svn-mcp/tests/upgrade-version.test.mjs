@@ -1,11 +1,10 @@
 // 「升級版本」：舊版複製到同目錄的 old 資料夾，新內容以版本號 +1 的新檔名上傳（同一個 commit）。
 import test from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { createSvnFixture } from "./helpers/svn-fixture.mjs";
 import { archiveFileName, bumpParts, formatVersion, nextVersionName, parseVersion, suggestUpgradeName, versionLabel } from "../dist/version-bump.js";
 import { commitEdit, discardEdit, EditError, getEditStatus, getUpgradePlan, listEdits, openEdit } from "../dist/remote-edit-client.js";
 
@@ -70,30 +69,7 @@ test("parseVersion／bumpParts／formatVersion 組得回原樣", () => {
 
 // ---- 實際升級流程（本機臨時 SVN 儲存庫）----
 
-const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "svn-upgrade-test-")));
-const repoDir = path.join(root, "repo");
-const connFile = path.join(root, "connections.json");
-const svn = (...args) => execFileSync("svn", [...args, "--non-interactive"], { encoding: "utf-8" });
-
-execFileSync("svnadmin", ["create", repoDir]);
-const repoUrl = pathToFileURL(repoDir).href;
-fs.writeFileSync(connFile, JSON.stringify([{ id: "t1", name: "test", url: repoUrl, username: "u", password: "p" }]));
-process.env.SVN_CONNECTIONS_FILE = connFile;
-process.env.SVN_EDIT_TEMP_DIR = path.join(root, "edit-tmp");
-process.env.SVN_EDIT_AUDIT_LOG = path.join(root, "audit.log");
-test.after(() => fs.rmSync(root, { recursive: true, force: true }));
-
-let counter = 0;
-function seed(relPath, content) {
-  const wc = path.join(root, `seed${counter++}`);
-  svn("checkout", repoUrl, wc);
-  const abs = path.join(wc, relPath);
-  fs.mkdirSync(path.dirname(abs), { recursive: true });
-  const existed = fs.existsSync(abs);
-  fs.writeFileSync(abs, content);
-  if (!existed) svn("add", "--parents", abs);
-  svn("commit", "-m", "seed", wc);
-}
+const { repoDir, repoUrl, svn, seed } = createSvnFixture({ prefix: "svn-upgrade-test-" });
 const cat = (rel) => svn("cat", `${repoUrl}/${rel}`);
 const list = (rel) => svn("list", `${repoUrl}/${rel}`).split(/\r?\n/).filter(Boolean).sort();
 const head = () => Number(/(\d+)/.exec(svn("info", "--show-item", "revision", repoUrl))[1]);

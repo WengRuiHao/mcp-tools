@@ -19,6 +19,7 @@ import { writeFileAtomic } from "./atomic-write.js";
 import { getConnectionsFilePath, getRepoCachePath, getRepoPrefsPath } from "./config-store.js";
 import type { RepoCache, StoredConnectionEntry } from "./connection-expand.js";
 import { emptyPrefs, normalizePrefs, type RepoPrefs } from "./prefs-model.js";
+import { errorMessage } from "./util.js";
 
 export const PROFILE_VERSION = 2;
 
@@ -120,7 +121,7 @@ async function readRaw(): Promise<RawRead> {
   try {
     normalized = normalizeProfile(parsed);
   } catch (e) {
-    throw new Error(`連線設定檔${e instanceof Error ? e.message : String(e)}：${file}`);
+    throw new Error(`連線設定檔${errorMessage(e)}：${file}`);
   }
   if (normalized.legacy) {
     const side = await readSideFiles();

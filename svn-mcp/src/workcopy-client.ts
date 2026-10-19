@@ -14,12 +14,13 @@
  * - 同一個工作副本的操作排隊執行（SVN 對同一份工作副本平行操作會鎖死）；
  * - revert 只允許用在「新增／刪除／遺失」三種狀態——不會丟棄任何已修改的檔案內容。
  */
-import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import os from "node:os";
+import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { getSvnTimeoutMs } from "./config-store.js";
-import { resolveConnection, runSvn, type SvnConnection } from "./svn-client.js";
+import { getLongSvnTimeoutMs, getSvnTimeoutMs } from "./config-store.js";
+import { resolveConnection, runSvn, runSvnWithMessage, type SvnConnection } from "./svn-client.js";
 import { decodeSvnText } from "./svn-text.js";
+import { errorMessage } from "./util.js";
+import { toSlash } from "./util.js";
 
 export type WcStatusItem =
   | "modified"
@@ -63,7 +64,6 @@ export interface WcStatusResult {
 const MAX_FILES_PER_OPERATION = 200;
 const MAX_COMMIT_MESSAGE_LENGTH = 4000;
 const MAX_DIFF_BYTES = 300 * 1024;
-const UPDATE_TIMEOUT_MULTIPLIER = 10;
 /** Word/Excel 開檔時產生的暫存鎖定檔，不是使用者要上傳的內容。 */
 const OFFICE_LOCK_FILE_PREFIX = "~$";
 
@@ -126,7 +126,7 @@ export function pegSafe(absPath: string): string {
 
 function toRelative(wcAbs: string, entryPath: string): string {
   const abs = path.isAbsolute(entryPath) ? entryPath : path.resolve(wcAbs, entryPath);
-  const rel = path.relative(wcAbs, abs).split(path.sep).join("/");
+  const rel = toSlash(path.relative(wcAbs, abs));
   return rel === "" ? "." : rel;
 }
 
@@ -152,7 +152,7 @@ async function prepare(opts: WcOptions): Promise<Prepared> {
     const { stdout } = await runSvn(["info", "--show-item", "url", wcAbs], conn, getSvnTimeoutMs());
     remoteUrl = stdout.toString("utf-8").trim();
   } catch (e) {
-    throw new Error(`${wcAbs} 不是有效的 SVN 工作副本，或讀取失敗：${e instanceof Error ? e.message : String(e)}`);
+    throw new Error(`${wcAbs} 不是有效的 SVN 工作副本，或讀取失敗：${errorMessage(e)}`);
   }
   if (!isUrlUnder(remoteUrl, conn.url)) {
     throw new Error(`這份工作副本的遠端（${safeDecode(remoteUrl)}）不在連線「${conn.name}」的範圍內，為避免用錯帳號操作，已拒絕。`);
@@ -293,26 +293,8 @@ export interface WcCommitResult {
   added: string[];
 }
 
-/**
- * commit message 一律寫成 UTF-8 暫存檔再用 -F 傳給 svn：Windows 上經由命令列參數（-m）傳中文，會先被轉成系統
- * 預設字碼頁，svn 再當成 UTF-8 驗證就會報 "svn:log ... not encoded in UTF-8"。
- */
-export async function commitWithMessage(conn: SvnConnection, message: string, targets: string[], timeoutMs: number = getSvnTimeoutMs() * UPDATE_TIMEOUT_MULTIPLIER, maxBufferBytes?: number): Promise<Buffer> {
-  const dir = await mkdtemp(path.join(os.tmpdir(), "svn-mcp-msg-"));
-  const messageFile = path.join(dir, "message.txt");
-  try {
-    await writeFile(messageFile, message, "utf-8");
-    const { stdout } = await runSvn(
-      ["commit", "--encoding", "UTF-8", "-F", messageFile, ...targets.map(pegSafe)],
-      conn,
-      timeoutMs,
-      undefined,
-      maxBufferBytes
-    );
-    return stdout;
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
+export async function commitWithMessage(conn: SvnConnection, message: string, targets: string[], timeoutMs: number = getLongSvnTimeoutMs(), maxBufferBytes?: number): Promise<Buffer> {
+  return (await runSvnWithMessage("commit", conn, message, targets.map(pegSafe), timeoutMs, maxBufferBytes)).stdout;
 }
 
 const COMMITTABLE: ReadonlySet<WcStatusItem> = new Set(["modified", "added", "deleted", "replaced", "unversioned"]);
@@ -388,7 +370,7 @@ const UPDATE_LINE_RE = /^([ADUCGEMR])([ADUCGEMR ]?)([ADUCGEMR ]?)\s{2,}(.+)$/;
 export async function wcUpdate(opts: WcOptions): Promise<WcUpdateResult> {
   const { conn, wcAbs } = await prepare(opts);
   return withWcLock(wcAbs, async () => {
-    const { stdout } = await runSvn(["update", "--accept", "postpone", wcAbs], conn, getSvnTimeoutMs() * UPDATE_TIMEOUT_MULTIPLIER);
+    const { stdout } = await runSvn(["update", "--accept", "postpone", wcAbs], conn, getLongSvnTimeoutMs());
     const changes: { action: string; path: string }[] = [];
     const conflicts: string[] = [];
     for (const rawLine of decodeSvnText(stdout).split(/\r?\n/)) {

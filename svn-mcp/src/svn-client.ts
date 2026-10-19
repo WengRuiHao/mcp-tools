@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { readFile, writeFile, mkdtemp, rm } from "node:fs/promises";
+import { writeFile, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { getConnectionsFilePath, getDefaultConnectionId, getSvnTimeoutMs } from "./config-store.js";
@@ -9,6 +9,7 @@ import { readProfileStrict } from "./profile-store.js";
 import { searchRepos } from "./repo-search.js";
 import { decodeSvnText } from "./svn-text.js";
 import { isStale, readRepoCache, refreshRepoCache } from "./repo-cache.js";
+import { errorMessage } from "./util.js";
 
 export interface SvnResult {
   success: boolean;
@@ -44,11 +45,6 @@ async function loadState(): Promise<{ entries: StoredConnectionEntry[]; cache: R
   return { entries, cache, prefs: profile.prefs };
 }
 
-async function loadConnections(): Promise<SvnConnection[]> {
-  const { entries, cache } = await loadState();
-  return expandConnections(entries, cache);
-}
-
 /** Lists connections with credentials stripped — safe to hand back to whatever's driving this MCP. */
 export async function listConnections(): Promise<SvnResult> {
   try {
@@ -67,7 +63,7 @@ export async function listConnections(): Promise<SvnResult> {
       })),
     };
   } catch (e) {
-    return { success: false, message: `讀取 SVN 連線清單失敗（${getConnectionsFilePath()}）：${e instanceof Error ? e.message : String(e)}` };
+    return { success: false, message: `讀取 SVN 連線清單失敗（${getConnectionsFilePath()}）：${errorMessage(e)}` };
   }
 }
 
@@ -110,6 +106,21 @@ export function buildFullUrl(baseUrl: string, subPath: string): string {
   if (!subPath) return baseUrl;
   assertSafeSubPath(subPath);
   return `${baseUrl.replace(/\/+$/, "")}/${subPath.replace(/^\/+/, "")}`;
+}
+
+/**
+ * 執行需要 commit 訊息的 svn 指令（commit／delete／import…）：訊息寫成 UTF-8 暫存檔、用 `-F` 傳給 svn，指令結束後清掉。
+ * Windows 上經由命令列參數（-m）傳中文，會先被轉成系統預設字碼頁，svn 再當成 UTF-8 驗證就會報 "svn:log ... not encoded in UTF-8"。
+ */
+export async function runSvnWithMessage(subcommand: string, conn: SvnConnection, message: string, restArgs: string[], timeoutMs: number, maxBufferBytes?: number): Promise<{ stdout: Buffer; stderr: string }> {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "svn-mcp-msg-"));
+  try {
+    const messageFile = path.join(dir, "message.txt");
+    await writeFile(messageFile, message, "utf-8");
+    return await runSvn([subcommand, "--encoding", "UTF-8", "-F", messageFile, ...restArgs], conn, timeoutMs, undefined, maxBufferBytes);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 }
 
 export function runSvn(
@@ -212,7 +223,7 @@ export async function testConnection(connectionId?: string): Promise<SvnResult> 
   try {
     conn = await resolveConnection(connectionId);
   } catch (e) {
-    return { success: false, message: e instanceof Error ? e.message : String(e) };
+    return { success: false, message: errorMessage(e) };
   }
   try {
     const { stdout } = await runSvn(["info", conn.url], conn, getSvnTimeoutMs());
@@ -220,7 +231,7 @@ export async function testConnection(connectionId?: string): Promise<SvnResult> 
   } catch (e) {
     return {
       success: false,
-      message: `連不上 SVN 連線「${conn.name}」（${conn.url}）：${e instanceof Error ? e.message : String(e)}。請確認網路/VPN、帳密、或 URL 是否正確。`,
+      message: `連不上 SVN 連線「${conn.name}」（${conn.url}）：${errorMessage(e)}。請確認網路/VPN、帳密、或 URL 是否正確。`,
     };
   }
 }
@@ -232,7 +243,7 @@ export async function svnBrowse(path_: string, connectionId?: string): Promise<S
     const { stdout } = await runSvn(["ls", "--xml", fullUrl], conn, getSvnTimeoutMs());
     return { success: true, data: { path: path_ || "/", entries: parseSvnLsXml(stdout.toString("utf-8")) } };
   } catch (e) {
-    return { success: false, message: e instanceof Error ? e.message : String(e) };
+    return { success: false, message: errorMessage(e) };
   }
 }
 
@@ -264,7 +275,7 @@ export async function svnCat(path_: string, rev = "HEAD", connectionId?: string)
       },
     };
   } catch (e) {
-    return { success: false, message: e instanceof Error ? e.message : String(e) };
+    return { success: false, message: errorMessage(e) };
   }
 }
 
@@ -275,7 +286,7 @@ export async function svnLog(path_: string, limit = 30, connectionId?: string): 
     const { stdout } = await runSvn(["log", "--xml", "-l", String(limit), fullUrl], conn, getSvnTimeoutMs());
     return { success: true, data: { logs: parseSvnLogXml(stdout.toString("utf-8")) } };
   } catch (e) {
-    return { success: false, message: e instanceof Error ? e.message : String(e) };
+    return { success: false, message: errorMessage(e) };
   }
 }
 
@@ -286,7 +297,7 @@ export async function svnDiff(path_: string, r1: string, r2: string, connectionI
     const { stdout } = await runSvn(["diff", "-r", `${r1}:${r2}`, fullUrl], conn, getSvnTimeoutMs());
     return { success: true, data: { diff: decodeSvnText(stdout) } };
   } catch (e) {
-    return { success: false, message: e instanceof Error ? e.message : String(e) };
+    return { success: false, message: errorMessage(e) };
   }
 }
 
@@ -346,6 +357,6 @@ export async function findRepos(query: string, limit?: number): Promise<SvnResul
       },
     };
   } catch (e) {
-    return { success: false, message: `搜尋專案庫失敗（${getConnectionsFilePath()}）：${e instanceof Error ? e.message : String(e)}` };
+    return { success: false, message: `搜尋專案庫失敗（${getConnectionsFilePath()}）：${errorMessage(e)}` };
   }
 }

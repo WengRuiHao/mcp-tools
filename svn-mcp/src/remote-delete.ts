@@ -12,12 +12,12 @@
  * - 成功之後依「同步本地端」開關更新本地工作目錄（失敗只提示，不影響刪除結果）；
  * - 每次刪除都寫一行稽核紀錄。
  */
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
 import { syncLocalAfterChange, type LocalSyncResult } from "./local-sync.js";
-import { audit, describeMessage, EditError, listEdits, longTimeout, MAX_COMMIT_MESSAGE_LENGTH, normalizeRemotePath, pegUrl, remoteInfo, resolveConn } from "./remote-edit-client.js";
-import { buildFullUrl, runSvn, type SvnConnection } from "./svn-client.js";
+import { audit, describeMessage, EditError, listEdits, MAX_COMMIT_MESSAGE_LENGTH, normalizeRemoteEntryPath, pegUrl, remoteInfo, resolveConn } from "./remote-edit-client.js";
+import { getLongSvnTimeoutMs } from "./config-store.js";
+import { buildFullUrl, runSvnWithMessage, type SvnConnection } from "./svn-client.js";
+import { errorMessage } from "./util.js";
+import { parseRevision } from "./util.js";
 
 export const MAX_DELETE_BATCH = 100;
 
@@ -41,19 +41,6 @@ export interface DeleteParams {
   message: unknown;
 }
 
-/** commit 訊息用 UTF-8 暫存檔 + -F 傳給 svn（Windows 命令列傳中文會被轉成系統字碼頁，svn 會報訊息不是 UTF-8）。 */
-async function deleteUrlsWithMessage(conn: SvnConnection, fileUrls: string[], message: string): Promise<string> {
-  const dir = await mkdtemp(path.join(os.tmpdir(), "svn-mcp-msg-"));
-  try {
-    const messageFile = path.join(dir, "message.txt");
-    await writeFile(messageFile, message, "utf-8");
-    const { stdout } = await runSvn(["delete", "--encoding", "UTF-8", "-F", messageFile, ...fileUrls.map(pegUrl)], conn, longTimeout());
-    return stdout.toString("utf-8");
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
-}
-
 /** 整理要刪的路徑清單：去重（不分大小寫）、檢查格式與數量。 */
 function normalizePaths(params: DeleteParams): string[] {
   const raw = Array.isArray(params.paths) ? params.paths : [params.path];
@@ -62,9 +49,7 @@ function normalizePaths(params: DeleteParams): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
   for (const item of raw) {
-    const rawPath = typeof item === "string" ? item.replace(/\\/g, "/") : "";
-    const ext = path.posix.extname(rawPath).slice(1).toLowerCase();
-    const { subPath } = normalizeRemotePath(item, new Set([ext]), "刪除", true);
+    const subPath = normalizeRemoteEntryPath(item, "刪除");
     if (!seen.has(subPath.toLowerCase())) {
       seen.add(subPath.toLowerCase());
       result.push(subPath);
@@ -99,13 +84,12 @@ export async function deleteRemoteFiles(params: DeleteParams): Promise<DeleteRes
     const editingPaths = new Set((await listEdits()).filter((s) => s.connectionId === conn.id).map((s) => s.path.toLowerCase()));
     for (const subPath of subPaths) await assertDeletable(conn, subPath, editingPaths);
 
-    const stdout = await deleteUrlsWithMessage(conn, subPaths.map((p) => buildFullUrl(conn.url, p)), message);
-    const revision = /revision (\d+)/i.exec(stdout)?.[1];
-    const deletedRevision = revision ? Number(revision) : null;
+    const { stdout } = await runSvnWithMessage("delete", conn, message, subPaths.map((p) => pegUrl(buildFullUrl(conn.url, p))), getLongSvnTimeoutMs());
+    const deletedRevision = parseRevision(stdout);
     await audit({ op: "delete", connection: conn.name, paths: subPaths, count: subPaths.length, deletedRevision, ok: true, ...describeMessage(message) });
     return { deletedRevision, paths: subPaths, path: subPaths[0], conn };
   } catch (e) {
-    await audit({ op: "delete", connection: conn.name, paths: subPaths, count: subPaths.length, ok: false, error: e instanceof Error ? e.message : String(e), ...describeMessage(message) });
+    await audit({ op: "delete", connection: conn.name, paths: subPaths, count: subPaths.length, ok: false, error: errorMessage(e), ...describeMessage(message) });
     throw e;
   }
 }

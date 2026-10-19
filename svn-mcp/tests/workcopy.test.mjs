@@ -3,27 +3,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { createSvnFixture } from "./helpers/svn-fixture.mjs";
 import { wcStatus, wcDiff, wcAddAndCommit, wcUpdate, wcDelete, wcRevert, resolveInsideWorkCopy } from "../dist/workcopy-client.js";
 
-const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "svn-wc-test-")));
-const repoDir = path.join(root, "repo");
-const connFile = path.join(root, "connections.json");
-const svn = (...args) => execFileSync("svn", [...args, "--non-interactive"], { encoding: "utf-8" });
-
-execFileSync("svnadmin", ["create", repoDir]);
-const repoUrl = pathToFileURL(repoDir).href;
-fs.writeFileSync(connFile, JSON.stringify([{ id: "t1", name: "test", url: repoUrl, username: "u", password: "p" }]));
-process.env.SVN_CONNECTIONS_FILE = connFile;
+const { root, repoUrl, svn, checkoutLocal } = createSvnFixture({ prefix: "svn-wc-test-" });
 
 let counter = 0;
-function newWorkCopy() {
-  const dir = path.join(root, `wc${counter++}`);
-  svn("checkout", repoUrl, dir);
-  return dir;
-}
+const newWorkCopy = () => checkoutLocal(`wc${counter++}`);
 const opts = (wc) => ({ workCopyPath: wc, connectionId: "t1" });
 const write = (wc, rel, content) => {
   fs.mkdirSync(path.dirname(path.join(wc, rel)), { recursive: true });
@@ -36,8 +24,6 @@ write(seed, "a.txt", "line1\nline2\nline3\n");
 write(seed, "b.txt", "bbb\n");
 svn("add", path.join(seed, "a.txt"), path.join(seed, "b.txt"));
 svn("commit", "-m", "seed", seed);
-
-test.after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 test("resolveInsideWorkCopy rejects escapes and absolute paths", () => {
   const wc = path.join(root, "x");

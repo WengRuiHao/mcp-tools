@@ -1,41 +1,14 @@
 // svn-edit 本機服務：用本機臨時 SVN 儲存庫（svnadmin + file://）驗證 /api/* 流程與安全防護。
 import test from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
-import os from "node:os";
-import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { createSvnFixture } from "./helpers/svn-fixture.mjs";
 import { createEditServer } from "../dist/edit-server.js";
 import { startFakeSvnServer } from "./fake-svn-server.mjs";
 import { listEdits } from "../dist/remote-edit-client.js";
 
-const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "svn-edit-srv-test-")));
-const repoDir = path.join(root, "repo");
-const connFile = path.join(root, "info", "svn-connections.json");
-const svn = (...args) => execFileSync("svn", [...args, "--non-interactive"], { encoding: "utf-8" });
-
-execFileSync("svnadmin", ["create", repoDir]);
-const repoUrl = pathToFileURL(repoDir).href;
-fs.mkdirSync(path.dirname(connFile), { recursive: true });
-fs.writeFileSync(connFile, JSON.stringify([{ id: "t1", name: "test", url: repoUrl, username: "u", password: "p" }]));
-process.env.SVN_CONNECTIONS_FILE = connFile;
-process.env.SVN_EDIT_TEMP_DIR = path.join(root, "edit-tmp");
-process.env.SVN_EDIT_AUDIT_LOG = path.join(root, "audit.log"); // 測試的稽核紀錄不要寫進真正的 logs/
-process.env.SVN_EDIT_NO_LAUNCH = "1"; // 測試時不要真的打開 Word 或檔案總管
-
-let counter = 0;
-function seed(relPath, content) {
-  const wc = path.join(root, `seed${counter++}`);
-  svn("checkout", repoUrl, wc);
-  const abs = path.join(wc, relPath);
-  fs.mkdirSync(path.dirname(abs), { recursive: true });
-  const existed = fs.existsSync(abs);
-  fs.writeFileSync(abs, content);
-  if (!existed) svn("add", "--parents", abs);
-  svn("commit", "-m", "seed", wc);
-}
+const { connFile, repoUrl, svn, seed, cleanup } = createSvnFixture({ prefix: "svn-edit-srv-test-", connFile: "info/svn-connections.json", noLaunch: true, autoCleanup: false });
 
 const edit = createEditServer();
 await new Promise((resolve) => edit.server.listen(0, "127.0.0.1", resolve));
@@ -43,7 +16,7 @@ const port = edit.server.address().port;
 const TOKEN = edit.token;
 test.after(() => {
   edit.server.close();
-  fs.rmSync(root, { recursive: true, force: true });
+  cleanup();
 });
 
 /** 底層 http 請求，才能自由指定 Host／Origin 這類 fetch 會限制的標頭。 */

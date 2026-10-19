@@ -1,35 +1,12 @@
 // csv 可編輯（跟 md／txt 一樣不上鎖）、pdf 只能唯讀檢視：用本機臨時 SVN 儲存庫驗證。
 import test from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { createSvnFixture } from "./helpers/svn-fixture.mjs";
 import { openEdit, commitEdit, viewRemoteFile, browseRemote, listEdits, EditError, IMPORT_AUTO_PROPS } from "../dist/remote-edit-client.js";
 
-const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "svn-csvpdf-test-")));
-const repoDir = path.join(root, "repo");
-const connFile = path.join(root, "connections.json");
-const svn = (...args) => execFileSync("svn", [...args, "--non-interactive"], { encoding: "utf-8" });
-
-execFileSync("svnadmin", ["create", repoDir]);
-const repoUrl = pathToFileURL(repoDir).href;
-fs.writeFileSync(connFile, JSON.stringify([{ id: "t1", name: "test", url: repoUrl, username: "u", password: "p" }]));
-process.env.SVN_CONNECTIONS_FILE = connFile;
-process.env.SVN_EDIT_TEMP_DIR = path.join(root, "edit-tmp");
-process.env.SVN_EDIT_AUDIT_LOG = path.join(root, "audit.log"); // 測試的稽核紀錄不要寫進真正的 logs/
-test.after(() => fs.rmSync(root, { recursive: true, force: true }));
-
-function seed(relPath, content) {
-  const wc = path.join(root, `seed-${Math.random().toString(16).slice(2)}`);
-  svn("checkout", repoUrl, wc);
-  const abs = path.join(wc, relPath);
-  fs.mkdirSync(path.dirname(abs), { recursive: true });
-  fs.writeFileSync(abs, content);
-  svn("add", "--parents", abs);
-  svn("commit", "-m", "seed", wc);
-}
+const { repoUrl, svn, seed } = createSvnFixture({ prefix: "svn-csvpdf-test-" });
 
 test("csv：可以開啟、修改、上傳，而且不上鎖", async () => {
   seed("data/list.csv", "a,b\n1,2\n");

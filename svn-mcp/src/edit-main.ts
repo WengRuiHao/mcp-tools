@@ -14,6 +14,7 @@ import { createEditServer } from "./edit-server.js";
 import { activateExistingWindow, openAppWindow } from "./edit-window.js";
 import { fillMissingRepoCaches, migrateLegacyConnections } from "./connections-store.js";
 import { cleanupTransientDirs, listEdits } from "./remote-edit-client.js";
+import { errorMessage } from "./util.js";
 
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.SVN_EDIT_PORT) || 9097;
@@ -82,7 +83,7 @@ server.listen(PORT, HOST, () => {
     .then((r) => {
       if (r.backup) console.error(`[svn-edit] 連線檔已轉成帳號格式：併入 ${r.migrated} 筆、維持原樣 ${r.kept} 筆，備份：${r.backup}`);
     })
-    .catch((e) => console.error(`[svn-edit] 連線檔遷移失敗（維持原樣）：${e instanceof Error ? e.message : String(e)}`))
+    .catch((e) => console.error(`[svn-edit] 連線檔遷移失敗（維持原樣）：${errorMessage(e)}`))
     // 帳號還沒有 repo 清單快取（快取檔不見、連線檔剛複製過來）：自動向伺服器補一次
     .then(() => fillMissingRepoCaches())
     .catch(() => undefined);

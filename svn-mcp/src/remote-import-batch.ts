@@ -17,7 +17,7 @@
 import { randomUUID } from "node:crypto";
 import { chmod, copyFile, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { getSvnTimeoutMs } from "./config-store.js";
+import { getLongSvnTimeoutMs, getSvnTimeoutMs } from "./config-store.js";
 import { buildFullUrl, runSvn, type SvnConnection } from "./svn-client.js";
 import { removeDirWithRetry } from "./temp-clean.js";
 import { commitWithMessage, pegSafe } from "./workcopy-client.js";
@@ -28,13 +28,14 @@ import {
   getEditBaseDir,
   IMPORT_AUTO_PROPS,
   isEditorTempFile,
-  longTimeout,
   MAX_COMMIT_MESSAGE_LENGTH,
   MAX_FILE_BYTES,
   pegUrl,
   resolveConn,
   xmlUnescape,
 } from "./remote-edit-client.js";
+import { errorMessage } from "./util.js";
+import { parseRevision } from "./util.js";
 
 export const MAX_BATCH_FILES = 300000;
 export const MAX_BATCH_BYTES = 4 * 1024 * 1024 * 1024;
@@ -281,7 +282,7 @@ async function listRemoteDir(conn: SvnConnection, dirSubPath: string): Promise<M
     }
     return entries;
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
+    const message = errorMessage(e);
     if (MISSING_PATTERN.test(message)) return null;
     throw new EditError("NOT_FOUND", `讀取遠端目錄失敗：${message}`);
   }
@@ -430,7 +431,7 @@ export async function commitImport(params: { batch: unknown; connectionId?: stri
   const { plan, staged, existingDirs } = await classify(conn, id, params.targetDir);
 
   const wcDir = path.join(batchDirOf(id), "wc");
-  const timeout = batchTimeoutMs(longTimeout(), plan.totalFiles, plan.totalBytes);
+  const timeout = batchTimeoutMs(getLongSvnTimeoutMs(), plan.totalFiles, plan.totalBytes);
   try {
     await removeDirWithRetry(wcDir);
     const anchor = await deepestExistingDir(conn, plan.targetDir, new Set(existingDirs));
@@ -474,14 +475,13 @@ export async function commitImport(params: { batch: unknown; connectionId?: stri
     try {
       stdout = await commitWithMessage(conn, message, [wcDir], timeout, BATCH_MAX_BUFFER);
     } catch (e) {
-      const text = e instanceof Error ? e.message : String(e);
+      const text = errorMessage(e);
       if (/E160039|is locked by|locked by user/i.test(text)) {
         throw new EditError("FILE_LOCKED", `有檔案正被別人鎖定編輯中，無法覆蓋，請等對方解鎖後再試：\n${text}`);
       }
       throw e;
     }
-    const revMatch = stdout.toString("utf-8").match(/revision (\d+)/i);
-    const committedRevision = revMatch ? Number(revMatch[1]) : null;
+    const committedRevision = parseRevision(stdout);
     const result: ImportBatchResult = { committedRevision, targetDir: plan.targetDir, added: plan.add.length, modified, unchanged };
     await audit({ op: "import-batch", connection: conn.name, files: staged.length, ...result, ticket: params.ticket?.trim() || null, ok: true, ...describeMessage(message) });
     stagedSizes.delete(id);
@@ -492,7 +492,7 @@ export async function commitImport(params: { batch: unknown; connectionId?: stri
   } catch (e) {
     // 失敗時只清掉工作副本，保留已上傳的暫存檔，使用者修正問題後可以直接重試，不必重新選檔案
     await removeDirWithRetry(wcDir);
-    await audit({ op: "import-batch", connection: conn.name, targetDir: plan.targetDir, files: staged.length, ok: false, error: e instanceof Error ? e.message : String(e), ...describeMessage(message) });
+    await audit({ op: "import-batch", connection: conn.name, targetDir: plan.targetDir, files: staged.length, ok: false, error: errorMessage(e), ...describeMessage(message) });
     throw e;
   }
 }
