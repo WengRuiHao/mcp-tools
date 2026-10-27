@@ -54,7 +54,7 @@ export function registerConnectionTools(server: McpServer): void {
       const conn = findConnection(connectionId);
       if (!conn) return toolResult(fail(`找不到連線 ${connectionId}`));
       try {
-        const driver = getDriver(conn.type);
+        const driver = await getDriver(conn.type);
         const result = await driver.testConnection(conn);
         return toolResult(result.ok ? ok({ ...result }) : fail(result.message, { ...result }));
       } catch (e: any) {

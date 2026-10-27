@@ -1,8 +1,4 @@
 import type { DbConnection } from "./config-store.js";
-import { postgresDriver } from "./drivers/postgres.js";
-import { mysqlDriver } from "./drivers/mysql.js";
-import { mssqlDriver } from "./drivers/mssql.js";
-import { oracleDriver } from "./drivers/oracle.js";
 
 export interface ColumnInfo {
   schema: string;
@@ -93,15 +89,16 @@ export interface DbDriver {
   ): Promise<QueryResult>;
 }
 
-const drivers: Record<string, DbDriver> = {
-  postgresql: postgresDriver,
-  mysql: mysqlDriver,
-  mssql: mssqlDriver,
-  oracle: oracleDriver,
+// 驅動（pg / mysql2 / mssql / oracledb）載入很慢，改成第一次用到該類型時才 import，避免拖慢 MCP 啟動握手。
+const driverLoaders: Record<string, () => Promise<DbDriver>> = {
+  postgresql: async () => (await import("./drivers/postgres.js")).postgresDriver,
+  mysql: async () => (await import("./drivers/mysql.js")).mysqlDriver,
+  mssql: async () => (await import("./drivers/mssql.js")).mssqlDriver,
+  oracle: async () => (await import("./drivers/oracle.js")).oracleDriver,
 };
 
-export function getDriver(type: string): DbDriver {
-  const driver = drivers[type];
-  if (!driver) throw new Error(`不支援的資料庫類型："${type}"`);
-  return driver;
+export async function getDriver(type: string): Promise<DbDriver> {
+  const load = driverLoaders[type];
+  if (!load) throw new Error(`不支援的資料庫類型："${type}"`);
+  return load();
 }

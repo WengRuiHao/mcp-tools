@@ -41,7 +41,7 @@ export function registerSchemaTools(server: McpServer): void {
         let cached = readCachedSchema(db, connectionId);
         const needsSync = refresh || cached.lastSyncedAt === null;
         if (needsSync) {
-          const driver = getDriver(conn.type);
+          const driver = await getDriver(conn.type);
           const introspection = await driver.introspectSchema(conn);
           replaceSchemaSnapshot(db, connectionId, { name: conn.name, dbType: conn.type, env: conn.env }, introspection);
           cached = readCachedSchema(db, connectionId);

@@ -132,7 +132,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
         password: body?.password,
       } as any;
       if (!fakeConn.type) return sendJson(res, 400, { error: "缺少 type" });
-      const result = await getDriver(fakeConn.type).testConnection(fakeConn);
+      const result = (await getDriver(fakeConn.type)).testConnection(fakeConn);
       return sendJson(res, 200, result);
     }
 
@@ -140,7 +140,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (testMatch && method === "POST") {
       const conn = findConnection(testMatch[1]);
       if (!conn) return sendJson(res, 404, { error: "找不到連線" });
-      const result = await getDriver(conn.type).testConnection(conn);
+      const result = (await getDriver(conn.type)).testConnection(conn);
       return sendJson(res, 200, result);
     }
 
@@ -156,7 +156,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
         let cached = readCachedSchema(db, connectionId);
         const needsSync = refresh || cached.lastSyncedAt === null;
         if (needsSync) {
-          const introspection = await getDriver(conn.type).introspectSchema(conn);
+          const introspection = await (await getDriver(conn.type)).introspectSchema(conn);
           replaceSchemaSnapshot(db, connectionId, { name: conn.name, dbType: conn.type, env: conn.env }, introspection);
           cached = readCachedSchema(db, connectionId);
         }
@@ -172,7 +172,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       if (!conn) return sendJson(res, 404, { error: "找不到連線" });
       if (typeof body?.sql !== "string" || !body.sql.trim()) return sendJson(res, 400, { error: "缺少 sql" });
       // 刻意不套用 readonly-gate——這是人手動執行的管道，見檔案最上面的說明。
-      const result = await getDriver(conn.type).runQuery(conn, body.sql, body.params, MAX_ROWS, QUERY_TIMEOUT_MS);
+      const result = (await getDriver(conn.type)).runQuery(conn, body.sql, body.params, MAX_ROWS, QUERY_TIMEOUT_MS);
       return sendJson(res, 200, result);
     }
 
@@ -188,7 +188,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       const gate = checkReadOnly(body.sql);
       if (!gate.ok) return sendJson(res, 403, { error: gate.reason ?? "非唯讀語句", blocked: true });
 
-      const result = await getDriver(conn.type).runQuery(conn, body.sql, body.params, MAX_ROWS, QUERY_TIMEOUT_MS);
+      const result = (await getDriver(conn.type)).runQuery(conn, body.sql, body.params, MAX_ROWS, QUERY_TIMEOUT_MS);
       return sendJson(res, 200, result);
     }
 

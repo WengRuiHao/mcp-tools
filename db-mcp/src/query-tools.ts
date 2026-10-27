@@ -58,7 +58,7 @@ export function registerQueryTools(server: McpServer): void {
       if (!gate.ok) return toolResult(fail(gate.reason ?? "非唯讀語句", { blocked: true, sql }));
 
       try {
-        const driver = getDriver(conn.type);
+        const driver = await getDriver(conn.type);
         const result = await driver.runQuery(conn, sql, params, MAX_ROWS, QUERY_TIMEOUT_MS);
         return toolResult(ok({ ...result, warning: envWarning(conn.env) }));
       } catch (e: any) {
@@ -96,7 +96,7 @@ export function registerQueryTools(server: McpServer): void {
       const schema = schemaName || defaultSchemaFor(conn);
       const sql = buildSampleSql(conn.type, schema, tableName, limit);
       try {
-        const driver = getDriver(conn.type);
+        const driver = await getDriver(conn.type);
         const result = await driver.runQuery(conn, sql, undefined, limit, QUERY_TIMEOUT_MS);
         return toolResult(ok({ ...result, warning: envWarning(conn.env) }));
       } catch (e: any) {
@@ -122,7 +122,7 @@ export function registerQueryTools(server: McpServer): void {
       if (!gate.ok) return toolResult(fail(gate.reason ?? "非唯讀語句", { blocked: true, sql }));
 
       try {
-        const driver = getDriver(conn.type);
+        const driver = await getDriver(conn.type);
         const result = await driver.runQuery(conn, explainSql, params, MAX_ROWS, QUERY_TIMEOUT_MS);
         return toolResult(ok({ ...result, warning: envWarning(conn.env) }));
       } catch (e: any) {
