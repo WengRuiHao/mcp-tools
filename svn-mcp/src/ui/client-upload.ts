@@ -115,28 +115,55 @@ export const CLIENT_UPLOAD = String.raw`  function cleanDir(p) { return (p || ""
   }
 
   // 上傳：逐檔送到暫存區 → 比對遠端 → （有會覆蓋的檔案就先請使用者確認）→ 送出
+  function wait(ms) { return new Promise(function (resolve) { setTimeout(resolve, ms); }); }
+  /**
+   * 逐檔送到暫存區。某個檔案傳不出去（選取之後被刪除、改名，或暫時連不上）：重試幾次，仍然不行就記到「讀不到的檔案」、
+   * 繼續送其他的，不會因為一個檔案讓整批（六萬個檔案要傳好幾分鐘）重來；伺服器明確拒絕（路徑不合法、太大）才中止。
+   * 連續很多個都失敗，代表不是個別檔案的問題（svn-edit 關了、網路斷了），直接中止。
+   */
   function stageAll(batch) {
     var files = importForm.files.slice();
     var next = 0;
-    function worker() {
-      if (next >= files.length) return Promise.resolve();
-      var item = files[next++];
+    var consecutive = 0;
+    importForm.unreadable = [];
+    function sendOne(item, attempt) {
       var q = new URLSearchParams({ batch: batch, path: item.rel, mtime: String(item.file.lastModified || 0) });
       return fetch("/api/import/stage?" + q.toString(), { method: "POST", headers: { "X-Edit-Token": TOKEN, "Content-Type": "application/octet-stream" }, body: item.file })
         .then(function (r) {
           return r.json().catch(function () { return {}; }).then(function (d) {
-            if (!r.ok) throw new Error((d.error || "傳送失敗") + "（" + item.rel + "）");
+            if (!r.ok) { var err = new Error((d.error || "傳送失敗") + "（" + item.rel + "）"); err.rejected = true; throw err; }
           });
         })
-        .then(function () { importForm.progress++; updateProgressText(); return worker(); });
+        .catch(function (e) {
+          if (e.rejected) throw e;
+          if (attempt < STAGE_RETRIES) return wait(400 * attempt).then(function () { return sendOne(item, attempt + 1); });
+          var bad = new Error("無法傳送（" + item.rel + "）"); bad.unreadable = true; throw bad;
+        });
+    }
+    function worker() {
+      if (next >= files.length) return Promise.resolve();
+      var item = files[next++];
+      return sendOne(item, 1).then(function () { consecutive = 0; }, function (e) {
+        if (!e.unreadable) throw e;
+        importForm.unreadable.push(item.rel);
+        consecutive++;
+        if (consecutive >= STAGE_MAX_CONSECUTIVE_FAILS) throw new Error("連續 " + consecutive + " 個檔案都傳送失敗，svn-edit 可能已經關閉、網路中斷，或這些檔案被別的程式移走了。已停止上傳（最後一個：" + item.rel + "）。");
+      }).then(function () { importForm.progress++; updateProgressText(); return worker(); });
     }
     var workers = [];
     for (var i = 0; i < STAGE_PARALLEL; i++) workers.push(worker());
     return Promise.all(workers);
   }
+  function committingText() {
+    var secs = Math.floor((Date.now() - (importForm.commitStartedAt || Date.now())) / 1000);
+    var took = secs >= 60 ? Math.floor(secs / 60) + " 分 " + (secs % 60) + " 秒" : secs + " 秒";
+    return "正在送出到 SVN（已經 " + took + "）。檔案很多時需要很久，請不要關閉這個視窗。";
+  }
   function updateProgressText() {
     var el = document.getElementById("importProgress");
-    if (el) el.textContent = "正在傳送檔案… " + importForm.progress + " / " + importForm.files.length;
+    if (!el) return;
+    if (importForm.phase === "committing") el.textContent = committingText();
+    else if (importForm.phase === "staging") el.textContent = "正在傳送檔案… " + importForm.progress + " / " + importForm.files.length;
   }
   function importFailed(e) {
     var batch = importForm.batch;
@@ -151,36 +178,55 @@ export const CLIENT_UPLOAD = String.raw`  function cleanDir(p) { return (p || ""
     f.path = cleanDir(f.path);
     f.phase = "staging"; f.progress = 0; f.note = null; f.plan = null; f.startedAt = Date.now(); f.stagingMs = 0;
     importRerender();
+    f.unreadable = []; f.commitError = "";
     api("POST", "/api/import/start", {}).then(function (s) {
       f.batch = s.batch;
       return stageAll(s.batch);
     }).then(function () {
-      return api("POST", "/api/import/plan", { batch: f.batch, connection: f.connection, targetDir: f.path });
-    }).then(function (plan) {
+      if (f.unreadable.length > 0) { f.phase = "unreadable"; importRerender(); return null; }
+      return planStaged();
+    }).catch(importFailed);
+  }
+  /** 檔案都傳到暫存區之後：比對遠端（檔案多的話要幾分鐘），沒有要覆蓋的就直接送出，有的話先請使用者確認。 */
+  function planStaged() {
+    var f = importForm;
+    f.phase = "planning"; importRerender();
+    return api("POST", "/api/import/plan", { batch: f.batch, connection: f.connection, targetDir: f.path }).then(function (plan) {
       f.stagingMs = Date.now() - f.startedAt;
       if (plan.overwrite.length === 0) return commitUpload();
       f.plan = plan; f.phase = "planned"; importRerender();
-    }).catch(importFailed);
+    });
   }
   function commitUpload() {
     var f = importForm;
-    f.phase = "committing"; importRerender();
-    var commitStartedAt = Date.now();
+    f.phase = "committing"; f.commitError = ""; f.commitStartedAt = Date.now(); importRerender();
+    var commitStartedAt = f.commitStartedAt;
+    var commitTimer = setInterval(updateProgressText, 1000);
     return api("POST", "/api/import/commit", { batch: f.batch, connection: f.connection, targetDir: f.path, message: f.message, ticket: browse.ticket || undefined }).then(function (r) {
+      clearInterval(commitTimer);
+      var skippedBad = f.unreadable.length;
       var parts = ["新增 " + r.added + " 個"];
       if (r.modified) parts.push("更新 " + r.modified + " 個");
       if (r.unchanged) parts.push("內容相同略過 " + r.unchanged + " 個");
       // 耗時 = 傳檔案 + 送出 commit；不含使用者在覆蓋確認畫面停留的時間
       var tookMs = (f.stagingMs || 0) + (Date.now() - commitStartedAt);
-      f.files = []; f.skipped = { temp: 0, empty: 0, big: 0 }; f.message = ""; f.batch = null; f.plan = null; f.phase = "idle";
-      f.note = { text: "已上傳到 SVN" + (r.committedRevision ? "（r" + r.committedRevision + "）" : "") + "：" + parts.join("、") + "。位置：" + (r.targetDir || "（連線根目錄）") + "。耗時：" + fmtDuration(tookMs), info: true };
+      f.files = []; f.skipped = { temp: 0, empty: 0, big: 0 }; f.message = ""; f.batch = null; f.plan = null; f.phase = "idle"; f.unreadable = []; f.commitError = "";
+      f.note = { text: "已上傳到 SVN" + (r.committedRevision ? "（r" + r.committedRevision + "）" : "") + "：" + parts.join("、") + (skippedBad ? "（另有 " + skippedBad + " 個檔案讀取失敗，已略過）" : "") + "。位置：" + (r.targetDir || "（連線根目錄）") + "。耗時：" + fmtDuration(tookMs), info: true };
       pick.loadedFor = null;
       importRerender();
-    }).catch(importFailed);
+    }).catch(function (e) { clearInterval(commitTimer); commitFailed(e); });
+  }
+  /**
+   * 送出失敗：檔案都已經傳到暫存區，不要清掉（六萬個檔案重傳一次要好幾分鐘），讓使用者看原因後直接重試，或放棄。
+   */
+  function commitFailed(e) {
+    var f = importForm;
+    f.phase = "commitfailed"; f.commitError = e && e.message ? e.message : "送出失敗";
+    importRerender();
   }
   function cancelUpload() {
     var batch = importForm.batch;
-    importForm.batch = null; importForm.plan = null; importForm.phase = "idle";
+    importForm.batch = null; importForm.plan = null; importForm.phase = "idle"; importForm.unreadable = []; importForm.commitError = "";
     if (batch) api("POST", "/api/import/cancel", { batch: batch }).catch(function () {});
     importRerender();
   }
@@ -188,7 +234,7 @@ export const CLIENT_UPLOAD = String.raw`  function cleanDir(p) { return (p || ""
   function renderImporter() {
     var box = document.getElementById("importer");
     var f = importForm;
-    var sig = JSON.stringify([state.connections, state.repoPrefs, f.phase, f.note, f.files.length, f.skipped, f.plan, f.connection, ext.view === "pick"]);
+    var sig = JSON.stringify([state.connections, state.repoPrefs, f.phase, f.unreadable.length, f.commitError, f.note, f.files.length, f.skipped, f.plan, f.connection, ext.view === "pick"]);
     if (sig === importerSig) return;
     importerSig = sig;
     box.textContent = "";
@@ -256,7 +302,27 @@ export const CLIENT_UPLOAD = String.raw`  function cleanDir(p) { return (p || ""
           h("button", { type: "button", onclick: cancelUpload }, "取消")));
     }
 
-    var busyText = f.phase === "staging" ? "正在傳送檔案… " + f.progress + " / " + f.files.length : (f.phase === "committing" ? "正在送出到 SVN，檔案多的話需要一點時間…" : null);
+    var unreadableBox = null;
+    if (f.phase === "unreadable") {
+      var bad = f.unreadable;
+      unreadableBox = h("div", { class: "banner" },
+        h("div", null, "有 " + bad.length + " 個檔案沒辦法傳送（可能在你選取之後被刪除、改名，或被別的程式移走，例如 IDE 或建置工具正在更新檔案）。其他 " + (f.files.length - bad.length) + " 個檔案已經傳送完成。"),
+        bad.slice(0, 10).map(function (p) { return h("div", { class: "path", style: "margin:0" }, p); }),
+        bad.length > 10 ? h("div", { class: "path", style: "margin:0" }, "…另外還有 " + (bad.length - 10) + " 個") : null,
+        h("div", { class: "row" },
+          h("button", { type: "button", class: "primary", onclick: function () { planStaged().catch(importFailed); } }, "略過這些檔案，繼續上傳"),
+          h("button", { type: "button", onclick: cancelUpload }, "取消")));
+    }
+    var commitFailBox = null;
+    if (f.phase === "commitfailed") {
+      commitFailBox = h("div", { class: "banner" },
+        h("div", { class: "msg" }, f.commitError),
+        h("p", { class: "hint" }, "檔案已經傳到暫存區，沒有清掉；修正問題後可以直接重試，不必重新選檔案。如果上面說「已經在送出中」，代表上一次送出還在進行，請等它完成。"),
+        h("div", { class: "row" },
+          h("button", { type: "button", class: "primary", onclick: function () { commitUpload(); } }, "重試送出"),
+          h("button", { type: "button", onclick: cancelUpload }, "放棄並清除暫存")));
+    }
+    var busyText = f.phase === "staging" ? "正在傳送檔案… " + f.progress + " / " + f.files.length : (f.phase === "planning" ? "正在比對遠端已經有的檔案…（檔案很多時需要幾分鐘）" : (f.phase === "committing" ? committingText() : null));
     var send = h("button", { type: "button", class: "primary", disabled: idle ? null : "disabled", onclick: startUpload },
       f.files.length > 1 ? "上傳這 " + f.files.length + " 個檔案到 SVN" : "上傳到 SVN");
 
@@ -268,9 +334,9 @@ export const CLIENT_UPLOAD = String.raw`  function cleanDir(p) { return (p || ""
       h("label", null, "放到 SVN 的哪裡"), h("div", { class: "inline" }, pathInput, pickBtn),
       h("label", null, "上傳說明（commit 訊息）"), messageInput,
       busyText ? h("div", { class: "hint", id: "importProgress" }, busyText) : null,
-      overwriteBox,
+      overwriteBox, unreadableBox, commitFailBox,
       f.note ? h("div", { class: f.note.info ? "msg info" : "msg" }, f.note.text) : null,
-      f.phase === "planned" ? null : h("div", { class: "row" }, send));
+      (f.phase === "planned" || f.phase === "unreadable" || f.phase === "commitfailed") ? null : h("div", { class: "row" }, send));
     card.addEventListener("dragover", function (ev) { ev.preventDefault(); });
     card.addEventListener("drop", handleDrop);
     box.appendChild(card);

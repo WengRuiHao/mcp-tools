@@ -12,7 +12,7 @@
 import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { getLongSvnTimeoutMs, getSvnTimeoutMs } from "./config-store.js";
-import { commitEdit, getEditStatus, resolveConn, type EditCommitResult, type UpgradeOptions } from "./remote-edit-client.js";
+import { commitEdit, getEditStatus, resolveConn, type EditCommitResult, type RenameOptions, type UpgradeOptions } from "./remote-edit-client.js";
 import { readRepoPrefs } from "./repo-prefs.js";
 import { buildFullUrl, runSvn, type SvnConnection } from "./svn-client.js";
 import { pegSafe, withWcLock } from "./workcopy-client.js";
@@ -157,11 +157,11 @@ export interface SyncedCommitResult extends EditCommitResult {
 }
 
 /** 上傳（commit）編輯結果，成功之後依開關同步本地端。commit 失敗照常丟錯誤，不會進到同步。 */
-export async function commitEditAndSync(id: string, message: string, upgrade?: UpgradeOptions | boolean): Promise<SyncedCommitResult> {
+export async function commitEditAndSync(id: string, message: string, upgrade?: UpgradeOptions | boolean, rename?: RenameOptions): Promise<SyncedCommitResult> {
   const { session } = await getEditStatus(id);
-  const result = await commitEdit(id, message, upgrade);
+  const result = await commitEdit(id, message, upgrade, rename);
   const conn = await resolveConn(session.connectionId).catch(() => null);
   if (!conn) return result;
-  const localSync = await syncLocalAfterChange(conn, result.path, result.upgrade ? "parent" : "file");
+  const localSync = await syncLocalAfterChange(conn, result.path, result.upgrade || result.rename ? "parent" : "file");
   return localSync ? { ...result, localSync } : result;
 }

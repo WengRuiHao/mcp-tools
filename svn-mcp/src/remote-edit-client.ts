@@ -112,6 +112,8 @@ export interface EditCommitResult {
   cleanedUp: boolean;
   /** 這次有「升級版本」時的結果：舊版放去哪、新版叫什麼。 */
   upgrade?: { archivedTo: string; renamedTo: string; newName: string; fromVersion: string | null; toVersion: string | null };
+  /** 這次有「改檔名」時的結果：原本與改完後的遠端路徑。 */
+  rename?: { from: string; to: string; newName: string };
 }
 
 /** 上傳時要不要「升級版本」：舊版複製到同目錄的 old 資料夾，新內容以版本號 +1 的新檔名上傳（同一個 commit）。 */
@@ -141,6 +143,22 @@ export interface UpgradePlan {
   /** 舊版會放到的遠端路徑、新版的遠端路徑（相對於連線根目錄）。 */
   archivePath: string | null;
   newPath: string | null;
+}
+
+/** 上傳時順便改檔名（svn move，歷史紀錄保留）。只想改名、內容沒有修改也可以。 */
+export interface RenameOptions {
+  newName: string;
+}
+
+export interface RenamePlan {
+  /** 這個檔名現在能不能用（空白、含不允許的字元、副檔名不同、跟目前一樣、目錄裡已有同名檔案都不能）。 */
+  applicable: boolean;
+  /** 不能用的原因。 */
+  reason: string | null;
+  currentName: string;
+  newName: string;
+  /** 改名後的遠端路徑（相對於連線根目錄）。 */
+  newPath: string;
 }
 
 // ---- 路徑、session 儲存 ----
@@ -527,10 +545,64 @@ async function commitWithUpgrade(conn: SvnConnection, session: EditSession, plan
   }
 }
 
-export async function commitEdit(id: string, message: string, upgrade?: UpgradeOptions | boolean): Promise<EditCommitResult> {
+/** 新檔名本身有沒有問題（不看遠端）：空白、不允許的字元、副檔名跟原檔不同。沒問題回 null。 */
+function newNameProblem(currentName: string, newName: string, label: string): string | null {
+  if (!newName) return `${label}不能是空的。`;
+  if (newName.includes("/") || newName.includes("\\") || newName === "." || newName === ".." || FORBIDDEN_NAME_CHARS.test(newName)) {
+    return `${label}不能包含 / \\ : * ? " < > | 這些字元。`;
+  }
+  const ext = (/\.[A-Za-z][A-Za-z0-9]{0,7}$/.exec(currentName)?.[0] ?? "").toLowerCase();
+  if (ext && !newName.toLowerCase().endsWith(ext)) return `${label}的副檔名要跟原檔一樣（${ext}）。`;
+  return null;
+}
+
+/** 預覽「改檔名」能不能做：檢查新檔名，並確認遠端同目錄沒有同名檔案。 */
+export async function getRenamePlan(id: string, newNameRaw: string): Promise<RenamePlan> {
+  const session = await loadSession(id);
+  const conn = await resolveConn(session.connectionId);
+  const newName = (newNameRaw ?? "").trim();
+  const dirSub = session.path.includes("/") ? session.path.slice(0, session.path.lastIndexOf("/")) : "";
+  const base: RenamePlan = { applicable: false, reason: null, currentName: session.fileName, newName, newPath: [dirSub, newName].filter(Boolean).join("/") };
+  const problem = newNameProblem(session.fileName, newName, "新檔名");
+  if (problem) return { ...base, reason: problem };
+  if (newName.toLowerCase() === session.fileName.toLowerCase()) return { ...base, reason: "新檔名跟目前的檔名一樣，請改成不同的檔名。" };
+  const entries = (await listRemoteEntries(conn, buildFullUrl(conn.url, dirSub))) ?? [];
+  if (entries.some((e) => e.name.toLowerCase() === newName.toLowerCase())) {
+    return { ...base, reason: `這個目錄已經有「${newName}」了，請改成別的檔名（或先處理掉那個檔案）。` };
+  }
+  return { ...base, applicable: true };
+}
+
+/**
+ * 改檔名的上傳（同一個 commit）：把編輯好的檔案改成新檔名（svn move，保留歷史）後一起 commit。
+ * 中途失敗會把工作副本還原，並把使用者編輯好的內容放回去——絕不能因為改名失敗弄丟編輯。
+ */
+async function commitWithRename(conn: SvnConnection, session: EditSession, newName: string, message: string): Promise<Buffer> {
+  const timeout = getLongSvnTimeoutMs();
+  // 舊版程式建立的編輯項目可能記著 8.3 短檔名路徑（svn move 會失敗），這裡一律改用真實長路徑操作
+  const wcDir = await realpath(session.wcDir).catch(() => session.wcDir);
+  const filePath = path.join(wcDir, session.fileName);
+  const newWc = path.join(wcDir, newName);
+  const backupFile = path.join(session.sessionDir, "rename-backup", session.fileName);
+  await mkdir(path.dirname(backupFile), { recursive: true });
+  await copyFile(session.filePath, backupFile); // 使用者編輯好的內容先備份一份
+  try {
+    await runSvn(["move", pegSafe(filePath), pegSafe(newWc)], conn, timeout);
+    return await commitWithMessage(conn, message, [wcDir], timeout);
+  } catch (e) {
+    await runSvn(["revert", "-R", pegSafe(wcDir)], conn, timeout).catch(() => undefined);
+    await rm(newWc, { force: true }).catch(() => undefined);
+    await chmod(filePath, 0o666).catch(() => undefined);
+    await copyFile(backupFile, filePath).catch(() => undefined);
+    throw e;
+  }
+}
+
+export async function commitEdit(id: string, message: string, upgrade?: UpgradeOptions | boolean, rename?: RenameOptions): Promise<EditCommitResult> {
   const trimmed = typeof message === "string" ? message.trim() : "";
   if (!trimmed) throw new EditError("INVALID_INPUT", "commit message 不能是空的");
   if (trimmed.length > MAX_COMMIT_MESSAGE_LENGTH) throw new EditError("INVALID_INPUT", `commit message 太長（上限 ${MAX_COMMIT_MESSAGE_LENGTH} 字）`);
+  if (upgrade && rename) throw new EditError("INVALID_INPUT", "升級版本與改檔名只能選一個（升級版本時，新版檔名可以自己修改）。");
   const session = await loadSession(id);
   const conn = await resolveConn(session.connectionId);
 
@@ -540,7 +612,8 @@ export async function commitEdit(id: string, message: string, upgrade?: UpgradeO
       if (openFiles.length > 0) {
         throw new EditError("EDITOR_STILL_OPEN", "Word／Excel 還開著這個檔案，請先存檔並關閉後再上傳。");
       }
-      if ((await hashFile(session.filePath)) === session.baseHash) {
+      // 只改名（內容沒有修改）也可以上傳；沒有改名又沒有修改內容才擋
+      if (!rename && (await hashFile(session.filePath)) === session.baseHash) {
         throw new EditError("NO_CHANGES", "檔案內容沒有任何修改，不需要上傳。");
       }
       const remoteRevision = await remoteLastChangedRevision(conn, remoteUrlOf(conn, session));
@@ -558,7 +631,18 @@ export async function commitEdit(id: string, message: string, upgrade?: UpgradeO
           throw new EditError(/已經有/.test(plan.reason ?? "") ? "ALREADY_EXISTS" : "INVALID_INPUT", plan.reason ?? "這個檔案沒辦法升級版本");
         }
       }
-      const stdout = plan ? await commitWithUpgrade(conn, session, plan, trimmed) : await commitWithMessage(conn, trimmed, [session.filePath]);
+      let renamePlan: RenamePlan | null = null;
+      if (rename) {
+        renamePlan = await getRenamePlan(id, rename.newName);
+        if (!renamePlan.applicable) {
+          throw new EditError(/已經有/.test(renamePlan.reason ?? "") ? "ALREADY_EXISTS" : "INVALID_INPUT", renamePlan.reason ?? "這個檔名沒辦法使用");
+        }
+      }
+      const stdout = plan
+        ? await commitWithUpgrade(conn, session, plan, trimmed)
+        : renamePlan
+          ? await commitWithRename(conn, session, renamePlan.newName, trimmed)
+          : await commitWithMessage(conn, trimmed, [session.filePath]);
       const lastLine = stdout.toString("utf-8").trim().split(/\r?\n/).pop() ?? "";
       const revMatch = lastLine.match(/(\d+)\D*$/);
       const committedRevision = revMatch ? Number(revMatch[1]) : null;
@@ -570,8 +654,15 @@ export async function commitEdit(id: string, message: string, upgrade?: UpgradeO
       const upgradeResult = plan
         ? { archivedTo: plan.archivePath as string, renamedTo: plan.newPath as string, newName: plan.newName as string, fromVersion: plan.currentVersion, toVersion: plan.newVersion }
         : undefined;
-      await audit({ op: "commit", id, connection: conn.name, path: session.path, committedRevision, ok: true, ...(upgradeResult ? { upgrade: upgradeResult } : {}), ...describeMessage(trimmed) });
-      return { committedRevision, path: plan ? (plan.newPath as string) : session.path, cleanedUp, ...(upgradeResult ? { upgrade: upgradeResult } : {}) };
+      const renameResult = renamePlan ? { from: session.path, to: renamePlan.newPath, newName: renamePlan.newName } : undefined;
+      await audit({ op: "commit", id, connection: conn.name, path: session.path, committedRevision, ok: true, ...(upgradeResult ? { upgrade: upgradeResult } : {}), ...(renameResult ? { rename: renameResult } : {}), ...describeMessage(trimmed) });
+      return {
+        committedRevision,
+        path: plan ? (plan.newPath as string) : renamePlan ? renamePlan.newPath : session.path,
+        cleanedUp,
+        ...(upgradeResult ? { upgrade: upgradeResult } : {}),
+        ...(renameResult ? { rename: renameResult } : {}),
+      };
     } catch (e) {
       await audit({ op: "commit", id, connection: conn.name, path: session.path, ok: false, error: errorMessage(e), ...describeMessage(trimmed) });
       throw e;

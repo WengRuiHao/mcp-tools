@@ -9,6 +9,8 @@ export const CLIENT_STATE = String.raw`  var TOKEN = "__EDIT_TOKEN__";
   var confirmDiscard = {};
   /** 每張編輯卡片的「升級版本」狀態：{ on, plan, loading, newName }。 */
   var upgrades = {};
+  /** 每張編輯卡片的「改檔名」狀態：{ on, plan, loading, newName }。 */
+  var renames = {};
   /** 上傳成功後顯示在最上面的提示（點一下或 30 秒後消失）。 */
   var commitNotice = "";
   var cards = {};
@@ -16,6 +18,8 @@ export const CLIENT_STATE = String.raw`  var TOKEN = "__EDIT_TOKEN__";
   var browseRequest = readBrowseQuery();
   var serverForm = { id: "", name: "", url: "", username: "", password: "" };
   var serverBusy = false;
+  /** 「新增帳號」表單是否展開（預設收起，按標題旁的＋才出現；編輯帳號時一定會顯示）。 */
+  var serverFormOpen = false;
   var deleteConfirmId = null;
   var localForm = { repo: "", path: "" };
   var localNote = null;
@@ -51,12 +55,19 @@ export const CLIENT_STATE = String.raw`  var TOKEN = "__EDIT_TOKEN__";
   var MAX_BATCH_FILES = 300000;
   var MAX_BATCH_BYTES = 4294967296;
   var STAGE_PARALLEL = 4;
+  /** 每個檔案傳送失敗時最多試幾次，以及連續失敗幾個就判斷不是個別檔案的問題。 */
+  var STAGE_RETRIES = 3;
+  var STAGE_MAX_CONSECUTIVE_FAILS = 20;
   var EXCLUDED_DIRS = [".svn", ".git", ".hg"];
   var EXCLUDED_FILES = ["thumbs.db", "desktop.ini", ".ds_store"];
   var importForm = {
     connection: "", path: browseRequest ? browseRequest.path : "", message: "",
     files: [], skipped: { temp: 0, empty: 0, big: 0 },
-    phase: "idle", progress: 0, batch: null, plan: null, note: null
+    phase: "idle", progress: 0, batch: null, plan: null, note: null,
+    /** 傳送時讀不到的檔案（選取後被刪除、改名、被別的程式移走）。 */
+    unreadable: [],
+    /** 送出失敗的原因（檔案都還在暫存區，可以重試）。 */
+    commitError: "", commitStartedAt: 0
   };
   var importerSig = "";
 

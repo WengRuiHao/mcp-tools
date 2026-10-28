@@ -64,7 +64,7 @@ export const CLIENT_PANEL = String.raw`  function noConnectionCard() {
   function rerenderExt() { extSig = ""; renderExt(); }
   function renderExt() {
     var box = document.getElementById("extBody");
-    var sig = JSON.stringify([ext.view, state.connections, state.servers, serverBusy, serverForm.id, browse.connection, browse.path, browse.entries, browse.loading, browse.error, browse.truncated, browse.ticket, browse.notice, browse.picking, picker.tab, pick.path, pick.entries, pick.loading, pick.notice, settingsNote, deleteConfirmId, browse.del ? [browse.del.paths, browse.del.busy, browse.del.error] : null, browse.sel, state.repoPrefs.syncLocal, state.repoPrefs.localPaths, localNote, localBusy, Object.keys(localInfo).length]);
+    var sig = JSON.stringify([ext.view, state.connections, state.servers, serverBusy, serverFormOpen, serverForm.id, browse.connection, browse.path, browse.entries, browse.loading, browse.error, browse.truncated, browse.ticket, browse.notice, browse.picking, picker.tab, pick.path, pick.entries, pick.loading, pick.notice, settingsNote, deleteConfirmId, browse.del ? [browse.del.paths, browse.del.busy, browse.del.error] : null, browse.sel, state.repoPrefs.syncLocal, state.repoPrefs.localPaths, localNote, localBusy, Object.keys(localInfo).length]);
     if (sig === extSig) return;
     extSig = sig;
     box.textContent = "";

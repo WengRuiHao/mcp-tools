@@ -88,6 +88,11 @@ button:disabled{opacity:.5;cursor:default}
 .delbox{margin:0 0 12px;padding:12px 14px;border:1px solid var(--danger);border-radius:12px;background:var(--danger-bg)}
 .delbox p{margin:0 0 8px;overflow-wrap:anywhere}
 
+/* 帳號清單標題列：右側的＋按鈕用來展開「新增帳號」 */
+.sethead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px}
+.plusbtn{flex:0 0 auto;width:34px;height:34px;padding:0;border-radius:50%;font-size:20px;line-height:1;color:var(--brand);border-color:var(--brand)}
+.plusbtn:hover:not(:disabled){background:var(--brand-soft);color:var(--brand)}
+
 /* 目錄瀏覽、連線清單 */
 summary{cursor:pointer;font-weight:700;font-size:15.5px}
 summary::marker{color:var(--brand)}

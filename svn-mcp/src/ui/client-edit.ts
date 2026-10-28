@@ -54,8 +54,13 @@ export const CLIENT_EDIT = String.raw`  function renderPending() {
     return u ? JSON.stringify([u.on, u.loading, u.newName, u.plan ? [u.plan.applicable, u.plan.reason, u.plan.newName, u.plan.archiveDirExists] : null]) : "";
   }
 
+  function renameSig(id) {
+    var r = renames[id];
+    return r ? JSON.stringify([r.on, r.loading, r.newName, r.plan ? [r.plan.applicable, r.plan.reason, r.plan.newName] : null]) : "";
+  }
+
   function sessionSig(s) {
-    return [s.session.id, s.modified, s.editorStillOpen, busy[s.session.id] || "", cardNotes[s.session.id] ? cardNotes[s.session.id].text : "", !!confirmDiscard[s.session.id], upgradeSig(s.session.id)].join("|");
+    return [s.session.id, s.modified, s.editorStillOpen, busy[s.session.id] || "", cardNotes[s.session.id] ? cardNotes[s.session.id].text : "", !!confirmDiscard[s.session.id], upgradeSig(s.session.id), renameSig(s.session.id)].join("|");
   }
 
   function renderSessions() {
@@ -92,6 +97,15 @@ export const CLIENT_EDIT = String.raw`  function renderPending() {
         .catch(function (e) { busy[id] = ""; cardNotes[id] = { text: e.message + (HINTS[e.code] ? "\n" + HINTS[e.code] : ""), info: false }; return refresh(); });
     }
     var up = upgrades[id] || (upgrades[id] = { on: false, plan: null, loading: false, newName: "" });
+    var rn = renames[id] || (renames[id] = { on: false, plan: null, loading: false, newName: session.fileName });
+    function loadRenamePlan(newName) {
+      rn.loading = true; render();
+      api("GET", "/api/rename-plan?id=" + encodeURIComponent(id) + "&newName=" + encodeURIComponent(newName)).then(function (plan) {
+        rn.plan = plan; rn.loading = false; render();
+      }).catch(function (e) {
+        rn.loading = false; rn.plan = { applicable: false, reason: e.message, newName: newName }; render();
+      });
+    }
     function loadPlan(newName) {
       up.loading = true; render();
       api("GET", "/api/upgrade-plan?id=" + encodeURIComponent(id) + (newName ? "&newName=" + encodeURIComponent(newName) : "")).then(function (plan) {
@@ -101,7 +115,7 @@ export const CLIENT_EDIT = String.raw`  function renderPending() {
       });
     }
     var toggle = h("input", { type: "checkbox", checked: up.on ? "checked" : null, disabled: disabled ? "disabled" : null });
-    toggle.addEventListener("change", function () { up.on = toggle.checked; if (up.on) loadPlan(up.newName); else render(); });
+    toggle.addEventListener("change", function () { up.on = toggle.checked; if (up.on) { rn.on = false; loadPlan(up.newName); } else render(); });
     var upgradeBox = h("div", { class: "upgrade" },
       h("label", null, toggle, h("span", null, "升級版本（舊版放進 old 資料夾，新版的版本號 +1）")));
     if (up.on) {
@@ -124,17 +138,43 @@ export const CLIENT_EDIT = String.raw`  function renderPending() {
         upgradeBox.appendChild(h("p", { class: "hint" }, "上傳時舊版與新版會在同一個 commit 一起完成，舊版的歷史紀錄都保留。"));
       }
     }
+    // ---- 改檔名（跟升級版本只能選一個）----
+    var rnToggle = h("input", { type: "checkbox", checked: rn.on ? "checked" : null, disabled: (disabled || up.on) ? "disabled" : null });
+    rnToggle.addEventListener("change", function () {
+      rn.on = rnToggle.checked; rn.plan = null;
+      if (rn.on && rn.newName !== session.fileName) loadRenamePlan(rn.newName); else render();
+    });
+    var renameBox = h("div", { class: "upgrade" },
+      h("label", null, rnToggle, h("span", null, "改檔名（上傳時一併改成新的檔名，歷史紀錄保留）")));
+    if (up.on) {
+      renameBox.appendChild(h("p", { class: "hint" }, "已勾選升級版本；升級版本的新版檔名可以直接在上面修改。"));
+    } else if (rn.on) {
+      var rnInput = h("input", { type: "text", value: rn.newName, disabled: disabled ? "disabled" : null });
+      rnInput.addEventListener("change", function () { rn.newName = rnInput.value.trim(); rn.plan = null; if (rn.newName && rn.newName !== session.fileName) loadRenamePlan(rn.newName); else render(); });
+      renameBox.appendChild(h("label", { class: "upgrade__name" }, "新檔名"));
+      renameBox.appendChild(rnInput);
+      if (rn.newName === session.fileName) renameBox.appendChild(h("p", { class: "hint" }, "請把上面的檔名改成新的檔名（副檔名要一樣）。"));
+      else if (rn.loading || !rn.plan) renameBox.appendChild(h("p", { class: "hint" }, "正在確認遠端目錄…"));
+      else if (rn.plan.reason) renameBox.appendChild(h("div", { class: "msg" }, rn.plan.reason));
+      else renameBox.appendChild(h("p", { class: "hint" }, "上傳後「" + rn.plan.currentName + "」會變成「" + rn.plan.newName + "」。沒有修改內容、只想改名也可以直接上傳。"));
+    }
+    var renameBlocked = rn.on && !up.on && (rn.loading || !rn.plan || !rn.plan.applicable || rn.newName === session.fileName);
+    var renaming = rn.on && !up.on && !renameBlocked;
+
     var upgradeBlocked = up.on && (up.loading || !up.plan || !up.plan.applicable);
-    var commitLabel = busy[id] === "上傳中…" ? "上傳中…" : (up.on && up.plan && up.plan.newVersion ? "上傳並升級到 " + up.plan.newVersion : "上傳");
-    var commit = h("button", { class: "primary", disabled: (disabled || upgradeBlocked) ? "disabled" : null, onclick: function () {
+    var commitLabel = busy[id] === "上傳中…" ? "上傳中…" : (up.on && up.plan && up.plan.newVersion ? "上傳並升級到 " + up.plan.newVersion : (renaming ? "上傳並改名" : "上傳"));
+    var commit = h("button", { class: "primary", disabled: (disabled || upgradeBlocked || renameBlocked) ? "disabled" : null, onclick: function () {
       run("上傳中…", function () {
         var body = { id: id, message: messages[id] };
         if (up.on) body.upgrade = up.newName ? { newName: up.newName } : true;
+        else if (renaming) body.rename = { newName: rn.newName };
         return api("POST", "/api/commit", body).then(function (r) {
-          delete messages[id]; delete cardNotes[id]; delete upgrades[id];
+          delete messages[id]; delete cardNotes[id]; delete upgrades[id]; delete renames[id];
           var sync = r.localSync;
-          if (r.upgrade || sync) {
-            commitNotice = (r.upgrade
+          if (r.upgrade || r.rename || sync) {
+            commitNotice = (r.rename
+              ? "已改名並上傳（r" + r.committedRevision + "）：「" + r.rename.from + "」→「" + r.rename.to + "」。"
+              : r.upgrade
               ? "已升級並上傳（r" + r.committedRevision + "）：新版「" + r.upgrade.newName + "」；舊版放進「" + r.upgrade.archivedTo + "」。"
               : "已上傳（r" + r.committedRevision + "）：" + r.path + "。") + (sync && sync.status === "updated" ? " " + sync.message : "");
             setTimeout(function () { commitNotice = ""; render(); }, 30000);
@@ -159,6 +199,7 @@ export const CLIENT_EDIT = String.raw`  function renderPending() {
         s.editorStillOpen ? h("span", { class: "badge warn" }, "檔案還開著（請先關閉再上傳）") : null),
       h("label", null, "上傳說明（commit 訊息）"), textarea,
       upgradeBox,
+      renameBox,
       note ? h("div", { class: note.info ? "msg info" : "msg" }, note.text) : null,
       h("div", { class: "row" },
         commit,

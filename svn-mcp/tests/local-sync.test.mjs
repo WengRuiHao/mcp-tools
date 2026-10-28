@@ -76,6 +76,21 @@ test("開關開啟：上傳成功後自動 update，本地檔案變成最新內�
   assert.equal(fs.readFileSync(path.join(local, "on", "a.md"), "utf-8"), "v2\n");
 });
 
+test("開關開啟：上傳時改檔名，本地端舊檔名消失、新檔名出現且內容是最新的；旁邊沒動到的檔案不受影響", async () => {
+  seed("ren/old-name.md", "v1\n");
+  seed("ren/other.md", "other\n");
+  const local = checkoutLocal("local-rename");
+  await configure({ sync: true, localPath: local });
+  const session = await edit("ren/old-name.md", "v2\n");
+  const result = await commitEditAndSync(session.id, "改名並修改", undefined, { newName: "new-name.md" });
+  assert.equal(result.rename?.newName, "new-name.md");
+  assert.equal(result.path, "ren/new-name.md");
+  assert.equal(result.localSync?.status, "updated", result.localSync?.message);
+  assert.equal(fs.existsSync(path.join(local, "ren", "old-name.md")), false, "本地的舊檔名已經消失");
+  assert.equal(fs.readFileSync(path.join(local, "ren", "new-name.md"), "utf-8"), "v2\n");
+  assert.equal(fs.readFileSync(path.join(local, "ren", "other.md"), "utf-8"), "other\n");
+});
+
 test("本地目錄只 checkout 了專案的子目錄也對得上，且只更新這次動到的檔案", async () => {
   seed("sub/x.md", "x1\n");
   seed("sub/y.md", "y1\n");

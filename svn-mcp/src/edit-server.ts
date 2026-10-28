@@ -22,7 +22,7 @@ import { deleteRemoteFileAndSync } from "./remote-delete.js";
 import { renderPage } from "./edit-ui.js";
 import { openForEdit, openFile, revealFile } from "./os-open.js";
 import { cancelImport, commitImport, planImport, stageImportFile, startImportBatch } from "./remote-import-batch.js";
-import { browseRemote, discardEdit, EditError, exportLatest, getEditStatus, getUpgradePlan, importNewFile, listEdits, openEdit, viewRemoteFile, type EditErrorCode } from "./remote-edit-client.js";
+import { browseRemote, discardEdit, EditError, exportLatest, getEditStatus, getRenamePlan, getUpgradePlan, importNewFile, listEdits, openEdit, viewRemoteFile, type EditErrorCode } from "./remote-edit-client.js";
 import { errorMessage } from "./util.js";
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -212,7 +212,10 @@ const API_POST: Record<string, ApiHandler> = {
     // upgrade：true 或 { newName }＝升級版本（舊版複製到 old 資料夾、新版版本號 +1）
     const up = body.upgrade;
     const upgrade = up && typeof up === "object" ? { newName: str(up as Record<string, unknown>, "newName") || undefined } : up === true ? {} : undefined;
-    return commitEditAndSync(str(body, "id"), str(body, "message"), upgrade);
+    // rename：{ newName }＝上傳時順便改檔名（svn move，歷史保留）；跟升級版本只能選一個
+    const rn = body.rename;
+    const rename = rn && typeof rn === "object" ? { newName: str(rn as Record<string, unknown>, "newName") } : undefined;
+    return commitEditAndSync(str(body, "id"), str(body, "message"), upgrade, rename);
   },
   // 刪除遠端單一檔案（成功後依「同步本地端」開關更新本地工作目錄）
   "/api/delete": (body) => deleteRemoteFileAndSync({ connectionId: str(body, "connection") || undefined, path: str(body, "path"), paths: body.paths, message: str(body, "message") }),
@@ -301,6 +304,9 @@ export function createEditServer(): EditServer {
       return sendJson(res, 200, { ok: true });
     }
     if (req.method === "GET" && route === "/api/state") return sendJson(res, 200, await buildState());
+    if (req.method === "GET" && route === "/api/rename-plan") {
+      return sendJson(res, 200, await getRenamePlan(url.searchParams.get("id") ?? "", url.searchParams.get("newName") ?? ""));
+    }
     if (req.method === "GET" && route === "/api/upgrade-plan") {
       return sendJson(res, 200, await getUpgradePlan(url.searchParams.get("id") ?? "", url.searchParams.get("newName") || undefined));
     }

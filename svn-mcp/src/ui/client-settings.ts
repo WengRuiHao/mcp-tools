@@ -30,7 +30,7 @@ export const CLIENT_SETTINGS = String.raw`  /** 帳號的顯示文字：名稱�
       return h("div", null, h("label", null, label), inputs[key]);
     }
     function authNote(r) { return r.auth === "windows" ? "驗證方式：Windows 登入（這個伺服器用你目前登入電腦的帳號驗證，填的密碼沒有被用到）。" : "驗證方式：你填的帳號密碼。"; }
-    function resetForm() { serverForm = { id: "", name: "", url: "", username: "", password: "" }; }
+    function resetForm() { serverForm = { id: "", name: "", url: "", username: "", password: "" }; serverFormOpen = false; }
     function note(text, info) { serverBusy = false; settingsNote = { text: text, info: info }; rerenderExt(); }
     function fail(e) { note("連線失敗：" + e.message, false); }
     function busy(text) { serverBusy = true; settingsNote = { text: text, info: true }; rerenderExt(); }
@@ -79,17 +79,28 @@ export const CLIENT_SETTINGS = String.raw`  /** 帳號的顯示文字：名稱�
           aliasNames.length ? h("span", { class: "path" }, h("br", null), "別名：" + aliasNames.join("、")) : null),
         h("span", { class: "btns" }, buttons));
     });
+    // 表單預設收起：按標題旁的＋才展開新增；編輯時一定顯示；完全沒有帳號時直接展開（不然沒地方填）
+    var noAccounts = state.servers.length === 0;
+    var adding = serverFormOpen && !serverForm.id;
+    var showForm = serverFormOpen || !!serverForm.id || noAccounts;
+    var noteEl = settingsNote ? h("div", { class: settingsNote.info ? "msg info" : "msg" }, settingsNote.text) : null;
+    var plus = h("button", { type: "button", class: "plusbtn", title: adding ? "收起" : "新增帳號", "aria-label": adding ? "收起新增帳號" : "新增帳號", disabled: noAccounts ? "disabled" : null, onclick: function () {
+      if (adding) { resetForm(); settingsNote = null; rerenderExt(); return; }
+      resetForm(); serverFormOpen = true; settingsNote = null; deleteConfirmId = null; rerenderExt();
+      setTimeout(function () { var el = document.querySelector("#extBody form input"); if (el) el.focus(); }, 0);
+    } }, adding ? "－" : "＋");
+    var form = showForm ? h("form", { autocomplete: "off", onsubmit: function (ev) { ev.preventDefault(); } },
+      h("h2", { style: "margin-top:18px;font-size:15px" }, serverForm.id ? "編輯帳號" : "新增帳號"),
+      sfield("name", "名稱（留空＝用網址）", "text", "例如：公司 SVN"),
+      sfield("url", "伺服器網址", "text", "https://svn.example.com/svn"),
+      sfield("username", "帳號（請使用你自己的 SVN 帳號；留空＝目前的 Windows 帳號）", "text"),
+      sfield("password", serverForm.id ? "密碼（留空代表不變更）" : "密碼（Windows 登入驗證可留空）", "password"),
+      noteEl,
+      h("div", { class: "row" }, testBtn, save, serverForm.id || !noAccounts ? h("button", { type: "button", onclick: function () { resetForm(); settingsNote = null; rerenderExt(); } }, serverForm.id ? "取消編輯" : "取消") : null)) : null;
     return h("div", null,
-      h("h2", { style: "margin-top:14px;font-size:15px" }, "SVN 伺服器（填帳密就能用所有 repo）"),
+      h("div", { class: "sethead" }, h("h2", { style: "margin:0;font-size:15px" }, "SVN 伺服器（填帳密就能用所有 repo）"), plus),
       list.length ? h("div", null, list) : h("div", { class: "empty" }, "還沒有任何帳號，請在下方新增。"),
-      h("form", { autocomplete: "off", onsubmit: function (ev) { ev.preventDefault(); } },
-        h("h2", { style: "margin-top:18px;font-size:15px" }, serverForm.id ? "編輯帳號" : "新增帳號"),
-        sfield("name", "名稱（留空＝用網址）", "text", "例如：公司 SVN"),
-        sfield("url", "伺服器網址", "text", "https://svn.example.com/svn"),
-        sfield("username", "帳號（請使用你自己的 SVN 帳號；留空＝目前的 Windows 帳號）", "text"),
-        sfield("password", serverForm.id ? "密碼（留空代表不變更）" : "密碼（Windows 登入驗證可留空）", "password"),
-        settingsNote ? h("div", { class: settingsNote.info ? "msg info" : "msg" }, settingsNote.text) : null,
-        h("div", { class: "row" }, testBtn, save, serverForm.id ? h("button", { type: "button", onclick: function () { resetForm(); settingsNote = null; rerenderExt(); } }, "取消編輯") : null)));
+      showForm ? form : noteEl);
   }
 
   function renderConnView(box) {

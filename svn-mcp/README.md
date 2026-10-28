@@ -55,6 +55,9 @@
 | `SVN_CONNECTION_ID` | 預設使用的 SVN 連線 ID（沒指定就用這個） | 無（工具呼叫需自行指定連線） |
 | `SVN_CONNECTIONS_FILE` | 單一設定檔路徑（帳號 url/username/password，加上 repo 清單快取與個人偏好，見下方「共用設定檔」） | 這個 MCP 自己目錄下的 `info/svn-connections.json` |
 | `SVN_TIMEOUT_MS` | 執行 `svn` 指令的逾時毫秒數 | `30000` |
+| `SVN_EDIT_DISABLE_MUCC` | 設成 `1` 關閉批次上傳的 svnmucc 快速路徑（一律用工作副本）；`SVN_EDIT_MUCC_PATH` 指定 svnmucc 的路徑（預設找 PATH 裡 `svn` 旁邊的） | 不設（自動使用） |
+| `SVN_EDIT_TRACE_IMPORT` | 設成 `1` 時，批次上傳每個階段花的時間會印到 stderr（診斷「為什麼這麼慢」用） | 不設（不印） |
+| `SVN_EDIT_RECURSIVE_LIST_MIN_DIRS` | 批次上傳要比對的遠端資料夾超過這個數量，就一次遞迴列出整棵目錄（不再一個資料夾問一次） | `30` |
 
 ## HTTP bridge（`src/http-server.ts`，給 claudeweb 用的獨立介面）
 
@@ -185,7 +188,7 @@ svn-mcp 的唯讀工具、svn-edit、dev-pipeline-mcp（轉呼叫 svn-mcp）、�
 <details>
 <summary><b>上傳檔案／資料夾（批次）</b></summary>
 
-控制頁的「新增檔案到 SVN」可一次選多個檔案或整個資料夾（也能拖曳，資料夾連同子資料夾、保留資料夾名稱），指定遠端目的地（可直接輸入，或按「從 SVN 選擇」在右側面板點選資料夾；不存在會自動建立），**只產生一個 commit**（核心在 `src/remote-import-batch.ts`，同樣刻意不註冊成 MCP 工具）。網頁逐檔送到暫存區 → 預覽哪些是新增、哪些會覆蓋 → 使用者確認後才送出。遠端已有的同名檔案會更新成新版本（內容相同的不產生變更，SVN 有歷史可還原）；遠端版本比本機檔案新時會另外顯示警告，需再按「我確認，仍要覆蓋」。做法是只 checkout 目標目錄最近的已存在祖先（depth empty），再逐一 update 要覆蓋的檔案，目標目錄再大也不影響速度。依副檔名自動設定屬性：docx／xlsx／xls 設 `svn:needs-lock`，md／txt 設 `svn:eol-style=native`（盡力而為：SVN 會把「小而全是中文」的文字檔誤判成二進位而拒絕設定，這種情況略過、不讓整批上傳失敗）。上限：單檔 50 MB、一次 300000 個檔案、總共 4 GB；`svn` 逾時會依檔案數與大小自動放寬（基本逾時＋每個檔案 0.6 秒＋每 MB 5 秒，上限 24 小時，svn 輸出緩衝同步加大），逾時時會明確回報「檔案數量或網路傳輸量太大，請分批上傳或調高 `SVN_TIMEOUT_MS`」，而不是只丟一串 exit code。API：`POST /api/import/start` → `POST /api/import/stage?batch=…&path=…`（檔案內容放請求本文，原始位元組）→ `POST /api/import/plan` → `POST /api/import/commit`（或 `POST /api/import/cancel` 放棄並清掉暫存）。舊的單檔 `POST /api/import?connection=…&path=…&message=…` 仍保留（遠端已有同名檔案拒絕、不覆蓋）。
+控制頁的「新增檔案到 SVN」可一次選多個檔案或整個資料夾（也能拖曳，資料夾連同子資料夾、保留資料夾名稱），指定遠端目的地（可直接輸入，或按「從 SVN 選擇」在右側面板點選資料夾；不存在會自動建立），**只產生一個 commit**（核心在 `src/remote-import-batch.ts`，同樣刻意不註冊成 MCP 工具）。網頁逐檔送到暫存區 → 預覽哪些是新增、哪些會覆蓋 → 使用者確認後才送出。遠端已有的同名檔案會更新成新版本（內容相同的不產生變更，SVN 有歷史可還原）；遠端版本比本機檔案新時會另外顯示警告，需再按「我確認，仍要覆蓋」。做法是只 checkout 目標目錄最近的已存在祖先（depth empty），再逐一 update 要覆蓋的檔案，目標目錄再大也不影響速度。依副檔名自動設定屬性：docx／xlsx／xls 設 `svn:needs-lock`，md／txt 設 `svn:eol-style=native`（盡力而為：SVN 會把「小而全是中文」的文字檔誤判成二進位而拒絕設定，這種情況略過、不讓整批上傳失敗）。**速度與大量檔案**：SVN 的工作副本每個檔案都要做好幾次檔案改名，資安軟體（例如 Trend Micro）會攔截改名、一次要好幾秒，上傳六萬個檔案光改名就要幾十個小時。所以**這次上傳的檔案全部都是遠端還沒有的新檔案**時，改用 `svnmucc`（TortoiseSVN 的 bin 裡有）一次送出，不建立工作副本（`src/mucc-import.ts`，實測比工作副本快 8～12 倍）：`svnmucc` 讀參數檔與說明檔時一律當成系統內碼頁（繁體 Windows 是 Big5）而不是 UTF-8，所以參數檔只放純英數（本機來源用英數檔名、遠端網址用百分比編碼，中文檔名與資料夾照樣建立），提交說明用系統內碼頁寫成檔案（說明裡有系統內碼頁寫不出的字元，例如表情符號，就自動退回工作副本，不會存成亂碼）；md／txt 照樣設 `svn:eol-style=native`（CRLF 先轉成 LF，換行混用的不設），docx／xlsx／xls 設 `svn:needs-lock`，整批仍然只有一個 commit。有要覆蓋的檔案（`svnmucc put` 對內容相同的檔案也會產生新版本）、找不到 `svnmucc`、或 `SVN_EDIT_DISABLE_MUCC=1` 時，照樣用上面的工作副本做法（資料夾很多時一次遞迴列出遠端、一次最多帶約 500 個路徑／24000 字元給 svn、複製檔案同時 16 個、工作副本資料庫被別的程式鎖住（E200033）時自動等待重試最多 5 次）。送出中同一批不能重複送出也不能取消；送出失敗時暫存檔保留，畫面讓你重試或放棄；傳送時單一檔案讀不到（選取後被刪除或改名）會重試 3 次，仍不行就列出清單讓你選擇略過繼續。結果的 `method` 欄位是 `mucc` 或 `wc`。上限：單檔 50 MB、一次 300000 個檔案、總共 4 GB；`svn` 逾時會依檔案數與大小自動放寬（基本逾時＋每個檔案 0.6 秒＋每 MB 5 秒，上限 24 小時，svn 輸出緩衝同步加大），逾時時會明確回報「檔案數量或網路傳輸量太大，請分批上傳或調高 `SVN_TIMEOUT_MS`」，而不是只丟一串 exit code。API：`POST /api/import/start` → `POST /api/import/stage?batch=…&path=…`（檔案內容放請求本文，原始位元組）→ `POST /api/import/plan` → `POST /api/import/commit`（或 `POST /api/import/cancel` 放棄並清掉暫存）。舊的單檔 `POST /api/import?connection=…&path=…&message=…` 仍保留（遠端已有同名檔案拒絕、不覆蓋）。
 
 </details>
 
@@ -200,6 +203,17 @@ svn-mcp 的唯讀工具、svn-edit、dev-pipeline-mcp（轉呼叫 svn-mcp）、�
 <summary><b>升級版本（上傳時勾選）</b></summary>
 
 規格書檔名帶版本號（例如 `SPEC_MF04_營業人銷售額與稅額申報書_v0.7.docx`）時，編輯卡片的「升級版本」勾下去，上傳會在**同一個 commit** 做三件事：確保同目錄有 `old` 資料夾（遠端已有 `old`／`Old` 就沿用原本的大小寫，沒有就新建）→ 把開啟編輯當時的版本 `svn copy` 進去（保留歷史）→ 編輯好的檔案 `svn move` 成新檔名（`_v0.8`）。版本號規則（`src/version-bump.ts`）：取檔名（副檔名前）最後一個 `v數字.數字…`（大小寫 V 都行，前面不能緊接英數字，避免誤抓 `rev1.2`）；兩段版本最後一段 +1、遇 9 進位（`v0.9` → `v1.0`），三段以上只把最後一段 +1；原檔名沒有版本號時，新版自動加 `_v0.2`、放進 `old` 的舊版補 `_v0.1`。勾選後畫面會先預覽舊版與新版會放哪裡、新檔名可以自己改（要同副檔名、不能跟目錄裡既有檔案同名）；新檔名已存在、`old` 裡已有同名舊版時不能升級並說明原因。**中途任何一步失敗都會把工作副本還原、把你編輯好的內容放回去**，不會因為升級失敗弄丟編輯。API：`GET /api/upgrade-plan?id=…&newName=…`（預覽）、`POST /api/commit` 帶 `upgrade`（上傳）。
+
+</details>
+
+<details>
+<summary><b>改檔名（上傳時勾選）</b></summary>
+
+編輯卡片的「改檔名」：勾選後輸入新檔名，上傳時一併把檔案改成新名字，**同一個 commit**、用 `svn move` 所以歷史紀錄保留，不會留下舊版（要保留舊版請用上面的「升級版本」）。只想改名、內容沒有修改也可以上傳（沒改名又沒修改仍然會被擋）。
+
+- 新檔名檢查（`GET /api/rename-plan?id=&newName=`，核心 `getRenamePlan`）：不能是空的、不能含 `/ \ : * ? " < > |`、副檔名要跟原檔一樣、不能跟目前的檔名一樣、同目錄不能已有同名檔案（不分大小寫，已有同名回 `ALREADY_EXISTS`，不會蓋掉別人的檔案）；
+- 上傳（`POST /api/commit` 帶 `rename: { newName }`，核心 `commitEdit` 第四個參數）：跟升級版本只能選一個（同時給會回 `INVALID_INPUT`）；照樣檢查 Word／Excel 還開著、遠端被別人更新（`REMOTE_CHANGED`）；中途任何一步失敗都會還原並把你編輯好的內容放回去，不會弄丟編輯；被鎖定的檔案也能改名（鎖隨 commit 一起釋放）；
+- 開著「同步本地端」時，改名後會更新本地那個檔案所在的資料夾（本地的舊檔名會消失、新檔名出現）。
 
 </details>
 
