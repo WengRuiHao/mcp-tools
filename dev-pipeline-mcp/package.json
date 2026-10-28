@@ -12,7 +12,7 @@
     "start": "node dist/index.js",
     "start:http": "node dist/http-server.js",
     "dev": "tsc -p tsconfig.json --watch",
-    "test": "npm run build && node --test"
+    "test": "npm run build && node --import ./tests/helpers/safe-env.mjs --test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",

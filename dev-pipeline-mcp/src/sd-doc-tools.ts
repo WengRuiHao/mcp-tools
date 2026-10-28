@@ -43,7 +43,7 @@ async function loadSdRules(params: { projectDir?: string | null; taskGid?: strin
 export function registerSdDocTools(server: McpServer): void {
   server.tool(
     "read_project_sd_doc",
-    "讀取某個 Asana 專案自己維護的 SD 規格文件內容（只適用於 sdMode 是 \"self-generated\" 的專案）。從 register_sasd_config 登記的 sdOutputPath（真實本機檔案；登記的是目錄時搭配 fileName 讀目錄底下那一份）讀取。第一次讀取如果還沒建立過，會回傳空字串。",
+    "讀取某個 Asana 專案自己維護的 SD 規格文件內容（只適用於 sdMode 是 \"self-generated\" 的專案）。從 project_config(kind='sasd_config', action='register') 登記的 sdOutputPath（真實本機檔案；登記的是目錄時搭配 fileName 讀目錄底下那一份）讀取。第一次讀取如果還沒建立過，會回傳空字串。",
     {
       projectGid: z.string().describe("Asana 專案 gid"),
       projectDir: z.string().describe("這個 Asana 專案對應的程式碼專案目錄絕對路徑"),
@@ -53,7 +53,7 @@ export function registerSdDocTools(server: McpServer): void {
       const config = await resolveSasdConfig(projectGid);
       if (!config?.sdOutputPath) {
         return textResult(
-          { success: false, message: "這個專案還沒登記 sdOutputPath——請先呼叫 register_sasd_config 補上 AI 產出 SD 規格要寫入的本機路徑（要先問使用者）。" },
+          { success: false, message: "這個專案還沒登記 sdOutputPath——請先呼叫 project_config(kind='sasd_config', action='register') 補上 AI 產出 SD 規格要寫入的本機路徑（要先問使用者）。" },
           true
         );
       }
@@ -77,7 +77,7 @@ export function registerSdDocTools(server: McpServer): void {
 
   server.tool(
     "write_project_sd_doc",
-    "覆寫 Asana 專案自維護的 SD 規格文件（只適用 sdMode \"self-generated\"），寫入 register_sasd_config 登記的 sdOutputPath（projectDir 底下的真實本機檔案，使用者可直接傳到 SVN）。" +
+    "覆寫 Asana 專案自維護的 SD 規格文件（只適用 sdMode \"self-generated\"），寫入 project_config(kind='sasd_config', action='register') 登記的 sdOutputPath（projectDir 底下的真實本機檔案，使用者可直接傳到 SVN）。" +
       "**呼叫前一定要先呼叫 get_sd_spec_template（文件為空／第一次建立）或 get_sd_spec_versioning_rules（文件已有內容／修改既有版本），照規則產生內容，不要自己決定格式。**" +
       "文件自上次本 MCP 寫入後若被外部改過會被擋下並回傳 externally_modified: true；確認要覆蓋再加 acknowledgeExternalChange: true。",
     {
@@ -91,7 +91,7 @@ export function registerSdDocTools(server: McpServer): void {
       const config = await resolveSasdConfig(projectGid);
       if (!config?.sdOutputPath) {
         return textResult(
-          { success: false, message: "這個專案還沒登記 sdOutputPath——請先問使用者「AI 產出的 SD 規格要放在本機哪個目錄/檔案」，再呼叫 register_sasd_config 補上，才能寫入。" },
+          { success: false, message: "這個專案還沒登記 sdOutputPath——請先問使用者「AI 產出的 SD 規格要放在本機哪個目錄/檔案」，再呼叫 project_config(kind='sasd_config', action='register') 補上，才能寫入。" },
           true
         );
       }

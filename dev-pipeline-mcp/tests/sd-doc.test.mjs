@@ -94,7 +94,7 @@ test("an unregistered project (no sdOutputPath) is refused", () =>
     for (const [tool, extra] of [["read_project_sd_doc", {}], ["write_project_sd_doc", { content: "x" }]]) {
       const r = await callTool(client, tool, { projectGid, projectDir, ...extra });
       assert.equal(r.isError, true, tool);
-      assert.match(r.json.message, /register_sasd_config/);
+      assert.match(r.json.message, /project_config/);
     }
   }));
 

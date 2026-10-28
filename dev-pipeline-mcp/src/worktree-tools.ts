@@ -45,7 +45,7 @@ async function resolveGitRootForTicket(taskGid: string, gitRootLabel?: string | 
   }
   const roots = await resolveGitRoots(status.project_dir);
   if (!roots || roots.length === 0) {
-    throw new Error(`${status.project_dir} 還沒登記過 git 版控根目錄，請先呼叫 register_git_roots。`);
+    throw new Error(`${status.project_dir} 還沒登記過 git 版控根目錄，請先呼叫 project_config(kind='git_roots', action='register')。`);
   }
   if (roots.length === 1) return roots[0].path;
   if (!gitRootLabel) {
@@ -103,17 +103,17 @@ async function resolveEntryOrThrow(worktreeId?: string | null, taskGid?: string 
 export function registerWorktreeTools(server: McpServer): void {
   server.tool(
     "create_ticket_worktree",
-    "為一張（或一組）票單建立獨立的 git worktree，隔離多個 AI/session 併行處理不同票單時的互相干擾。" +
-      "**一個 worktree 綁定一組票號，不是單張票**：要與另一張已有 worktree 的票合併進同一次改動，改呼叫 join_ticket_worktree，不要重複建立。" +
-      "以這張票 project_dir 已登記的 git 根目錄「目前 checkout 的分支」為來源分支切出新分支＋worktree，資料夾建在 git 根目錄上一層 `.worktrees/<票號>/`。" +
-      "**只建立追蹤資料，不會複製程式碼**，後續要對回傳的 worktreePath 編輯。已有 worktree 涵蓋這張票時直接回傳既有資訊（冪等）。",
+    "為一張（或一組）票單建立獨立 git worktree，隔離多個 AI/session 併行處理時的互相干擾。" +
+      "**一個 worktree 綁定一組票號**：要併入另一張已有 worktree 的票，改呼叫 join_ticket_worktree，不要重複建立。" +
+      "以已登記 git 根目錄目前 checkout 的分支為來源切出新分支＋worktree，建在 git 根目錄上一層 `.worktrees/<票號>/`。" +
+      "**只建立追蹤資料，不複製程式碼**，後續編輯回傳的 worktreePath。已有 worktree 涵蓋此票時回傳既有資訊（冪等）。",
     {
-      taskGid: z.string().describe("Asana 任務 gid"),
+      taskGid: z.string().describe("任務 gid"),
       gitRootLabel: z
         .string()
         .nullable()
         .optional()
-        .describe("這張票的 project_dir 登記了多個 git 根目錄時，指定要用哪一個（見 register_git_roots 的 label）"),
+        .describe("project_dir 登記多個 git 根目錄時指定用哪一個（git_roots 的 label）"),
     },
     async ({ taskGid, gitRootLabel }) => {
       const existing = await findWorktreeByTicket(taskGid);
@@ -168,9 +168,9 @@ export function registerWorktreeTools(server: McpServer): void {
 
   server.tool(
     "join_ticket_worktree",
-    "把另一張票單併入既有的 worktree 分組（同一次改動要合併進同一個 commit 的情境）。之後這個 worktree 的每輪合併、清除，都要等這些票單全部確認結案。",
+    "把另一張票併入既有 worktree 分組（同一次改動合併進同一個 commit）。之後該 worktree 的每輪合併、清除，都要等這些票全部確認結案。",
     {
-      worktreeId: z.string().describe("既有 worktree 的 id（create_ticket_worktree 回傳的 worktree.id）"),
+      worktreeId: z.string().describe("既有 worktree id（create_ticket_worktree 回傳的 worktree.id）"),
       taskGid: z.string().describe("要併入的 Asana 任務 gid"),
     },
     async ({ worktreeId, taskGid }) => {
@@ -188,11 +188,11 @@ export function registerWorktreeTools(server: McpServer): void {
 
   server.tool(
     "get_worktree_status",
-    "查詢一個 worktree 目前的真實狀態：實際改動了哪些檔案、來源分支有沒有領先（決定要不要先 rebase）。" +
-      "**改動檔案清單是兩個來源的聯集**：`git status --porcelain`（還沒 commit 的異動）＋跟 `baseCommit` 的 diff（已經 commit 但還沒呼叫 merge_ticket_worktree 合併回去的異動）——只看前者的話，這輪一旦 commit 起來但還沒合併，工作目錄會變乾淨，會誤以為這個 worktree 什麼都沒動過。",
+    "查詢 worktree 目前真實狀態：實際改動的檔案、來源分支有沒有領先（決定要不要先 rebase）。" +
+      "改動檔案清單是聯集：`git status --porcelain`（未 commit）＋與 `baseCommit` 的 diff（已 commit 未合併）。",
     {
-      worktreeId: z.string().nullable().optional().describe("worktree id，跟 taskGid 至少帶一個"),
-      taskGid: z.string().nullable().optional().describe("這張票所屬的 worktree，跟 worktreeId 至少帶一個"),
+      worktreeId: z.string().nullable().optional().describe("worktree id，與 taskGid 至少帶一個"),
+      taskGid: z.string().nullable().optional().describe("票所屬的 worktree，與 worktreeId 至少帶一個"),
     },
     async ({ worktreeId, taskGid }) => {
       const entry = await resolveEntryOrThrow(worktreeId, taskGid);
@@ -214,14 +214,13 @@ export function registerWorktreeTools(server: McpServer): void {
 
   server.tool(
     "merge_ticket_worktree",
-    "完成這一輪：視情況把 worktree 分支 rebase 到來源分支最新，再合併回來源分支（**只更新 git 根目錄的本機分支，絕不 push**）；worktree 資料夾不刪，下一輪沿用。" +
-      "**只有來源分支比 worktree 上次同步領先才 rebase**（別張共用來源分支的票先合併，或使用者在主目錄手動 commit/pull），沒領先就直接快轉合併。" +
-      "**rebase/merge 衝突時不會自動選邊或 abort**：回傳 conflict:true，停在衝突狀態，需人工/AI 解決、`git add`、`git rebase --continue` 或 `git commit` 後才算完成，下次呼叫前要先確認已清乾淨。" +
-      "呼叫前 worktree 內的異動要先自己 commit，這裡不決定 commit message。",
+    "完成這一輪：視情況把 worktree 分支 rebase 到來源分支最新，再合併回來源分支（**只更新 git 根目錄的本機分支，絕不 push**）；worktree 不刪，下一輪沿用。" +
+      "只有來源分支領先才 rebase，否則直接快轉合併。**衝突時不自動選邊或 abort**：回傳 conflict:true 並停在衝突狀態，需人工/AI 解決並 `git add`、`git rebase --continue` 或 `git commit`，下次呼叫前先確認已清乾淨。" +
+      "呼叫前須先自行 commit worktree 內的異動。",
     {
-      worktreeId: z.string().nullable().optional().describe("worktree id，跟 taskGid 至少帶一個"),
-      taskGid: z.string().nullable().optional().describe("這張票所屬的 worktree，跟 worktreeId 至少帶一個"),
-      mergeMessage: z.string().describe("合併回來源分支時的 commit message，建議列出這輪併入的所有票號"),
+      worktreeId: z.string().nullable().optional().describe("worktree id，與 taskGid 至少帶一個"),
+      taskGid: z.string().nullable().optional().describe("票所屬的 worktree，與 worktreeId 至少帶一個"),
+      mergeMessage: z.string().describe("合併 commit message，建議列出這輪所有票號"),
     },
     async ({ worktreeId, taskGid, mergeMessage }) => {
       const entry = await resolveEntryOrThrow(worktreeId, taskGid);
@@ -273,11 +272,11 @@ export function registerWorktreeTools(server: McpServer): void {
 
   server.tool(
     "abandon_ticket_round",
-    "中斷一輪還沒合併回去的 worktree 工作（例如這輪做到一半發現方向錯了）。會先把 worktree 裡目前的異動安全 commit 起來，分支留著當備份，**不會刪除 worktree 或分支**，只把這個 worktree 標記成 abandoned，之後不會再被拿來繼續下一輪。",
+    "中斷一輪還沒合併的 worktree 工作（如做到一半發現方向錯了）。先把目前異動安全 commit，分支留作備份，**不會刪除 worktree 或分支**，只標記 abandoned，之後不再用來續下一輪。",
     {
-      worktreeId: z.string().nullable().optional().describe("worktree id，跟 taskGid 至少帶一個"),
-      taskGid: z.string().nullable().optional().describe("這張票所屬的 worktree，跟 worktreeId 至少帶一個"),
-      note: z.string().describe("中斷原因，會用在安全 commit 的 commit message 裡"),
+      worktreeId: z.string().nullable().optional().describe("worktree id，與 taskGid 至少帶一個"),
+      taskGid: z.string().nullable().optional().describe("票所屬的 worktree，與 worktreeId 至少帶一個"),
+      note: z.string().describe("中斷原因（用於安全 commit 的訊息）"),
     },
     async ({ worktreeId, taskGid, note }) => {
       const entry = await resolveEntryOrThrow(worktreeId, taskGid);
@@ -296,11 +295,11 @@ export function registerWorktreeTools(server: McpServer): void {
 
   server.tool(
     "finalize_ticket_worktree",
-    "所有併入這個 worktree 的票單都已經 record_confirmation({confirmed:true}) 之後，正式清除這個 worktree 資料夾＋分支。" +
-      "**dryRun 預設 true**（設計上線初期的安全網）——只回報「如果真的執行會做什麼」，不會真的動手；確認沒問題後再帶 dryRun:false 執行。",
+    "併入此 worktree 的票全部 record_confirmation({confirmed:true}) 之後，正式清除 worktree 資料夾＋分支。" +
+      "**dryRun 預設 true**——只回報會做什麼、不動手；確認沒問題再帶 dryRun:false 執行。",
     {
       worktreeId: z.string().describe("要清除的 worktree id"),
-      dryRun: z.boolean().optional().describe("預設 true，只模擬不執行；帶 false 才會真的刪除 worktree 資料夾與分支"),
+      dryRun: z.boolean().optional().describe("預設 true 只模擬；false 才真的刪除資料夾與分支"),
     },
     async ({ worktreeId, dryRun }) => {
       const entry = await findWorktreeById(worktreeId);
@@ -360,7 +359,7 @@ export function registerWorktreeTools(server: McpServer): void {
 
   server.tool(
     "list_worktrees",
-    "列出目前所有登記在案的 worktree（不論 active/abandoned），並跟 git 自己的 `worktree list` 交叉比對，標出兩邊對不起來的項目（例如資料夾被人手動刪掉但紀錄還在，或反過來）。用來做定期健檢/找閒置 worktree。",
+    "列出所有登記的 worktree（active/abandoned），與 git `worktree list` 交叉比對，標出兩邊不一致的項目（如資料夾被手動刪但紀錄還在）。用於定期健檢/找閒置 worktree。",
     {},
     async () => {
       const entries = await listWorktreeEntries();

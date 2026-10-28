@@ -12,27 +12,8 @@ import {
   writeArtifact,
 } from "./pipeline-store.js";
 import { syncPendingActionsReport } from "./pending-actions-sync.js";
+import { detectTicketNumber } from "./ticket-list-filter.js";
 import { textResult } from "./shared.js";
-
-/**
- * 匹配業務單號，例如 "PROJ-1234"，也支援帶數字前綴的格式如 "115PROJ-48"（部分專案的票號慣例）。
- * 前面的 `\d{0,6}` 是刻意加的：純 `\b[A-Za-z]{1,8}-\d{1,8}\b` 對 "115PROJ-48" 這種格式會抓不到——
- * \b 是「word 字元／非 word 字元」的交界，但數字跟英文字母都算 word 字元，"5" 跟 "P" 之間根本沒有
- * word boundary，所以舊版正規表達式永遠比對不到緊接在數字後面的英文字母開頭。2026-08-24 因為這個 bug，
- * 某個專案好幾張新票單的自訂欄位明明填了 "115PROJ-48" 這種格式，卻偵測失敗、整批退回用 taskGid 命名，
- * 建出一堆看不懂的數字資料夾。
- */
-const TICKET_NUMBER_PATTERN = /\b\d{0,6}[A-Za-z]{1,8}-\d{1,8}\b/;
-
-function detectTicketNumber(task: any): string | null {
-  for (const field of task.custom_fields ?? []) {
-    const value = field.display_value;
-    if (typeof value === "string" && TICKET_NUMBER_PATTERN.test(value.trim())) {
-      return value.trim();
-    }
-  }
-  return null;
-}
 
 const MAX_ANCESTOR_DEPTH = 10;
 
@@ -136,25 +117,25 @@ async function ensureSnapshotted(
 export function registerTicketSnapshotTools(server: McpServer): void {
   server.tool(
     "get_ticket_snapshot",
-    "抓取單一 Asana 票單的完整內容（描述 + 自訂欄位 + 留言串），寫入追蹤檔案 ticket.md 並回傳。" +
-      "**內容雜湊沒變時不重寫、不附全文，回傳 unchanged: true**，直接沿用本機既有 ticket.md/01-analysis.md 等內容繼續處理。" +
-      "**unchanged: false 且 needsReanalysis: true=這張票之前已 analyzed/implemented/verified，但 Asana 內容後來又改了**：即使原本 PASS 也視為未驗證，要重新從分析師走一遍。" +
-      "追蹤目錄建在目標專案自己的目錄：<projectDir>/.asana-pipeline/<Asana 專案全名稱>/<票號>/（不在本 MCP 安裝目錄）；首次在某 projectDir 建立時會在 <projectDir>/CLAUDE.md 加一段說明。" +
-      "會自動從 task.parent 判斷子任務，先確保父票（往上到頂層）都已建好追蹤目錄，再巢狀掛在 <父票號>/<子票號>/，層數不限。",
+    "抓取 Asana 票單完整內容（描述＋自訂欄位＋留言串），寫入追蹤檔 ticket.md 並回傳。" +
+      "**內容雜湊沒變時不重寫、不附全文，回傳 unchanged: true**，沿用本機既有檔案繼續。" +
+      "**unchanged: false 且 needsReanalysis: true=票之前已 analyzed/implemented/verified，但 Asana 內容後來又改了**：即使原本 PASS 也視為未驗證，要從分析師重走。" +
+      "追蹤目錄建在 <projectDir>/.asana-pipeline/<Asana 專案全名稱>/<票號>/。" +
+      "子任務依 task.parent 自動先建父票，巢狀掛在 <父票號>/<子票號>/。",
     {
-      taskGid: z.string().describe("Asana 任務 gid"),
-      projectDir: z.string().describe("這張票對應的程式碼專案目錄（絕對路徑，先用 resolve_project_dir/register_project_dir 拿到），追蹤目錄會建在這個目錄底下"),
-      projectName: z.string().describe("這張票所屬的 Asana 專案「全名稱」，用來當作追蹤目錄裡的一層名稱（例如完整的 Asana 專案名稱，不是簡稱）"),
+      taskGid: z.string().describe("任務 gid"),
+      projectDir: z.string().describe("程式碼專案目錄絕對路徑（先用 project_config(kind='project_dir') 取得），追蹤目錄建在其下"),
+      projectName: z.string().describe("票所屬 Asana 專案「全名稱」（非簡稱），當追蹤目錄的一層名稱"),
       ticketNumber: z
         .string()
         .nullable()
         .optional()
-        .describe("這張票的業務單號（例如「PROJ-1234」），不提供的話會嘗試從自訂欄位自動偵測，偵測不到才會退回用 taskGid 命名"),
+        .describe("業務單號（如「PROJ-1234」）；不提供會從自訂欄位偵測，偵測不到用 taskGid"),
       projectGid: z
         .string()
         .nullable()
         .optional()
-        .describe("這張票所屬 Asana 專案的 gid（步驟 0 已取得）。帶了會記進票單狀態，之後 get_ticket_status 的 nextAction 與 get_role_prompt 會依該專案的 SA/SD、測試設定給更精準的內容；已有 gid 時以新傳入的為準。"),
+        .describe("票所屬 Asana 專案 gid；會記進狀態，nextAction 與 get_role_prompt 依此給更精準內容"),
     },
     async ({ taskGid, projectDir, projectName, ticketNumber, projectGid }) => {
       let result: { ticketNumber: string | null; content: string; dir: string; unchanged: boolean; needsReanalysis: boolean };
@@ -193,14 +174,12 @@ export function registerTicketSnapshotTools(server: McpServer): void {
 
   server.tool(
     "relocate_ticket_project",
-    "修正票追蹤資料夾的 Asana 專案名稱標籤：get_ticket_snapshot 第一次呼叫時 projectName 傳錯，就把 <projectDir>/.asana-pipeline/<舊專案名稱>/<票號>/ 連同巢狀子任務整份搬到 <newProjectName>/<票號>/。" +
-      "**這不是換票所屬的 Asana 專案**（Asana 上的歸屬不會改），只是更正本機標籤。" +
-      "**呼叫前務必先用 asana_projects 或 asana_task 查證 newProjectName，不要猜**，這會實際搬動磁碟上的資料夾。" +
-      "**絕對不要自己用檔案總管/shell 搬**：本 MCP 的 tickets-index.json 索引不會更新，之後會找不到追蹤檔案，或在舊路徑生出空白紀錄蓋掉進度；務必只透過這個工具。" +
-      "成功回傳 oldDir/newDir/movedDescendants，並局部重建新舊兩個專案資料夾的 PENDING_HUMAN_ACTIONS.html（舊專案若已無其他追蹤票，舊報告不會自動清空，需人工檢查是否刪除）。",
+    "修正追蹤資料夾的專案名稱標籤：get_ticket_snapshot 首次 projectName 傳錯時，把 .asana-pipeline/<舊專案名稱>/<票號>/ 連同子任務整份搬到 <newProjectName>/<票號>/。" +
+      "**這不是換票所屬的 Asana 專案**，只更正本機標籤。**呼叫前務必先用 asana_projects 或 asana_task 查證 newProjectName，不要猜**，這會實際搬動磁碟資料夾。" +
+      "**絕對不要自己用檔案總管/shell 搬**：索引不會更新，之後會找不到追蹤檔案或在舊路徑生出空白紀錄蓋掉進度；只透過本工具。回傳 oldDir/newDir/movedDescendants；舊專案若已無追蹤票，舊報告需人工檢查是否刪除。",
     {
-      taskGid: z.string().describe("要修正資料夾歸屬的 Asana 任務 gid（如果它有子任務，會一併搬動）"),
-      newProjectName: z.string().describe("已查證過的 Asana 專案「全名稱」（正確答案），不是簡稱或猜測值"),
+      taskGid: z.string().describe("要修正的任務 gid（子任務一併搬）"),
+      newProjectName: z.string().describe("已查證的 Asana 專案「全名稱」，非簡稱或猜測值"),
     },
     async ({ taskGid, newProjectName }) => {
       const before = await readStatus(taskGid).catch(() => null);

@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import path from "node:path";
 import type { GitRootEntry } from "./git-roots-store.js";
 import { truncateHeadTail } from "./output-limit.js";
@@ -66,11 +66,22 @@ export function hasLeadingDirectoryChange(command: string): boolean {
 }
 
 /** Best-effort extraction of a leading directory-change (bash `cd`, or PowerShell `Set-Location`/`sl`/`pushd`, followed by `&&` or `;`) from a shell command, resolved against cwd. Falls back to cwd itself when the command doesn't start by changing directory — this matters because the actual shell here is PowerShell (see runShell below), not bash. */
-function resolveEffectiveDir(cwd: string, command: string): string {
+function resolveEffectiveDir(cwd: string, command: string): { dir: string; fromLeadingCd: boolean } {
   const match = command.match(LEADING_CD_PATTERN);
-  if (!match) return cwd;
+  if (!match) return { dir: cwd, fromLeadingCd: false };
   const raw = match[1].replace(/^["']|["']$/g, "");
-  return path.resolve(cwd, raw);
+  return { dir: path.resolve(cwd, raw), fromLeadingCd: true };
+}
+
+/** 說明 git 根目錄驗證「實際檢查的目錄」是怎麼決定的，附在拒絕訊息裡讓呼叫端知道為什麼誤判、怎麼改寫。 */
+function describeCheckedDir(dir: string, fromLeadingCd: boolean): string {
+  const how = fromLeadingCd
+    ? "取自指令開頭的 Set-Location/cd/sl/pushd（需緊接 `;`）"
+    : "指令開頭沒有 `Set-Location <目錄>;`（或 cd/sl/pushd），所以用的是執行目錄（專案目錄，或唯一登記的 git 根目錄）";
+  return (
+    `驗證實際檢查的目錄是「${dir}」（${how}）。驗證只看指令「最開頭」的目錄切換，不會解析中途的 Set-Location，` +
+    "因此 `某語句; Set-Location x; git ...` 會被當成在執行目錄跑。可行寫法：指令以 `Set-Location <子目錄>;` 開頭再接 git 指令，或把指令拆成多次呼叫（每次呼叫都是獨立的 shell，切換目錄不會保留，所以每次都要以 Set-Location 開頭）。"
+  );
 }
 
 function runGit(cwd: string, args: string[], timeoutMs: number): Promise<{ ok: boolean; stdout: string; stderr: string }> {
@@ -103,18 +114,19 @@ async function verifyGitRoot(
     return {
       ok: false,
       message:
-        "拒絕執行：這個專案還沒有登記過 git 版控根目錄。執行 git 指令前，請先問使用者「前端/後端原始碼各自的 git 版控根目錄在哪裡」（分開的 repo 要分別提供，共用同一個 repo 提供一個即可），再呼叫 register_git_roots 登記，才能繼續。",
+        "拒絕執行：這個專案還沒有登記過 git 版控根目錄。執行 git 指令前，請先問使用者「前端/後端原始碼各自的 git 版控根目錄在哪裡」（分開的 repo 要分別提供，共用同一個 repo 提供一個即可），再呼叫 project_config(kind='git_roots', action='register') 登記，才能繼續。",
     };
   }
 
-  const effectiveDir = resolveEffectiveDir(cwd, command);
+  const { dir: effectiveDir, fromLeadingCd } = resolveEffectiveDir(cwd, command);
+  const dirNote = describeCheckedDir(effectiveDir, fromLeadingCd);
   const result = await runGit(effectiveDir, ["rev-parse", "--show-toplevel"], timeoutMs);
   if (!result.ok) {
     return {
       ok: false,
       message: `拒絕執行：在 ${effectiveDir} 底下找不到有效的 git repo（${result.stderr || "git rev-parse 失敗"}），跟已登記的 git 版控根目錄（${gitRoots
         .map((r) => `${r.label}: ${r.path}`)
-        .join("；")}）對不起來，請先確認清楚再繼續，不要直接跑 git 指令。`,
+        .join("；")}）對不起來，請先確認清楚再繼續，不要直接跑 git 指令。${dirNote}`,
     };
   }
 
@@ -127,7 +139,8 @@ async function verifyGitRoot(
         `拒絕執行：這個指令實際解析到的 git repo root 是「${resolvedRoot}」，跟已登記的 git 版控根目錄（${gitRoots
           .map((r) => `${r.label}: ${r.path}`)
           .join("；")}）都對不起來——很可能是這個子目錄底下根本沒有自己的 .git，git 往上找到了不相干的 repo（例如整個磁碟機根目錄）。` +
-        "已阻止執行，避免 git add/commit 誤動到不相干的內容，請先跟使用者確認清楚正確的 git 根目錄。",
+        "已阻止執行，避免 git add/commit 誤動到不相干的內容，請先跟使用者確認清楚正確的 git 根目錄。" +
+        dirNote,
     };
   }
 
@@ -137,6 +150,8 @@ async function verifyGitRoot(
 const OUTPUT_HEAD_CHARS = 3000;
 const OUTPUT_TAIL_CHARS = 9000;
 const DEFAULT_TIMEOUT_MS = 60000;
+export const MAX_TIMEOUT_MS = 600000;
+const MAX_BUFFER_BYTES = 10 * 1024 * 1024;
 
 export interface ShellResult {
   ok: boolean;
@@ -144,6 +159,9 @@ export interface ShellResult {
   stderr: string;
   blocked?: boolean;
   message?: string;
+  /** 只有失敗時才有；被訊號終止/逾時時為 null */
+  exitCode?: number | null;
+  timedOut?: boolean;
   /** 只有任一串流被截斷時才出現 */
   truncated?: { stdout: boolean; stderr: boolean };
   originalChars?: { stdout: number; stderr: number };
@@ -190,13 +208,83 @@ export async function runShell(
 
   const shell = process.platform === "win32" ? "powershell.exe" : "/bin/bash";
   const args = process.platform === "win32" ? ["-NoProfile", "-Command", command] : ["-c", command];
+  const effectiveTimeout = Math.min(Math.max(Math.floor(timeoutMs) || DEFAULT_TIMEOUT_MS, 1), MAX_TIMEOUT_MS);
+  return spawnCollect(shell, args, cwd, effectiveTimeout);
+}
 
+function killTree(pid: number | undefined, child: ReturnType<typeof spawn>): void {
+  if (process.platform === "win32" && pid) {
+    // child.kill() 只會殺 powershell，它底下的 node/測試程序會繼續活著並握住 pipe，要連同子孫一起殺。
+    execFile("taskkill", ["/pid", String(pid), "/T", "/F"], () => undefined);
+  }
+  child.kill("SIGKILL");
+}
+
+/**
+ * 自己收集輸出（而不是 execFile）：逾時/maxBuffer 時主動殺整棵程序樹並立刻回傳已收集到的部分，
+ * 且一律保留 exitCode，不會只剩 Node 的 "Command failed: ..." 一行。
+ */
+function spawnCollect(shell: string, args: string[], cwd: string, timeoutMs: number): Promise<ShellResult> {
   return new Promise((resolve) => {
-    execFile(shell, args, { cwd, timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
-      resolve({
-        ok: !error,
-        ...limitOutput(stdout, stderr + (error && !stdout && !stderr ? String(error.message) : "")),
-      });
+    const child = spawn(shell, args, { cwd, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+    const out: Buffer[] = [];
+    const err: Buffer[] = [];
+    let outBytes = 0;
+    let errBytes = 0;
+    let settled = false;
+    let timedOut = false;
+    let overflow = false;
+
+    const finish = (exitCode: number | null, spawnError?: Error): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      const stdout = Buffer.concat(out).toString("utf8");
+      const stderr = Buffer.concat(err).toString("utf8");
+      if (timedOut) {
+        resolve({
+          ok: false,
+          timedOut: true,
+          exitCode,
+          ...limitOutput(stdout, stderr),
+          message: `逾時 ${timeoutMs} ms，已中止；可調高 timeoutMs 或改用背景/導到檔案`,
+        });
+      } else if (overflow || spawnError || exitCode !== 0) {
+        const message = spawnError
+          ? `無法啟動 shell：${spawnError.message}`
+          : overflow
+            ? `輸出超過 ${MAX_BUFFER_BYTES} bytes 上限，已中止；請把輸出導到檔案再讀`
+            : `指令以結束碼 ${exitCode} 結束`;
+        resolve({ ok: false, exitCode, ...limitOutput(stdout, stderr), message });
+      } else {
+        resolve({ ok: true, ...limitOutput(stdout, stderr) });
+      }
+    };
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killTree(child.pid, child);
+      // 不等 close：孫程序可能還握著 pipe，直接回傳已收集到的部分
+      setTimeout(() => finish(null), 200);
+    }, timeoutMs);
+
+    child.stdout!.on("data", (d: Buffer) => {
+      outBytes += d.length;
+      if (outBytes > MAX_BUFFER_BYTES) {
+        if (!overflow) { overflow = true; killTree(child.pid, child); }
+        return;
+      }
+      out.push(d);
     });
+    child.stderr!.on("data", (d: Buffer) => {
+      errBytes += d.length;
+      if (errBytes > MAX_BUFFER_BYTES) {
+        if (!overflow) { overflow = true; killTree(child.pid, child); }
+        return;
+      }
+      err.push(d);
+    });
+    child.on("error", (e) => finish(null, e));
+    child.on("close", (code) => finish(code));
   });
 }

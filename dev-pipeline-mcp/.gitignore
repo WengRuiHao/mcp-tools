@@ -3,3 +3,4 @@ dist/
 data/
 .gradle/
 DESIGN-*.md
+*.stackdump

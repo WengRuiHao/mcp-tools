@@ -22,10 +22,9 @@ const EXPECTED_TOOLS = [
   "get_sd_spec_versioning_rules", "get_test_engineer_guide", "get_ticket_activity", "get_ticket_snapshot", "get_ticket_status",
   "get_worktree_status", "install_git_hooks", "join_ticket_worktree", "list_pending_tickets", "list_project_dir",
   "list_rule_history", "list_worktrees", "merge_ticket_worktree", "read_project_file", "read_project_sd_doc",
-  "read_ticket_artifact", "record_confirmation", "record_sasd_check", "record_spec_confirmation", "record_test_evidence", "register_default_project",
-  "register_git_roots", "register_legacy_test_profile", "register_project_dir", "register_sasd_config", "register_svn_workcopies", "register_test_capability",
-  "relocate_ticket_project", "request_reanalysis", "resolve_default_project", "resolve_git_roots", "resolve_legacy_test_profile",
-  "resolve_manual_action", "resolve_project_dir", "resolve_sasd_config", "resolve_svn_workcopies", "resolve_test_capability", "restore_rule_file",
+  "project_config", "read_ticket_artifact", "record_confirmation", "record_sasd_check", "record_spec_confirmation", "record_test_evidence",
+  "relocate_ticket_project", "request_reanalysis",
+  "resolve_manual_action", "restore_rule_file",
   "resync_ticket_artifact", "run_project_shell", "search_project_text", "svn_browse", "svn_cat", "svn_doc_images",
   "svn_diff", "svn_find_repo", "svn_list_connections", "svn_log", "svn_test_connection", "write_project_file", "write_project_sd_doc", "write_ticket_artifact",
 ];
@@ -58,10 +57,10 @@ test("parseDisabledToolsets: unknown names are reported once, undefined/empty me
 });
 
 test("registerAllTools: tool counts by disabled group", async () => {
-  assert.equal((await listToolsWith()).length, 62);
-  assert.equal((await listToolsWith(["worktree"])).length, 54);
-  assert.equal((await listToolsWith(["bridge"])).length, 51);
-  assert.equal((await listToolsWith(["worktree", "bridge"])).length, 43);
+  assert.equal((await listToolsWith()).length, 49);
+  assert.equal((await listToolsWith(["worktree"])).length, 41);
+  assert.equal((await listToolsWith(["bridge"])).length, 38);
+  assert.equal((await listToolsWith(["worktree", "bridge"])).length, 30);
 });
 
 test("registerAllTools: each group removes exactly its own tools", async () => {
@@ -96,9 +95,12 @@ test("contract: key tools keep their parameters", async () => {
   const tools = await listToolsWith();
   const props = (name) => Object.keys(tools.find((t) => t.name === name).inputSchema.properties ?? {});
   const expectParams = {
-    list_pending_tickets: ["projectGid", "dueOn", "limit", "onlyAssignedToMe"],
+    list_pending_tickets: ["projectGid", "dueOn", "limit", "onlyAssignedToMe", "search"],
+    record_spec_confirmation: ["taskGid", "confirmed", "note", "sdNotRequired", "userInstruction"],
     get_pipeline_overview: ["section"],
-    get_role_prompt: ["role", "projectDir", "taskGid"],
+    write_ticket_artifact: ["taskGid", "filename", "mode", "content", "oldString", "newString", "summary", "syncNote", "manualActions", "producesOfficeFiles", "testLevel"],
+    read_ticket_artifact: ["taskGid", "filename"],
+    get_role_prompt: ["role", "projectDir", "taskGid", "forSubagent"],
     get_project_rules: ["projectDir", "taskGid"],
     get_sd_spec_template: ["projectDir", "taskGid"],
     get_sd_spec_versioning_rules: ["projectDir", "taskGid"],
@@ -106,13 +108,24 @@ test("contract: key tools keep their parameters", async () => {
     write_project_sd_doc: ["projectGid", "projectDir", "content", "fileName"],
     list_rule_history: ["projectDir", "taskGid", "file"],
     restore_rule_file: ["projectDir", "taskGid", "file", "snapshot"],
-    resolve_default_project: ["cwd"],
-    register_default_project: ["cwd"],
+    project_config: ["kind", "action", "projectGid", "projectDir", "cwd", "workspaceGid", "projectName", "saRoot", "sdMode", "sdRoot", "svnConnectionId", "sdOutputPath", "specOrder", "legacyTestProfile", "mode", "note", "gitRoots", "workCopies"],
   };
   for (const [name, expected] of Object.entries(expectParams)) {
     const actual = props(name);
     for (const p of expected) assert.ok(actual.includes(p), `${name} lost parameter ${p}`);
   }
+});
+
+test("contract: project_config.kind enum and old resolve_*/register_* tools are gone", async () => {
+  const tools = await listToolsWith();
+  const schema = tools.find((t) => t.name === "project_config").inputSchema.properties;
+  assert.deepEqual(
+    [...schema.kind.enum].sort(),
+    ["default_project", "git_roots", "legacy_test_profile", "project_dir", "sasd_config", "svn_workcopies", "test_capability"]
+  );
+  assert.deepEqual([...schema.action.enum].sort(), ["register", "resolve"]);
+  const names = tools.map((t) => t.name);
+  assert.deepEqual(names.filter((n) => /^(resolve|register)_(default_project|project_dir|git_roots|svn_workcopies|sasd_config|test_capability|legacy_test_profile)$/.test(n)), []);
 });
 
 test("contract: get_pipeline_overview.section enum and get_role_prompt.role enum", async () => {

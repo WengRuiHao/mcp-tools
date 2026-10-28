@@ -1,12 +1,15 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { getRolePrompt } from "./prompts.js";
+import { getRolePrompt, type RoleName } from "./prompts.js";
 import { OVERVIEW_SECTIONS, getOverview } from "./overview-prompts.js";
 import { COMMON_RULES_FILE_CANDIDATES, GATES_FILE_CANDIDATES, ROLE_FILE_CANDIDATES, readFirstExisting, resolveProjectDir } from "./project-rule-files.js";
 import { bridgeDisabledNote } from "./toolset-config.js";
 import { textResult } from "./shared.js";
 import { resolveSasdConfig, resolveTestCapability, resolveUniformTestCapabilityMode } from "./project-registry.js";
-import { peekStatus } from "./pipeline-store.js";
+import { getAssignedDir, peekStatus } from "./pipeline-store.js";
+import { computeNextAction } from "./next-action.js";
+import { buildSubagentBrief } from "./subagent-brief.js";
+import path from "node:path";
 
 const ALL_ROLES = ["analyst", "spec-writer", "engineer", "verifier", "tester"] as const;
 
@@ -19,11 +22,39 @@ async function readRuleFile(projectDir: string, candidates: string[]): Promise<{
   }
 }
 
+async function buildBriefForTicket(
+  role: RoleName,
+  taskGid: string | null | undefined,
+  projectDirParam: string | null | undefined
+): Promise<string | { success: false; message: string }> {
+  if (!taskGid) return { success: false, message: "forSubagent 需要帶 taskGid，才能自動帶入票單資訊。" };
+  const ticketDir = await getAssignedDir(taskGid);
+  if (!ticketDir) {
+    return { success: false, message: `查不到 taskGid ${taskGid} 的票單追蹤紀錄；請先對這張票呼叫 get_ticket_snapshot，或確認 taskGid 正確。` };
+  }
+  const status = await peekStatus(taskGid);
+  const sasd = status.project_gid ? await resolveSasdConfig(status.project_gid) : null;
+  const next = computeNextAction(status, { sasd: sasd ? { sdMode: sasd.sdMode, specOrder: sasd.specOrder ?? null } : null });
+  return buildSubagentBrief({
+    role,
+    taskGid,
+    ticketNumber: path.basename(ticketDir),
+    projectName: status.project_name,
+    projectGid: status.project_gid,
+    projectDir: projectDirParam || status.project_dir,
+    stage: status.stage,
+    verdict: status.verdict,
+    sdMode: sasd?.sdMode ?? null,
+    specOrder: sasd?.sdMode === "self-generated" ? (sasd.specOrder ?? null) : null,
+    nextActionSummary: next.summary,
+    blockedBy: next.blockedBy,
+  });
+}
+
 export function registerPipelineInfoTools(server: McpServer): void {
   server.tool(
     "get_pipeline_overview",
-    "取得整條 Asana 票單自動處理 pipeline 的流程說明（硬性規則、步驟、要呼叫哪些工具、安全限制）。任何要驅動這條 pipeline 的 AI，第一步都應該先呼叫這個工具（不帶參數即回傳核心流程）讀懂整體流程；" +
-      "其餘情境式章節用 section 另外取：setup（第一次設定的問答流程）、appendix-a（子任務派工）、appendix-b（換 session 接手）、appendix-c（查看測試員回報）、all（全部）。",
+    "票單 pipeline 的流程說明；驅動這條 pipeline 的 AI 第一步先呼叫（預設核心）。section 取其他章節：setup、appendix-a（子任務派工）、appendix-b、appendix-c、all。子代理人不必呼叫。",
     {
       section: z
         .enum(OVERVIEW_SECTIONS)
@@ -39,9 +70,8 @@ export function registerPipelineInfoTools(server: McpServer): void {
 
   server.tool(
     "get_role_prompt",
-    "取得「分析師 / 規格撰寫者 / 工程師 / 驗證師 / 測試工程師」其中一個角色的職責說明、可用工具、輸出格式；切換角色前先呼叫。" +
-      "\"spec-writer\" 只有 sdMode 為 \"self-generated\" 的專案才需要；\"tester\" 是 verifier 判 PASS 之後、人類最終確認之前的角色（每張票都會經過），依 get_test_engineer_guide 跑情境測試。" +
-      "專案登記為不寫自動化測試（test capability mode 為 none）時，\"engineer\" 說明會省略自動化測試的詳細規則；帶 taskGid 且票單已記錄 project_gid 時，spec-writer／engineer／verifier 說明另依專案的 sdMode／specOrder 只保留適用分支。",
+    "取得角色（analyst／spec-writer／engineer／verifier／tester）的職責、工具與輸出格式，末端附一次載入工具的 ToolSearch 查詢；切換角色前先呼叫，並帶 projectDir 或 taskGid 以附上專案補充規則。" +
+      "派給子代理人時帶 taskGid＋forSubagent:true，會在最前面加上派工簡報（票單資訊、寫入目標、環境陷阱、回報格式），整段當子代理人 prompt。spec-writer 只用於 sdMode 為 self-generated 的專案。",
     {
       role: z.enum(["analyst", "spec-writer", "engineer", "verifier", "tester"]).describe("要取得說明的角色"),
       projectDir: z
@@ -57,8 +87,18 @@ export function registerPipelineInfoTools(server: McpServer): void {
         .nullable()
         .optional()
         .describe("正在處理的票單 gid。沒帶 projectDir 時用這張票記錄的 project_dir 反查，避免漏帶 projectDir 導致專案補充規則被靜默略過。"),
+      forSubagent: z
+        .boolean()
+        .optional()
+        .describe("true（需帶 taskGid）：在角色說明前附上派工簡報，內容由票單狀態自動帶入。查不到票單時回傳 success:false。"),
     },
-    async ({ role, projectDir, taskGid }) => {
+    async ({ role, projectDir, taskGid, forSubagent }) => {
+      let brief: string | null = null;
+      if (forSubagent) {
+        const built = await buildBriefForTicket(role, taskGid, projectDir);
+        if (typeof built !== "string") return textResult(built, true);
+        brief = built;
+      }
       const dir = await resolveProjectDir(projectDir, taskGid);
       // 票單有記錄 project_gid 時用它精準查專案設定；沒有就退回 projectDir 反查。查不到一律維持完整說明，不誤省略。
       const projectGid = taskGid ? (await peekStatus(taskGid)).project_gid : null;
@@ -73,7 +113,7 @@ export function registerPipelineInfoTools(server: McpServer): void {
               : null;
       const base = getRolePrompt(role, { testCapabilityMode, sdMode: sasd?.sdMode ?? null, specOrder: sasd?.specOrder ?? null });
       const note = bridgeDisabledNote();
-      const sections = [base];
+      const sections = brief ? [brief, base] : [base];
       if (dir) {
         const common = await readRuleFile(dir, COMMON_RULES_FILE_CANDIDATES);
         const addendum = await readRuleFile(dir, ROLE_FILE_CANDIDATES(role));

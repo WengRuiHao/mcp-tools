@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { computeSyncFlags, detectExternalChanges, needsHumanReview, type TicketStatus } from "./pipeline-store.js";
+import { computeSyncFlags, describeSdSkip, detectExternalChanges, needsHumanReview, type TicketStatus } from "./pipeline-store.js";
 import { computeNextAction } from "./next-action.js";
 import { resolveSasdConfig } from "./project-registry.js";
 import { textResult } from "./shared.js";
@@ -9,7 +9,7 @@ export const verboseParam = z
   .boolean()
   .nullable()
   .optional()
-  .describe("true=回傳完整票單狀態（舊格式）；預設只回精簡狀態＋nextAction，省上下文");
+  .describe("true=回完整狀態；預設精簡");
 
 /** 預設回傳：只放呼叫端決策需要的欄位，完整狀態改由 get_ticket_status 或 verbose 取得。 */
 /** 有記錄 project_gid 才查得到專案的 SA/SD 設定；查不到時 nextAction 退回保守的通用建議。 */
@@ -29,7 +29,7 @@ export async function buildCompactStatus(taskGid: string, status: TicketStatus):
     consecutive_fail_count: status.consecutive_fail_count,
     ...(status.verifier_root_cause ? { verifier_root_cause: status.verifier_root_cause } : {}),
     ...(status.confirmation ? { confirmation: { confirmed: status.confirmation.confirmed } } : {}),
-    ...(status.spec_confirmation ? { spec_confirmation: { confirmed: status.spec_confirmation.confirmed } } : {}),
+    ...(status.spec_confirmation ? { spec_confirmation: { confirmed: status.spec_confirmation.confirmed, ...(status.spec_confirmation.sdNotRequired ? { sdNotRequired: true, sdSkipNotice: describeSdSkip(status.spec_confirmation) } : {}) } } : {}),
     nextAction: computeNextAction(status, { syncFlags, externalChanges, sasd }),
   };
 }

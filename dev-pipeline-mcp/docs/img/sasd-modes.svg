@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 650" role="img" aria-label="SA/SD 規格四種模式：external 只能參考不能建議修改；self 可在報告建議修改但不寫回 SVN；self-generated 由 AI 維護並多一關規格確認 sd_drafted；unregistered 每張票單獨詢問。登記時會驗證：SA 在 SVN 上就必須登記連線，saRoot／sdRoot 必須是 SVN 上真實存在的路徑（正斜線、相對於 repo 根目錄）。self-generated 再依 specOrder 分兩種順序：spec_first 先定規格再寫程式碼，擋在推進到 implemented 之前；code_first 先寫程式碼再反推規格，擋在推進到 verified 之前">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 780" role="img" aria-label="SA/SD 規格四種模式：external 只能參考不能建議修改；self 可在報告建議修改但不寫回 SVN；self-generated 由 AI 維護並多一關規格確認 sd_drafted；unregistered 每張票單獨詢問。self-generated 的規格關卡由工具強制：沒有使用者確認過的 SD 草稿、也沒有使用者明確說本票不需要 SD 的紀錄（record_spec_confirmation 帶 sdNotRequired:true 與使用者原話，AI 不可自行提議或決定略過）就不能往下走，略過時狀態會留下稽核紀錄（本票未產出 SD，依使用者指示略過，含使用者原話）；external、self、unregistered 三種模式不受影響。登記時會驗證：SA 在 SVN 上就必須登記連線，saRoot／sdRoot 必須是 SVN 上真實存在的路徑（正斜線、相對於 repo 根目錄）。self-generated 再依 specOrder 分兩種順序：spec_first 先定規格再寫程式碼，擋在推進到 implemented 之前；code_first 先寫程式碼再反推規格，擋在推進到 verified 之前">
   <defs><marker id="sasdmodesmain" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/></marker><marker id="sasdmodesacc" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2b6777"/></marker><marker id="sasdmodeswarn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b9782e"/></marker></defs>
-  <rect x="0" y="0" width="1000" height="650" fill="#f5f2ea"/>
+  <rect x="0" y="0" width="1000" height="780" fill="#f5f2ea"/>
   <rect x="300" y="18" width="400" height="44" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
   <text x="500" y="46" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">這個專案的規格（SA/SD）從哪裡來？</text>
   <rect x="12" y="110" width="225" height="190" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
@@ -10,6 +10,7 @@
   <text x="124.5" y="186" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">只能參考，</text>
   <text x="124.5" y="202" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">不能建議修改規格，</text>
   <text x="124.5" y="218" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">只調整程式碼去配合。</text>
+  <text x="124.5" y="284" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">✓ 不受 SD 強制關卡影響</text>
   <path d="M 500 62 L 500 86 L 124.5 86 L 124.5 106" fill="none" stroke="#2a2620" stroke-width="1.6" marker-end="url(#sasdmodesmain)"/>
   <rect x="262" y="110" width="225" height="190" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
   <text x="374.5" y="138" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">self</text>
@@ -18,6 +19,7 @@
   <text x="374.5" y="186" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">可以在報告裡建議</text>
   <text x="374.5" y="202" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">修改哪些段落，</text>
   <text x="374.5" y="218" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">但不寫回 SVN（唯讀）。</text>
+  <text x="374.5" y="284" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">✓ 不受 SD 強制關卡影響</text>
   <path d="M 500 62 L 500 86 L 374.5 86 L 374.5 106" fill="none" stroke="#2a2620" stroke-width="1.6" marker-end="url(#sasdmodesmain)"/>
   <rect x="512" y="110" width="225" height="190" rx="12" fill="#dbe9ea" stroke="#2b6777" stroke-opacity="1"/>
   <text x="624.5" y="138" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#17414c" font-weight="700">self-generated</text>
@@ -29,6 +31,7 @@
   <text x="624.5" y="234" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">sdOutputPath，你確認</text>
   <text x="624.5" y="250" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">才能繼續往下走。</text>
   <text x="624.5" y="266" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">要多登記 specOrder ↓</text>
+  <text x="624.5" y="286" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#b9782e" font-weight="700">工具強制把關（見下方）</text>
   <path d="M 500 62 L 500 86 L 624.5 86 L 624.5 106" fill="none" stroke="#2a2620" stroke-width="1.6" marker-end="url(#sasdmodesmain)"/>
   <rect x="762" y="110" width="225" height="190" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
   <text x="874.5" y="138" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">unregistered</text>
@@ -37,6 +40,7 @@
   <text x="874.5" y="186" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">唯一每張票都要</text>
   <text x="874.5" y="202" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">單獨問一次</text>
   <text x="874.5" y="218" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">「有沒有規格」的模式。</text>
+  <text x="874.5" y="284" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">✓ 不受 SD 強制關卡影響</text>
   <path d="M 500 62 L 500 86 L 874.5 86 L 874.5 106" fill="none" stroke="#2a2620" stroke-width="1.6" marker-end="url(#sasdmodesmain)"/>
   <line x1="624" y1="300" x2="624" y2="338" stroke="#2b6777" stroke-width="1.7" marker-end="url(#sasdmodesacc)"/>
   <text x="20" y="360" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">self-generated 還要再選一個 specOrder：規格草稿這一關，卡在流程的哪個位置</text>
@@ -58,7 +62,7 @@
   <text x="887.5" y="412" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">驗證</text>
   <text x="887.5" y="432" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">驗證師</text>
   <line x1="765" y1="418" x2="802" y2="418" stroke="#2a2620" stroke-width="1.7" marker-end="url(#sasdmodesmain)"/>
-  <text x="477.5" y="470" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c" font-weight="700">▲ 卡在「推進到 implemented」之前：沒確認規格，工程師不能開工</text>
+  <text x="477.5" y="470" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c" font-weight="700">▲ 卡在「推進到 implemented」之前：沒確認規格、也沒有「不需要 SD」的使用者紀錄，工程師不能開工</text>
   <rect x="20" y="498" width="150" height="64" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
   <text x="95" y="524" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="12" fill="#2a2620" font-weight="700">code_first</text>
   <text x="95" y="544" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">先寫程式碼、再補規格</text>
@@ -77,7 +81,21 @@
   <text x="887.5" y="524" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13" fill="#2a2620" font-weight="700">驗證</text>
   <text x="887.5" y="544" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">驗證師</text>
   <line x1="765" y1="530" x2="802" y2="530" stroke="#2a2620" stroke-width="1.7" marker-end="url(#sasdmodesmain)"/>
-  <text x="682.5" y="582" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c" font-weight="700">▲ 卡在「推進到 verified」之前：沒確認規格，票單不能推進到驗證完成</text>
-  <text x="500" y="600" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">兩種順序共用同一套 sd_drafted／spec_confirmation 機制：只看票單是不是卡在 sd_drafted 又還沒確認，就擋下推進，不需要知道 specOrder</text>
-  <text x="500" y="632" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c" font-weight="700">登記時的檢查：SA 在 SVN 上（saRoot 不是 N/A 占位）就必須登記連線；saRoot／sdRoot 要用正斜線、相對 repo 根目錄，且真的存在才會登記成功</text>
+  <text x="682.5" y="582" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c" font-weight="700">▲ 卡在「推進到 verified」之前：沒確認規格、也沒有「不需要 SD」的使用者紀錄，不能推進到驗證完成</text>
+  <text x="500" y="600" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">兩種順序共用同一套 sd_drafted／spec_confirmation 機制；工具依 specOrder 決定擋在 implemented（spec_first）或 verified（code_first）</text>
+  <rect x="20" y="618" width="960" height="108" rx="12" fill="#f1e2c8" stroke="#b9782e" stroke-dasharray="5 4"/>
+  <text x="40" y="642" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="12" fill="#b9782e" font-weight="700">另一個出口：你明確說「本票不需要 SD」→ 視同已確認（只有你能決定，AI 不可自行提議或略過）</text>
+  <rect x="40" y="654" width="250" height="56" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="165" y="676" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#2a2620" font-weight="700">你明確表示本票不需要 SD</text>
+  <text x="165" y="696" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">記下你的原話 userInstruction</text>
+  <line x1="290" y1="682" x2="324" y2="682" stroke="#b9782e" stroke-width="1.7" marker-end="url(#sasdmodeswarn)"/>
+  <rect x="328" y="654" width="270" height="56" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="463" y="676" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="11" fill="#2a2620" font-weight="700">record_spec_confirmation</text>
+  <text x="463" y="696" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10" fill="#6b6558">sdNotRequired:true ＋ 原話</text>
+  <line x1="598" y1="682" x2="632" y2="682" stroke="#b9782e" stroke-width="1.7" marker-end="url(#sasdmodeswarn)"/>
+  <rect x="636" y="654" width="324" height="56" rx="10" fill="#dbe9ea" stroke="#2b6777"/>
+  <text x="798" y="676" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" fill="#17414c" font-weight="700">視同已確認，可繼續推進</text>
+  <text x="798" y="696" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">狀態留下稽核紀錄：依使用者指示略過＋原話</text>
+  <text x="500" y="742" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#6b6558" font-weight="700">external／self／unregistered 三種模式不受這道強制把關影響，流程維持原樣</text>
+  <text x="500" y="758" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c" font-weight="700">登記時的檢查：SA 在 SVN 上（saRoot 不是 N/A 占位）就必須登記連線；saRoot／sdRoot 要用正斜線、相對 repo 根目錄，且真的存在才會登記成功</text>
 </svg>

@@ -28,6 +28,8 @@ export interface ConfirmationRecord {
   confirmed: boolean;
   confirmedAt: string;
   note: string | null;
+  /** 僅 spec_confirmation 使用：true=使用者明確表示本票不需要 SD，note 為使用者原話；見 recordSpecConfirmation。 */
+  sdNotRequired?: boolean;
 }
 
 export interface TicketSyncState {
@@ -413,7 +415,7 @@ export async function resolveTicketDir(taskGid: string): Promise<string> {
   const index = await readJsonFile<Record<string, string>>(getTicketsIndexFile(), {});
   const dir = index[taskGid];
   if (!dir) {
-    throw new Error(`找不到票單 ${taskGid} 的追蹤目錄，請先呼叫 get_ticket_snapshot 建立。`);
+    throw new TicketDirNotFoundError(taskGid);
   }
   await mkdir(dir, { recursive: true });
   return dir;
@@ -960,12 +962,24 @@ export async function requestReanalysis(ticketGid: string): Promise<TicketStatus
 export async function recordSpecConfirmation(
   ticketGid: string,
   confirmed: boolean,
-  note?: string | null
+  note?: string | null,
+  sdNotRequired?: boolean
 ): Promise<TicketStatus> {
   return updateStatus(ticketGid, (status) => ({
     ...status,
-    spec_confirmation: { confirmed, confirmedAt: nowIso(), note: note ?? null },
+    spec_confirmation: {
+      confirmed,
+      confirmedAt: nowIso(),
+      note: note ?? null,
+      ...(sdNotRequired ? { sdNotRequired: true } : {}),
+    },
   }));
+}
+
+/** spec_confirmation 為「本票不需 SD」時的可稽核說明（含使用者原話）；否則回 null。 */
+export function describeSdSkip(record: ConfirmationRecord | null): string | null {
+  if (!record?.sdNotRequired) return null;
+  return `本票未產出 SD，依使用者指示略過：${record.note ?? ""}`;
 }
 
 /** 連續 FAIL 次數是否已經到達需要停下來問人的門檻——由 advanceStage 機械式維護 consecutive_fail_count，這裡只是算出布林值，邏輯比照 computeSyncFlags。 */
@@ -973,18 +987,86 @@ export function needsHumanReview(status: TicketStatus): boolean {
   return status.consecutive_fail_count >= 3;
 }
 
-export async function writeArtifact(ticketGid: string, filename: string, content: string): Promise<void> {
-  const dir = await resolveTicketDir(ticketGid);
-  await writeFile(path.join(dir, filename), content, "utf-8");
+/** 找不到票單追蹤目錄（尚未呼叫 get_ticket_snapshot）。 */
+export class TicketDirNotFoundError extends Error {
+  constructor(taskGid: string) {
+    super(`找不到票單 ${taskGid} 的追蹤目錄，請先呼叫 get_ticket_snapshot 建立。`);
+    this.name = "TicketDirNotFoundError";
+  }
 }
 
-export async function readArtifact(ticketGid: string, filename: string): Promise<string | null> {
-  const dir = await resolveTicketDir(ticketGid);
-  try {
-    return await readFile(path.join(dir, filename), "utf-8");
-  } catch {
-    return null;
+/** filename 不是合法的「票單目錄內相對路徑」（含 ..、絕對路徑、逃出票單目錄）。 */
+export class ArtifactPathError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ArtifactPathError";
   }
+}
+
+/**
+ * 把 filename 解析成票單目錄 dir 底下的完整路徑；拒絕空字串、NUL、絕對路徑（含 Windows 磁碟機代號／UNC）、
+ * 任何 `..` 區段，並在 path.resolve 之後再確認結果仍在 dir 內（雙重防線）。
+ */
+export function resolveArtifactPath(dir: string, filename: string): string {
+  if (typeof filename !== "string" || filename.trim() === "") throw new ArtifactPathError("filename 不可為空。");
+  if (filename.includes("\u0000")) throw new ArtifactPathError("filename 含不合法字元。");
+  if (path.isAbsolute(filename) || path.win32.isAbsolute(filename) || path.posix.isAbsolute(filename) || /^[a-zA-Z]:/.test(filename)) {
+    throw new ArtifactPathError("filename 不可為絕對路徑，只能是票單追蹤目錄內的相對檔名。");
+  }
+  if (filename.split(/[\\/]+/).some((seg) => seg === "..")) {
+    throw new ArtifactPathError("filename 不可包含 .. 路徑區段。");
+  }
+  const root = path.resolve(dir);
+  const full = path.resolve(root, filename);
+  const rel = path.relative(root, full);
+  if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) {
+    throw new ArtifactPathError("filename 解析後超出票單追蹤目錄，已拒絕。");
+  }
+  return full;
+}
+
+export async function writeArtifact(ticketGid: string, filename: string, content: string): Promise<void> {
+  const dir = await resolveTicketDir(ticketGid);
+  const full = resolveArtifactPath(dir, filename);
+  await mkdir(path.dirname(full), { recursive: true });
+  await writeFile(full, content, "utf-8");
+}
+
+export type ArtifactReadResult =
+  | { status: "ok"; content: string }
+  | { status: "not_found"; message: string }
+  | { status: "no_ticket_dir"; message: string }
+  | { status: "invalid_path"; message: string }
+  | { status: "read_error"; message: string };
+
+/** 結構化讀取：不丟例外，失敗原因以 status 區分（檔案不存在／票單尚未 snapshot／路徑不合法／其他讀取錯誤）。 */
+export async function readArtifactResult(ticketGid: string, filename: string): Promise<ArtifactReadResult> {
+  let dir: string;
+  try {
+    dir = await resolveTicketDir(ticketGid);
+  } catch (err: any) {
+    return { status: "no_ticket_dir", message: err?.message ?? `找不到票單 ${ticketGid} 的追蹤目錄，請先呼叫 get_ticket_snapshot。` };
+  }
+  let full: string;
+  try {
+    full = resolveArtifactPath(dir, filename);
+  } catch (err: any) {
+    return { status: "invalid_path", message: `路徑不合法：${err?.message ?? String(err)}` };
+  }
+  try {
+    return { status: "ok", content: await readFile(full, "utf-8") };
+  } catch (err: any) {
+    if (err?.code === "ENOENT") return { status: "not_found", message: `票單 ${ticketGid} 的追蹤目錄下沒有 ${filename}，可能還沒走到會產生這份檔案的階段。` };
+    return { status: "read_error", message: `讀取 ${filename} 失敗：${err?.message ?? String(err)}` };
+  }
+}
+
+/** 舊介面：讀不到一律回 null（內部呼叫端沿用）；票單目錄不存在仍丟例外，行為與先前一致。 */
+export async function readArtifact(ticketGid: string, filename: string): Promise<string | null> {
+  const result = await readArtifactResult(ticketGid, filename);
+  if (result.status === "ok") return result.content;
+  if (result.status === "no_ticket_dir") throw new TicketDirNotFoundError(ticketGid);
+  return null;
 }
 
 /**
@@ -1029,7 +1111,7 @@ export interface PendingActionsReportInput {
    * 每個已登記 git 版控根目錄的未 commit 檔案，已依票單分組、且只保留「git status 真的還沒 commit、
    * 又有某張票的 manualActions 點名說是它改的」檔案——跟這次 pipeline 無關的其他未 commit 檔案整份省略，
    * 不在這份報告的職責範圍內（要查全部異動請自己跑 git status）。`registered: false` 代表這個 projectDir
-   * 還沒呼叫過 register_git_roots。
+   * 還沒呼叫過 project_config(kind='git_roots', action='register')。
    */
   uncommittedChanges: {
     registered: boolean;
@@ -1108,7 +1190,7 @@ function renderUncommittedSectionHtml(
   numberMap: Map<string, string>
 ): string {
   if (!uncommitted.registered) {
-    return `<p class="empty">這個專案還沒登記 git 版控根目錄，呼叫 <code>register_git_roots</code> 之後才能檢查。</p>`;
+    return `<p class="empty">這個專案還沒登記 git 版控根目錄，呼叫 <code>project_config(kind='git_roots', action='register')</code> 之後才能檢查。</p>`;
   }
   const items = uncommitted.roots.flatMap((r) => {
     if (r.error) {
@@ -1310,7 +1392,7 @@ function renderSvnWorkCopy(wc: SvnWorkCopySummary): string {
 
 function renderSvnSection(data: SvnReportData): string {
   if (!data.registered) {
-    return `<p class="empty">這個專案還沒登記 SVN 工作副本。呼叫 <code>register_svn_workcopies</code> 登記後，這裡會列出還沒上傳到 SVN 的變更，並提供上傳／更新／刪除按鈕。</p>`;
+    return `<p class="empty">這個專案還沒登記 SVN 工作副本。呼叫 <code>project_config(kind='svn_workcopies', action='register')</code> 登記後，這裡會列出還沒上傳到 SVN 的變更，並提供上傳／更新／刪除按鈕。</p>`;
   }
   return data.workCopies.map(renderSvnWorkCopy).join("\n");
 }

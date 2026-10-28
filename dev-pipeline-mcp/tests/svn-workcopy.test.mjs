@@ -90,7 +90,7 @@ test("report without a registered work copy shows the how-to hint", async () => 
   try {
     await store.writePendingActionsReport(projectDir, PROJECT_NAME, EMPTY_INPUT);
     const html = readReport(projectDir);
-    assert.match(html, /register_svn_workcopies/);
+    assert.match(html, /project_config/); // pipeline-store.ts 產生的文字（不在本次修改範圍，仍用舊名稱）
     assert.doesNotMatch(html, /data-svn-op="commit"/);
   } finally {
     removeDir(projectDir);
@@ -218,9 +218,9 @@ test("AI-facing tool surface has no SVN write tool", async () => {
     const names = (await client.listTools()).tools.map((t) => t.name);
     const svnTools = names.filter((n) => n.startsWith("svn_"));
     assert.deepEqual(svnTools.sort(), ["svn_browse", "svn_cat", "svn_diff", "svn_doc_images", "svn_find_repo", "svn_list_connections", "svn_log", "svn_test_connection"]);
-    // 登記/查詢工作副本的工具只存設定，名稱不含任何寫入動詞
-    const workCopyTools = names.filter((n) => /workcop/i.test(n)).sort();
-    assert.deepEqual(workCopyTools, ["register_svn_workcopies", "resolve_svn_workcopies"]);
+    // 登記/查詢工作副本併入 project_config（kind: svn_workcopies），只存設定；不再有獨立的 *workcop* 工具
+    assert.deepEqual(names.filter((n) => /workcop/i.test(n)), []);
+    assert.ok(names.includes("project_config"));
     assert.equal(names.some((n) => /^(svn|wc)_.*(commit|add|delete|update|revert|put|import|cleanup|mkdir)/i.test(n)), false);
   } finally {
     await close();

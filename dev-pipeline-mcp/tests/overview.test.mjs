@@ -14,7 +14,7 @@ test.after(() => {
   if (savedDisable !== undefined) process.env.DEV_PIPELINE_DISABLE_TOOLSETS = savedDisable;
 });
 
-const CORE_BUDGET = 9500;
+const CORE_BUDGET = 10000; // project_config 單一入口的呼叫寫法比舊的單字工具名長，由 9500 放寬
 const APPENDIX_A_TITLE = "附錄 A"; // appendix A
 const APPENDIX_B_TITLE = "附錄 B";
 const APPENDIX_C_TITLE = "附錄 C";
@@ -72,7 +72,7 @@ test("overview: every section is retrievable and all is the superset", () =>
     assert.ok(texts["appendix-a"].includes(APPENDIX_A_TITLE));
     assert.ok(texts["appendix-b"].includes(APPENDIX_B_TITLE));
     assert.ok(texts["appendix-c"].includes(APPENDIX_C_TITLE));
-    assert.ok(texts.setup.includes("register_sasd_config"));
+    assert.ok(texts.setup.includes('project_config({ kind: "sasd_config", action: "register"'));
   }));
 
 test("overview: an unknown section is rejected by the schema", () =>
@@ -94,19 +94,19 @@ test("overview: bridge-disabled note is appended only when the bridge group is o
     }
   }));
 
-test("resolve_xxx: found:false carries instructions that match the setup section", () =>
+test("project_config resolve: found:false carries instructions that match the setup section", () =>
   withClient(async (client) => {
     const dir = makeTmpDir("dpm-overview-");
     try {
       const setup = (await callTool(client, "get_pipeline_overview", { section: "setup" })).text;
       const calls = [
-        ["resolve_default_project", { cwd: dir }],
-        ["resolve_project_dir", { projectGid: "NO-SUCH-PROJECT" }],
-        ["resolve_sasd_config", { projectGid: "NO-SUCH-PROJECT" }],
-        ["resolve_git_roots", { projectDir: dir }],
+        ["default_project", { cwd: dir }],
+        ["project_dir", { projectGid: "NO-SUCH-PROJECT" }],
+        ["sasd_config", { projectGid: "NO-SUCH-PROJECT" }],
+        ["git_roots", { projectDir: dir }],
       ];
       for (const [name, args] of calls) {
-        const res = await callTool(client, name, args);
+        const res = await callTool(client, "project_config", { kind: name, action: "resolve", ...args });
         assert.equal(res.isError, false, name);
         assert.equal(res.json.found, false, name);
         assert.equal(res.json.needsInput, true, name);
@@ -119,28 +119,28 @@ test("resolve_xxx: found:false carries instructions that match the setup section
     }
   }));
 
-test("resolve_project_dir: found:true after register_project_dir (no instructions)", () =>
+test("project_config project_dir: found:true after register (no instructions)", () =>
   withClient(async (client) => {
     const dir = makeTmpDir("dpm-overview-");
     try {
-      await callTool(client, "register_project_dir", { projectGid: "P-OVERVIEW", projectDir: dir });
-      const res = await callTool(client, "resolve_project_dir", { projectGid: "P-OVERVIEW" });
+      await callTool(client, "project_config", { kind: "project_dir", action: "register", projectGid: "P-OVERVIEW", projectDir: dir });
+      const res = await callTool(client, "project_config", { kind: "project_dir", action: "resolve", projectGid: "P-OVERVIEW" });
       assert.deepEqual(res.json, { found: true, projectDir: dir });
     } finally {
       removeDir(dir);
     }
   }));
 
-test("register_project_dir: 沒有 gates.json 時附 gatesHint，已有就不附", () =>
+test("project_config project_dir register: 沒有 gates.json 時附 gatesHint，已有就不附", () =>
   withClient(async (client) => {
     const bare = makeTmpDir("dpm-gates-hint-");
     const withGates = makeTmpDir("dpm-gates-hint-");
     try {
-      const noGates = await callTool(client, "register_project_dir", { projectGid: "P-HINT-1", projectDir: bare });
+      const noGates = await callTool(client, "project_config", { kind: "project_dir", action: "register", projectGid: "P-HINT-1", projectDir: bare });
       assert.equal(noGates.json.success, true);
       assert.match(noGates.json.gatesHint, /gates\.example\.json/);
       writeFile(withGates, ".pipeline/gates.json", "{}");
-      const hasGates = await callTool(client, "register_project_dir", { projectGid: "P-HINT-2", projectDir: withGates });
+      const hasGates = await callTool(client, "project_config", { kind: "project_dir", action: "register", projectGid: "P-HINT-2", projectDir: withGates });
       assert.equal(hasGates.json.success, true);
       assert.equal(hasGates.json.gatesHint, undefined);
     } finally {

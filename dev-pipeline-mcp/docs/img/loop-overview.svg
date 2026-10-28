@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 330" role="img" aria-label="每次執行的主要流程，四個步驟：先設定一次、列出待處理的票單、一張一張票依序處理（分析、寫程式碼、驗證、測試），全部做完後整理報告給使用者；列票單的時候如果有舊票還在等使用者自己確認，也會一併主動提醒">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 330" role="img" aria-label="每次執行的主要流程，四個步驟：先設定一次、列出待處理的票單（已知票號時可用 search 直接找）、一張一張票依序處理（分析、寫程式碼、驗證、測試），全部做完後整理報告給使用者；列票單的時候如果有舊票還在等使用者自己確認，也會一併主動提醒">
   <defs>
     <marker id="arrowMain" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/>
@@ -22,11 +22,12 @@
     <text x="125" y="158" text-anchor="middle" font-size="10.5" fill="#6b6558">哪個 Asana 專案、程式碼在哪</text>
 
     <!-- step 2 -->
-    <rect x="265" y="100" width="220" height="80" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+    <rect x="265" y="100" width="220" height="92" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
     <circle cx="290" cy="118" r="13" fill="#2a2620"/>
     <text x="290" y="123" text-anchor="middle" fill="#f5f2ea" font-weight="700" font-size="13">2</text>
     <text x="375" y="140" text-anchor="middle" font-size="14" font-weight="700" fill="#2a2620">列出待處理的票</text>
     <text x="375" y="158" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="10" fill="#6b6558">list_pending_tickets</text>
+    <text x="375" y="180" text-anchor="middle" font-size="10.5" font-weight="700" fill="#2b6777">知道票號？用 search 直接找</text>
 
     <!-- step 3 (accent, wider) -->
     <rect x="515" y="88" width="240" height="104" rx="12" fill="#dbe9ea" stroke="#2b6777"/>
@@ -53,7 +54,7 @@
   <text x="625" y="34" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12" fill="#17414c">清單裡還有下一張票 → 重複步驟 3</text>
 
   <!-- awaitingConfirmation branch -->
-  <line x1="375" y1="180" x2="375" y2="212" stroke="#b9782e" stroke-width="1.6" marker-end="url(#arrowWarn)"/>
+  <line x1="375" y1="192" x2="375" y2="212" stroke="#b9782e" stroke-width="1.6" marker-end="url(#arrowWarn)"/>
   <rect x="215" y="216" width="320" height="94" rx="12" fill="#f1e2c8" stroke="#b9782e"/>
   <text x="375" y="240" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="13.5" font-weight="700" fill="#b9782e">順便提醒：還有舊票在等你</text>
   <text x="375" y="260" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" fill="#b9782e">AI 之前已經做完、但你自己還沒</text>

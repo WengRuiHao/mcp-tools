@@ -26,7 +26,7 @@ function buildHookScript(): string {
 # 這個旗標要 git 2.31+，實測這台機器的 git 2.30.1 不認得它，會把旗標本身當純文字印出來，
 # 混進 REPO_ROOT 變成夾雜換行字元的亂碼，讓下面的 JSON 直接壞掉，是被實測抓出來的真實 bug）。
 # 在任何一個 worktree 裡觸發，這樣算出來的都會是同一個 gitRoot（主 repo 目錄本身），不會依觸發時
-# 所在的是哪個 worktree 而回報不同路徑——register_git_roots 登記的一律是主 repo 路徑，gitRoot 要
+# 所在的是哪個 worktree 而回報不同路徑——project_config(kind='git_roots', action='register') 登記的一律是主 repo 路徑，gitRoot 要
 # 能對得上才查得到，回報 worktree 自己的路徑會查不到任何登記。
 TOPLEVEL="$(git rev-parse --show-toplevel 2>/dev/null)"
 COMMON_DIR_REL="$(git rev-parse --git-common-dir 2>/dev/null)"
@@ -48,17 +48,16 @@ exit 0
 export function registerGitHookTools(server: McpServer): void {
   server.tool(
     "install_git_hooks",
-    "把 git 原生 hook（post-commit/post-merge）安裝到 projectDir 已登記的每個 git 根目錄，以 `git config core.hooksPath` 指向本 MCP 管理的共用 hooks 資料夾（不寫進客戶專案版控）。" +
-      "**這是防止有人（或其他 AI/CLI）繞過本 MCP 直接改動受追蹤專案的核心防線**：commit/merge 時 hook 會通知本機 HTTP bridge 讓跨 worktree 檔案重疊示警（activeWarnings）重算，並寫稽核紀錄（`data/git-hook-events.log`）。" +
-      "每個受追蹤的 git 根目錄建議都裝一次，重複呼叫安全（冪等）。bridge 沒啟動時 hook 靜默略過，不影響 commit/merge。",
+    "把 git hook（post-commit/post-merge）安裝到 projectDir 已登記的每個 git 根目錄，以 `git config core.hooksPath` 指向本 MCP 管理的共用 hooks 資料夾（不寫進專案版控）。" +
+      "**防止繞過本 MCP 直接改動受追蹤專案的核心防線**：commit/merge 時通知本機 HTTP bridge 重算跨 worktree 重疊示警，並寫稽核紀錄。每個 git 根目錄建議都裝一次（冪等）；bridge 沒啟動時 hook 靜默略過。",
     {
-      projectDir: z.string().describe("要安裝 hook 的專案目錄（用它已登記的 git 根目錄，見 register_git_roots）"),
+      projectDir: z.string().describe("要安裝 hook 的專案目錄（用其已登記的 git 根目錄）"),
     },
     async ({ projectDir }) => {
       const roots = await resolveGitRoots(projectDir);
       if (!roots || roots.length === 0) {
         return textResult(
-          { success: false, message: `${projectDir} 還沒登記過 git 版控根目錄，請先呼叫 register_git_roots。` },
+          { success: false, message: `${projectDir} 還沒登記過 git 版控根目錄，請先呼叫 project_config(kind='git_roots', action='register')。` },
           true
         );
       }

@@ -188,6 +188,6 @@ test("nextAction uses sasd for spec guidance", async () => {
 
 test("overview core stays within budget and mentions projectGid for the snapshot call", () => {
   const core = getOverview("core");
-  assert.ok(core.length <= 9500, `core length ${core.length}`);
+  assert.ok(core.length <= 10000, `core length ${core.length}`);
   assert.ok(/get_ticket_snapshot\(\{[^}]*projectGid/.test(core));
 });

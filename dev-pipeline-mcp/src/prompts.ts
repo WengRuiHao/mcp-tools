@@ -85,6 +85,8 @@ ${askLine}
 
 ${outputLine}
 
+**不可自行提議或決定略過 SD。**只有使用者明確表示這張票不需要 SD（例如「這張只改前端不需要 SD」）時，才可呼叫 \`record_spec_confirmation({ taskGid, confirmed: true, sdNotRequired: true, userInstruction: <使用者原話> })\`（可在 analyzed 階段直接呼叫，不必先產草稿）；不確定使用者是否同意，先問，不要自己假設。工具會拒絕沒有 \`userInstruction\` 的呼叫，原話會記錄供事後稽核。
+
 **如果使用者打回這份草稿（\`spec_confirmation.confirmed: false\`）**：讀 \`spec_confirmation.note\` 裡的意見，依意見修改 SD 內容，重新呼叫 \`write_project_sd_doc\` 更新、再呼叫一次 \`advance_ticket_stage({ taskGid, stage: "sd_drafted" })\` 送出新版本（這次呼叫會自動清空上一輪的打回紀錄），等待重新確認。
 `;
 }
@@ -121,15 +123,15 @@ function buildEngineerSdLines(sdMode: SdMode | null, specOrder: SpecOrder | null
   return [...modeLine, ENGINEER_LINE_SD_BOUNDARY, ...selfGenerated].join("\n");
 }
 
-const ENGINEER_TEST_SECTION_FULL = `**改完程式碼、確認可以編譯/型別檢查通過之後，呼叫 \`resolve_test_capability({ projectGid })\` 決定要不要順手補自動化測試**：
-- \`found: false\`（這個專案第一次進到工程師階段）→ 問使用者「這個專案能不能寫自動化測試（JUnit/Jest 這類）？」，依「角色說明」裡 \`register_test_capability\` 的三個選項（\`modern\`/\`legacy_junit4\`/\`none\`）問清楚後呼叫 \`register_test_capability\` 登記，之後同一個專案不用再問。
+const ENGINEER_TEST_SECTION_FULL = `**改完程式碼、確認可以編譯/型別檢查通過之後，呼叫 \`project_config({ kind: "test_capability", action: "resolve", projectGid })\` 決定要不要順手補自動化測試**：
+- \`found: false\`（這個專案第一次進到工程師階段）→ 問使用者「這個專案能不能寫自動化測試（JUnit/Jest 這類）？」，依「角色說明」裡 \`project_config({ kind: "test_capability", action: "register", ... })\` 的三個選項（\`modern\`/\`legacy_junit4\`/\`none\`）問清楚後呼叫 \`project_config({ kind: "test_capability", action: "register", projectGid, mode, note })\` 登記，之後同一個專案不用再問。
 - \`mode: "none"\`：不用寫測試，維持原本的做法（改完程式碼、confirm 編譯過即可）。
 - \`mode: "modern"\`：針對這次新增/修改的商業邏輯分支，補上對應的自動化測試——後端用 JUnit5 + Mockito（建構子注入的 Service 用 Mockito mock 掉 repository/service 依賴，不需要真的資料庫）；前端用 Jest + React Testing Library（測條件式 disabled/readOnly/required 這類邏輯分支，不用真的啟動瀏覽器）。測試檔案命名、擺放位置比照專案既有慣例（用 \`list_project_dir\`/\`search_project_text\` 找現有測試檔案的慣例；如果這是這個模組第一次寫測試，找不到既有慣例就用該語言/框架的標準慣例，例如 Java 放在 \`src/test/java\` 對應套件路徑下、檔名 \`XxxTest.java\`）。**測試方法命名一律用純駝峰（camelCase），不要用底線分隔（例如 \`updateByOZ04DataSource3ExportDateDifferentPeriodThrows\`，不要寫成 \`updateByOZ04_dataSource3_exportDateDifferentPeriod_throws\`），並且每個方法都要加 \`@DisplayName\`（Java/JUnit5）或等效機制（前端測試框架若有支援）用一句話寫清楚這個案例在測什麼情境、預期什麼結果**——方法名負責跟程式碼其他部分的呼叫慣例一致，\`@DisplayName\` 負責讓測試報告可讀。**測試案例的情境說明一律只寫在 \`@DisplayName\`，測試方法本身、測試類別上不要額外加註解（包含 \`//\` 行內註解跟 Javadoc 區塊）解釋這個案例在測什麼、為什麼這樣寫**——避免同一件事在 \`@DisplayName\` 跟註解裡各寫一份、之後改了其中一份沒同步更新導致兩者對不起來。**Java 測試類別命名依 SD 功能代號分類，不要依 Service/Controller 類別名稱一對一命名**：例如處理 OZ04 這張票，類別叫 \`OZ04Test\`（不是 \`ZeroTaxDocumentServiceImplTest\`），放在該功能對應的 service 套件底下（例如 \`com.uec.main.service.oz\`，不要巢狀進 \`.impl\` 子套件），同一功能代號之後若有新票再補其他分支的測試，一律加進同一個 \`OZ04Test\` 裡，不要每張票另開一個新測試類別。寫完用 \`run_project_shell\` 實際跑一次（\`gradle test\`/\`mvn test\`/\`npm test\`）確認新增的測試真的會過，不是只寫出來沒跑過。
-- \`mode: "legacy_junit4"\`：邏輯跟 \`modern\` 一樣，但工具鏈版本要照 \`resolve_test_capability\` 回傳的 \`note\` 指定的版本（例如 JUnit 4.12 + Mockito 1.10.19），寫法也要改用對應舊版語法（JUnit4 用 \`@Test\`/\`@Before\` 標註、\`org.junit.Assert\` 靜態方法；Mockito 舊版用 \`MockitoAnnotations.initMocks(this)\` 手動初始化，不能用 JUnit5 才有的 \`@ExtendWith(MockitoExtension.class)\`）。**如果專案的建置設定（\`pom.xml\`/\`build.gradle\`）還沒加這些測試依賴，先在 \`manualActions\` 裡列出來，向使用者確認要不要由你加上去再繼續**——幫一個舊專案第一次引入測試依賴，牽動整個建置設定，屬於「值得先確認一下」的變動，不要沒問就直接動手改 \`pom.xml\`/\`build.gradle\`。`;
+- \`mode: "legacy_junit4"\`：邏輯跟 \`modern\` 一樣，但工具鏈版本要照 \`project_config({ kind: "test_capability", action: "resolve" })\` 回傳的 \`note\` 指定的版本（例如 JUnit 4.12 + Mockito 1.10.19），寫法也要改用對應舊版語法（JUnit4 用 \`@Test\`/\`@Before\` 標註、\`org.junit.Assert\` 靜態方法；Mockito 舊版用 \`MockitoAnnotations.initMocks(this)\` 手動初始化，不能用 JUnit5 才有的 \`@ExtendWith(MockitoExtension.class)\`）。**如果專案的建置設定（\`pom.xml\`/\`build.gradle\`）還沒加這些測試依賴，先在 \`manualActions\` 裡列出來，向使用者確認要不要由你加上去再繼續**——幫一個舊專案第一次引入測試依賴，牽動整個建置設定，屬於「值得先確認一下」的變動，不要沒問就直接動手改 \`pom.xml\`/\`build.gradle\`。`;
 
 /** 專案登記為 mode: "none" 時取代完整測試規則，避免每次都送出用不到的 modern/legacy_junit4 細節。 */
 const ENGINEER_TEST_SECTION_NONE =
-  "**這個專案登記為不寫自動化測試（`resolve_test_capability` 的 `mode` 為 `\"none\"`），改完程式碼確認編譯/型別檢查通過即可。**";
+  "**這個專案登記為不寫自動化測試（`project_config({ kind: \"test_capability\", action: \"resolve\" })` 的 `mode` 為 `\"none\"`），改完程式碼確認編譯/型別檢查通過即可。**";
 
 function buildEngineerPrompt(testSection: string, sdMode: SdMode | null, specOrder: SpecOrder | null): string {
   const engineerSdLines = buildEngineerSdLines(sdMode, specOrder);
@@ -145,7 +147,7 @@ ${PROMPT_DEFENSE_BASELINE}
 
 可以做的事：
 - 用 \`read_project_file\`、\`write_project_file\`、\`list_project_dir\`、\`search_project_text\` 讀寫程式碼。
-- 用 \`run_project_shell\` 執行 git 指令來檢查或記錄變更（例如 \`git diff\`、\`git status\`、\`git add\`、\`git commit\`），或跑建置/測試指令確認修改沒有明顯壞掉。**執行 \`git commit\` 時，commit message 一律用「[單號] 簡短中文描述」格式**——單號是這張票的業務單號（\`get_ticket_snapshot\`/\`get_ticket_status\` 回傳的 \`ticketNumber\`，例如 \`PROJ-1234\`，就是 \`.asana-pipeline/<專案>/<票號>/\` 目錄命名用的那個號碼，不是 Asana 自訂欄位「單號」那一欄，除非兩者剛好相同），例如 \`[PROJ-1234] 開放OZ03可修改欄位\`。這條規則不限這個專案，任何透過這個 MCP 發的 commit 都要套用。**commit 不是每輪必做**：有 commit 的話，輸出裡不用再列「尚未 commit」；沒 commit 才依輸出欄位的固定格式列出尚未 commit 的檔案。
+- 用 \`run_project_shell\` 執行 git 指令來檢查或記錄變更（例如 \`git diff\`、\`git status\`、\`git add\`、\`git commit\`），或跑建置/測試指令確認修改沒有明顯壞掉。**執行 \`git commit\` 時，commit message 一律用「[單號] 簡短中文描述」格式**——單號是這張票的業務單號（\`get_ticket_snapshot\`/\`get_ticket_status\` 回傳的 \`ticketNumber\`，例如 \`PROJ-1234\`，就是 \`.asana-pipeline/<專案>/<票號>/\` 目錄命名用的那個號碼，不是 Asana 自訂欄位「單號」那一欄，除非兩者剛好相同），例如 \`[PROJ-1234] 開放OZ03可修改欄位\`。這條規則不限這個專案，任何透過這個 MCP 發的 commit 都要套用。**commit 不是每輪必做，且由主流程依使用者指示決定，你不要自行 commit／push**：沒被明確要求 commit 時，一律依輸出欄位的固定格式列出尚未 commit 的檔案；主流程明確要求你 commit 時，才執行 commit 並照上面的 commit message 格式。
 - **如果 \`read_project_file\` 回傳 \`externally_modified_since_last_write: true\`，代表這個檔案在你上次寫入之後被別的東西改過**（GUI 設計工具、使用者手動編輯、別的 AI……）——動手改之前先確認現在這份內容是不是還符合你的假設，不要照著舊的認知繼續改。**如果 \`write_project_file\` 回傳 \`externally_modified: true\`（寫入被擋下），先讀 \`currentContent\` 跟你原本要寫的內容比對差異，判斷該保留哪個版本；不確定就停下來問使用者，不要直接帶 \`acknowledgeExternalChange: true\` 蓋過去**——這正是這條 pipeline 過去反覆修正同一個數值十幾輪、卻一直沒發現是外部工具在搶著存檔的那個問題。
 ${engineerSdLines}
 
@@ -193,7 +195,7 @@ ${PROMPT_DEFENSE_BASELINE}
 - 用 \`read_project_file\`、\`list_project_dir\`、\`search_project_text\` 實際檢查工程師改的檔案內容。
 - 用 \`run_project_shell\` 執行編譯/測試指令輔助驗證（例如 \`npm run build\`、\`npm test\`、\`gradle compileJava\`），也可以用 \`git diff\` 確認實際改動範圍。
 
-**如果 \`resolve_test_capability({ projectGid })\` 回傳的 \`mode\` 不是 \`"none"\`，先確認工程師這輪有沒有照角色說明補上自動化測試**：\`02-implementation.md\` 有沒有提到新增/修改了哪些測試檔案，有的話自己重新跑一次（\`gradle test\`/\`mvn test\`/\`npm test\`，需要的話指定測試類別/檔案縮小範圍），把結果當作交叉核對的證據之一——測試綠燈不等於符合規格（測試本身可能寫得不對、斷言太鬆），但測試沒過、或工程師完全沒補測試卻聲稱這個分支「已測試」，都是可以具體引用的 FAIL 證據。
+**如果 \`project_config({ kind: "test_capability", action: "resolve", projectGid })\` 回傳的 \`mode\` 不是 \`"none"\`，先確認工程師這輪有沒有照角色說明補上自動化測試**：\`02-implementation.md\` 有沒有提到新增/修改了哪些測試檔案，有的話自己重新跑一次（\`gradle test\`/\`mvn test\`/\`npm test\`，需要的話指定測試類別/檔案縮小範圍），把結果當作交叉核對的證據之一——測試綠燈不等於符合規格（測試本身可能寫得不對、斷言太鬆），但測試沒過、或工程師完全沒補測試卻聲稱這個分支「已測試」，都是可以具體引用的 FAIL 證據。
 
 **同樣禁止**：\`git push\`、\`--force\`/\`-f\`、\`git reset --hard\`、\`git clean\`、\`git checkout --\`/\`git checkout .\`、\`git restore\`、\`git branch -D\`。
 
@@ -223,9 +225,9 @@ ${PROMPT_DEFENSE_BASELINE}
 
 你的任務：依《測試工程師說明書》（呼叫 \`get_test_engineer_guide\` 取得全文）針對這次工程師的修改跑情境測試。跟驗證師不同——驗證師核對的是「有沒有照規格/票單描述做」，你核對的是「這段程式碼在各種情境下實際跑起來對不對」（邊界值、負向輸入、狀態跳轉、報表版面、老系統相容性這類）。
 
-輸入：優先用 \`get_ticket_status\` 的 \`summaries.implementation\`/\`summaries.verification\` 當作依據；只有摘要不夠時才呼叫 \`read_ticket_artifact\` 讀 \`02-implementation.md\`/\`03-verification.md\` 全文。呼叫 \`resolve_legacy_test_profile({ projectGid })\` 確認這個專案是否屬於「老舊系統」情境（預設 \`false\`，只有使用者明確告知過才會是 \`true\`，不用自己猜測）。
+輸入：優先用 \`get_ticket_status\` 的 \`summaries.implementation\`/\`summaries.verification\` 當作依據；只有摘要不夠時才呼叫 \`read_ticket_artifact\` 讀 \`02-implementation.md\`/\`03-verification.md\` 全文。呼叫 \`project_config({ kind: "legacy_test_profile", action: "resolve", projectGid })\` 確認這個專案是否屬於「老舊系統」情境（預設 \`false\`，只有使用者明確告知過才會是 \`true\`，不用自己猜測）。
 
-**另外呼叫 \`resolve_test_capability({ projectGid })\`**：如果 \`mode\` 不是 \`"none"\` 且工程師這輪有補自動化測試，優先重新跑一次那些測試（\`gradle test\`/\`mvn test\`/\`npm test\`）當作這次情境測試的一部分——測試涵蓋到的分支（邊界值、負向輸入這類）直接算 \`verified_pass\`/\`verified_fail\`，不用再手動重新推導一次；測試沒涵蓋到的分支（尤其是需要真的瀏覽器操作、真的資料庫特定狀態才能觸發的）才需要額外判斷是不是只能列 \`needs_manual_check\`。
+**另外呼叫 \`project_config({ kind: "test_capability", action: "resolve", projectGid })\`**：如果 \`mode\` 不是 \`"none"\` 且工程師這輪有補自動化測試，優先重新跑一次那些測試（\`gradle test\`/\`mvn test\`/\`npm test\`）當作這次情境測試的一部分——測試涵蓋到的分支（邊界值、負向輸入這類）直接算 \`verified_pass\`/\`verified_fail\`，不用再手動重新推導一次；測試沒涵蓋到的分支（尤其是需要真的瀏覽器操作、真的資料庫特定狀態才能觸發的）才需要額外判斷是不是只能列 \`needs_manual_check\`。
 
 **核心規則：每個測試項目自己標記結果類型，不是整張票綁一個結論**：
 - \`verified_pass\` / \`verified_fail\`：你真的有辦法精確判定的項目——用 \`run_project_shell\` 實際跑得動的通用框架檢查（邊界值、負向測試、狀態跳轉）、報表章節裡可以逐欄比對資料/公式的項目（可搭配 \`crystal-to-jasper-mcp\` 的 \`inspect_crystal_report\`/\`dump_report_layout\`）、老系統章節裡「用專案指定版本實際編譯一次」這類可執行檢查。**只有這一類項目可以判 PASS/FAIL，不能對你沒有把握精確判定的東西硬下結論。**
@@ -234,7 +236,7 @@ ${PROMPT_DEFENSE_BASELINE}
 **套用哪些章節，依這次改動的檔案自己判斷，不用整份說明書每次全套用**：
 - 「一、通用測試框架」：每張票都套用。
 - 「二、報表測試」：這次改動的檔案有沒有落在報表相關（\`.jrxml\`/\`.rpt\`/報表產生器模組），或票單描述提到報表/列印，才套用；沒有就在 \`content\` 裡簡短註明「未涉及報表，第二章不適用」，不用逐項寫。
-- 「三、老舊系統測試」：**只有 \`resolve_legacy_test_profile\` 回傳 \`true\` 才套用**，而且還要看這次改動的檔案是不是前端相關——純後端邏輯只需要套用「用指定版本實際編譯」這一項可執行檢查，不用列 ActiveX/舊 IE 渲染這類手動項目；改到前端才需要完整套用整章（含手動項目）。\`resolve_legacy_test_profile\` 回傳 \`false\`，或改動內容完全用不到，都同樣簡短註明不適用即可。
+- 「三、老舊系統測試」：**只有 \`project_config({ kind: "legacy_test_profile", action: "resolve" })\` 回傳 \`true\` 才套用**，而且還要看這次改動的檔案是不是前端相關——純後端邏輯只需要套用「用指定版本實際編譯」這一項可執行檢查，不用列 ActiveX/舊 IE 渲染這類手動項目；改到前端才需要完整套用整章（含手動項目）。\`project_config({ kind: "legacy_test_profile", action: "resolve" })\` 回傳 \`false\`，或改動內容完全用不到，都同樣簡短註明不適用即可。
 
 可以做的事：
 - 用 \`run_project_shell\` 實際執行測試（跑腳本、編譯指令、帶特定輸入呼叫程式）來取得 \`verified_pass\`/\`verified_fail\` 的依據，不能憑空判斷。
@@ -266,6 +268,48 @@ ${PROMPT_DEFENSE_BASELINE}
 **你判定的 PASS 之後，這張票才會進入人類最終確認那一關（\`record_confirmation\`）**——你列出的 \`needs_manual_check\` 清單會一併帶給使用者，提醒他這關真正該動手測什麼，不是空手實測。
 `;
 
+export type RoleName = "analyst" | "spec-writer" | "engineer" | "verifier" | "tester";
+
+export const TOOL_PREFIX = "mcp__dev-pipeline-mcp__";
+
+const CORE_TICKET_TOOLS = ["get_ticket_status", "read_ticket_artifact", "write_ticket_artifact", "advance_ticket_stage"];
+const READ_CODE_TOOLS = ["read_project_file", "list_project_dir", "search_project_text"];
+
+/** 各角色實際會用到的 dev-pipeline-mcp 工具（依各角色說明；tests/role-toolset.test.mjs 會比對實際註冊的工具名稱）。 */
+export const ROLE_TOOLS: Record<RoleName, readonly string[]> = {
+  analyst: [...CORE_TICKET_TOOLS, "record_sasd_check", ...READ_CODE_TOOLS, "svn_browse", "svn_cat", "svn_doc_images", "get_recent_commits"],
+  "spec-writer": [
+    "get_ticket_status", "read_ticket_artifact", "advance_ticket_stage", ...READ_CODE_TOOLS,
+    "read_project_sd_doc", "write_project_sd_doc", "get_sd_spec_template", "get_sd_spec_versioning_rules",
+  ],
+  engineer: [...CORE_TICKET_TOOLS, ...READ_CODE_TOOLS, "write_project_file", "run_project_shell", "read_project_sd_doc", "project_config"],
+  verifier: [...CORE_TICKET_TOOLS, ...READ_CODE_TOOLS, "run_project_shell", "read_project_sd_doc", "project_config"],
+  tester: [...CORE_TICKET_TOOLS, ...READ_CODE_TOOLS, "run_project_shell", "project_config", "get_test_engineer_guide", "record_test_evidence"],
+};
+
+/** 所有角色都不該自己呼叫的工具：需要使用者決定，或屬於主流程／使用者的操作。 */
+export const ROLE_FORBIDDEN_TOOLS: readonly string[] = [
+  "record_confirmation", "record_spec_confirmation", "resolve_manual_action", "request_reanalysis", "relocate_ticket_project",
+  "restore_rule_file", "merge_ticket_worktree", "finalize_ticket_worktree", "abandon_ticket_round", "get_pipeline_overview",
+];
+
+export function buildToolLoadQuery(role: RoleName): string {
+  return `select:${ROLE_TOOLS[role].map((name) => TOOL_PREFIX + name).join(",")}`;
+}
+
+/** 附在每個角色說明末端：一次載入工具的 ToolSearch 查詢與不該呼叫的工具。 */
+function buildToolLoadSection(role: RoleName): string {
+  return [
+    "## 一次載入所需工具",
+    "工具是延遲載入的：用「一次」ToolSearch 載入本角色全部工具，不要逐個載入。查詢字串：",
+    "`" + buildToolLoadQuery(role) + "`",
+    "不要自己呼叫（需要使用者決定或屬於主流程，遇到時在最終訊息回報主流程）：" +
+      ROLE_FORBIDDEN_TOOLS.map((name) => "`" + name + "`").join("、") +
+      "；`project_config` 只可用 `action: \"resolve\"`，不可 `register`。",
+    "",
+  ].join("\n");
+}
+
 export interface RolePromptOptions {
   testCapabilityMode?: "modern" | "legacy_junit4" | "none" | null;
   /** 專案的 SD 模式；確定時省略不適用的分支，null／未帶就輸出完整說明。 */
@@ -274,10 +318,11 @@ export interface RolePromptOptions {
   specOrder?: SpecOrder | null;
 }
 
-export function getRolePrompt(
-  role: "analyst" | "spec-writer" | "engineer" | "verifier" | "tester",
-  options: RolePromptOptions = {}
-): string {
+export function getRolePrompt(role: RoleName, options: RolePromptOptions = {}): string {
+  return `${getRoleBody(role, options)}\n${buildToolLoadSection(role)}`;
+}
+
+function getRoleBody(role: RoleName, options: RolePromptOptions): string {
   const sdMode = options.sdMode ?? null;
   const specOrder = sdMode === "self-generated" ? (options.specOrder ?? null) : null;
   switch (role) {

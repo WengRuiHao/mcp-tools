@@ -1,5 +1,5 @@
 /**
- * register_sasd_config 登記前的路徑檢查：saRoot／sdRoot 必須是「相對於 SVN repo 根目錄、用正斜線」的真實路徑。
+ * project_config(kind='sasd_config', action='register') 登記前的路徑檢查：saRoot／sdRoot 必須是「相對於 SVN repo 根目錄、用正斜線」的真實路徑。
  * 過去只驗連線不驗路徑，結果有專案登記了本機工作副本風格的路徑（WC-FOLDER\2-SA\…，多一層資料夾名又用反斜線），
  * 在 SVN 上根本不存在，之後每張票讀規格都會失敗。
  */
@@ -44,7 +44,7 @@ export async function verifySvnRoots(connectionId: string, roots: SvnRootInput[]
       failure = err instanceof Error ? err.message : String(err);
     }
     if (failure !== null) {
-      return `${field}「${value}」在 SVN 連線「${connectionId}」底下瀏覽失敗（路徑不存在或沒有權限）：${failure}。請先用 svn_browse 從 repo 根目錄一層層確認真實路徑，再重新呼叫 register_sasd_config。`;
+      return `${field}「${value}」在 SVN 連線「${connectionId}」底下瀏覽失敗（路徑不存在或沒有權限）：${failure}。請先用 svn_browse 從 repo 根目錄一層層確認真實路徑，再重新呼叫 project_config(kind='sasd_config', action='register')。`;
     }
   }
   return null;

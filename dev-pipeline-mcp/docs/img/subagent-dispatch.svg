@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 650" role="img" aria-label="派子代理人的標準做法：主流程要把某個角色（分析師、工程師、驗證師等）交給子代理人時，先呼叫 get_role_prompt，帶上 role、taskGid、projectDir 並設 forSubagent 為 true。回傳的整段內容就是子代理人的 prompt，包含派工簡報（四塊：身分與票單，自動帶入 taskGid、projectGid、projectDir、票號、stage、sdMode、nextAction；寫入目標，要寫的追蹤檔與必填欄位；環境陷阱，例如 run_project_shell 在 Windows PowerShell 5.1 執行並有 timeoutMs；回報格式）、角色說明、專案補充規則，以及一行「一次載入所需工具」的 ToolSearch select 清單。子代理人第一步用那一行一次載入工具（不逐個載），做事只透過 dev-pipeline-mcp 工具，最終訊息就是交付物：寫了哪些追蹤檔與 stage、判定一行、需要使用者處理的事項、疑慮。子代理人不可自己做的事：自行 commit 或 push（commit 由主流程依使用者指示決定）、替使用者做確認（record_confirmation、record_spec_confirmation、resolve_manual_action 等）、自行略過 SD、用 project_config 做 register（只准 resolve）、再呼叫 get_pipeline_overview。子代理人交回結果後，回到主流程：收結果、決定是否 commit，使用者確認由使用者自己做">
+  <defs>
+    <marker id="dispMain" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2a2620"/></marker>
+    <marker id="dispAcc" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2b6777"/></marker>
+    <marker id="dispStale" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#a84b36"/></marker>
+  </defs>
+  <rect x="0" y="0" width="1000" height="650" fill="#f5f2ea"/>
+  <rect x="20" y="24" width="220" height="84" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="130.0" y="44" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12" font-weight="700" fill="#2a2620">主流程</text>
+  <text x="130.0" y="62" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">要把某個角色（分析師／工程師／</text>
+  <text x="130.0" y="76" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">驗證師…）交給子代理人時，</text>
+  <text x="130.0" y="90" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">先不直接派，先要簡報</text>
+  <line x1="240" y1="66" x2="286" y2="66" stroke="#2a2620" stroke-width="1.8" marker-end="url(#dispMain)"/>
+  <rect x="290" y="24" width="440" height="84" rx="10" fill="#dbe9ea" stroke="#2b6777"/>
+  <text x="510" y="46" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="11.5" font-weight="700" fill="#17414c">get_role_prompt({ role, taskGid,</text>
+  <text x="510" y="62" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="11.5" font-weight="700" fill="#17414c">projectDir, forSubagent: true })</text>
+  <text x="510" y="84" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c">回傳的整段內容＝子代理人的 prompt，</text>
+  <text x="510" y="99" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c">不用自己拼、不用手動補票單資訊</text>
+  <text x="860" y="60" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#6b6558">別的角色要派？</text>
+  <text x="860" y="76" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#6b6558">每個角色各呼叫一次</text>
+  <line x1="510" y1="108" x2="510" y2="132" stroke="#2b6777" stroke-width="1.8" marker-end="url(#dispAcc)"/>
+  <rect x="20" y="136" width="960" height="204" rx="12" fill="none" stroke="#2b6777" stroke-width="1.2" stroke-dasharray="5 4"/>
+  <text x="36" y="156" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="11.5" font-weight="700" fill="#17414c">回傳內容一：派工簡報（自動帶入，四塊）</text>
+  <rect x="36" y="166" width="216" height="82" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="144.0" y="186" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12" font-weight="700" fill="#2a2620">身分與票單</text>
+  <text x="144.0" y="204" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">taskGid／projectGid／</text>
+  <text x="144.0" y="218" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">projectDir／票號／</text>
+  <text x="144.0" y="232" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">stage／sdMode／nextAction</text>
+  <rect x="262" y="166" width="216" height="82" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="370.0" y="186" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12" font-weight="700" fill="#2a2620">寫入目標</text>
+  <text x="370.0" y="204" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">要寫入的追蹤檔，</text>
+  <text x="370.0" y="218" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">以及每個檔案的必填欄位</text>
+  <rect x="488" y="166" width="216" height="82" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="596.0" y="186" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12" font-weight="700" fill="#2a2620">環境陷阱</text>
+  <text x="596.0" y="204" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">例：run_project_shell 跑在</text>
+  <text x="596.0" y="218" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">PowerShell 5.1，有 timeoutMs</text>
+  <text x="596.0" y="232" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">（預設 60 秒、上限 10 分鐘）</text>
+  <rect x="714" y="166" width="230" height="82" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="829.0" y="186" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12" font-weight="700" fill="#2a2620">回報格式</text>
+  <text x="829.0" y="204" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">最終訊息要交哪些東西</text>
+  <text x="829.0" y="218" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">（見下方子代理人的交付物）</text>
+  <text x="36" y="268" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="11.5" font-weight="700" fill="#17414c">回傳內容二：簡報之後再接三段</text>
+  <rect x="36" y="278" width="290" height="50" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="181.0" y="298" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" font-weight="700" fill="#2a2620">角色說明</text>
+  <text x="181.0" y="316" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">這個角色該做什麼、不該做什麼</text>
+  <rect x="340" y="278" width="290" height="50" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="485.0" y="298" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" font-weight="700" fill="#2a2620">專案補充規則</text>
+  <text x="485.0" y="316" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">專案自己的共通規則與角色規則</text>
+  <rect x="644" y="278" width="300" height="50" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="794.0" y="298" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11.5" font-weight="700" fill="#2a2620">一次載入所需工具</text>
+  <text x="794.0" y="316" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">一行 ToolSearch select:… 清單</text>
+  <line x1="330" y1="340" x2="330" y2="368" stroke="#2b6777" stroke-width="1.8" marker-end="url(#dispAcc)"/>
+  <text x="342" y="358" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#17414c">整段當 prompt 交給子代理人</text>
+  <rect x="20" y="372" width="620" height="124" rx="12" fill="#f5f2ea" stroke="#2b6777" stroke-width="1.6"/>
+  <text x="36" y="392" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="12" font-weight="700" fill="#17414c">子代理人</text>
+  <rect x="34" y="402" width="192" height="82" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="130.0" y="422" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" font-weight="700" fill="#2a2620">1  先載入工具</text>
+  <text x="130.0" y="440" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">用簡報裡那一行</text>
+  <text x="130.0" y="454" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">ToolSearch 一次載入，</text>
+  <text x="130.0" y="468" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">不逐個載</text>
+  <rect x="234" y="402" width="192" height="82" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="330.0" y="422" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" font-weight="700" fill="#2a2620">2  只用本 MCP 工具</text>
+  <text x="330.0" y="440" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">做事只透過</text>
+  <text x="330.0" y="454" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">dev-pipeline-mcp 工具，</text>
+  <text x="330.0" y="468" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">不另外找路</text>
+  <rect x="434" y="402" width="192" height="82" rx="10" fill="#dbe9ea" stroke="#2b6777"/>
+  <text x="530.0" y="422" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" font-weight="700" fill="#17414c">3  最終訊息＝交付物</text>
+  <text x="530.0" y="440" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">寫了哪些追蹤檔與 stage、</text>
+  <text x="530.0" y="454" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">判定一行、需你處理的事、</text>
+  <text x="530.0" y="468" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#17414c">疑慮</text>
+  <rect x="668" y="372" width="312" height="262" rx="12" fill="#f2dbd2" stroke="#a84b36" stroke-width="1.4" stroke-dasharray="5 4"/>
+  <text x="824" y="396" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="12.5" font-weight="700" fill="#a84b36">子代理人不可自己做的事</text>
+  <text x="684" y="420" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="11" font-weight="700" fill="#a84b36">✗ 自行 commit／push</text>
+  <text x="700" y="435" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#a84b36">commit 由主流程依你的指示決定</text>
+  <text x="684" y="465" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="11" font-weight="700" fill="#a84b36">✗ 替你做確認</text>
+  <text x="700" y="480" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#a84b36">record_confirmation、record_spec_</text>
+  <text x="700" y="493" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#a84b36">confirmation、resolve_manual_action</text>
+  <text x="684" y="523" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="11" font-weight="700" fill="#a84b36">✗ 自行決定略過 SD</text>
+  <text x="700" y="538" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#a84b36">略過 SD 只能由你明確說了才算</text>
+  <text x="684" y="568" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="11" font-weight="700" fill="#a84b36">✗ project_config 做 register</text>
+  <text x="700" y="583" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#a84b36">只准 resolve（查有沒有登記）</text>
+  <text x="684" y="613" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="11" font-weight="700" fill="#a84b36">✗ 再呼叫 get_pipeline_overview</text>
+  <text x="700" y="628" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#a84b36">流程說明主流程看過了</text>
+  <line x1="640" y1="434" x2="664" y2="434" stroke="#a84b36" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#dispStale)"/>
+  <line x1="330" y1="496" x2="330" y2="522" stroke="#2a2620" stroke-width="1.8" marker-end="url(#dispMain)"/>
+  <text x="342" y="514" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="10.5" fill="#6b6558">交回最終訊息</text>
+  <rect x="20" y="526" width="620" height="108" rx="12" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="36" y="546" text-anchor="start" font-family="'Noto Sans TC',sans-serif" font-size="12" font-weight="700" fill="#2a2620">回到主流程</text>
+  <rect x="34" y="556" width="192" height="68" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="130.0" y="576" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" font-weight="700" fill="#2a2620">收結果</text>
+  <text x="130.0" y="594" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">讀最終訊息，</text>
+  <text x="130.0" y="608" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">必要時 get_ticket_status 核對</text>
+  <rect x="234" y="556" width="192" height="68" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="330.0" y="576" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" font-weight="700" fill="#2a2620">決定要不要 commit</text>
+  <text x="330.0" y="594" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">依你的指示，</text>
+  <text x="330.0" y="608" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">不是子代理人決定</text>
+  <rect x="434" y="556" width="192" height="68" rx="10" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
+  <text x="530.0" y="576" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="11" font-weight="700" fill="#2a2620">確認由你做</text>
+  <text x="530.0" y="594" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">你自己呼叫確認工具，</text>
+  <text x="530.0" y="608" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-size="10" fill="#6b6558">AI 不代按</text>
+</svg>

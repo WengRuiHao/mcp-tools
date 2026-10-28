@@ -4,11 +4,13 @@ import {
   readStatus,
   writeArtifact,
   readArtifact,
+  readArtifactResult,
   recordArtifactHash,
   recordArtifactSummary,
   recordStageSync,
   recordManualActions,
   resolveTicketDir,
+  resolveArtifactPath,
   detectSensitiveManualActions,
   NO_SYNC_NEEDED,
 } from "./pipeline-store.js";
@@ -23,57 +25,126 @@ import {
   recordTestDeclaration,
 } from "./test-evidence-store.js";
 
+const WRITE_MODES = ["overwrite", "append", "replace"] as const;
+type WriteMode = (typeof WRITE_MODES)[number];
+
+type Composed = { ok: true; content: string } | { ok: false; body: Record<string, unknown> };
+
+/** 該 artifact 的絕對路徑（用 pipeline-store 的路徑解析，不自己拼）。 */
+async function artifactFilePath(taskGid: string, filename: string): Promise<string> {
+  return resolveArtifactPath(await resolveTicketDir(taskGid), filename);
+}
+
+function countOccurrences(text: string, needle: string): number {
+  return text.split(needle).length - 1;
+}
+
+/** 依 mode 算出「套用後的完整內容」；後續所有關卡都對這份內容檢查。不寫檔。 */
+async function composeContent(
+  taskGid: string,
+  filename: string,
+  mode: WriteMode,
+  content: string | undefined,
+  oldString: string | undefined,
+  newString: string | undefined
+): Promise<Composed> {
+  const fail = (message: string, extra: Record<string, unknown> = {}): Composed => ({ ok: false, body: { success: false, message, ...extra } });
+  if (mode === "overwrite") {
+    return typeof content === "string" ? { ok: true, content } : fail(`overwrite 模式必須帶 content（全文）。`);
+  }
+  const existing = await readArtifactResult(taskGid, filename);
+  if (existing.status === "not_found") {
+    if (mode === "replace") return fail(`${filename} 不存在，無法 replace；請改用 mode=overwrite 或 append 建立。`);
+  } else if (existing.status !== "ok") {
+    return fail(existing.message, { reason: existing.status });
+  }
+  const current = existing.status === "ok" ? existing.content : "";
+  const eol = current.includes("\r\n") ? "\r\n" : "\n";
+  const toEol = (t: string): string => t.replace(/\r\n|\r|\n/g, eol);
+
+  if (mode === "append") {
+    if (typeof content !== "string" || content === "") return fail("append 模式必須帶非空的 content。");
+    const addition = current.includes("\n") || current === "" ? toEol(content) : content;
+    const sep = current !== "" && !current.endsWith("\n") ? eol : "";
+    return { ok: true, content: current + sep + addition };
+  }
+  if (!oldString) return fail("replace 模式必須帶非空的 oldString。");
+  if (typeof newString !== "string") return fail("replace 模式必須帶 newString（要刪除就帶空字串）。");
+  const needle = toEol(oldString);
+  const matchCount = countOccurrences(current, needle);
+  if (matchCount !== 1) {
+    return fail(
+      matchCount === 0
+        ? `oldString 在 ${filename} 中找不到（matchCount=0），未做任何修改；請先 read_ticket_artifact 確認原文。`
+        : `oldString 在 ${filename} 中出現 ${matchCount} 次，必須恰好一次；請加長 oldString 使其唯一。`,
+      { matchCount }
+    );
+  }
+  const at = current.indexOf(needle);
+  return { ok: true, content: current.slice(0, at) + toEol(newString) + current.slice(at + needle.length) };
+}
+
 export function registerTicketArtifactTools(server: McpServer): void {
   server.tool(
     "write_ticket_artifact",
-    "把內容寫入某張票單追蹤目錄下的檔案（01-analysis.md / 02-implementation.md / 03-verification.md / 04-test.md）。" +
-      "**content 是整份覆寫、不是附加**：檔案已有內容時，先 read_ticket_artifact 讀全文，組合舊＋新內容再整份送入，否則先前內容永久遺失。" +
-      "寫 01-analysis.md 前必須已呼叫 record_sasd_check，且需通過專案 gates.json（<projectDir>/.pipeline/gates.json）的分析關卡（寫 02-implementation.md 亦有實作關卡），否則拒絕並說明缺什麼。" +
-      "寫 01–04 都要帶 summary（2-4 條重點）；寫 01-analysis.md 會清掉 needs_reanalysis 標記。" +
-      `寫 02/03/04 必填 syncNote（對上一階段有無修正；沒有就帶 "${NO_SYNC_NEEDED}"）與 manualActions（需使用者手動處理的事項，沒有帶 []），缺少會被拒絕。` +
-      "**寫 04-test.md 另必填 producesOfficeFiles（這次測試有沒有產出 Excel/PDF）與 testLevel（unit-mock｜integration-db｜live-api，必須等於證據中最高層級）**；" +
-      "每張票都要先用 record_test_evidence 記錄至少 1 筆測試證據，content 要有標題含「測試證據」的一節、提及每筆證據的功能名稱與 testLevel 字串；producesOfficeFiles=true 時另需至少 1 筆 excel/pdf 證據，缺少會被拒絕。" +
-      "尚待使用者截圖的 Excel 證據會自動併入 manualActions（不需自己寫）。" +
-      "寫入後自動局部重寫該 Asana 專案的 PENDING_HUMAN_ACTIONS.html。",
+    "寫入票單追蹤目錄的 01-analysis.md／02-implementation.md／03-verification.md／04-test.md，成功回傳 filePath。" +
+      "mode：overwrite（預設，整份覆寫）｜append（接在後面）｜replace（oldString 須恰好出現一次，換成 newString；檔案不存在則拒絕）。關卡對套用後的完整內容檢查。" +
+      "寫 01 前須已 record_sasd_check，且過專案 gates.json 的分析關卡（02 另有實作關卡）。overwrite 必帶 summary。" +
+      `寫 02/03/04 必填 syncNote（無需同步帶 "${NO_SYNC_NEEDED}"）與 manualActions（沒有帶 []）。` +
+      "**寫 04 另必填 producesOfficeFiles 與 testLevel（須等於證據最高層級）**，且須先 record_test_evidence 至少 1 筆；內文要有標題含「測試證據」的一節、提及每筆證據的功能名稱與 testLevel，producesOfficeFiles=true 另需 excel/pdf 證據。",
     {
-      taskGid: z.string().describe("Asana 任務 gid"),
+      taskGid: z.string().describe("任務 gid"),
       filename: z
         .enum(["01-analysis.md", "02-implementation.md", "03-verification.md", "04-test.md"])
         .describe("要寫入哪一份追蹤文件"),
-      content: z.string().describe("要寫入的內容（全文，整份覆寫既有檔案——若檔案已有內容，先呼叫 read_ticket_artifact 讀出全文再組合，不要只傳這一輪新增段落）"),
+      mode: z.enum(WRITE_MODES).optional().describe("overwrite（預設）｜append｜replace"),
+      content: z.string().optional().describe("overwrite：全文；append：接在後面的內容；replace 不用"),
+      oldString: z.string().optional().describe("replace：被取代的文字，須恰好出現一次"),
+      newString: z.string().optional().describe("replace：取代後文字（可為空字串）"),
       summary: z
         .string()
         .nullable()
         .optional()
-        .describe("這份內容的精簡摘要（2-4 條重點），filename 是 01/02/03/04-*.md 時務必提供，會存進追蹤狀態供之後低成本接手用"),
+        .describe("摘要（2-4 條重點）；overwrite 必填，append/replace 可省略（沿用既有）"),
       syncNote: z
         .string()
         .nullable()
         .optional()
-        .describe(
-          `filename 是 02-implementation.md／03-verification.md／04-test.md 時必填。有新發現/結論變動就寫進這裡（會自動附加到上一階段文件）；` +
-            `確認這次不需要同步，就帶入字串 "${NO_SYNC_NEEDED}"。留空／不帶會被拒絕寫入。`
-        ),
+        .describe(`02/03/04 必填。新發現寫這裡（自動附加到上一階段文件）；不需同步帶 "${NO_SYNC_NEEDED}"`),
       manualActions: z
         .array(z.string())
         .nullable()
         .optional()
         .describe(
-          "02/03/04 必填（陣列）。列出需使用者手動處理的事項（例如「已產出 SQL，見內文，需自行到 Database 工具執行」；04-test.md 則是 needs_manual_check 項目）；沒有就帶 []。" +
-            "檔案還沒 commit 時另列一條固定格式「已完成但尚未commit：檔名A、檔名B」（含「commit」二字與帶副檔名的檔名），Git 板塊只認這格式。"
+          "02/03/04 必填（陣列）：需使用者手動處理的事項（04 為 needs_manual_check 項目），沒有帶 []。未 commit 另列一條「已完成但尚未commit：檔名A、檔名B」（含「commit」與帶副檔名的檔名）"
         ),
       producesOfficeFiles: z
         .boolean()
         .nullable()
         .optional()
-        .describe("filename 是 04-test.md 時必填：這次測試有沒有產出 Excel/PDF？有就帶 true（需至少 1 筆 excel/pdf 測試證據），沒有帶 false。其他 filename 忽略。"),
+        .describe("04 必填：本次測試是否產出 Excel/PDF；其他檔忽略"),
       testLevel: z
         .enum(TEST_LEVELS)
         .nullable()
         .optional()
-        .describe("filename 是 04-test.md 時必填：整體測試層級 unit-mock（依賴全 mock）｜integration-db（連真實資料庫）｜live-api（打真實運行中的服務），必須等於 test_evidence 中最高的層級。其他 filename 忽略。"),
+        .describe("04 必填：unit-mock｜integration-db｜live-api，須等於證據最高層級；其他檔忽略"),
     },
-    async ({ taskGid, filename, content, summary, syncNote, manualActions, producesOfficeFiles, testLevel }) => {
+    async ({ taskGid, filename, mode, content: rawContent, oldString, newString, summary, syncNote, manualActions, producesOfficeFiles, testLevel }) => {
+      const writeMode: WriteMode = mode ?? "overwrite";
+      const hasSummary = Boolean(summary && summary.trim());
+      if (writeMode === "overwrite" && !hasSummary) {
+        return textResult(
+          {
+            success: false,
+            message: `寫入 ${filename} 必須帶 summary（2-4 條重點的精簡摘要）：會存進追蹤狀態供之後低成本接手用，不可省略或留空。`,
+          },
+          true
+        );
+      }
+      const composed = await composeContent(taskGid, filename, writeMode, rawContent, oldString, newString);
+      if (!composed.ok) return textResult(composed.body, true);
+      const content = composed.content;
+
       if (filename === "01-analysis.md") {
         const status = await readStatus(taskGid);
         if (!status.sasd_checked) {
@@ -174,7 +245,6 @@ export function registerTicketArtifactTools(server: McpServer): void {
           );
         }
         finalManualActions = mergeEvidenceManualActions(manualActions!, status, ticketDir);
-        await recordTestDeclaration(taskGid, producesOfficeFiles, testLevel);
       }
 
       if (filename === "02-implementation.md") {
@@ -189,49 +259,83 @@ export function registerTicketArtifactTools(server: McpServer): void {
         }
       }
 
-      if (needsSyncNote) {
-        await recordStageSync(taskGid, filename as "02-implementation.md" | "03-verification.md" | "04-test.md", syncNote!.trim());
-        await recordManualActions(taskGid, filename as "02-implementation.md" | "03-verification.md" | "04-test.md", finalManualActions!);
+      // 先寫檔案，再依序記錄；檔案寫入失敗就什麼狀態都不動，記錄失敗則明確告知「檔案已寫入但 status 未同步」。
+      try {
+        await writeArtifact(taskGid, filename, content);
+      } catch (err: any) {
+        return textResult(
+          { success: false, message: `寫入 ${filename} 失敗，檔案與追蹤狀態都沒有變動：${err?.message ?? String(err)}` },
+          true
+        );
       }
 
-      await writeArtifact(taskGid, filename, content);
-      await recordArtifactHash(taskGid, filename, content);
-      await recordArtifactSummary(taskGid, filename, summary);
-      await syncPendingActionsReport(taskGid);
-      return textResult({ success: true, taskGid, filename });
+      let step = "recordArtifactHash";
+      try {
+        await recordArtifactHash(taskGid, filename, content);
+        step = "recordArtifactSummary";
+        if (hasSummary) await recordArtifactSummary(taskGid, filename, summary);
+        if (needsSyncNote) {
+          const stageFile = filename as "02-implementation.md" | "03-verification.md" | "04-test.md";
+          step = "recordStageSync";
+          await recordStageSync(taskGid, stageFile, syncNote!.trim());
+          step = "recordManualActions";
+          await recordManualActions(taskGid, stageFile, finalManualActions!);
+        }
+        if (filename === "04-test.md") {
+          step = "recordTestDeclaration";
+          await recordTestDeclaration(taskGid, producesOfficeFiles!, testLevel!);
+        }
+        step = "syncPendingActionsReport";
+        await syncPendingActionsReport(taskGid);
+      } catch (err: any) {
+        return textResult(
+          {
+            success: false,
+            fileWritten: true,
+            failedStep: step,
+            message:
+              `${filename} 的檔案內容已寫入，但追蹤狀態未完整同步（失敗步驟：${step}，原因：${err?.message ?? String(err)}）。` +
+              `請呼叫 resync_ticket_artifact({ taskGid, filename${needsSyncNote ? ", manualActions" : ""} }) 補同步雜湊/狀態` +
+              (needsSyncNote ? "，並視需要重新確認 syncNote 是否已附加到上一階段文件。" : "。"),
+          },
+          true
+        );
+      }
+      return textResult({ success: true, taskGid, filename, filePath: await artifactFilePath(taskGid, filename) });
     }
   );
 
   server.tool(
     "read_ticket_artifact",
-    "讀取某張票單追蹤目錄底下的一個檔案內容（例如 ticket.md / 01-analysis.md）。",
-    { taskGid: z.string().describe("Asana 任務 gid"), filename: z.string().describe("檔名，例如 ticket.md") },
+    "讀取票單追蹤目錄下的一個檔案（如 ticket.md / 01-analysis.md）。",
+    { taskGid: z.string().describe("任務 gid"), filename: z.string().describe("檔名，例如 ticket.md") },
     async ({ taskGid, filename }) => {
-      const content = await readArtifact(taskGid, filename);
-      return textResult({ success: content !== null, content });
+      const result = await readArtifactResult(taskGid, filename);
+      if (result.status === "ok") return textResult({ success: true, filePath: await artifactFilePath(taskGid, filename), content: result.content });
+      return textResult({ success: false, content: null, reason: result.status, message: result.message }, true);
     }
   );
 
   server.tool(
     "resync_ticket_artifact",
-    "把 01-04 其中一份追蹤檔案目前磁碟上的實際內容重新雜湊、寫回 status.json。" +
-      "用在這份檔案剛被一般編輯工具（非 write_ticket_artifact）直接改過之後；不需要 syncNote、不觸發任何角色階段，只更新雜湊，不判斷修改是否正確。" +
-      "summary 選填（手動修改大到摘要該換時才帶）。manualActions 選填（陣列）：回填 manualActions 機制上線前寫的舊 02/03/04 檔案裡散落在自由文字的人工待辦（01 不支援）。",
+    "把 01-04 其中一份追蹤檔案磁碟上的實際內容重新雜湊、寫回 status.json。" +
+      "用在檔案剛被一般編輯工具（非 write_ticket_artifact）直接改過之後；不需 syncNote、不觸發角色階段，只更新雜湊，不判斷修改是否正確。" +
+      "summary 選填（修改大到摘要該換時才帶）。manualActions 選填（陣列）：回填舊 02/03/04 檔案裡散落在自由文字的人工待辦（01 不支援）。",
     {
-      taskGid: z.string().describe("Asana 任務 gid"),
+      taskGid: z.string().describe("任務 gid"),
       filename: z
         .enum(["01-analysis.md", "02-implementation.md", "03-verification.md", "04-test.md"])
-        .describe("要重新同步雜湊的檔名"),
+        .describe("要重新同步雜湊的檔"),
       summary: z
         .string()
         .nullable()
         .optional()
-        .describe("這次手動修改內容多到連快取摘要都該更新時才帶；不帶就只更新雜湊，摘要維持原樣"),
+        .describe("修改大到摘要該更新時才帶；不帶只更新雜湊"),
       manualActions: z
         .array(z.string())
         .nullable()
         .optional()
-        .describe("回填這份文件裡藏著的人工待辦事項（只對 02-implementation.md／03-verification.md／04-test.md 有意義）；不帶就不動這個欄位，維持原樣"),
+        .describe("回填文件裡的人工待辦（僅 02/03/04 有意義）；不帶就不動"),
     },
     async ({ taskGid, filename, summary, manualActions }) => {
       const content = await readArtifact(taskGid, filename);

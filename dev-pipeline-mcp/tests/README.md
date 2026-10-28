@@ -1,6 +1,6 @@
 # 自動化測試
 
-- 執行：`npm test`（先 build 再跑 `node --test`，用 Node 內建 `node:test`，無額外依賴）；單檔：`node --test tests/xxx.test.mjs`（需先 `npm run build`）。
+- 執行：`npm test`（先 build 再跑 `node --import ./tests/helpers/safe-env.mjs --test`，用 Node 內建 `node:test`，無額外依賴）；單檔：`node --import ./tests/helpers/safe-env.mjs --test tests/xxx.test.mjs`（需先 `npm run build`）。`safe-env.mjs` 會把 `ASANA_MCP_PATH` 預設指到不存在的檔案，避免測試忘了設定時啟動真的 asana-mcp；單檔若不帶 `--import`，這層保護就不存在。
 - 分檔：`rule-files`（規則檔與快照）、`gates`（專案關卡）、`toolsets`（工具群組與工具清單契約）、`list-filter`、`next-action`、`pending-actions-sync`（本機重建報告）、`manual-blocks`（手動貼上內容區塊）、`role-prompt`、`overview`、`registry`、`sd-doc`、`test-evidence`（測試證據工具與 04-test.md／tested 關卡）、`no-customer-codes`（客戶代號守門）、`svn-workcopy`（SVN 區塊與 bridge 的 /svn/* 端點，需本機有 svn）。
 - 共用工具在 `helpers/support.mjs`（暫時目錄、資料目錄隔離、in-memory MCP client、假的 TicketStatus）。
 - 慣例：檔名 `*.test.mjs`、從 `../dist/...` 以相對路徑匯入；內容盡量 ASCII（中文用 `\uXXXX`）；

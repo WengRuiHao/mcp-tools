@@ -22,6 +22,8 @@ npm run build
 
 啟動時會自動把這兩個當子行程啟動，**必須先各自 `npm install && npm run build` 過**。
 
+**啟動較慢或逾時**（2026-10-28 起的建議）：MCP host 啟動慢、連線逾時時，先調高 host 的啟動逾時（Claude Code 為環境變數 `MCP_TIMEOUT`）；本機 node 型 MCP 也可以用 esbuild 打包成單檔再指向打包檔，縮短冷啟動（2026-10-28 對 `gitlab-mcp`／`db-mcp` 這樣處理過）。
+
 > 這個專案原本還借用一個獨立的 `spec-pipeline-mcp` 提供 `get_recent_commits`，2026-09-09 已經把這個功能收回本專案自己實作（`git-utils.ts`），`spec-pipeline-mcp` 這個獨立 MCP／它專屬的「分析規格檔案」觸發流程已經整個淘汰——那類「先建置案再補規格」的情境，改走本專案既有的 Asana 票單流程即可（規格一律讀 SVN，不用再本機同步一份）。
 
 <details>
@@ -29,9 +31,12 @@ npm run build
 
 | 變數 | 說明 | 預設值 |
 |---|---|---|
-| `ASANA_MCP_PATH` | asana-mcp 的 `dist/index.js` 絕對路徑 | `../asana-mcp/dist/index.js` |
+| `ASANA_MCP_PATH` | asana-mcp 的 `dist/index.js` 絕對路徑 | `../asana-mcp/dist/index.js`（`npm test` 會先預設指到不存在的檔案，見「自動化測試」） |
 | `SVN_MCP_PATH` | svn-mcp 的 `dist/index.js` 絕對路徑 | `../svn-mcp/dist/index.js` |
 | `ASANA_PIPELINE_DATA_DIR` | 本機輕量資料（票單索引/登記表/`file-write-state.json`）存放目錄；票單內容本身在各專案的 `.asana-pipeline/` 底下 | `./data` |
+| `DEV_PIPELINE_DISABLE_TOOLSETS` | 逗號分隔要關閉的工具群組（`worktree`、`bridge`），見「7. 工具群組可關閉」 | （空，全部註冊） |
+| `DEV_PIPELINE_MCP_HTTP_PORT`／`DEV_PIPELINE_MCP_HTTP_HOST` | 報告網頁互動按鈕用的本機 HTTP bridge 監聽位置 | `8097`／`127.0.0.1` |
+| `PIPELINE_ASANA_USER_GID` | 直接指定 Asana 使用者 gid，略過向 asana-mcp 查詢（測試或 asana-mcp 連不上時用） | （不設，向 asana-mcp 查） |
 
 `svn-mcp` 被當子行程啟動會繼承父行程環境變數，所以 `SVN_API_BASE`/`SVN_CONNECTION_ID` 只要帶在啟動 `dev-pipeline-mcp` 的 `env` 裡就生效。Asana token 設在 `asana-mcp` 那邊。
 
@@ -66,17 +71,18 @@ npm run build
 
 ### 一次性設定（每個 Asana 專案通常只問一次）
 
-![一次性設定：每個專案第一次處理票單時，依序登記六件事（今天看哪個 Asana 專案、程式碼目錄、規格放哪與模式、要不要套用老舊系統測試章節、能不能寫自動化測試、git 版控根目錄），每項都是 resolve 先查、沒登記才問你並 register，之後都記住不再重問](docs/img/one-time-setup.svg)
+![一次性設定：每個專案第一次處理票單時，依序登記六件事（今天看哪個 Asana 專案、程式碼目錄、規格放哪與模式、要不要套用老舊系統測試章節、能不能寫自動化測試、git 版控根目錄），每項都是 project_config 先 resolve 查、沒登記才問你並 register，之後都記住不再重問](docs/img/one-time-setup.svg)
 
-每項都是一組 `resolve_*`（查有沒有登記）＋ `register_*`（登記）工具，工具名稱見圖。「老舊系統測試」（`legacy_test_profile`，管測試工程師手動測試要不要套老 IE 章節，預設 `false`）跟「自動化測試」（`test_capability`，管工程師能不能寫 JUnit/Jest）是不同軸向，一個專案可能兩者都成立，也可能只成立一個。
+每項都是 `project_config({ kind, action: "resolve" | "register" })` 的一個 `kind`：先 `resolve` 查有沒有登記，沒登記才問你再 `register`（2026-10-27 起取代原本的 `resolve_*`／`register_*` 系列工具，各 `kind` 見下方工具表）。「老舊系統測試」（`legacy_test_profile`，管測試工程師手動測試要不要套老 IE 章節，預設 `false`）跟「自動化測試」（`test_capability`，管工程師能不能寫 JUnit/Jest）是不同軸向，一個專案可能兩者都成立，也可能只成立一個。
 
 ### SA/SD 規格四種模式
 
-![SA/SD 規格四種模式：external 只能參考不能建議修改；self 可在報告建議修改但不寫回 SVN；self-generated 由 AI 維護並多一關規格確認 sd_drafted；unregistered 每張票單獨詢問。self-generated 再依 specOrder 分兩種順序：spec_first 先定規格再寫程式碼，擋在推進到 implemented 之前；code_first 先寫程式碼再反推規格，擋在推進到 verified 之前](docs/img/sasd-modes.svg)
+![SA/SD 規格四種模式：external 只能參考不能建議修改；self 可在報告建議修改但不寫回 SVN；self-generated 由 AI 維護並多一關規格確認 sd_drafted；unregistered 每張票單獨詢問。self-generated 再依 specOrder 分兩種順序：spec_first 先定規格再寫程式碼，擋在推進到 implemented 之前；code_first 先寫程式碼再反推規格，擋在推進到 verified 之前。這道關卡由工具強制：沒有使用者確認過的 SD 草稿，也沒有使用者明確說本票不需要 SD 的紀錄（record_spec_confirmation 帶 sdNotRequired:true 與使用者原話），就推進不下去；AI 不可自行提議或決定略過，略過時狀態會留下稽核紀錄（含使用者原話）。external、self、unregistered 三種模式不受影響](docs/img/sasd-modes.svg)
 
-- `self-generated` 的規格確認用 `record_spec_confirmation`；`specOrder`（`spec_first`／`code_first`）在 `register_sasd_config` 時一併登記，`spec_first` 是原本唯一支援的順序。
-- **登記時的檢查**（`register_sasd_config`）：只要 SA 有真實的 SVN 路徑（`saRoot` 不是 `N/A` 開頭的占位），任何模式都要帶 `svnConnectionId`（`external`／`self` 一律要）——分析師一定要到 SVN 讀 SA，沒登記連線就讀不到。工具會先 `svn_test_connection`，再用 `svn_browse` 確認 `saRoot`／`sdRoot` 真的存在於該連線的 repo；路徑要用正斜線、相對於 repo 根目錄，**不含本機工作副本的資料夾名**（例如不要寫 `WC資料夾\2-SA\…`），含反斜線、本機絕對路徑、`..` 或路徑不存在都會被拒絕登記。專案真的沒有 SA 文件時，`saRoot` 填 `N/A-無SA文件` 這類 N/A 開頭的占位即可免連線。
-- `advance_ticket_stage` 本身不需要知道 `specOrder` 是什麼：只要票單目前卡在 `sd_drafted` 又還沒確認，就會擋下推進，擋的是 `implemented` 或 `verified`，視卡住的時間點而定。
+- `self-generated` 的規格確認用 `record_spec_confirmation`；`specOrder`（`spec_first`／`code_first`）在 `project_config({ kind: "sasd_config", action: "register" })` 時一併登記，`spec_first` 是原本唯一支援的順序。
+- **登記時的檢查**（`project_config({ kind: "sasd_config", action: "register" })`）：只要 SA 有真實的 SVN 路徑（`saRoot` 不是 `N/A` 開頭的占位），任何模式都要帶 `svnConnectionId`（`external`／`self` 一律要）——分析師一定要到 SVN 讀 SA，沒登記連線就讀不到。工具會先 `svn_test_connection`，再用 `svn_browse` 確認 `saRoot`／`sdRoot` 真的存在於該連線的 repo；路徑要用正斜線、相對於 repo 根目錄，**不含本機工作副本的資料夾名**（例如不要寫 `WC資料夾\2-SA\…`），含反斜線、本機絕對路徑、`..` 或路徑不存在都會被拒絕登記。專案真的沒有 SA 文件時，`saRoot` 填 `N/A-無SA文件` 這類 N/A 開頭的占位即可免連線。
+- **規格關卡由 `advance_ticket_stage` 強制**（2026-10-28 起，僅 `self-generated`）：`spec_first` 擋推進到 `implemented`、`code_first` 擋推進到 `verified`；沒有「使用者確認過的 SD 草稿」（`record_spec_confirmation({ confirmed: true })`）或「使用者明確表示不需要 SD 的紀錄」就不能過。另外只要票單目前卡在 `sd_drafted` 又還沒確認，不管推進到哪個階段都會被擋。`external`／`self`／`unregistered` 三種模式不受影響，查不到專案設定的票也維持原有行為。
+- **「不需 SD」選項**（2026-10-28 起）：`record_spec_confirmation({ taskGid, confirmed: true, sdNotRequired: true, userInstruction })`，僅 `self-generated`，可在 `analyzed` 或 `sd_drafted` 階段呼叫。使用條件：必須是**使用者明確表示**本票不需要 SD，`userInstruction` 必填並記下使用者原話（或原意）；**AI 不可自行提議或決定略過 SD**，不確定就先問使用者。有這筆紀錄時，`get_ticket_status` 與各階段回傳的 `spec_confirmation` 會附 `sdSkipNotice` 稽核字樣（「本票未產出 SD，依使用者指示略過：原話」）。
 
 ---
 
@@ -87,7 +93,7 @@ npm run build
 <details>
 <summary>每次執行的迴圈</summary>
 
-![每次執行的主迴圈：一次性設定之後，取得待處理票單清單，同時帶出 awaitingConfirmation（AI 已 PASS、還卡在使用者自測這關的舊票）主動列給使用者，逐張新票走四階段處理，處理完換下一張，全部跑完彙整報告](docs/img/loop-overview.svg)
+![每次執行的主迴圈：一次性設定之後，取得待處理票單清單，同時帶出 awaitingConfirmation（AI 已 PASS、還卡在使用者自測這關的舊票）主動列給使用者，逐張新票走四階段處理，處理完換下一張，全部跑完彙整報告；取得清單時若已知票號，可用 search 直接找](docs/img/loop-overview.svg)
 
 `list_pending_tickets` 每次呼叫都會多回傳一份清單：`awaitingConfirmation`（AI 驗證師判過 `PASS`、Asana 內容也沒再變過，但**使用者自己還沒實際測過＋審視程式碼品質**的票）。這份清單每次都要主動列給使用者看（不因為這次是來處理別的新票就略過），直到每一張都呼叫 `record_confirmation` 表態，才會從清單消失。
 
@@ -96,7 +102,7 @@ npm run build
 <details>
 <summary>單張票的狀態機</summary>
 
-![票單狀態機：new 到 snapshot 到 project_dir_confirmed 到 analyzed 到 implemented 到 verified 到 tested 依序推進，只會往前走；自維護規格的專案會多一關 sd_drafted 規格確認，依 specOrder 設定出現在 analyzed 之後（spec_first，卡在推進到 implemented 之前）或 implemented 之後（code_first，卡在推進到 verified 之前）；verified 或 tested 且 FAIL 時依 rootCause 自動路由回分析師或工程師重跑，兩階共用同一組 consecutive_fail_count，達到門檻才停下來問使用者；tested 階段裡 AI 沒把握精確判定的測試項目不算 FAIL，只會列進待確認清單；tested 且 PASS 之後若偵測到內容雜湊改變，會觸發警示標記 needs_reanalysis，verdict、confirmation 一併清空，逼下一輪重新從分析師開始；內容沒再變的話則落入待使用者確認狀態，confirmed:false 會導向跟 FAIL 一樣的根因分流，直到 record_confirmation 帶 confirmed:true 才進入已結案](docs/img/ticket-state-machine.svg)
+![票單狀態機：new 到 snapshot 到 project_dir_confirmed 到 analyzed 到 implemented 到 verified 到 tested 依序推進，只會往前走；自維護規格的專案會多一關 sd_drafted 規格確認（沒確認過、也沒有使用者說本票不需要 SD 的紀錄，工具直接擋下），依 specOrder 設定出現在 analyzed 之後（spec_first，卡在推進到 implemented 之前）或 implemented 之後（code_first，卡在推進到 verified 之前）；verified 或 tested 且 FAIL 時依 rootCause 自動路由回分析師或工程師重跑，兩階共用同一組 consecutive_fail_count，達到門檻才停下來問使用者；tested 階段裡 AI 沒把握精確判定的測試項目不算 FAIL，只會列進待確認清單；tested 且 PASS 之後若偵測到內容雜湊改變，會觸發警示標記 needs_reanalysis，verdict、confirmation 一併清空，逼下一輪重新從分析師開始；內容沒再變的話則落入待使用者確認狀態，confirmed:false 會導向跟 FAIL 一樣的根因分流，直到 record_confirmation 帶 confirmed:true 才進入已結案](docs/img/ticket-state-machine.svg)
 
 七格 `stage`（灰／綠）只會往前走，不會跳過也不會倒退；`snapshot` 下的灰圈是省 token 捷徑（內容雜湊沒變就不重寫、不回全文）。最後一格 `tested`（測試工程師，見下方「測試工程師階段」一節）是 `verified` 判 PASS 之後、人類最終確認之前新增的一關，每張票都會經過，套用哪些檢查項目由 AI 依這張票的改動內容自己判斷。紅卡有兩張：右上角是內容變動的例外——`tested` 且 `PASS` 之後若偵測到 Asana 內容真的變了，會亮起 `needs_reanalysis` 旗標逼下一輪重新分析、`verdict`、`confirmation` 一併清空，但 **`stage` 本身不會倒退**，仍顯示 `tested`；下方較寬那張是 **`verdict: FAIL` 的根因分流**——`verified` 或 `tested` 任一階段 `advance_ticket_stage` 設 `FAIL` 時必填 `rootCause`（`"analysis"`/`"implementation"`），AI 依此自動跳回分析師或工程師重跑，不用停下來問使用者，兩階共用同一組 `consecutive_fail_count`，由工具機械式維護（FAIL 累加、PASS 歸零），達到門檻（`needs_human_review`，預設連續 3 次）才停下來問。`tested` 階段裡 AI 沒把握精確判定的測試項目（`needs_manual_check`）不算 FAIL，不影響這裡的路由，只會列進 `manualActions` 帶到黃卡那一關給使用者。
 
@@ -120,12 +126,12 @@ npm run build
 - **分析師線索**：分析師判斷修改方向會新增方法或檢核邏輯時，會在 `01-analysis.md` 與摘要附上疑似可重用的既有類別/方法（路徑、方法名、適用原因）當候選線索；工程師仍須自己查重確認，驗證師也以此當比對基準。
 - **範圍**：這幾條只在走這個 MCP 的工程師角色（`get_role_prompt` 的 `engineer`）生效，不管專案有沒有登記自動化測試都會帶；沒有走票單流程、單純寫程式的情境，要靠專案自己的規則檔（`get_project_rules`）。
 
-跟這張圖同一批調整的工程師說明還有三點：**SA/SD 的位置**看 `get_ticket_status` 的 `sasd_info`（`self-generated` 專案改用 `read_project_sd_doc`），前端只依 SA、後端只依 SD；**commit 不是每輪必做**，有 commit 就不用再列「尚未 commit」的檔案，沒 commit 才列；**停下來問使用者**只留給規格/分析/程式碼衝突、要動建置依賴、第一次登記測試能力這類真正需要人決定的事，擺放位置、命名、併入哪個工具類這類實作細節由工程師依專案慣例自行判斷並寫進 `02-implementation.md`。
+跟這張圖同一批調整的工程師說明還有三點：**SA/SD 的位置**看 `get_ticket_status` 的 `sasd_info`（`self-generated` 專案改用 `read_project_sd_doc`），前端只依 SA、後端只依 SD；**commit 由主流程依使用者指示決定**（工程師與子代理人不自行 commit），沒 commit 就依固定格式列出「尚未 commit」的檔案；**停下來問使用者**只留給規格/分析/程式碼衝突、要動建置依賴、第一次登記測試能力這類真正需要人決定的事，擺放位置、命名、併入哪個工具類這類實作細節由工程師依專案慣例自行判斷並寫進 `02-implementation.md`。
 
 </details>
 
 <details>
-<summary>工程師階段：要不要補自動化測試（<code>resolve_test_capability</code> / <code>register_test_capability</code>）</summary>
+<summary>工程師階段：要不要補自動化測試（<code>project_config({ kind: "test_capability", action: "resolve" })</code> / <code>project_config({ kind: "test_capability", action: "register" })</code>）</summary>
 
 ![工程師改完程式碼後，會先查這個專案能不能寫自動化測試，分三種情況：modern（現代JDK/Node，補JUnit5+Mockito或Jest+RTL測試，寫完實際跑一次確認會過）；legacy_junit4（受限舊JDK但仍想要基本自動化覆蓋，改用舊版JUnit4/Mockito語法，要不要加測試依賴先問使用者）；none（完全無法測試或決定維持純手動測試，工程師維持原本做法不寫測試）。這是專案層級設定，只問使用者一次；modern跟legacy_junit4這兩種情況，測試工程師階段會優先重跑工程師補的測試當交叉核對證據，none則維持原本純手動的情境測試流程](docs/img/test-capability.svg)
 
@@ -136,11 +142,11 @@ npm run build
 <details>
 <summary>測試工程師階段（<code>tested</code>）</summary>
 
-`verified` 判 PASS 之後、人類最終確認之前新增的一關，每張票都會經過。跟驗證師（核對規格/程式碼是否一致）不同——測試工程師核對的是「這段程式碼在各種情境下實際跑起來對不對」，依 `get_test_engineer_guide` 取得的測試工程師說明書（通用測試框架／報表測試／老舊系統測試三章）跑情境測試。**如果 `resolve_test_capability` 回傳的 `mode` 不是 `none` 且工程師這輪真的補了測試，測試工程師會優先重新跑一次那些測試當作情境測試的交叉核對證據**——測試涵蓋到的分支直接算 `verified_pass`/`verified_fail`，沒涵蓋到的（需要真的瀏覽器操作、真的資料庫特定狀態才能觸發）才需要另外判斷是不是只能列 `needs_manual_check`。
+`verified` 判 PASS 之後、人類最終確認之前新增的一關，每張票都會經過。跟驗證師（核對規格/程式碼是否一致）不同——測試工程師核對的是「這段程式碼在各種情境下實際跑起來對不對」，依 `get_test_engineer_guide` 取得的測試工程師說明書（通用測試框架／報表測試／老舊系統測試三章）跑情境測試。**如果 `project_config({ kind: "test_capability", action: "resolve" })` 回傳的 `mode` 不是 `none` 且工程師這輪真的補了測試，測試工程師會優先重新跑一次那些測試當作情境測試的交叉核對證據**——測試涵蓋到的分支直接算 `verified_pass`/`verified_fail`，沒涵蓋到的（需要真的瀏覽器操作、真的資料庫特定狀態才能觸發）才需要另外判斷是不是只能列 `needs_manual_check`。
 
 **每個測試項目自己標記結果類型，不是整張票綁一個結論**：AI 真的有辦法精確判定的項目（例如跑得動的邊界值測試、報表欄位/公式逐欄比對、用指定版本實際編譯）標記 `verified_pass`/`verified_fail`，只有 `verified_fail` 才影響整張票的 `verdict`、觸發跟驗證師一樣的根因自動打回；AI 沒有精確依據、只能提醒使用者的項目（例如報表版面視覺比對、老 IE 實際渲染）標記 `needs_manual_check`，不卡關，透過 `manualActions` 帶到人類最終確認那一關。
 
-**報表／老舊系統兩章是不是套用，AI 依這張票改動的檔案自己判斷**，不用整份說明書每次全套用。老舊系統章節額外多一層：只有 `resolve_legacy_test_profile` 回傳 `true` 才套用——這是專案層級的布林設定（`register_legacy_test_profile`），預設 `false`，只有使用者明確告知「這個專案是 JDK6+舊IE 這類環境」才登記為 `true`，AI 不會自己依程式碼特徵猜測。
+**報表／老舊系統兩章是不是套用，AI 依這張票改動的檔案自己判斷**，不用整份說明書每次全套用。老舊系統章節額外多一層：只有 `project_config({ kind: "legacy_test_profile", action: "resolve" })` 回傳 `true` 才套用——這是專案層級的布林設定（`project_config({ kind: "legacy_test_profile", action: "register" })`），預設 `false`，只有使用者明確告知「這個專案是 JDK6+舊IE 這類環境」才登記為 `true`，AI 不會自己依程式碼特徵猜測。
 
 
 **測試證據（每張票都要）**：測試工程師用 `record_test_evidence` 把證據複製備份進票單追蹤目錄的 `test-evidence/<功能名稱>/`，讓使用者回頭觀察；寫 04-test.md 與推進到 `tested` 都會檢查「至少 1 筆證據」。
@@ -188,10 +194,10 @@ npm run build
 3. **卡住需要你介入**（唯讀）——連續 `FAIL` 已經達到門檻（`needs_human_review`），AI 不會再自動重跑。這個狀態沒有對應的「標記已處理」按鈕，**但不要只跟 AI 說「繼續處理」**——那很可能只是用同一套已經失敗 3 次的邏輯再試一次，變成失敗→問你→你說繼續→再失敗的空轉。先看清楚 AI 列出的這幾輪 FAIL 理由，給出新的判斷或方向，AI 才會（也才應該）繼續往下走；之後 PASS 會自動清除這一項。
 4. **Asana 內容已被異動，待重新確認**（可互動 ☑️，2026-09-17 起）——先前已經處理過（甚至已經 PASS）的票單，Asana 上的內容後來又被改過（用 `modified_at`／`needs_reanalysis` 判斷），不能因為之前處理過就跳過。**這一塊只列「Asana 上指派人是 asana-mcp 帳號本人」的票單**（票單狀態常在不同人之間流轉，內容變了但不是指派給你的就不冒出來；沒有例外，連勾過「請 AI 優先處理」的票轉手給別人後也不再顯示，旗標仍在，AI 照樣會從 `tickets[].humanRequestedReanalysis` 看到）。勾選「請 AI 優先處理」會呼叫 `request_reanalysis({ taskGid })`，寫入 `human_requested_reanalysis` 旗標——**這個勾選只是標記請求，bridge 沒有 LLM 能力，不會、也不能立即觸發任何分析**，要等下一個呼叫 `list_pending_tickets` 的 AI（任何 session、任何廠牌，見 `tickets[].humanRequestedReanalysis`）主動對這張票呼叫 `get_ticket_snapshot`，旗標才會被清掉。已經勾過的項目會顯示成唯讀提示，避免重複勾選。這一項會在 AI 真的重新分析這張票之後自動消失。
 5. **需要你手動處理的事項**（可互動 ☑️）——來自 `write_ticket_artifact` 寫 02/03/04 時**必填**的 `manualActions` 參數（可以是空陣列，代表明確確認這次沒有）。典型例子是「已產出 SQL，只能由你到 Database 工具手動執行」——這類一次性提醒過去只寫在全文或聊天視窗裡，換個 session、或沒仔細重讀全文就會被漏掉，現在強制工程師/驗證師/測試工程師每次都要明確宣告一次。**勾選框即時呼叫 `resolve_manual_action({ taskGid, filename, action })`，精準移除那一項**，不用整份重新宣告，也不用回頭問 AI。`manualActions` 只能寫技術性描述，寫入前會自動掃描是否夾帶完整 SQL 語句全文或憑證/連線字串，抓到會直接拒絕寫入（見 `detectSensitiveManualActions`）。**要你複製貼上去執行的內容（SQL、設定值、指令…）**則寫在 02/03/04 文件本文裡，用帶 `manual` 標記的程式碼區塊（開頭三個反引號後接語言與 `manual:簡短標題`，例如 sql manual:新增3語系選項）；報告產生時會從文件現讀這些區塊，以可展開、附「複製」按鈕的方式顯示在該票的待辦下面，不用再開文件找。內容不會存進 `status.json`（所以不繞過上面的防護），待辦被勾掉後區塊也跟著消失；沒帶 `manual` 標記的一般程式碼區塊不會顯示。
-6. **Git 尚未 commit 的變更**（唯讀）——對每個已登記的 git 版控根目錄實際跑一次 `git status --porcelain`，再用每張票 `manualActions` 裡點名「尚未 commit」的檔名去篩選、依票單分組，只列出「git 真的還沒 commit、又有票單認領」的檔案；跟這次 pipeline 無關的其他未 commit 檔案整份省略。還沒呼叫過 `register_git_roots` 的專案，這一項會顯示「還沒登記」。commit 之後這一項會自動消失，沒有對應的按鈕——那本來就是你自己跑 `git commit` 的事。
-7. **SVN 尚未上傳的變更**（可互動 ☑️，2026-10-02 起）——對每個專案登記的 SVN 工作副本（`register_svn_workcopies`，登記前會真的跑 `svn status` 驗證）列出 `svn status` 結果：已修改／新檔案／已加入／已標記刪除／本機遺失／衝突，`~$` 開頭的 Office 暫存鎖定檔自動濾掉。每列可「看差異」（可展開）、「標記為從 SVN 刪除」、「取消加入／取消刪除／還原檔案」；勾選項目並在網頁上填寫 **commit 訊息**後按「上傳選取的項目到 SVN」，會先把新檔案加入版控再一次 commit；另有「從 SVN 更新」（遇到衝突只標記、不自動解決）與「重新整理狀態」。**這些寫入操作只有網頁按鈕能觸發，AI 沒有任何能修改 SVN 的 MCP 工具**——svn-mcp 的寫入函式（`workcopy-client`）沒有註冊成工具，並有契約測試鎖住 MCP 工具清單維持唯讀；bridge 的 `/svn/*` 端點必須帶 `X-Bridge-Token`（隨機密鑰存在資料目錄的 `bridge-token.txt`，只寫進產生的 HTML，別的網站拿不到），操作對象只能是已登記的工作副本（用 label 指定，路徑與連線取自登記資料），上傳前會跳出確認視窗，每次寫入操作都在資料目錄的 `svn-operations.log` 留一行稽核紀錄。限制：衝突項目不能上傳；「還原」只允許用在新增／刪除／遺失，不會丟掉已修改的內容（對資料夾還原時，底下只要有已修改的檔案就拒絕；以 `svn copy` 加入且沒修改過的資料夾，還原會移除那份複本）；衝突項目不提供取消／刪除按鈕，改在該列說明去 TortoiseSVN 處理；操作失敗的訊息會顯示在該列，請求超過 90 秒沒回應會中止並說明；二進位檔（xlsx／docx／jasper 等）無法顯示文字差異；有未上傳修改的檔案不能直接標記刪除。換新報告（token 不變）不需要重新登記；token 檔被刪掉重新產生後，舊的報告要重新整理才會再生效。
+6. **Git 尚未 commit 的變更**（唯讀）——對每個已登記的 git 版控根目錄實際跑一次 `git status --porcelain`，再用每張票 `manualActions` 裡點名「尚未 commit」的檔名去篩選、依票單分組，只列出「git 真的還沒 commit、又有票單認領」的檔案；跟這次 pipeline 無關的其他未 commit 檔案整份省略。還沒呼叫過 `project_config({ kind: "git_roots", action: "register" })` 的專案，這一項會顯示「還沒登記」。commit 之後這一項會自動消失，沒有對應的按鈕——那本來就是你自己跑 `git commit` 的事。
+7. **SVN 尚未上傳的變更**（可互動 ☑️，2026-10-02 起）——對每個專案登記的 SVN 工作副本（`project_config({ kind: "svn_workcopies", action: "register" })`，登記前會真的跑 `svn status` 驗證）列出 `svn status` 結果：已修改／新檔案／已加入／已標記刪除／本機遺失／衝突，`~$` 開頭的 Office 暫存鎖定檔自動濾掉。每列可「看差異」（可展開）、「標記為從 SVN 刪除」、「取消加入／取消刪除／還原檔案」；勾選項目並在網頁上填寫 **commit 訊息**後按「上傳選取的項目到 SVN」，會先把新檔案加入版控再一次 commit；另有「從 SVN 更新」（遇到衝突只標記、不自動解決）與「重新整理狀態」。**這些寫入操作只有網頁按鈕能觸發，AI 沒有任何能修改 SVN 的 MCP 工具**——svn-mcp 的寫入函式（`workcopy-client`）沒有註冊成工具，並有契約測試鎖住 MCP 工具清單維持唯讀；bridge 的 `/svn/*` 端點必須帶 `X-Bridge-Token`（隨機密鑰存在資料目錄的 `bridge-token.txt`，只寫進產生的 HTML，別的網站拿不到），操作對象只能是已登記的工作副本（用 label 指定，路徑與連線取自登記資料），上傳前會跳出確認視窗，每次寫入操作都在資料目錄的 `svn-operations.log` 留一行稽核紀錄。限制：衝突項目不能上傳；「還原」只允許用在新增／刪除／遺失，不會丟掉已修改的內容（對資料夾還原時，底下只要有已修改的檔案就拒絕；以 `svn copy` 加入且沒修改過的資料夾，還原會移除那份複本）；衝突項目不提供取消／刪除按鈕，改在該列說明去 TortoiseSVN 處理；操作失敗的訊息會顯示在該列，請求超過 90 秒沒回應會中止並說明；二進位檔（xlsx／docx／jasper 等）無法顯示文字差異；有未上傳修改的檔案不能直接標記刪除。換新報告（token 不變）不需要重新登記；token 檔被刪掉重新產生後，舊的報告要重新整理才會再生效。
 
-另外，規格書放在 SVN 上的專案（`register_sasd_config` 的 `sdMode` 是 `external`／`self`，且登記了 `svnConnectionId`），報告頁上方會多一個**「編輯 SVN 上的規格書」**連結區塊（不計入上面的七類，因為它不是待辦事項）：連到 svn-mcp 的 `svn-edit` 本機服務（預設 `http://127.0.0.1:9097`，環境變數 `SVN_EDIT_PORT` 可改），自動展開 `sdRoot`（沒有就用 `saRoot`）讓你點選檔案、用 Word／Excel 等軟體編輯後傳回 SVN。**dev-pipeline-mcp 這邊只負責組連結，不含任何 SVN 邏輯，也沒有新增任何 MCP 工具或 bridge 端點**；真正取出檔案要在 svn-edit 的頁面上按「開始編輯」才會發生。`self-generated` 專案的 SD 是本機檔案（`sdOutputPath`），不在 SVN 上，所以不顯示這個連結。專案 ID 是從這個專案底下任一張票的 `project_gid` 反查的（舊票單要等下次 `get_ticket_snapshot` 才會補上）。
+另外，規格書放在 SVN 上的專案（`project_config({ kind: "sasd_config", action: "register" })` 的 `sdMode` 是 `external`／`self`，且登記了 `svnConnectionId`），報告頁上方會多一個**「編輯 SVN 上的規格書」**連結區塊（不計入上面的七類，因為它不是待辦事項）：連到 svn-mcp 的 `svn-edit` 本機服務（預設 `http://127.0.0.1:9097`，環境變數 `SVN_EDIT_PORT` 可改），自動展開 `sdRoot`（沒有就用 `saRoot`）讓你點選檔案、用 Word／Excel 等軟體編輯後傳回 SVN。**dev-pipeline-mcp 這邊只負責組連結，不含任何 SVN 邏輯，也沒有新增任何 MCP 工具或 bridge 端點**；真正取出檔案要在 svn-edit 的頁面上按「開始編輯」才會發生。`self-generated` 專案的 SD 是本機檔案（`sdOutputPath`），不在 SVN 上，所以不顯示這個連結。專案 ID 是從這個專案底下任一張票的 `project_gid` 反查的（舊票單要等下次 `get_ticket_snapshot` 才會補上）。
 
 **批次打勾**（2026-09-30 起）：每個有「可操作列」的區塊，只要有 2 項以上，就會多一條工具列（全選＋批次執行），每列開頭多一個批次選取框。支援三種批次動作：批次標記已處理（`resolve_manual_action`）、批次請 AI 優先處理（`request_reanalysis`）、批次確認通過（`record_confirmation` 的 `confirmed: true`）。**打回（`confirmed: false`）需要逐項填原因，不支援批次。** 同一張票的多個待辦會寫回同一份追蹤檔，所以批次一律**依序**送出、不平行，避免互相覆蓋；執行前會跳確認視窗。
 
@@ -207,6 +213,15 @@ npm run build
 ![跨 session 接手示意：status.json 裡的摘要透過 get_ticket_status 用低成本的路徑送到接手的新 session 或新 AI 當作預設輸入；只有摘要不夠用時，才用成本較高的 read_ticket_artifact 去讀 01-analysis.md 等全文檔案](docs/img/cross-session-resume.svg)
 
 追蹤狀態落地在磁碟，不是活在對話記憶裡。每個角色開始前先看 `get_ticket_status` 摘要，只有漏掉關鍵細節才多花一次 tool call 呼叫 `read_ticket_artifact` 讀全文。
+
+</details>
+
+<details>
+<summary>派子代理人的標準做法（forSubagent）</summary>
+
+要把某個角色交給子代理人時，主流程先呼叫 `get_role_prompt({ role, taskGid, projectDir, forSubagent: true })`，整段回傳內容直接當子代理人的 prompt（派工簡報＋角色說明＋專案補充規則＋一行 ToolSearch 載入清單）。子代理人只透過本 MCP 的工具做事，最終訊息就是交付物；commit、使用者確認、略過 SD 都不是它能決定的。
+
+![派子代理人流程：主流程呼叫 get_role_prompt 並帶 forSubagent:true，回傳內容含四塊派工簡報（身分與票單、寫入目標、環境陷阱、回報格式）、角色說明、專案補充規則與一行 ToolSearch 一次載入工具清單，整段當子代理人 prompt；子代理人第一步一次載入工具、只用 dev-pipeline-mcp 工具、最終訊息即交付物；子代理人不可自行 commit／push、不可替使用者做確認、不可自行略過 SD、project_config 只准 resolve 不准 register、不再呼叫 get_pipeline_overview；結果交回主流程後由主流程收結果、決定 commit，使用者確認由使用者自己做](docs/img/subagent-dispatch.svg)
 
 </details>
 
@@ -266,7 +281,7 @@ npm run build
 **檔案放在不分 AI 工具的中性目錄 `<projectDir>/.pipeline/`**，不綁 `.claude/`。舊位置 `<projectDir>/.claude/pipeline-roles/`（`<role>.md`、`gates.json`）仍然讀得到，兩邊都有時**新位置優先**。這些規則都是 MCP 在伺服器端讀取並套用，所以 Claude Code、Codex 或任何能連 MCP 的 AI 都適用，不需要各家工具自己的規則檔（`CLAUDE.md`／`AGENTS.md`）。
 
 ### 1. 專案規則 `<projectDir>/.pipeline/roles/all.md`（所有角色共通）與 `<role>.md`（單一角色）
-`get_role_prompt({ role, projectDir })` 會把 `all.md`（共通，例如「寫程式前先讀哪些規範檔」）和 `<role>.md`（這個角色專屬）依序附加在通用角色說明後面，衝突時以專案規則為準。`role` 為 `analyst`／`spec-writer`／`engineer`／`verifier`／`tester`。適合放「開發前先讀哪些習慣檔」「SD 範本以專案檔為準」這類指示，不需要改 MCP 程式碼。**`projectDir` 沒帶時，可以改帶 `taskGid`，工具會用這張票記錄的 `project_dir` 反查**，避免漏帶導致補充規則被靜默略過；兩個都沒帶才只回傳通用說明。**派子代理人時，`get_role_prompt` 一定要帶 `projectDir`（或 `taskGid`），並把回傳全文（含補充規則段落）原文貼給子代理人。**
+`get_role_prompt({ role, projectDir })` 會把 `all.md`（共通，例如「寫程式前先讀哪些規範檔」）和 `<role>.md`（這個角色專屬）依序附加在通用角色說明後面，衝突時以專案規則為準。`role` 為 `analyst`／`spec-writer`／`engineer`／`verifier`／`tester`。適合放「開發前先讀哪些習慣檔」「SD 範本以專案檔為準」這類指示，不需要改 MCP 程式碼。**`projectDir` 沒帶時，可以改帶 `taskGid`，工具會用這張票記錄的 `project_dir` 反查**，避免漏帶導致補充規則被靜默略過；兩個都沒帶才只回傳通用說明。**派子代理人時，標準做法是 `get_role_prompt({ role, taskGid, projectDir, forSubagent: true })`，把回傳全文（含派工簡報與補充規則段落）原文當子代理人 prompt；子代理人第一步用回傳裡那行 `ToolSearch` 一次載入工具。**
 
 ### 2. 專案關卡 `<projectDir>/.pipeline/gates.json`（分析關卡＋實作關卡）
 ![專案關卡 gates.json：寫入 01-analysis.md 時，先過既有的 record_sasd_check，再過分析關卡 analysisReferences（標題含 heading、列出至少 minPaths 個實際存在於 pathPrefix 底下的路徑、requireSasd 時須記錄找到規格）；寫入 02-implementation.md 時過實作關卡 implementationSections（標題含 heading、該節字數不少於 minChars）。票名不符 ticketNamePattern 就不檢查；不符就擋下並說明缺什麼](docs/img/gates.svg)
@@ -300,7 +315,7 @@ npm run build
 
 - 「該節」指到下一個標題為止；`heading` 是子字串比對，只取第一個符合的標題。
 - 只管 `02-implementation.md`，不管 03、04。兩個關卡共通的限制與壞掉 JSON 的處理，寫在上方圖最下面的框。
-- **登記時的提示**：`register_project_dir` 登記專案目錄時，如果該目錄還沒有 `gates.json`，回傳會多一個 `gatesHint` 欄位，提醒可以複製下方範本；這只是提示，不會擋任何東西，也不會自動複製，要不要啟用由使用者決定。
+- **登記時的提示**：`project_config({ kind: "project_dir", action: "register" })` 登記專案目錄時，如果該目錄還沒有 `gates.json`，回傳會多一個 `gatesHint` 欄位，提醒可以複製下方範本；這只是提示，不會擋任何東西，也不會自動複製，要不要啟用由使用者決定。
 - **快速啟用查重關卡**：把內建範本 [templates/gates.example.json](templates/gates.example.json) 複製到 `<projectDir>/.pipeline/gates.json` 即生效（`ticketNamePattern` 為 `".*"`＝該專案所有票都要有含「查重」的一節、至少 40 字；想只管特定票就改成票名 regex）。**沒複製就不會有任何機械檢查，既有專案行為不變**；專案已有自己的 `gates.json` 時，把範本的 `implementationSections` 項目合併進去，不要整份覆蓋。
 
 ### 3. 專案自己的 SD 範本與版更規範（`<projectDir>/.pipeline/templates/`）
@@ -333,7 +348,7 @@ npm run build
 
 用環境變數縮小工具清單（tools/list）送進 AI 上下文的量；**預設（沒設）全部註冊**。
 
-![工具群組可關閉：預設全部註冊共 62 個工具；用環境變數 DEV_PIPELINE_DISABLE_TOOLSETS 可關掉 worktree 群組（8 個，關後剩 54 個）或 bridge 群組（11 個，關後剩 51 個），兩個都關剩 43 個核心工具；內部流程不經過這些可關閉的工具，關閉不影響運作](docs/img/toolsets.svg)
+![工具群組可關閉：預設全部註冊共 49 個工具；用環境變數 DEV_PIPELINE_DISABLE_TOOLSETS 可關掉 worktree 群組（8 個，關後剩 41 個）或 bridge 群組（11 個，關後剩 38 個），兩個都關剩 30 個核心工具；內部流程不經過這些可關閉的工具，關閉不影響運作](docs/img/toolsets.svg)
 
 ```json
 "env": { "DEV_PIPELINE_DISABLE_TOOLSETS": "worktree,bridge" }
@@ -346,12 +361,14 @@ npm run build
 
 ```bash
 cd dev-pipeline-mcp
-npm test        # 先編譯再跑全部測試
-node --test tests/gates.test.mjs   # 單檔（要先 npm run build）
+npm test        # 等同 npm run build && node --import ./tests/helpers/safe-env.mjs --test
+node --import ./tests/helpers/safe-env.mjs --test tests/gates.test.mjs   # 單檔（要先 npm run build，也要帶 --import）
 ```
 
-- 使用 Node 內建的 `node:test`，沒有額外依賴；測試放在 `tests/*.test.mjs`，從 `dist/` 以相對路徑匯入。
+- 使用 Node 內建的 `node:test`，沒有額外依賴；測試放在 `tests/*.test.mjs`（目前約 32 個檔、約 290 個測試案例），從 `dist/` 以相對路徑匯入。
 - 一律使用暫時資料目錄（設 `ASANA_PIPELINE_DATA_DIR`），**不連 Asana、不碰正式 `data/`**。涵蓋規則檔與快照、專案關卡、工具分組、列表過濾與快取、`nextAction`、角色說明組裝、總覽字數、預設專案、SD 文件、輸出截斷、狀態推進精簡回傳、專案 gid 等。
+- **安全預載**（2026-10-28 起）：`tests/helpers/safe-env.mjs` 會把 `ASANA_MCP_PATH` 預設指到不存在的檔案，避免任何測試忘了設定時啟動真的 asana-mcp（會用到使用者真實憑證）；單檔執行不帶 `--import` 就沒有這層保護。需要假的 asana-mcp 的測試，自己覆寫 `process.env.ASANA_MCP_PATH`（例如 `tests/helpers/fake-asana-mcp.mjs`）。**單元測試不得啟動真的 asana-mcp。**
+- 寫會觸發狀態寫入或報告同步的測試，必須比照 `tests/pending-actions-sync.test.mjs` 處理（指向不存在的 `ASANA_MCP_PATH`、設 `PIPELINE_ASANA_USER_GID`），並在 `after` 關閉子 MCP 連線，否則測試行程不會結束。
 - 另有「契約測試」固定工具名稱清單與關鍵參數、`core` 總覽字數上限，以及「客戶代號守門」掃描 `src/`、`templates/`、`README.md`、`docs/MANUAL.html`、`tests/`，避免之後不小心刪掉參數或帶入真實客戶代號。刻意新增或移除工具時，要同步更新 `tests/toolsets.test.mjs` 的工具清單與數量。
 - **未涵蓋**：`list_pending_tickets` handler 本體（會連 Asana，只測它用到的過濾與快取邏輯）、HTTP bridge、worktree 實際 git 操作。
 
@@ -360,25 +377,22 @@ node --test tests/gates.test.mjs   # 單檔（要先 npm run build）
 ## 提供的工具
 
 <details>
-<summary>展開完整工具清單（62 個）</summary>
+<summary>展開完整工具清單（49 個）</summary>
 
 | 工具 | 用途 |
 |---|---|
 | `get_pipeline_overview` | 取得整條流程說明（第一步一定先呼叫）。預設只回傳核心流程（約 9.5K 字），其餘情境用 `section` 取：`setup`（第一次設定問答）、`appendix-a`（子任務派工）、`appendix-b`（換 session 接手）、`appendix-c`（測試員回報）、`all`（全部） |
-| `get_role_prompt` | 取得分析師／規格撰寫者／工程師／驗證師／測試工程師其中一個角色的職責說明（`spec-writer` 只有 `sdMode: "self-generated"` 才需要；`tester` 每張票都會經過，是 `verifier` 判 PASS 之後、人類最終確認之前新增的一階）。帶 `projectDir`（或 `taskGid` 反查）時，若 `<projectDir>/.pipeline/roles/<role>.md` 存在（舊位置 `.claude/pipeline-roles/` 也讀得到，新位置優先），內容會附加在通用說明後面當作專案專屬補充規則（衝突時以補充規則為準），讓各專案自己的開發步驟、路徑慣例、驗證方式不必改 MCP 程式碼。專案登記的 test capability 為 `none` 時，`engineer` 說明省略自動化測試詳細規則（由 `projectDir` 反查，查不到或設定不一致則維持完整說明）。帶 `taskGid` 且票單有 `project_gid` 時，規格撰寫者／工程師／驗證師說明只保留該專案 `sdMode`／`specOrder` 適用的分支，自動化測試設定也改用 gid 精準查；任何一項查不到就回完整說明 |
+| `get_role_prompt` | 取得分析師／規格撰寫者／工程師／驗證師／測試工程師其中一個角色的職責說明（`spec-writer` 只有 `sdMode: "self-generated"` 才需要；`tester` 每張票都會經過，是 `verifier` 判 PASS 之後、人類最終確認之前新增的一階）。帶 `projectDir`（或 `taskGid` 反查）時，若 `<projectDir>/.pipeline/roles/<role>.md` 存在（舊位置 `.claude/pipeline-roles/` 也讀得到，新位置優先），內容會附加在通用說明後面當作專案專屬補充規則（衝突時以補充規則為準），讓各專案自己的開發步驟、路徑慣例、驗證方式不必改 MCP 程式碼。專案登記的 test capability 為 `none` 時，`engineer` 說明省略自動化測試詳細規則（由 `projectDir` 反查，查不到或設定不一致則維持完整說明）。帶 `taskGid` 且票單有 `project_gid` 時，規格撰寫者／工程師／驗證師說明只保留該專案 `sdMode`／`specOrder` 適用的分支，自動化測試設定也改用 gid 精準查；任何一項查不到就回完整說明。每個角色說明末端附「一次載入所需工具」：一行可貼上的 `ToolSearch` 查詢（`select:mcp__dev-pipeline-mcp__…`）與不該自己呼叫的使用者專屬工具。選填 `forSubagent: true`（2026-10-28 起，需帶 `taskGid`）會在最前面加上派工簡報（由票單狀態自動帶入 taskGid／projectGid／projectDir／票號／stage／sdMode／nextAction、該角色的寫入目標與必填欄位、環境陷阱、回報格式），整段當子代理人 prompt；查不到票單時回傳 `success: false` |
 | `get_project_rules` | 取得專案自己定義的開發規則（`.pipeline/roles/all.md` 共通規則、有哪些角色專屬規則檔、有沒有分析關卡）。**不走票單流程、單純要在某個專案寫程式碼時，開始前先呼叫這個**；走票單流程時 `get_role_prompt` 已自動附上。`projectDir`／`taskGid` 擇一 |
 | `list_rule_history` | 列出專案規則檔（`.pipeline/` 底下）的歷史快照；不帶 `file` 列出有快照的檔案，帶 `file` 列出該檔案的快照（新到舊） |
 | `restore_rule_file` | 把規則檔還原成某個快照；還原前會先把目前內容存成快照，所以還原本身也能反悔 |
-| `resolve_default_project` / `register_default_project` | 查詢/登記「今天的問題單」預設 Asana 專案。帶 `cwd` 時依工作目錄各自登記（往上找最近一層，不借用別的目錄的預設）；不帶 `cwd` 才讀舊的全域單一值 |
-| `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；可只列指派給自己的票（`onlyAssignedToMe` 參數或 `.pipeline/settings.json`）；附上 `awaitingConfirmation`（AI 已 PASS、還卡在使用者自測這關的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過**或使用者主動要求重新確認**的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）、`humanRequestedReanalysis: true`（使用者在網頁上勾了「請 AI 優先處理」，這次批次一定要處理，見 `request_reanalysis`）。**帶 `projectName` 會把這七類整份寫進互動網頁 `PENDING_HUMAN_ACTIONS.html`**（見下方說明）。可用 `dueOn`（`today`／`overdue`／`today_or_overdue`／`YYYY-MM-DD`）與 `limit` 縮小一般待處理清單：只作用在 `tickets`，需要使用者看的清單（待確認、待確認規格、卡住、手動待辦、未 commit）與 `PENDING_HUMAN_ACTIONS.html` 不受影響；帶了 `dueOn` 會排除沒有到期日的票；超過 `limit` 會附 `truncated`／`totalMatched`／`truncatedNote`，不會悄悄截斷。**快取**：同一專案 60 秒內重複呼叫會用 asana-mcp 的快取（約 0.03 秒，強制重抓約 7～18 秒），回傳會多 `boardFromCache: true` 與 `boardAgeSeconds`；帶 `refresh: true` 強制重抓。60 秒內才在 Asana 改的指派或到期日可能還看不到；快取失敗會自動退回強制重抓 |
+| `project_config` | 專案層級設定的單一入口：`project_config({ kind, action: "resolve" \| "register", ... })`（2026-10-27 起取代原本 7 組 `resolve_*`／`register_*`，舊工具名稱不再提供）。`kind` 與各自欄位：
+`default_project`（resolve `{cwd}`；register `{workspaceGid, projectGid, projectName, cwd}`；帶 `cwd` 時依工作目錄各自登記、往上找最近一層，不借用別的目錄的預設；不帶 `cwd` 才讀舊的全域單一值）、`project_dir`（`{projectGid}`／register 加 `projectDir`；Asana 專案 → 程式碼目錄，沒有 `gates.json` 時回傳 `gatesHint`）、`sasd_config`（`{projectGid}`／register `{projectGid, saRoot, sdMode, sdRoot?, svnConnectionId?, sdOutputPath?, specOrder?}`；`external`/`self`（或 `saRoot` 是 SVN 真實路徑）一定要帶 `svnConnectionId`，會真的驗證 SVN 連線、並確認 `saRoot`／`sdRoot` 存在於該 repo（正斜線、相對於 repo 根）才登記成功；`self-generated` 還要額外登記 `specOrder`（`spec_first`/`code_first`））、`legacy_test_profile`（`{projectGid}`／register 加 `legacyTestProfile`；是否套用測試工程師說明書的「老舊系統測試」章節，預設 `false`，只有使用者明確告知才登記為 `true`，不自動偵測）、`test_capability`（`{projectGid}`／register 加 `mode`（`modern`/`legacy_junit4`/`none`）、`note?`；工程師階段能不能寫自動化測試、用哪套工具鏈，測試工程師階段依此決定要不要重跑工程師補的測試）、`git_roots`（`{projectDir}`／register 加 `gitRoots:[{label,path}]`；專案目錄實際的 git 版控根目錄，可前後端分開）、`svn_workcopies`（`{projectDir}`／register 加 `workCopies:[{label,workCopyPath,connectionId}]`；SVN 工作副本，登記前會驗證；**只存設定，不能修改 SVN**，上傳/更新/刪除只能由使用者在報告網頁上按按鈕）。resolve 找不到（`found:false`）時多數 kind 回傳 `needsInput` 與 `instructions`；缺欄位時錯誤訊息會指出是哪個 `kind`／`action` 缺什麼 |
+| `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；可只列指派給自己的票（`onlyAssignedToMe` 參數或 `.pipeline/settings.json`）；附上 `awaitingConfirmation`（AI 已 PASS、還卡在使用者自測這關的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過**或使用者主動要求重新確認**的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）、`humanRequestedReanalysis: true`（使用者在網頁上勾了「請 AI 優先處理」，這次批次一定要處理，見 `request_reanalysis`）。**帶 `projectName` 會把這七類整份寫進互動網頁 `PENDING_HUMAN_ACTIONS.html`**（見下方說明）。可用 `dueOn`（`today`／`overdue`／`today_or_overdue`／`YYYY-MM-DD`）、`search`（2026-10-28 起：票號完全相等或標題包含此字串，不分大小寫）與 `limit` 縮小一般待處理清單：只作用在 `tickets`，需要使用者看的清單（待確認、待確認規格、卡住、手動待辦、未 commit）與 `PENDING_HUMAN_ACTIONS.html` 不受影響；帶了 `dueOn` 會排除沒有到期日的票；超過 `limit` 會附 `truncated`／`totalMatched`／`truncatedNote`，不會悄悄截斷。**快取**：同一專案 60 秒內重複呼叫會用 asana-mcp 的快取（約 0.03 秒，強制重抓約 7～18 秒），回傳會多 `boardFromCache: true` 與 `boardAgeSeconds`；帶 `refresh: true` 強制重抓。60 秒內才在 Asana 改的指派或到期日可能還看不到；快取失敗會自動退回強制重抓 |
 | `get_ticket_snapshot` | 抓票單內容＋留言，寫入追蹤檔案；子任務自動偵測（讀 Asana `parent` 欄位）。可帶 `projectGid`，會記錄在票單狀態的 `project_gid`，讓 `nextAction` 與角色說明能依專案的規格模式／測試設定精準化；舊票單要等下一次帶 `projectGid` 的快照才會補上 |
 | `relocate_ticket_project` | 修正 `get_ticket_snapshot` 第一次呼叫 `projectName` 傳錯時，這張票（連同巢狀子任務）的本機追蹤資料夾要一併搬到正確的專案名稱底下；只改本機資料夾標籤，不會也不能改 Asana 上這張票實際所屬的專案 |
 | `get_ticket_activity` | 取得票單完整活動時間軸（留言＋系統事件＋附件，依時間排序）；使用者說「查看測試員回報的測試狀況」時用這個 |
 | `download_ticket_attachment` | 下載某個附件到本機暫存檔（`attachmentGid` 來自 `get_ticket_activity`） |
-| `resolve_project_dir` / `register_project_dir` | 查詢/登記 Asana 專案 → 程式碼目錄 |
-| `resolve_sasd_config` / `register_sasd_config` | 查詢/登記 SA/SD 規格設定；`external`/`self`（或 `saRoot` 是 SVN 真實路徑）一定要帶 `svnConnectionId`，會真的驗證 SVN 連線、並確認 `saRoot`／`sdRoot` 存在於該 repo（正斜線、相對於 repo 根）才登記成功；`self-generated` 還要額外登記 `specOrder`（`spec_first`/`code_first`） |
-| `resolve_legacy_test_profile` / `register_legacy_test_profile` | 查詢/登記這個專案要不要套用測試工程師說明書的「老舊系統測試」章節（JDK6+舊IE這類，預設 `false`，只有使用者明確告知才登記為 `true`，不自動偵測） |
-| `resolve_test_capability` / `register_test_capability` | 查詢/登記這個專案工程師階段能不能寫自動化測試、用哪套工具鏈（`modern`/`legacy_junit4`/`none`）；測試工程師階段會依這個設定決定要不要重跑工程師補的測試當交叉核對證據 |
 | `read_project_sd_doc` / `write_project_sd_doc` | 讀寫「自維護」SD 文件（`self-generated` 專用），寫在 `sdOutputPath` 真實本機檔案；`sdOutputPath` 登記的是目錄（一支功能一份規格）時帶 `fileName` 指定目錄底下那一份，`fileName` 只能是檔名 |
 | `get_sd_spec_template` / `get_sd_spec_versioning_rules` | SD 規格撰寫範本／版更規範，寫入前應先呼叫其中之一 |
 | `get_test_engineer_guide` | 取得測試工程師說明書：通用測試框架／報表測試／老舊系統測試三章檢查清單，另有第五章「測試證據」（`record_test_evidence` 做法、測試層級、機密遮蔽、假資料標註、Excel/PDF 截圖），供設計測試案例、跑手動/情境測試時查，跟驗證師角色的規格/程式碼交叉核對是不同用途 |
@@ -386,18 +400,16 @@ node --test tests/gates.test.mjs   # 單檔（要先 npm run build）
 | `svn_list_connections` / `svn_test_connection` | 轉呼叫 svn-mcp，列出/測試 SVN 連線 |
 | `svn_browse` / `svn_cat` / `svn_doc_images` / `svn_log` / `svn_diff` | 轉呼叫 svn-mcp 讀 SVN 上的規格（唯讀），一律讀遠端不讀本機 checkout |
 | `get_recent_commits` | 查某目錄最近的 git commit |
-| `read_project_file` / `write_project_file` / `list_project_dir` / `search_project_text` | 讀寫/搜尋專案檔案（限 `projectDir` 範圍內）；偵測外部修改，見下方安全限制。`read_project_file` 可用 `startLine`／`endLine` 讀指定行範圍；沒帶範圍且超過 40,000 字時在行尾截斷，並回 `truncated`／`totalChars`／`totalLines`／`returnedLines`／`truncatedNote`，**被截斷時不可據此整份覆寫檔案** |
-| `resolve_git_roots` / `register_git_roots` | 查詢/登記專案目錄實際的 git 版控根目錄（可前後端分開） |
-| `resolve_svn_workcopies` / `register_svn_workcopies` | 查詢/登記專案目錄對應的 SVN 工作副本（label／路徑／svn-mcp 連線；登記前會驗證）。**只存設定，不能修改 SVN**——上傳/更新/刪除只能由使用者在報告網頁上按按鈕（2026-10-02 新增） |
-| `run_project_shell` | 跑 shell 指令；git 指令會驗證版控根目錄，見下方安全限制。stdout、stderr 各自超過約 12,000 字時保留開頭 3,000 與結尾 9,000 字（錯誤通常在結尾），中間以「輸出共 N 字，省略中間 M 字」標記，並回 `truncated`／`originalChars`；沒超過時回傳形狀不變 |
-| `get_ticket_status` / `advance_ticket_stage` | 讀取/更新票單追蹤狀態，附 `sync_flags`/`needs_human_review`/`external_changes`（當場重新讀磁碟比對，抓繞過 MCP 的手動修改）；`verdict`（驗證師或測試工程師的結論，兩者共用同一個欄位跟同一組 `consecutive_fail_count`）、`confirmation`（使用者自測＋審視 code）、`verifier_root_cause`（FAIL 根因，供自動路由）是分開的欄位。`verdict: "FAIL"` 時 `rootCause` 必填（`"analysis"`/`"implementation"`），並會機械式維護 `consecutive_fail_count`（FAIL 累加/PASS 歸零）、清空人類確認。`stage` 新增 `"tested"`（`"verified"` 之後、人類最終確認之前）。`get_ticket_status` 的 `test_evidence` 是精簡摘要（筆數、整體 `test_level`、每筆 `featureName`/`fileKind`/`testLevel`/`usesFakeData`/`pendingManualScreenshot`）。`advance_ticket_stage` 推進到 `tested` 時，沒有任何測試證據或沒記錄過 `testLevel`（或宣告有產出 Excel/PDF 卻沒有 excel/pdf 證據）會被拒絕。`get_ticket_status` 另回傳 `nextAction`（`summary`／`blockedBy`／`suggestedTools`）：由程式依票單狀態算出下一步與目前被什麼擋住，對齊真實把關；取不到專案的 SD 模式時，規格相關建議只寫「依專案設定」，不猜。`advance_ticket_stage`、`record_confirmation`、`record_spec_confirmation`、`record_sasd_check`、`request_reanalysis` 預設只回精簡狀態（`stage`／`verdict`／`needs_human_review`／`consecutive_fail_count`／`nextAction` 等，約 500 字），帶 `verbose: true` 取得完整狀態；網頁勾選用的 HTTP bridge 回傳格式不變 |
-| `write_ticket_artifact` / `read_ticket_artifact` | 讀寫追蹤目錄下的分析/實作/驗證/測試檔案；寫 02/03/04 時 `syncNote`/`manualActions` 都必填（`manualActions` 可以是空陣列，04 的話裝測試工程師判不出來、只能列出來提醒人工的 `needs_manual_check` 項目）。**寫 04-test.md 另必填 `producesOfficeFiles` 與 `testLevel`**，且 `test_evidence` 至少 1 筆、內文有標題含「測試證據」的一節、提及每筆證據的功能名稱與宣告的 `testLevel`、`testLevel` 等於證據中最高層級（`producesOfficeFiles: true` 時另需至少 1 筆 excel/pdf 證據），否則拒絕；仍待使用者截圖的 Excel 證據會自動併入 `manualActions` |
+| `read_project_file` / `write_project_file` / `list_project_dir` / `search_project_text` | 讀寫/搜尋專案檔案（限 `projectDir` 範圍內）；偵測外部修改，見下方安全限制。`write_project_file` 預設整份覆寫（`content`），小改動用 `mode: "replace"` 帶 `oldString`／`newString`（2026-10-28 起）：`oldString` 須恰好唯一匹配，找不到或多處匹配回錯誤且不寫入，檔案須已存在，換行自動配合檔案的 CRLF／LF。`search_project_text`（不分大小寫，可 `useRegex`）選填 `path`（只搜某個子目錄）與 `fileExtensions`（只搜這些副檔名），回傳結構化的 `matches`（`file`／`line`／`text`）與 `truncated`／`timedOut`／`limit`／`note`；只搜預設副檔名白名單，略過 `node_modules`、`.git`、`dist`、`build`、`target` 等目錄，上限 200 筆／2000 個檔／5 秒，`truncated: true` 不代表結果是全部。`read_project_file` 可用 `startLine`／`endLine` 讀指定行範圍；沒帶範圍且超過 40,000 字時在行尾截斷，並回 `truncated`／`totalChars`／`totalLines`／`returnedLines`／`truncatedNote`，**被截斷時不可據此整份覆寫檔案** |
+| `run_project_shell` | 跑 shell 指令；git 指令會驗證版控根目錄，見下方安全限制。stdout、stderr 各自超過約 12,000 字時保留開頭 3,000 與結尾 9,000 字（錯誤通常在結尾），中間以「輸出共 N 字，省略中間 M 字」標記，並回 `truncated`／`originalChars`；沒超過時回傳形狀不變。執行環境是 **Windows PowerShell 5.1**（`-NoProfile`，2026-10-28 起寫進工具說明）：不支援 `&&`／`||`（用 `;` 串接）、原生指令別用 `2>&1`、無 BOM 的 `.ps1` 含中文會亂碼。預設逾時 60000 ms，可用 `timeoutMs` 調高（上限 600000）；非零結束碼、逾時或輸出過大時仍回傳已收集的 stdout／stderr 與 `exitCode`，逾時另帶 `timedOut: true`。git 驗證被拒時的訊息會說明實際檢查的目錄（驗證只看指令最開頭的 `Set-Location`）與改寫方式 |
+| `get_ticket_status` / `advance_ticket_stage` | 讀取/更新票單追蹤狀態，附 `sync_flags`/`needs_human_review`/`external_changes`（當場重新讀磁碟比對，抓繞過 MCP 的手動修改）；`verdict`（驗證師或測試工程師的結論，兩者共用同一個欄位跟同一組 `consecutive_fail_count`）、`confirmation`（使用者自測＋審視 code）、`verifier_root_cause`（FAIL 根因，供自動路由）是分開的欄位。`verdict: "FAIL"` 時 `rootCause` 必填（`"analysis"`/`"implementation"`），並會機械式維護 `consecutive_fail_count`（FAIL 累加/PASS 歸零）、清空人類確認。`stage` 新增 `"tested"`（`"verified"` 之後、人類最終確認之前）。`get_ticket_status` 的 `test_evidence` 是精簡摘要（筆數、整體 `test_level`、每筆 `featureName`/`fileKind`/`testLevel`/`usesFakeData`/`pendingManualScreenshot`）。`advance_ticket_stage` 推進到 `tested` 時，沒有任何測試證據或沒記錄過 `testLevel`（或宣告有產出 Excel/PDF 卻沒有 excel/pdf 證據）會被拒絕。`get_ticket_status` 另回傳 `nextAction`（`summary`／`blockedBy`／`suggestedTools`）：由程式依票單狀態算出下一步與目前被什麼擋住，對齊真實把關；取不到專案的 SD 模式時，規格相關建議只寫「依專案設定」，不猜。`advance_ticket_stage`、`record_confirmation`、`record_spec_confirmation`、`record_sasd_check`、`request_reanalysis` 預設只回精簡狀態（`stage`／`verdict`／`needs_human_review`／`consecutive_fail_count`／`nextAction` 等，約 500 字），帶 `verbose: true` 取得完整狀態；網頁勾選用的 HTTP bridge 回傳格式不變；2026-10-28 起：`get_ticket_status` 預設回精簡狀態（不含 `history` 與 `sync` 雜湊），帶 `verbose: true` 才回完整；`advance_ticket_stage` 的 `verdict` 只能在 `verified`／`tested` 階段帶（其他階段被拒絕）；目標 artifact（01～04）被外部修改過（雜湊不符）會被擋，須先 `read_ticket_artifact` 再 `resync_ticket_artifact`；`self-generated` 專案缺「確認過的 SD 草稿」或「不需 SD」紀錄時，`spec_first` 擋 `implemented`、`code_first` 擋 `verified` |
+| `write_ticket_artifact` / `read_ticket_artifact` | 讀寫追蹤目錄下的分析/實作/驗證/測試檔案（2026-10-28 起：`read_ticket_artifact` 成功回 `filePath` 與 `content`，失敗回 `success: false`、`reason`（`not_found`／`no_ticket_dir`／`invalid_path`／`read_error`）與 `message`，跳出追蹤目錄的路徑逃逸會被拒（`invalid_path`）；`write_ticket_artifact` 成功回傳含絕對路徑 `filePath`；寫入支援 `mode`：`overwrite` 預設整份覆寫、`append` 接在後面、`replace` 以 `oldString`/`newString` 局部取代〔須恰好出現一次，自動配合 CRLF/LF〕，關卡一律對套用後的完整內容檢查，append/replace 的 `summary` 可省略）；寫 02/03/04 時 `syncNote`/`manualActions` 都必填（`manualActions` 可以是空陣列，04 的話裝測試工程師判不出來、只能列出來提醒人工的 `needs_manual_check` 項目）。**寫 04-test.md 另必填 `producesOfficeFiles` 與 `testLevel`**，且 `test_evidence` 至少 1 筆、內文有標題含「測試證據」的一節、提及每筆證據的功能名稱與宣告的 `testLevel`、`testLevel` 等於證據中最高層級（`producesOfficeFiles: true` 時另需至少 1 筆 excel/pdf 證據），否則拒絕；仍待使用者截圖的 Excel 證據會自動併入 `manualActions` |
 | `record_test_evidence` | 測試工程師記錄一筆測試證據（見下方「測試證據」一節）：把證據檔複製備份到 `<票單目錄>/test-evidence/<功能名稱>/`（假資料放 `【假資料】<功能名稱>/` 並加 `_假資料` 後綴，每筆只存一個檔案），寫進 `status.json` 的 `test_evidence`。參數：`taskGid`、`featureName`、`fileKind`（`excel`/`pdf`/`api-call`/`test-report`/`db-state`）、`testLevel`（`unit-mock`/`integration-db`/`live-api`）、`sourceFile`、`usesFakeData`，選填 `testSource`、`markedFile`、`fakeDataMarked`、`screenshotPaths`、`note` |
 | `resync_ticket_artifact` | 把 01/02/03/04 其中一份檔案「現在磁碟上的實際內容」重新雜湊、寫回 `sync.*_hash`——給直接手動改過追蹤檔案（沒走 `write_ticket_artifact`）之後，用最低成本同步雜湊記錄，不用跑完整流程；也能順便回填舊票的 `manualActions` |
 | `resolve_manual_action` | 把某張票單 `manualActions`（02/03/04 皆可）裡「使用者確認已經處理完」的一項移除（文字精確比對），不用整份陣列重新宣告一次 |
 | `record_sasd_check` | 記錄這張票有沒有對應 SA/SD；沒呼叫過會擋下 `01-analysis.md` 的寫入 |
 | `record_confirmation` | 記錄結案前唯一一關人類確認——使用者自己的實測＋程式碼品質審視結果（`confirmed`/`note`），只能在 `tested` 階段之後呼叫；`confirmed: true` 才會讓票單真正離開 `awaitingConfirmation`、算結案 |
-| `record_spec_confirmation` | 記錄「規格草稿定案」關卡的確認結果（僅 `sdMode: "self-generated"`），只能在 `sd_drafted` 階段之後呼叫；`confirmed: true` 才會解鎖 `advance_ticket_stage` 繼續推進——`specOrder: "spec_first"` 解鎖推進到 `implemented`，`"code_first"` 解鎖推進到 `verified`；`confirmed: false` 打回、清空紀錄等重新產出 |
+| `record_spec_confirmation` | 記錄「規格草稿定案」關卡的確認結果（僅 `sdMode: "self-generated"`），只能在 `sd_drafted` 階段之後呼叫；`confirmed: true` 才會解鎖 `advance_ticket_stage` 繼續推進——`specOrder: "spec_first"` 解鎖推進到 `implemented`，`"code_first"` 解鎖推進到 `verified`；`confirmed: false` 打回、清空紀錄等重新產出。**`sdNotRequired: true` + `userInstruction`**（2026-10-28 起）：使用者明確表示本票不需要 SD 時才可用，`userInstruction` 必填、記使用者原話，可在 `analyzed` 或 `sd_drafted` 呼叫，**AI 不可自行決定**；其餘規則見「SA/SD 規格四種模式」 |
 | `request_reanalysis` | 標記某張票「使用者要求優先重新確認」（`human_requested_reanalysis`），2026-09-17 新增。純資料操作，**不會觸發任何實際分析**——旗標會在下一次任何 AI 對這張票呼叫 `get_ticket_snapshot` 時自動清除；你自己呼叫這個工具之後應該直接接著處理這張票，不要把旗標留給別人 |
 | `create_ticket_worktree` | 為一組票單建立獨立 git worktree（見「多票單／多 AI 併行處理」），已存在對應 worktree 時冪等回傳既有資訊；自動處理 Eclipse `.project` 撞名問題 |
 | `join_ticket_worktree` | 把另一張票單併入既有的 worktree 分組，之後這個 worktree 的合併/清除都要等這些票單全部確認結案 |
@@ -413,6 +425,9 @@ node --test tests/gates.test.mjs   # 單檔（要先 npm run build）
 ## 安全限制
 
 - `run_project_shell` 拒絕 `git push`、`--force`/`-f`、`reset --hard`、`clean`、`checkout --`/`checkout .`、`restore`、`branch -D`；其餘 git 指令正常可用。
-- 任何 git 指令執行前會驗證：`projectDir` 必須先 `register_git_roots` 登記過，且指令實際解析到的 repo root 要跟登記的一致，避免在沒有獨立 `.git` 的子目錄誤跑 `add`/`commit`。
+- 任何 git 指令執行前會驗證：`projectDir` 必須先 `project_config({ kind: "git_roots", action: "register" })` 登記過，且指令實際解析到的 repo root 要跟登記的一致，避免在沒有獨立 `.git` 的子目錄誤跑 `add`/`commit`。
 - `read_project_file`/`write_project_file`/`list_project_dir`/`search_project_text`/`run_project_shell` 都限制在提供的 `projectDir` 範圍內，跳出範圍的路徑一律拒絕。
 - `write_project_file` 會記住自己上次寫入每個檔案的內容雜湊：偵測到外部修改（其他工具/使用者/別的 AI 改過）預設擋下寫入，要帶 `acknowledgeExternalChange: true` 才會覆蓋。
+- **不可自行略過 SD**（2026-10-28 起）：`self-generated` 專案的規格關卡由 `advance_ticket_stage` 強制；只有使用者明確表示本票不需要 SD 時，才可帶使用者原話呼叫 `record_spec_confirmation({ sdNotRequired: true, userInstruction })`，AI 與子代理人不可自行提議或決定。
+- **commit／push 由主流程依使用者指示決定**：子代理人（工程師、驗證師、測試工程師）不自行 commit／push；`run_project_shell` 本身也拒絕 `git push`。
+- **單元測試不得啟動真的 asana-mcp**：`npm test` 以 `tests/helpers/safe-env.mjs` 把 `ASANA_MCP_PATH` 預設指到不存在的檔案，見「自動化測試」。

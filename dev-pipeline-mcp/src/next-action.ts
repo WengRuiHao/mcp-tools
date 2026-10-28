@@ -63,15 +63,18 @@ function engineerStep(status: TicketStatus, ctx: NextActionContext): Step {
   const base = "寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented";
   if (status.stage !== "analyzed") return { text: `工程師：${base}`, tools };
   const sasd = ctx.sasd;
+  if (status.spec_confirmation?.sdNotRequired) {
+    return { text: `使用者已指示本票不需 SD（spec_confirmation.sdNotRequired）：${base}`, tools };
+  }
   if (!sasd) {
     return {
-      text: `工程師：${base}。若專案 sdMode 為 self-generated，要依 specOrder 先走 sd_drafted（用 resolve_sasd_config 查）`,
-      tools: [...tools, "resolve_sasd_config"],
+      text: `工程師：${base}。若專案 sdMode 為 self-generated，要依 specOrder 先走 sd_drafted（用 project_config(kind='sasd_config', action='resolve') 查）`,
+      tools: [...tools, "project_config"],
     };
   }
   if (sasd.sdMode === "self-generated" && sasd.specOrder === "spec_first") {
     return {
-      text: "規格撰寫者：先產 SD 草稿並 advance_ticket_stage sd_drafted，等使用者 record_spec_confirmation 後才能進工程師階段",
+      text: "規格撰寫者：先產 SD 草稿並 advance_ticket_stage sd_drafted，等使用者 record_spec_confirmation 後才能進工程師階段（不可自行提議或決定略過 SD；只有使用者明確表示本票不需 SD，才可 record_spec_confirmation({sdNotRequired:true,userInstruction:<使用者原話>})，不確定先問）",
       tools: ["get_role_prompt({role:\"spec-writer\"})", "write_project_sd_doc", "advance_ticket_stage"],
     };
   }
@@ -95,14 +98,15 @@ function sdDraftedStep(status: TicketStatus, ctx: NextActionContext): Step {
     };
   }
   const order = ctx.sasd?.specOrder;
+  const skipNote = status.spec_confirmation?.sdNotRequired ? "（本票依使用者指示不產 SD）" : "";
   const implementedStep = "工程師寫 02-implementation.md 後 advance_ticket_stage implemented";
   const verifiedStep = "驗證師寫 03-verification.md 後 advance_ticket_stage verified";
   const text =
     order === "spec_first"
-      ? `規格已確認：${implementedStep}`
+      ? `規格已確認${skipNote}：${implementedStep}`
       : order === "code_first"
-        ? `規格已確認：${verifiedStep}`
-        : `規格已確認：specOrder 為 spec_first 時${implementedStep}；code_first 時${verifiedStep}`;
+        ? `規格已確認${skipNote}：${verifiedStep}`
+        : `規格已確認${skipNote}：specOrder 為 spec_first 時${implementedStep}；code_first 時${verifiedStep}`;
   return { text, tools: ["write_ticket_artifact", "advance_ticket_stage"] };
 }
 
@@ -175,7 +179,7 @@ function stageStep(status: TicketStatus, ctx: NextActionContext): Step {
         ? { text: "advance_ticket_stage project_dir_confirmed", tools: ["advance_ticket_stage"] }
         : {
             text: "先確定 project_dir 再 advance_ticket_stage project_dir_confirmed",
-            tools: ["resolve_project_dir", "advance_ticket_stage"],
+            tools: ["project_config", "advance_ticket_stage"],
             blockers: ["project_dir 為空：推進到 project_dir_confirmed 會被拒"],
           };
     case "project_dir_confirmed":
@@ -185,7 +189,9 @@ function stageStep(status: TicketStatus, ctx: NextActionContext): Step {
     case "sd_drafted":
       return sdDraftedStep(status, ctx);
     case "implemented":
-      return ctx.sasd?.sdMode === "self-generated" && ctx.sasd.specOrder === "code_first" ? codeFirstSpecStep() : verifierStep();
+      return ctx.sasd?.sdMode === "self-generated" && ctx.sasd.specOrder === "code_first" && !status.spec_confirmation?.sdNotRequired
+        ? codeFirstSpecStep()
+        : verifierStep();
     case "verified":
       if (status.verdict === "FAIL") return failBranchStep(status);
       return status.verdict === "PASS"

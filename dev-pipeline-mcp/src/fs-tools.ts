@@ -117,6 +117,45 @@ export async function fsWriteFile(
   return { blocked: false };
 }
 
+export type FileReplaceOutcome =
+  | FileWriteOutcome
+  | { blocked: false; replaced: false; reason: "not_found" | "multiple_matches" | "file_missing" | "empty_old"; matchCount: number };
+
+/**
+ * 在既有檔案中把唯一一處 oldString 換成 newString（小改動用，免整份覆寫）。
+ * 找不到、多處匹配、檔案不存在都不會寫入；寫入沿用 fsWriteFile 的沙箱與外部修改偵測。
+ */
+export async function fsReplaceInFile(
+  root: string,
+  relPath: string,
+  oldString: string,
+  newString: string,
+  opts: { taskGid?: string | null; acknowledgeExternalChange?: boolean } = {}
+): Promise<FileReplaceOutcome> {
+  const target = await resolveSafe(root, relPath);
+  if (oldString === "") return { blocked: false, replaced: false, reason: "empty_old", matchCount: 0 };
+  let current: string;
+  try {
+    current = await readFile(target, "utf-8");
+  } catch (err: any) {
+    if (err.code === "ENOENT") return { blocked: false, replaced: false, reason: "file_missing", matchCount: 0 };
+    throw err;
+  }
+  // 偵測檔案換行（CRLF 為主視為 CRLF），把 oldString/newString 正規化成檔案的換行再比對，寫回時不混用。
+  const crlfCount = (current.match(/\r\n/g) ?? []).length;
+  const lfOnlyCount = (current.match(/\n/g) ?? []).length - crlfCount;
+  const eol = crlfCount > lfOnlyCount ? "\r\n" : "\n";
+  const normalize = (s: string) => s.replace(/\r\n|\r|\n/g, eol);
+  const oldNorm = normalize(oldString);
+  const newNorm = normalize(newString);
+  const matchCount = current.split(oldNorm).length - 1;
+  if (matchCount === 0) return { blocked: false, replaced: false, reason: "not_found", matchCount };
+  if (matchCount > 1) return { blocked: false, replaced: false, reason: "multiple_matches", matchCount };
+  const idx = current.indexOf(oldNorm);
+  const next = current.slice(0, idx) + newNorm + current.slice(idx + oldNorm.length);
+  return fsWriteFile(root, relPath, next, opts);
+}
+
 interface DirEntry {
   name: string;
   type: "file" | "dir";
@@ -134,7 +173,10 @@ const SEARCHABLE_EXT = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".java", ".py", ".go", ".rs", ".rb", ".php",
   ".md", ".json", ".yml", ".yaml", ".xml", ".html", ".css", ".sql", ".txt", ".c", ".cpp", ".h",
 ]);
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "target", ".idea", ".vscode"]);
+const SKIP_DIRS = new Set([
+  "node_modules", ".git", "dist", "build", "target", ".idea", ".vscode",
+  "out", ".gradle", "coverage", ".next", ".nuxt", ".svn", "bin", "obj", "__pycache__", ".venv", "venv", ".cache",
+]);
 const MAX_SEARCH_FILES = 2000;
 const MAX_MATCHES = 200;
 const MAX_REGEX_PATTERN_LENGTH = 200;
@@ -151,15 +193,46 @@ const SEARCH_TIME_BUDGET_MS = 5000;
  */
 const REDOS_SHAPE = /\([^()]*[+*][^()]*\)[+*]/;
 
-interface SearchMatch {
+export interface SearchMatch {
   file: string;
   line: number;
   text: string;
 }
 
+export interface SearchResult {
+  matches: SearchMatch[];
+  /** true 代表因為筆數上限或時間預算提前結束，結果可能不完整。 */
+  truncated: boolean;
+  /** true 代表是因為時間預算（SEARCH_TIME_BUDGET_MS）用完而中止。 */
+  timedOut: boolean;
+  /** 最多回傳的符合筆數上限。 */
+  limit: number;
+  /** 被截斷/逾時時的人類可讀說明；完整搜尋時不存在。 */
+  note?: string;
+}
+
+/** 供 tool description 引用的搜尋限制，避免文字與實際常數不一致。 */
+export const SEARCH_LIMITS = {
+  maxMatches: MAX_MATCHES,
+  maxFiles: MAX_SEARCH_FILES,
+  timeBudgetMs: SEARCH_TIME_BUDGET_MS,
+  extensions: [...SEARCHABLE_EXT],
+  skipDirs: [...SKIP_DIRS],
+} as const;
+
 /** Simple recursive text/regex search scoped to the sandbox root, bounded to avoid runaway scans. */
-export async function fsSearchText(root: string, pattern: string, useRegex: boolean): Promise<SearchMatch[]> {
+export async function fsSearchText(
+  root: string,
+  pattern: string,
+  useRegex: boolean,
+  opts: { path?: string; fileExtensions?: string[] } = {}
+): Promise<SearchResult> {
   const resolvedRoot = path.resolve(root);
+  const startDir = opts.path && opts.path !== "." ? await resolveSafe(root, opts.path) : resolvedRoot;
+  const extSet =
+    opts.fileExtensions && opts.fileExtensions.length > 0
+      ? new Set(opts.fileExtensions.map((e) => "." + e.trim().replace(/^\./, "").toLowerCase()))
+      : SEARCHABLE_EXT;
   const matches: SearchMatch[] = [];
   let filesScanned = 0;
   let truncatedByTimeout = false;
@@ -202,7 +275,7 @@ export async function fsSearchText(root: string, pattern: string, useRegex: bool
         continue;
       }
       const ext = path.extname(entry.name).toLowerCase();
-      if (!SEARCHABLE_EXT.has(ext)) continue;
+      if (!extSet.has(ext)) continue;
       filesScanned++;
       const filePath = path.join(dir, entry.name);
       let content: string;
@@ -225,13 +298,18 @@ export async function fsSearchText(root: string, pattern: string, useRegex: bool
     }
   }
 
-  await walk(resolvedRoot);
+  await walk(startDir);
+  const hitFileCap = filesScanned >= MAX_SEARCH_FILES;
+  const truncated = truncatedByTimeout || truncatedByMatchCap || hitFileCap;
+  let note: string | undefined;
   if (truncatedByTimeout) {
-    matches.push({ file: "(搜尋逾時)", line: 0, text: `已達 ${SEARCH_TIME_BUDGET_MS}ms 時間預算，搜尋提前中止，以上結果可能不完整。` });
+    note = `已達 ${SEARCH_TIME_BUDGET_MS}ms 時間預算，搜尋提前中止，結果可能不完整。建議用 path（子目錄）或 fileExtensions（副檔名）縮小搜尋範圍再搜一次。`;
   } else if (truncatedByMatchCap) {
-    matches.push({ file: "(結果過多)", line: 0, text: `已達 ${MAX_MATCHES} 筆上限，可能還有更多未顯示的符合結果，建議換更精確的關鍵字縮小範圍再搜一次，不要假設這就是全部。` });
+    note = `已達 ${MAX_MATCHES} 筆上限，可能還有更多未顯示的符合結果，建議換更精確的關鍵字縮小範圍再搜一次，不要假設這就是全部。`;
+  } else if (hitFileCap) {
+    note = `已掃描 ${MAX_SEARCH_FILES} 個檔案上限，之後的檔案未搜尋，結果可能不完整。`;
   }
-  return matches;
+  return { matches, truncated, timedOut: truncatedByTimeout, limit: MAX_MATCHES, ...(note ? { note } : {}) };
 }
 
 export async function pathExists(p: string): Promise<boolean> {

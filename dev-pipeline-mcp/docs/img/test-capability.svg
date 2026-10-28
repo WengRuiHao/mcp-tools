@@ -20,7 +20,7 @@
     <!-- entry -->
     <rect x="20" y="68" width="230" height="64" rx="9" fill="#e3dcc9" stroke="#2a2620" stroke-opacity="0.85"/>
     <text x="135" y="94" text-anchor="middle" font-size="13" font-weight="700" fill="#2a2620">工程師改完程式碼</text>
-    <text x="135" y="112" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">resolve_test_capability</text>
+    <text x="135" y="112" text-anchor="middle" font-family="'IBM Plex Mono',sans-serif" font-size="9" fill="#6b6558">project_config（kind=test_capability）</text>
 
     <line x1="250" y1="100" x2="434" y2="100" stroke="#2a2620" stroke-width="1.6" marker-end="url(#arrowTC)"/>
 

@@ -83,19 +83,19 @@ test("registering with cwd does not change the global value", isolated(async () 
   assert.deepEqual(await resolveDefaultProject(at("a")), proj("scoped"));
 }));
 
-test("tools: register_default_project / resolve_default_project round trip with cwd", isolated(async () => {
+test("tools: project_config default_project register / resolve round trip with cwd", isolated(async () => {
   const { client, close } = await connectClient(registerProjectConfigTools);
   try {
-    const miss = await callTool(client, "resolve_default_project", { cwd: at("t") });
+    const miss = await callTool(client, "project_config", { kind: "default_project", action: "resolve", cwd: at("t") });
     assert.equal(miss.json.found, false);
-    const reg = await callTool(client, "register_default_project", { ...proj("tool"), cwd: at("t") });
+    const reg = await callTool(client, "project_config", { kind: "default_project", action: "register", ...proj("tool"), cwd: at("t") });
     assert.equal(reg.json.success, true);
-    const hit = await callTool(client, "resolve_default_project", { cwd: at("t", "sub") });
+    const hit = await callTool(client, "project_config", { kind: "default_project", action: "resolve", cwd: at("t", "sub") });
     assert.equal(hit.json.found, true);
     assert.equal(hit.json.projectGid, "P-tool");
-    const other = await callTool(client, "resolve_default_project", { cwd: at("elsewhere") });
+    const other = await callTool(client, "project_config", { kind: "default_project", action: "resolve", cwd: at("elsewhere") });
     assert.equal(other.json.found, false);
-    const global = await callTool(client, "resolve_default_project", {});
+    const global = await callTool(client, "project_config", { kind: "default_project", action: "resolve" });
     assert.equal(global.json.found, false);
   } finally {
     await close();

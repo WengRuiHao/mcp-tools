@@ -8,13 +8,13 @@ import { textResult } from "./shared.js";
 
 const TARGET_PARAMS = {
   projectDir: z.string().nullable().optional().describe("專案目錄絕對路徑"),
-  taskGid: z.string().nullable().optional().describe("沒帶 projectDir 時，用這張票記錄的 project_dir 反查"),
+  taskGid: z.string().nullable().optional().describe("沒帶 projectDir 時，用票記錄的 project_dir 反查"),
 };
 
 export function registerRuleHistoryTools(server: McpServer): void {
   server.tool(
     "list_rule_history",
-    "列出專案規則檔（<projectDir>/.pipeline/ 底下）的歷史快照。快照在 MCP 讀取規則檔、內容有變時自動存進 <projectDir>/.pipeline/.history/，每個檔案保留最近 10 份。不帶 file 列出有快照的檔案，帶 file（例如 .pipeline/roles/engineer.md）列出該檔案的快照，由新到舊。",
+    "列出專案規則檔（<projectDir>/.pipeline/）的歷史快照（MCP 讀取時內容有變會自動存進 .pipeline/.history/，每檔保留最近 10 份）。不帶 file 列出有快照的檔案；帶 file 列出該檔快照，新到舊。",
     { ...TARGET_PARAMS, file: z.string().nullable().optional().describe("規則檔相對路徑，例如 .pipeline/roles/engineer.md") },
     async ({ projectDir, taskGid, file }) => {
       const dir = await resolveProjectDir(projectDir, taskGid);
@@ -27,7 +27,7 @@ export function registerRuleHistoryTools(server: McpServer): void {
 
   server.tool(
     "restore_rule_file",
-    "把規則檔還原成某個歷史快照（snapshot 取自 list_rule_history）。還原前會先把目前內容存成一份快照，所以這個動作本身也能還原回去。",
+    "把規則檔還原成歷史快照（snapshot 取自 list_rule_history）。還原前會先把目前內容存成快照，所以可再還原回去。",
     {
       ...TARGET_PARAMS,
       file: z.string().describe("規則檔相對路徑，例如 .pipeline/roles/engineer.md"),

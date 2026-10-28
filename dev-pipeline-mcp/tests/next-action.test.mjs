@@ -19,7 +19,7 @@ test("snapshot: blocked without project_dir, plain advance when set", () => {
   const blocked = computeNextAction(fakeStatus({ stage: "snapshot" }));
   assert.equal(blocked.blockedBy.length, 1);
   assert.match(blocked.blockedBy[0], /project_dir/);
-  assert.ok(blocked.suggestedTools.includes("resolve_project_dir"));
+  assert.ok(blocked.suggestedTools.includes("project_config"));
   const ok = computeNextAction(fakeStatus({ stage: "snapshot", project_dir: "/p" }));
   assert.deepEqual(ok.blockedBy, []);
   assert.deepEqual(ok.suggestedTools, ["advance_ticket_stage"]);
@@ -38,7 +38,7 @@ test("project_dir_confirmed: analyst; record_sasd_check blocker until checked", 
 
 test("analyzed: depends on sdMode / specOrder", () => {
   const unknown = computeNextAction(fakeStatus({ stage: "analyzed" }));
-  assert.ok(unknown.suggestedTools.includes("resolve_sasd_config"));
+  assert.ok(unknown.suggestedTools.includes("project_config"));
   const specFirst = computeNextAction(fakeStatus({ stage: "analyzed" }), { sasd: { sdMode: "self-generated", specOrder: "spec_first" } });
   assert.ok(specFirst.suggestedTools.includes("write_project_sd_doc"));
   assert.ok(specFirst.suggestedTools.includes('get_role_prompt({role:"spec-writer"})'));

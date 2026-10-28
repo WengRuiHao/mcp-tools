@@ -1,4 +1,4 @@
-// register_sasd_config 的 saRoot／sdRoot 檢查：語法（正斜線、相對於 repo 根）＋ 實際在 SVN 上存在。
+// project_config(register sasd_config) 的 saRoot／sdRoot 檢查：語法（正斜線、相對於 repo 根）＋ 實際在 SVN 上存在。
 import test from "node:test";
 import assert from "node:assert/strict";
 import { findSvnRootSyntaxProblem, verifySvnRoots } from "../dist/sasd-path-check.js";
@@ -57,7 +57,7 @@ test("verifySvnRoots：browse 丟例外（callSvnTool 的真實失敗型態）�
   const problem = await verifySvnRoots("conn1", [{ field: "sdRoot", value: "3-SD/不存在" }], browse);
   assert.match(problem, /sdRoot「3-SD\/不存在」/);
   assert.match(problem, /path not found/);
-  assert.match(problem, /register_sasd_config/);
+  assert.match(problem, /project_config/);
 });
 
 import { isNoSaPlaceholder, requiresSvnConnection } from "../dist/sasd-path-check.js";
