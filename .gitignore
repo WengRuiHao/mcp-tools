@@ -1,0 +1,2 @@
+# Git Bash 當機時產生的轉儲檔，不進版控
+*.stackdump
