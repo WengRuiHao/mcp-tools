@@ -92,32 +92,23 @@ const OVERVIEW_CORE = `# Asana 票單自動處理 Pipeline — 整體流程說�
    - \`needsReanalysis: true\`（必伴隨 \`unchanged: false\`）：Asana 內容真的變了、之前已有進度——不管 \`stage\`/\`verdict\`（含曾經 PASS），都當作沒處理過，從 3.3（分析師）重來，不能沿用舊摘要。
    - 接著 \`advance_ticket_stage({ taskGid: T, stage: "project_dir_confirmed", project_dir: projectDir })\`。
 
-3.2 **讀 SA/SD 規格（強制）**：設定（\`saRoot\`/\`sdMode\`/\`sdRoot\`/\`svnConnectionId\`/\`sdOutputPath\`/\`specOrder\`）已在 \`prepare_project\` 的 \`sasd\` 取得，不用再查、不用重驗 SVN；git 根目錄也已在那一步確認（\`run_project_shell\` 的 git 指令會驗證已登記且 repo root 對得上，否則拒絕）。\`sasd\` 為空代表還沒登記，先回步驟 1。
-   **SA 管前端、SD 管後端，兩份規格不能越界互相支援**：後端只依 SD 明確寫出的欄位/業務邏輯/檢核規則實作；前端只依 SA 的畫面/欄位/互動規則實作，不把 SD 後端細節套成前端驗證或文字；SD/SA 都沒涵蓋、但票單或留言提到的細節，停下來問使用者算不算這張票的範圍，不能先斬後奏，問答記進 01/02。（SD 提少量前端顯示邏輯屬正常。）
-   **SA 一定要讀**：\`saRoot\` 已登記就依票單標的 SA 版本/功能代號到 SVN 找來讀（曾因只讀 SD 而漏掉整個前端）；找不到 SA 要問使用者，不能預設前端不做。
-   依 \`sdMode\` 處理這張票：
-   - \`external\`／\`self\` 讀取規格：**一律以 SVN 遠端為準**，用 \`svn_browse\`/\`svn_cat\`（帶登記的 \`svnConnectionId\`）在 \`saRoot\`/\`sdRoot\` 底下用票號/票名關鍵字找規格（docx 要連 \`svn_doc_images\` 一起抓圖）。**不要讀 \`projectDir\` 底下可能存在的本機 checkout**——使用者不一定有更新，會讀到過期規格（所以 register 時要先驗證 SVN 連線）。找到就讀內容並 \`record_sasd_check({ taskGid: T, hasSasd: true, sasdInfo: "<SVN 路徑 + 內容摘要；external 註明「外部規格，只能參考不能建議修改」>" })\`；找不到就 \`hasSasd: false\`。
-   - \`external\`：SD 是別人的，絕對不能建議修改 SD 本身，只能讓程式碼配合它。
-   - \`self\`：SD 是自己團隊產的；判斷 SD 本身也需要更新時，可在 \`sasdInfo\` 或 02/03 寫出建議修改的段落，但不要嘗試寫回 SVN（唯讀），交人工更新。
-   - \`self-generated\`：\`read_project_sd_doc({ projectGid, projectDir })\` 取得自維護的 SD（本機 \`sdOutputPath\` 檔案，第一次可能是空的）當設計依據；需要時可用 \`write_project_sd_doc({ projectGid, projectDir, content: <完整 SD> })\` 真的寫到 \`sdOutputPath\`，寫完提醒使用者可自行傳 SVN。\`record_sasd_check({ taskGid: T, hasSasd: true, sasdInfo: "自維護 SD 文件，見 sdOutputPath" })\`。
-   - \`unregistered\`：唯一要逐票問的情況——問使用者「這張票有沒有對應的 SD？在哪裡？」，依答案 \`record_sasd_check\`；不要因專案登記過 \`unregistered\` 就假設這張票也沒有。
-   無法跳過：寫 \`01-analysis.md\` 前工具會檢查是否呼叫過 \`record_sasd_check\`，沒有就拒絕。
+3.2 **規格（強制）**：設定已在 \`prepare_project\` 的 \`sasd\` 取得，不用再查；\`sasd\` 為空先回步驟 1。依 \`sdMode\` 到哪讀 SA/SD、\`record_sasd_check\` 怎麼記，都寫在分析師角色說明（3.3）；寫 \`01-analysis.md\` 前沒呼叫 \`record_sasd_check\` 會被工具拒絕。SA 管前端、SD 管後端不可越界，規格沒涵蓋的細節先問使用者。
 
-3.3 分析師：\`get_role_prompt({ role: "analyst", projectDir })\`（可派子任務）分析（可先 \`get_recent_commits({ gitDir: projectDir })\` 拿異動脈絡；有 SA/SD 規格一定要納入依據）。完成後 \`write_ticket_artifact({ taskGid: T, filename: "01-analysis.md", content, summary })\`，再 \`advance_ticket_stage({ taskGid: T, stage: "analyzed" })\`。
+3.3 分析師：\`get_role_prompt({ role: "analyst", projectDir })\`（可派子任務）。產出 \`01-analysis.md\`（\`write_ticket_artifact\`，含 \`summary\`），再推進到 \`analyzed\`；可先 \`get_recent_commits({ gitDir: projectDir })\` 拿異動脈絡。
 
 3.4 （只有 \`sdMode: "self-generated"\` 且 \`specOrder: "spec_first"\`；\`code_first\` 改在 3.5 之後做 3.6；其他 sdMode 直接跳到 3.5）**規格先定案才能寫程式碼**：\`get_role_prompt({ role: "spec-writer", projectDir })\`（可派子任務），產出/更新 SD 草稿（\`write_project_sd_doc\`），\`advance_ticket_stage({ taskGid: T, stage: "sd_drafted" })\` 後**停在這裡，不要自己接著當工程師**，告訴使用者草稿在哪個檔案，等他 \`record_spec_confirmation\`。\`confirmed: true\` 才能進 3.5；\`false\` 依打回意見修改、重推 \`sd_drafted\`，直到通過。
 
-3.5 工程師：先 \`get_ticket_status({ taskGid: T })\` 看 \`summaries.analysis\`（接手的預設依據；摘要不足才 \`read_ticket_artifact\` 讀 \`01-analysis.md\` 全文）。\`get_role_prompt({ role: "engineer", projectDir })\`（可派子任務），用 \`write_project_file\` 改檔、\`run_project_shell\` 檢查/記錄變更（git 根目錄已在步驟 1 確認）。完成後 \`write_ticket_artifact({ taskGid: T, filename: "02-implementation.md", content, summary, syncNote, manualActions })\`（\`syncNote\`、\`manualActions\` 必填，規則見角色說明），再 \`advance_ticket_stage({ taskGid: T, stage: "implemented" })\`。\`self-generated\` 且 \`code_first\` 的票，做完緊接 3.6，不要直接跳到 3.7。
+3.5 工程師：先 \`get_ticket_status\` 看 \`summaries.analysis\`（不夠才 \`read_ticket_artifact\` 讀全文），再 \`get_role_prompt({ role: "engineer", projectDir })\`（可派子任務）。改檔只用 \`write_project_file\`，檢查用 \`run_project_shell\`。產出 \`02-implementation.md\`（\`syncNote\`、\`manualActions\` 必填），推進到 \`implemented\`。\`self-generated\` 且 \`code_first\` 的票，做完緊接 3.6，不要直接跳到 3.7。
 
 3.6 （只有 \`self-generated\` 且 \`code_first\`；\`spec_first\` 已在 3.4 做過）**依剛寫完的程式碼反推補規格**：\`get_role_prompt({ role: "spec-writer", projectDir })\`（可派子任務），依工程師實際改動反推完整 SD 草稿（見 spec-writer 說明的 \`code_first\` 段）；\`write_project_sd_doc\`、\`advance_ticket_stage({ ..., stage: "sd_drafted" })\` 後同 3.4 **停下**等 \`record_spec_confirmation\`（告知這是依程式碼反推、在哪個檔案）。\`true\` 才能進 3.7；\`false\` 依意見修改重推 \`sd_drafted\`。
 
-3.7 驗證師：先 \`get_ticket_status\` 看 \`summaries.analysis\`/\`summaries.implementation\`（不夠才 \`read_ticket_artifact\` 讀全文）。\`get_role_prompt({ role: "verifier", projectDir })\`（可派子任務），檢查修改是否真的解決票單問題。\`write_ticket_artifact({ taskGid: T, filename: "03-verification.md", content, summary, syncNote, manualActions })\`，再 \`advance_ticket_stage({ taskGid: T, stage: "verified", verdict: "PASS"|"FAIL", rootCause: <FAIL 必填："analysis"|"implementation"，分析方向本身錯了還是單純實作沒做到位> })\`。
+3.7 驗證師：先看 \`summaries.analysis\`/\`summaries.implementation\`，再 \`get_role_prompt({ role: "verifier", projectDir })\`（可派子任務）。產出 \`03-verification.md\`（第一行只寫 PASS／FAIL；\`syncNote\`、\`manualActions\` 必填），再 \`advance_ticket_stage({ taskGid: T, stage: "verified", verdict, rootCause })\`（FAIL 時 \`rootCause\`: \`"analysis"\`｜\`"implementation"\` 必填：分析方向本身錯了，還是單純實作沒做到位）。
    - **FAIL 先看 \`get_ticket_status\` 的 \`needs_human_review\`**：
      - \`false\`（連續 FAIL 未滿 3 次）→ 依 \`03-verification.md\` 理由與 \`rootCause\` 自動決定回哪個角色，不用問使用者：\`"implementation"\` → 回 3.5 修正後重驗；\`"analysis"\` → 回 3.3 重新分析，再依序重跑工程師、驗證師。
      - \`true\`（連續 FAIL 3 次）→ 不再自動重跑，把這幾輪 FAIL 理由整理給使用者問方向。使用者只回「繼續處理」「繼續」這類沒有新資訊的話，不要照做（同一套已失敗 3 次的邏輯重跑只會空轉）；明確告訴他「不能只說繼續，需要你先看過失敗原因、決定怎麼調整方向」，等他給出具體意見（哪怕只是「我覺得問題可能出在 XX」）才繼續。
      - 不管 \`needs_human_review\` 為何，只要判斷不出根因類別、或 FAIL 牽涉需求/規格層級的重大認知落差（例如懷疑票單描述本身有問題），不用等滿 3 次，提前問使用者。
 
-3.8 測試工程師（驗證師判 PASS 之後、人類最終確認之前，每張票都要走）：\`get_role_prompt({ role: "tester", projectDir })\`（可派子任務），依說明跑情境測試。\`write_ticket_artifact({ taskGid: T, filename: "04-test.md", content, summary, syncNote, manualActions })\`，\`advance_ticket_stage({ taskGid: T, stage: "tested", verdict: "PASS"|"FAIL", rootCause?: ... })\`——verdict/rootCause/連續 FAIL 判斷與 FAIL 處理跟 3.7 共用同一套機制。
+3.8 測試工程師（驗證師判 PASS 之後、人類最終確認之前，每張票都要走）：\`get_role_prompt({ role: "tester", projectDir })\`（可派子任務）。先 \`record_test_evidence\`，產出 \`04-test.md\`，推進到 \`tested\`；verdict/rootCause/連續 FAIL 判斷與 FAIL 處理跟 3.7 共用同一套機制。
 
 ## 步驟 4：彙整報告
 全部處理完，整理表格（票單／專案目錄／SD 模式／結果／備註），並提醒：程式碼異動是否 commit 由主流程依使用者指示決定（子代理人不自行 commit），都還沒 push，需人工決定要不要推。「需要人工處理」七類項目不用重新彙整——步驟 2 帶了 \`projectName\` 就已寫進 \`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.html\`，告訴使用者這份檔案存在、位置在哪（任何 session 都能直接開來看）；細節以那份檔案為準，不用在聊天逐條重列。這次新驗證 PASS 的票仍要口頭提一下（票名 + \`taskGid\`）。

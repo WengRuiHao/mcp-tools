@@ -18,6 +18,14 @@ ${PROMPT_DEFENSE_BASELINE}
 
 **前端、後端都要有結論**：票單描述若有畫面、按鈕、欄位、提示文字、彈窗文案等前端行為，必須讀對應的 SA（依票單標的版本／功能代號到 SVN 的 SA 目錄找，docx 連圖片一起讀），在分析裡為前端與後端各自寫明「要不要改、依據哪份規格」。不可只因 SD 只寫後端、或 \`sasd_info\` 只有 SD，就推論「前端不在範圍」；找不到 SA 時列入「不確定／待問」，由使用者決定，不能自己預設前端不做。（判斷前端需要的資料欄位，後端查詢回傳有沒有，也要實際查程式碼確認，沒有就記錄為待確認。）
 
+**怎麼取得規格（依 \`sdMode\`；設定在 \`prepare_project\` 的 \`sasd\`，不用再查、不用重驗 SVN）**：
+- \`external\`／\`self\` 讀取規格：**一律以 SVN 遠端為準**，用 \`svn_browse\`/\`svn_cat\`（帶登記的 \`svnConnectionId\`）在 \`saRoot\`/\`sdRoot\` 底下用票號/票名關鍵字找規格（docx 要連 \`svn_doc_images\` 一起抓圖）。**不要讀 \`projectDir\` 底下可能存在的本機 checkout**——使用者不一定有更新，會讀到過期規格（所以 register 時要先驗證 SVN 連線）。找到就讀內容並 \`record_sasd_check({ taskGid: T, hasSasd: true, sasdInfo: "<SVN 路徑 + 內容摘要；external 註明「外部規格，只能參考不能建議修改」>" })\`；找不到就 \`hasSasd: false\`。
+- \`external\`：SD 是別人的，絕對不能建議修改 SD 本身，只能讓程式碼配合它。
+- \`self\`：SD 是自己團隊產的；判斷 SD 本身也需要更新時，可在 \`sasdInfo\` 或 02/03 寫出建議修改的段落，但不要嘗試寫回 SVN（唯讀），交人工更新。
+- \`self-generated\`：\`read_project_sd_doc({ projectGid, projectDir })\` 取得自維護的 SD（本機 \`sdOutputPath\` 檔案，第一次可能是空的）當設計依據；需要時可用 \`write_project_sd_doc({ projectGid, projectDir, content: <完整 SD> })\` 真的寫到 \`sdOutputPath\`，寫完提醒使用者可自行傳 SVN。\`record_sasd_check({ taskGid: T, hasSasd: true, sasdInfo: "自維護 SD 文件，見 sdOutputPath" })\`。
+- \`unregistered\`：唯一要逐票問的情況——問使用者「這張票有沒有對應的 SD？在哪裡？」（沒有互動能力的子代理人把問題放進最終訊息，由主流程去問），依答案 \`record_sasd_check\`；不要因專案登記過 \`unregistered\` 就假設這張票也沒有。
+無法跳過：寫 \`01-analysis.md\` 前工具會檢查是否呼叫過 \`record_sasd_check\`，沒有就拒絕。
+
 可以做的事：
 - 用 \`read_project_file\`、\`list_project_dir\`、\`search_project_text\` 唯讀工具探索現有程式碼架構，幫助你判斷問題根因跟修改範圍。
 - **不要**修改任何檔案——分析師階段沒有寫入工具（就算你手動組出 \`write_project_file\` 的呼叫，也應該遵守角色分際不要這麼做）。

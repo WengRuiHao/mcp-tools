@@ -5,6 +5,7 @@ import { makeTmpDir, removeDir, writeFile, connectClient, callTool, isolateDataD
 import { registerPipelineInfoTools } from "../dist/pipeline-info-tools.js";
 import { registerProjectConfigTools } from "../dist/project-config-tools.js";
 import { getOverview, OVERVIEW_SECTIONS } from "../dist/overview-prompts.js";
+import { getRolePrompt } from "../dist/prompts.js";
 
 const data = isolateDataDir();
 const savedDisable = process.env.DEV_PIPELINE_DISABLE_TOOLSETS;
@@ -14,7 +15,7 @@ test.after(() => {
   if (savedDisable !== undefined) process.env.DEV_PIPELINE_DISABLE_TOOLSETS = savedDisable;
 });
 
-const CORE_BUDGET = 10000; // project_config 單一入口的呼叫寫法比舊的單字工具名長，由 9500 放寬
+const CORE_BUDGET = 8000; // 規格取得細節已搬進分析師角色說明，核心只留調度流程；超過就該再搬出去
 const APPENDIX_A_TITLE = "附錄 A"; // appendix A
 const APPENDIX_B_TITLE = "附錄 B";
 const APPENDIX_C_TITLE = "附錄 C";
@@ -148,3 +149,21 @@ test("project_config project_dir register: 沒有 gates.json 時附 gatesHint，
       removeDir(withGates);
     }
   }));
+
+test("overview: 步驟編號為 1~4 與 3.1~3.8，且開工準備走 prepare_project", () => {
+  const core = getOverview("core");
+  for (const heading of ["## 步驟 1：開工準備", "## 步驟 2：找出待處理票單", "## 步驟 3：對每一張票單 T 執行", "## 步驟 4：彙整報告"]) {
+    assert.ok(core.includes(heading), heading);
+  }
+  for (let i = 1; i <= 8; i++) assert.ok(core.includes(`\n3.${i} `), `3.${i}`);
+  assert.ok(core.includes("prepare_project"));
+  assert.ok(!/\n(4|5|6)\.5\. /.test(core), "不應再有小數分叉編號");
+});
+
+test("analyst prompt: 依 sdMode 取得規格的細節在分析師角色說明（不在核心流程）", () => {
+  const analyst = getRolePrompt("analyst");
+  for (const needle of ["svn_cat", "record_sasd_check", "external", "self-generated", "unregistered", "本機 checkout"]) {
+    assert.ok(analyst.includes(needle), `analyst lost ${needle}`);
+  }
+  assert.ok(!getOverview("core").includes("本機 checkout"), "核心流程不該再帶規格讀取細節");
+});

@@ -381,7 +381,7 @@ node --import ./tests/helpers/safe-env.mjs --test tests/gates.test.mjs   # 單�
 
 | 工具 | 用途 |
 |---|---|
-| `get_pipeline_overview` | 取得整條流程說明（第一步一定先呼叫）。預設只回傳核心流程（約 9.5K 字），其餘情境用 `section` 取：`setup`（第一次設定問答）、`appendix-a`（子任務派工）、`appendix-b`（換 session 接手）、`appendix-c`（測試員回報）、`all`（全部） |
+| `get_pipeline_overview` | 取得整條流程說明（第一步一定先呼叫）。預設只回傳核心流程（約 7.5K 字），其餘情境用 `section` 取：`setup`（第一次設定問答）、`appendix-a`（子任務派工）、`appendix-b`（換 session 接手）、`appendix-c`（測試員回報）、`all`（全部） |
 | `get_role_prompt` | 取得分析師／規格撰寫者／工程師／驗證師／測試工程師其中一個角色的職責說明（`spec-writer` 只有 `sdMode: "self-generated"` 才需要；`tester` 每張票都會經過，是 `verifier` 判 PASS 之後、人類最終確認之前新增的一階）。帶 `projectDir`（或 `taskGid` 反查）時，若 `<projectDir>/.pipeline/roles/<role>.md` 存在（舊位置 `.claude/pipeline-roles/` 也讀得到，新位置優先），內容會附加在通用說明後面當作專案專屬補充規則（衝突時以補充規則為準），讓各專案自己的開發步驟、路徑慣例、驗證方式不必改 MCP 程式碼。專案登記的 test capability 為 `none` 時，`engineer` 說明省略自動化測試詳細規則（由 `projectDir` 反查，查不到或設定不一致則維持完整說明）。帶 `taskGid` 且票單有 `project_gid` 時，規格撰寫者／工程師／驗證師說明只保留該專案 `sdMode`／`specOrder` 適用的分支，自動化測試設定也改用 gid 精準查；任何一項查不到就回完整說明。每個角色說明末端附「一次載入所需工具」：一行可貼上的 `ToolSearch` 查詢（`select:mcp__dev-pipeline-mcp__…`）與不該自己呼叫的使用者專屬工具。選填 `forSubagent: true`（2026-10-28 起，需帶 `taskGid`）會在最前面加上派工簡報（由票單狀態自動帶入 taskGid／projectGid／projectDir／票號／stage／sdMode／nextAction、該角色的寫入目標與必填欄位、環境陷阱、回報格式），整段當子代理人 prompt；查不到票單時回傳 `success: false` |
 | `get_project_rules` | 取得專案自己定義的開發規則（`.pipeline/roles/all.md` 共通規則、有哪些角色專屬規則檔、有沒有分析關卡）。**不走票單流程、單純要在某個專案寫程式碼時，開始前先呼叫這個**；走票單流程時 `get_role_prompt` 已自動附上。`projectDir`／`taskGid` 擇一 |
 | `list_rule_history` | 列出專案規則檔（`.pipeline/` 底下）的歷史快照；不帶 `file` 列出有快照的檔案，帶 `file` 列出該檔案的快照（新到舊） |
