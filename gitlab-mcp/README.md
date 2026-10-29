@@ -104,3 +104,7 @@ GitLab 本身沒有「這條分支是拿來幹嘛的」欄位，這支 MCP 額�
 npm install
 npm run build
 ```
+
+## 打包成單檔（加快 MCP 啟動）
+
+`npm run build:bundle` 會先 `tsc` 編譯，再用 esbuild 把 `dist/` 打成 `dist/index.bundle.js`，啟動從數秒降到不到 1 秒。`dist/` 不進版控，重新 clone 後要先 `npm install` 再跑這個指令，MCP 設定的 args 指向這個單檔才起得來。
