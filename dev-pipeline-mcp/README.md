@@ -348,7 +348,7 @@ npm run build
 
 用環境變數縮小工具清單（tools/list）送進 AI 上下文的量；**預設（沒設）全部註冊**。
 
-![工具群組可關閉：預設全部註冊共 49 個工具；用環境變數 DEV_PIPELINE_DISABLE_TOOLSETS 可關掉 worktree 群組（8 個，關後剩 41 個）或 bridge 群組（11 個，關後剩 38 個），兩個都關剩 30 個核心工具；內部流程不經過這些可關閉的工具，關閉不影響運作](docs/img/toolsets.svg)
+![工具群組可關閉：預設全部註冊共 50 個工具；用環境變數 DEV_PIPELINE_DISABLE_TOOLSETS 可關掉 worktree 群組（8 個，關後剩 42 個）或 bridge 群組（11 個，關後剩 39 個），兩個都關剩 31 個核心工具；內部流程不經過這些可關閉的工具，關閉不影響運作](docs/img/toolsets.svg)
 
 ```json
 "env": { "DEV_PIPELINE_DISABLE_TOOLSETS": "worktree,bridge" }
@@ -377,7 +377,7 @@ node --import ./tests/helpers/safe-env.mjs --test tests/gates.test.mjs   # 單�
 ## 提供的工具
 
 <details>
-<summary>展開完整工具清單（49 個）</summary>
+<summary>展開完整工具清單（50 個）</summary>
 
 | 工具 | 用途 |
 |---|---|
@@ -386,6 +386,7 @@ node --import ./tests/helpers/safe-env.mjs --test tests/gates.test.mjs   # 單�
 | `get_project_rules` | 取得專案自己定義的開發規則（`.pipeline/roles/all.md` 共通規則、有哪些角色專屬規則檔、有沒有分析關卡）。**不走票單流程、單純要在某個專案寫程式碼時，開始前先呼叫這個**；走票單流程時 `get_role_prompt` 已自動附上。`projectDir`／`taskGid` 擇一 |
 | `list_rule_history` | 列出專案規則檔（`.pipeline/` 底下）的歷史快照；不帶 `file` 列出有快照的檔案，帶 `file` 列出該檔案的快照（新到舊） |
 | `restore_rule_file` | 把規則檔還原成某個快照；還原前會先把目前內容存成快照，所以還原本身也能反悔 |
+| `prepare_project` | 開工準備（取代逐個 `project_config` resolve）：一次回傳預設 Asana 專案、`projectDir`、SA/SD 設定、git 根目錄，缺項列在 `missing`（附要問你的說明）；只讀、不登記任何東西。處理票單開頭呼叫一次即可 |
 | `project_config` | 專案層級設定的單一入口：`project_config({ kind, action: "resolve" \| "register", ... })`（2026-10-27 起取代原本 7 組 `resolve_*`／`register_*`，舊工具名稱不再提供）。`kind` 與各自欄位：
 `default_project`（resolve `{cwd}`；register `{workspaceGid, projectGid, projectName, cwd}`；帶 `cwd` 時依工作目錄各自登記、往上找最近一層，不借用別的目錄的預設；不帶 `cwd` 才讀舊的全域單一值）、`project_dir`（`{projectGid}`／register 加 `projectDir`；Asana 專案 → 程式碼目錄，沒有 `gates.json` 時回傳 `gatesHint`）、`sasd_config`（`{projectGid}`／register `{projectGid, saRoot, sdMode, sdRoot?, svnConnectionId?, sdOutputPath?, specOrder?}`；`external`/`self`（或 `saRoot` 是 SVN 真實路徑）一定要帶 `svnConnectionId`，會真的驗證 SVN 連線、並確認 `saRoot`／`sdRoot` 存在於該 repo（正斜線、相對於 repo 根）才登記成功；`self-generated` 還要額外登記 `specOrder`（`spec_first`/`code_first`））、`legacy_test_profile`（`{projectGid}`／register 加 `legacyTestProfile`；是否套用測試工程師說明書的「老舊系統測試」章節，預設 `false`，只有使用者明確告知才登記為 `true`，不自動偵測）、`test_capability`（`{projectGid}`／register 加 `mode`（`modern`/`legacy_junit4`/`none`）、`note?`；工程師階段能不能寫自動化測試、用哪套工具鏈，測試工程師階段依此決定要不要重跑工程師補的測試）、`git_roots`（`{projectDir}`／register 加 `gitRoots:[{label,path}]`；專案目錄實際的 git 版控根目錄，可前後端分開）、`svn_workcopies`（`{projectDir}`／register 加 `workCopies:[{label,workCopyPath,connectionId}]`；SVN 工作副本，登記前會驗證；**只存設定，不能修改 SVN**，上傳/更新/刪除只能由使用者在報告網頁上按按鈕）。resolve 找不到（`found:false`）時多數 kind 回傳 `needsInput` 與 `instructions`；缺欄位時錯誤訊息會指出是哪個 `kind`／`action` 缺什麼 |
 | `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單；可只列指派給自己的票（`onlyAssignedToMe` 參數或 `.pipeline/settings.json`）；附上 `awaitingConfirmation`（AI 已 PASS、還卡在使用者自測這關的舊票）、`needsHumanReview`（連續 FAIL 已達門檻）、`contentChangedList`（先前處理過、Asana 內容後來又被改過**或使用者主動要求重新確認**的票）、`manualActions`（有待使用者手動處理事項的票），一般待處理清單裡也會標記 `humanRejected: true`（人類打回、需比照 AI 驗證師 FAIL 處理的票）、`humanRequestedReanalysis: true`（使用者在網頁上勾了「請 AI 優先處理」，這次批次一定要處理，見 `request_reanalysis`）。**帶 `projectName` 會把這七類整份寫進互動網頁 `PENDING_HUMAN_ACTIONS.html`**（見下方說明）。可用 `dueOn`（`today`／`overdue`／`today_or_overdue`／`YYYY-MM-DD`）、`search`（2026-10-28 起：票號完全相等或標題包含此字串，不分大小寫）與 `limit` 縮小一般待處理清單：只作用在 `tickets`，需要使用者看的清單（待確認、待確認規格、卡住、手動待辦、未 commit）與 `PENDING_HUMAN_ACTIONS.html` 不受影響；帶了 `dueOn` 會排除沒有到期日的票；超過 `limit` 會附 `truncated`／`totalMatched`／`truncatedNote`，不會悄悄截斷。**快取**：同一專案 60 秒內重複呼叫會用 asana-mcp 的快取（約 0.03 秒，強制重抓約 7～18 秒），回傳會多 `boardFromCache: true` 與 `boardAgeSeconds`；帶 `refresh: true` 強制重抓。60 秒內才在 Asana 改的指派或到期日可能還看不到；快取失敗會自動退回強制重抓 |

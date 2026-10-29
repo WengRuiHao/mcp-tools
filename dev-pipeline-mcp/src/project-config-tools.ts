@@ -278,7 +278,67 @@ export async function handleProjectConfig(args: { kind: ProjectConfigKind; actio
   return action === "resolve" ? resolveConfig(kind, parsed.data as any) : registerConfig(kind, parsed.data as any);
 }
 
+interface MissingConfig {
+  kind: ProjectConfigKind;
+  instructions: string;
+}
+
+/** 開工準備：一次查完專案、程式碼目錄、規格設定、git 根目錄；缺哪項就列出 instructions。 */
+export async function handlePrepareProject(args: { cwd?: string | null; projectGid?: string | null }) {
+  const missing: MissingConfig[] = [];
+  let projectGid = args.projectGid ?? null;
+  let projectName: string | null = null;
+  let workspaceGid: string | null = null;
+  if (!projectGid) {
+    const project = await resolveDefaultProject(args.cwd ?? null);
+    if (project) {
+      projectGid = project.projectGid;
+      projectName = project.projectName;
+      workspaceGid = project.workspaceGid;
+    } else {
+      missing.push({ kind: "default_project", instructions: SETUP_DEFAULT_PROJECT });
+    }
+  }
+  let projectDir: string | null = null;
+  let sasd: Record<string, unknown> | null = null;
+  let gitRoots: GitRootEntry[] | null = null;
+  if (projectGid) {
+    projectDir = (await resolveProjectDir(projectGid)) ?? null;
+    if (!projectDir) missing.push({ kind: "project_dir", instructions: SETUP_PROJECT_DIR });
+    const sasdConfig = await resolveSasdConfig(projectGid);
+    if (sasdConfig) sasd = { ...sasdConfig };
+    else missing.push({ kind: "sasd_config", instructions: SETUP_SASD_CONFIG });
+  }
+  if (projectDir) {
+    gitRoots = (await resolveGitRoots(projectDir)) ?? null;
+    if (!gitRoots) missing.push({ kind: "git_roots", instructions: SETUP_GIT_ROOTS });
+  }
+  const ready = missing.length === 0;
+  return textResult({
+    ready,
+    projectGid,
+    projectName,
+    workspaceGid,
+    projectDir,
+    sasd,
+    gitRoots,
+    missing,
+    nextStep: ready
+      ? "設定齊全，直接呼叫 list_pending_tickets（帶 projectGid 與 projectName）。"
+      : `缺 ${missing.map((m) => m.kind).join("、")}：照 missing 裡 instructions 問使用者並用 project_config register 登記（一次只處理一項，default_project 與 project_dir 要先），再重新呼叫 prepare_project。`,
+  });
+}
+
 export function registerProjectConfigTools(server: McpServer): void {
+  server.tool(
+    "prepare_project",
+    "開工準備（取代逐個 project_config resolve）：一次回傳預設 Asana 專案、projectDir、SA/SD 設定、git 根目錄；缺項列在 missing（含要問使用者的 instructions）。只讀、不登記任何東西。處理票單開頭呼叫一次即可。",
+    {
+      cwd: z.string().nullable().optional().describe("目前工作目錄絕對路徑（沒帶 projectGid 時用來找預設專案，一律帶）"),
+      projectGid: z.string().nullable().optional().describe("已知 Asana 專案 gid 時帶，略過預設專案查詢"),
+    },
+    async (args) => handlePrepareProject(args)
+  );
   server.tool(
     "project_config",
     PROJECT_CONFIG_DESCRIPTION,

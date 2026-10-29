@@ -370,7 +370,7 @@
 
   <section id="tools" class="reveal">
     <h2><span class="num">06</span> 工具總覽</h2>
-    <p class="kicker">總共 49 個工具，分成幾大類。每一類點開來看，裡面有實際的工具名稱（給負責設定的工程師對照用）跟白話說明——大多數情況下你不需要知道這些名字，AI 助理會自己判斷該呼叫哪一個。</p>
+    <p class="kicker">總共 50 個工具，分成幾大類。每一類點開來看，裡面有實際的工具名稱（給負責設定的工程師對照用）跟白話說明——大多數情況下你不需要知道這些名字，AI 助理會自己判斷該呼叫哪一個。</p>
 
     <div class="cat-list">
       <details class="cat" open>
@@ -381,6 +381,7 @@
         </summary>
         <div class="cat-body">
           <div class="example"><b>可以這樣問：</b>「處理今天的問題單」</div>
+          <div class="tool-row"><code>prepare_project</code><span>開工準備：一次查完預設 Asana 專案、程式碼目錄、規格設定與 git 根目錄，缺哪項就列出來並附上要問你的說明；只讀、不會登記任何東西，取代逐項查詢</span></div>
           <div class="tool-row"><code>get_pipeline_overview</code><span>取得整條流程說明，AI 開始前一定先讀這個；預設只給核心流程，其他情境（第一次設定、子任務派工等）需要時才另外取</span></div>
           <div class="tool-row"><code>list_pending_tickets</code><span>列出這個專案尚未處理完的票單，順便整份重寫 PENDING_HUMAN_ACTIONS.html；可只看今天到期的票或限制筆數，不會一次回傳整個專案；帶 <code>search</code>（票號或標題關鍵字）可只查某張票，此時省略各票待辦明細以節省上下文</span></div>
           <div class="tool-row"><code>get_ticket_status</code><span>看單一張票目前的進度、驗證結果、確認狀態，並直接告訴 AI 下一步該做什麼、目前被什麼擋住</span></div>
