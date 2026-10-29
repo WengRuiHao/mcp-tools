@@ -105,3 +105,11 @@ test("e2e: search never shrinks the PENDING_HUMAN_ACTIONS.html report", async ()
   assert.ok(full.includes("g4") || full.includes("UGLT-7"));
   assert.equal(filtered.replace(/\d{4}-\d\d-\d\d[T ][\d:.]+Z?/g, ""), full.replace(/\d{4}-\d\d-\d\d[T ][\d:.]+Z?/g, ""));
 });
+
+test("e2e: with search the manualActions detail is omitted, without search it is returned", async () => {
+  const withSearch = await list({ search: "uglt-159" });
+  assert.equal(withSearch.manualActions, undefined);
+  assert.equal(typeof withSearch.manualActionsCount, "number");
+  const withoutSearch = await list({});
+  assert.ok(Array.isArray(withoutSearch.manualActions));
+});

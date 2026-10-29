@@ -382,7 +382,7 @@
         <div class="cat-body">
           <div class="example"><b>可以這樣問：</b>「處理今天的問題單」</div>
           <div class="tool-row"><code>get_pipeline_overview</code><span>取得整條流程說明，AI 開始前一定先讀這個；預設只給核心流程，其他情境（第一次設定、子任務派工等）需要時才另外取</span></div>
-          <div class="tool-row"><code>list_pending_tickets</code><span>列出這個專案尚未處理完的票單，順便整份重寫 PENDING_HUMAN_ACTIONS.html；可只看今天到期的票或限制筆數，不會一次回傳整個專案</span></div>
+          <div class="tool-row"><code>list_pending_tickets</code><span>列出這個專案尚未處理完的票單，順便整份重寫 PENDING_HUMAN_ACTIONS.html；可只看今天到期的票或限制筆數，不會一次回傳整個專案；帶 <code>search</code>（票號或標題關鍵字）可只查某張票，此時省略各票待辦明細以節省上下文</span></div>
           <div class="tool-row"><code>get_ticket_status</code><span>看單一張票目前的進度、驗證結果、確認狀態，並直接告訴 AI 下一步該做什麼、目前被什麼擋住</span></div>
           <div class="tool-row"><code>get_ticket_activity</code><span>看票單完整活動時間軸（留言＋系統事件＋附件）</span></div>
           <div class="tool-row"><code>project_config</code>（<code>kind="default_project"</code>，<code>action</code> 選 <code>resolve</code> 查詢／<code>register</code> 登記）<span>查詢/登記「今天的問題單」預設看哪個 Asana 專案（可依工作目錄各自登記）</span></div>
@@ -400,7 +400,7 @@
         </summary>
         <div class="cat-body">
           <div class="example"><b>可以這樣問：</b>不用特別問，AI 依流程自動切換角色</div>
-          <div class="tool-row"><code>get_role_prompt</code><span>取得某個角色該做什麼的完整說明；專案有自己的規則時會一併附上</span></div>
+          <div class="tool-row"><code>get_role_prompt</code><span>取得某個角色該做什麼的完整說明；專案有自己的規則時會一併附上，並列出該角色「一次載入所需工具」的清單；派給子代理人時帶 <code>forSubagent</code>，會自動附上票單資訊、寫入目標、環境陷阱與回報格式（角色與票單進度不符時會警示）</span></div>
           <div class="tool-row"><code>get_project_rules</code><span>取得這個專案自己定義的開發規則（開發前要先讀哪些規範檔）；不走票單流程、單純寫程式時也能用</span></div>
           <div class="tool-row"><code>list_rule_history</code> / <code>restore_rule_file</code><span>查看與還原專案規則檔的歷史版本（改壞或誤刪時救回來）</span></div>
           <div class="tool-row"><code>get_ticket_snapshot</code><span>抓票單內容＋留言，子任務會自動偵測父票單</span></div>
@@ -418,7 +418,7 @@
         <div class="cat-body">
           <div class="example"><b>可以這樣問：</b>「我測過了，沒問題」／在網頁上按按鈕</div>
           <div class="tool-row"><code>record_confirmation</code><span>記錄你自己實測＋審視程式碼的結果，只有你確認過才算真正結案</span></div>
-          <div class="tool-row"><code>record_spec_confirmation</code><span>確認/打回 AI 產出的規格草稿（僅特定專案）</span></div>
+          <div class="tool-row"><code>record_spec_confirmation</code><span>確認/打回 AI 產出的規格草稿（僅特定專案）；你明確表示本票不需要 SD 時，可帶 <code>sdNotRequired</code> 與你的原話 <code>userInstruction</code> 記錄（AI 不可自行決定略過）</span></div>
           <div class="tool-row"><code>resolve_manual_action</code><span>把「你手動處理完了」的一項從清單移除</span></div>
           <div class="tool-row"><code>request_reanalysis</code><span>標記「請 AI 優先重新確認」這張票（純標記，不會立刻執行）</span></div>
         </div>
@@ -463,11 +463,11 @@
         </summary>
         <div class="cat-body">
           <div class="example"><b>可以這樣問：</b>（AI 依需要自動呼叫）</div>
-          <div class="tool-row"><code>read_project_file</code> / <code>write_project_file</code> / <code>list_project_dir</code> / <code>search_project_text</code><span>讀寫/列目錄/搜尋專案裡的程式碼檔案</span></div>
+          <div class="tool-row"><code>read_project_file</code> / <code>write_project_file</code> / <code>list_project_dir</code> / <code>search_project_text</code><span>讀寫/列目錄/搜尋專案裡的程式碼檔案；寫入的取代模式相容 CRLF 換行，搜尋可用 <code>path</code>／<code>fileExtensions</code> 縮小範圍</span></div>
           <div class="tool-row"><code>svn_cat</code> / <code>svn_browse</code> / <code>svn_doc_images</code> / <code>svn_log</code> / <code>svn_diff</code><span>唯讀查詢 SVN 上的規格書（含圖片）、修改紀錄與版本差異</span></div>
           <div class="tool-row"><code>svn_find_repo</code><span>依關鍵字（repo 名稱、舊名稱、簡稱、常用目錄暱稱）找 SVN 專案庫，回傳 connectionId 與常用目錄；提到專案名稱時先用它</span></div>
           <div class="tool-row"><code>svn_list_connections</code> / <code>svn_test_connection</code><span>列出/測試可用的 SVN 連線</span></div>
-          <div class="tool-row"><code>run_project_shell</code><span>執行編譯/測試指令；git 指令會核對版控根目錄</span></div>
+          <div class="tool-row"><code>run_project_shell</code><span>執行編譯/測試指令（Windows PowerShell 5.1，可用 <code>timeoutMs</code> 設逾時，失敗或逾時仍保留已收集的輸出）；git 指令會核對版控根目錄</span></div>
           <div class="tool-row"><code>get_recent_commits</code><span>查最近的 git 修改紀錄</span></div>
           <div class="tool-row"><code>project_config</code>（<code>kind="git_roots"</code>，<code>action</code> 選 <code>resolve</code> 查詢／<code>register</code> 登記）<span>查詢/登記專案實際的 git 版控根目錄（前後端可分開）；沒登記就不能執行 git 指令</span></div>
         </div>

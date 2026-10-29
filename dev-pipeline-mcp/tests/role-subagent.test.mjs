@@ -131,3 +131,33 @@ test("appendix-a describes the standard dispatch and keeps the core untouched", 
   for (const needle of ["forSubagent: true", "ToolSearch", "最終訊息就是交付物", "get_pipeline_overview"]) assert.ok(a.includes(needle), needle);
   assert.ok(a.length <= 1200, `appendix-a is ${a.length} chars`);
 });
+
+test("roleMismatchWarning flags a role that nextAction does not name", async () => {
+  const { roleMismatchWarning } = await import("../dist/subagent-brief.js");
+  const toTester = "目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據。";
+  assert.equal(roleMismatchWarning("tester", toTester), null);
+  assert.match(roleMismatchWarning("engineer", toTester), /角色與票單進度可能不符/);
+  const toEngineer = "目前 stage=analyzed。下一步：工程師：寫 02-implementation.md。";
+  assert.equal(roleMismatchWarning("engineer", toEngineer), null);
+  assert.match(roleMismatchWarning("tester", toEngineer), /測試工程師/);
+  assert.match(roleMismatchWarning("verifier", "規格草稿等使用者確認，不要自行推進。"), /驗證師/);
+});
+
+test("forSubagent brief carries the mismatch warning only when the role is wrong", async () => {
+  const { buildSubagentBrief } = await import("../dist/subagent-brief.js");
+  const base = {
+    taskGid: "T",
+    ticketNumber: "PROJ-1",
+    projectName: "P",
+    projectGid: "G",
+    projectDir: "/x",
+    stage: "verified",
+    verdict: "PASS",
+    sdMode: null,
+    specOrder: null,
+    nextActionSummary: "目前 stage=verified。下一步：測試工程師：先記錄測試證據。",
+    blockedBy: [],
+  };
+  assert.match(buildSubagentBrief({ ...base, role: "engineer" }), /角色與票單進度可能不符/);
+  assert.ok(!buildSubagentBrief({ ...base, role: "tester" }).includes("角色與票單進度可能不符"));
+});

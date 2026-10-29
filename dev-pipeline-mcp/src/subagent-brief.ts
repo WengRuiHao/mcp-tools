@@ -9,6 +9,21 @@ const ROLE_LABEL: Record<RoleName, string> = {
   tester: "測試工程師",
 };
 
+// nextAction 的下一步會點名要哪個角色；「工程師」要排除「測試工程師」。
+const ROLE_NEXT_PATTERN: Record<RoleName, RegExp> = {
+  analyst: /分析師/,
+  "spec-writer": /規格撰寫者/,
+  engineer: /(?<!測試)工程師/,
+  verifier: /驗證師/,
+  tester: /測試工程師/,
+};
+
+/** nextAction 沒有點名這個角色，代表主流程可能挑錯角色（例如票已在 verified 卻要工程師簡報）。 */
+export function roleMismatchWarning(role: RoleName, nextActionSummary: string): string | null {
+  if (ROLE_NEXT_PATTERN[role].test(nextActionSummary)) return null;
+  return `⚠ 角色與票單進度可能不符：nextAction 的下一步沒有點名「${ROLE_LABEL[role]}」。若不是刻意重做，請改派 nextAction 指定的角色，不要照這份簡報動手。`;
+}
+
 /** 每個角色要寫入哪個追蹤檔、必填欄位、最後要推進到哪個 stage。與各角色說明的「輸出」段一致。 */
 const ROLE_WRITE_TARGET: Record<RoleName, string> = {
   analyst:
@@ -76,6 +91,8 @@ export function buildSubagentBrief(input: SubagentBriefInput): string {
   if (input.sdMode) lines.push(`- sdMode：${input.sdMode}${input.specOrder ? `、specOrder：${input.specOrder}` : ""}`);
   lines.push(`- nextAction：${input.nextActionSummary}`);
   if (input.blockedBy.length > 0) lines.push(`- 目前被擋住：${input.blockedBy.join("；")}`);
+  const mismatch = roleMismatchWarning(input.role, input.nextActionSummary);
+  if (mismatch) lines.push("", mismatch);
   lines.push("", "## 你要寫入的追蹤檔", ROLE_WRITE_TARGET[input.role], "", ENV_TRAPS, "", REPORT_FORMAT);
   return lines.join("\n");
 }

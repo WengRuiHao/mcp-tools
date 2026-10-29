@@ -65,7 +65,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         .string()
         .nullable()
         .optional()
-        .describe("過濾 `tickets`：票號完全相等或標題包含此字串（不分大小寫）"),
+        .describe("過濾 `tickets`：票號完全相等或標題包含此字串（不分大小寫）。帶 search 時 manualActions 明細會省略（只留 manualActionsCount）"),
       limit: z
         .number()
         .int()
@@ -241,7 +241,11 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         contentChangedCount: contentChangedList.length,
         contentChangedList,
         manualActionsCount: manualActionsForReport.length,
-        manualActions: manualActionsForReport,
+        ...(searchText !== null
+          ? manualActionsForReport.length > 0
+            ? { manualActionsOmittedNote: "帶 search 時省略各票待辦明細以節省上下文（數量見 manualActionsCount）；要看明細請不帶 search，或看報告網頁。" }
+            : {}
+          : { manualActions: manualActionsForReport }),
         ...(uncommittedChanges ? { uncommittedChanges } : {}),
         ...(pendingActionsReportPath ? { pendingActionsReportPath } : {}),
         ...(fromCache ? { boardFromCache: true, boardAgeSeconds: ageSeconds } : {}),
