@@ -11,6 +11,7 @@ import {
   relocateTicketDir,
   writeArtifact,
 } from "./pipeline-store.js";
+import { confirmProjectDirAfterSnapshot } from "./project-dir-confirm.js";
 import { syncPendingActionsReport } from "./pending-actions-sync.js";
 import { detectTicketNumber } from "./ticket-list-filter.js";
 import { textResult } from "./shared.js";
@@ -121,7 +122,8 @@ export function registerTicketSnapshotTools(server: McpServer): void {
       "**內容雜湊沒變時不重寫、不附全文，回傳 unchanged: true**，沿用本機既有檔案繼續。" +
       "**unchanged: false 且 needsReanalysis: true=票之前已 analyzed/implemented/verified，但 Asana 內容後來又改了**：即使原本 PASS 也視為未驗證，要從分析師重走。" +
       "追蹤目錄建在 <projectDir>/.asana-pipeline/<Asana 專案全名稱>/<票號>/。" +
-      "子任務依 task.parent 自動先建父票，巢狀掛在 <父票號>/<子票號>/。",
+      "子任務依 task.parent 自動先建父票，巢狀掛在 <父票號>/<子票號>/。" +
+      "**選填 confirmProjectDir:true**：同一次呼叫內順便確認程式碼目錄（等同接著呼叫 advance_ticket_stage project_dir_confirmed，檢查與狀態寫入相同；已在該階段或更後面不會倒退、重複呼叫無副作用），回傳 projectDirConfirmed。不帶時 snapshot 仍是純粹抓取，不改 stage 推進。",
     {
       taskGid: z.string().describe("任務 gid"),
       projectDir: z.string().describe("程式碼專案目錄絕對路徑（先用 project_config(kind='project_dir') 取得），追蹤目錄建在其下"),
@@ -136,8 +138,13 @@ export function registerTicketSnapshotTools(server: McpServer): void {
         .nullable()
         .optional()
         .describe("票所屬 Asana 專案 gid；會記進狀態，nextAction 與 get_role_prompt 依此給更精準內容"),
+      confirmProjectDir: z
+        .boolean()
+        .nullable()
+        .optional()
+        .describe("true=抓完後同一次呼叫確認 projectDir 為程式碼目錄（省掉另一次 advance_ticket_stage project_dir_confirmed）；省略或 false 不改階段"),
     },
-    async ({ taskGid, projectDir, projectName, ticketNumber, projectGid }) => {
+    async ({ taskGid, projectDir, projectName, ticketNumber, projectGid, confirmProjectDir }) => {
       let result: { ticketNumber: string | null; content: string; dir: string; unchanged: boolean; needsReanalysis: boolean };
       try {
         result = await ensureSnapshotted(taskGid, projectDir, projectName, ticketNumber, 0, projectGid ?? null);
@@ -148,11 +155,22 @@ export function registerTicketSnapshotTools(server: McpServer): void {
       // 這次抓取可能清掉了「請 AI 優先處理」旗標、或更新了 needs_reanalysis——報告不跟著重建的話，網頁會一直停在舊的「已標記」畫面。
       await syncPendingActionsReport(taskGid);
 
+      // 只有明確帶 confirmProjectDir:true 才會推進階段；與 advance_ticket_stage project_dir_confirmed 共用同一份檢查與寫入。
+      let confirmFields: Record<string, unknown> = {};
+      if (confirmProjectDir === true) {
+        const outcome = await confirmProjectDirAfterSnapshot(taskGid, projectDir);
+        await syncPendingActionsReport(taskGid);
+        confirmFields = outcome.projectDirConfirmed
+          ? { projectDirConfirmed: true }
+          : { projectDirConfirmed: false, confirmProjectDirError: outcome.message };
+      }
+
       if (result.unchanged) {
         return textResult({
           success: true,
           taskGid,
           ticketNumber: result.ticketNumber,
+          ...confirmFields,
           unchanged: true,
           needsReanalysis: result.needsReanalysis,
           message: result.needsReanalysis
@@ -165,6 +183,7 @@ export function registerTicketSnapshotTools(server: McpServer): void {
         success: true,
         taskGid,
         ticketNumber: result.ticketNumber,
+        ...confirmFields,
         unchanged: false,
         needsReanalysis: result.needsReanalysis,
         content: result.content,

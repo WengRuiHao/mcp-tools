@@ -29,6 +29,7 @@ import { filterAndLimitTickets, localDateString, detectTicketNumber, DUE_ON_DATE
 import { computeNextAction } from "./next-action.js";
 import { sasdForStatus, statusResponse, verboseParam } from "./stage-response.js";
 import { createBoardFetcher } from "./board-cache.js";
+import { confirmProjectDirStage } from "./project-dir-confirm.js";
 
 const fetchBoard = createBoardFetcher({ call: callAsanaTool, now: Date.now });
 
@@ -584,17 +585,11 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       }
 
       if (stage === "project_dir_confirmed") {
-        const current = await readStatus(taskGid);
-        const resolvedProjectDir = project_dir ?? current.project_dir;
-        if (!resolvedProjectDir) {
-          return textResult(
-            {
-              success: false,
-              message: `推進到 "project_dir_confirmed" 階段時必須確定 project_dir（可以這次呼叫時一併帶入，或這張票先前已經設定過），不能是空值。`,
-            },
-            true
-          );
-        }
+        // 與 get_ticket_snapshot({ confirmProjectDir: true }) 共用同一份檢查與狀態寫入。
+        const confirmed = await confirmProjectDirStage(taskGid, project_dir);
+        if (!confirmed.ok) return textResult({ success: false, message: confirmed.message }, true);
+        await syncPendingActionsReport(taskGid);
+        return statusResponse(taskGid, confirmed.status, verbose, { needs_human_review: needsHumanReview(confirmed.status) });
       }
 
       const patch: Partial<TicketStatus> = {};
