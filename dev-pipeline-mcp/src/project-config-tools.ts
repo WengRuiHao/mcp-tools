@@ -21,6 +21,7 @@ import {
   registerTestCapability,
 } from "./project-registry.js";
 import { textResult } from "./shared.js";
+import { getServerInfo } from "./build-info.js";
 import { SETUP_DEFAULT_PROJECT, SETUP_GIT_ROOTS, SETUP_PROJECT_DIR, SETUP_SASD_CONFIG } from "./overview-prompts.js";
 
 const GATES_HINT =
@@ -323,6 +324,7 @@ export async function handlePrepareProject(args: { cwd?: string | null; projectG
     sasd,
     gitRoots,
     missing,
+    server: getServerInfo(),
     nextStep: ready
       ? "設定齊全，直接呼叫 list_pending_tickets（帶 projectGid 與 projectName）。"
       : `缺 ${missing.map((m) => m.kind).join("、")}：照 missing 裡 instructions 問使用者並用 project_config register 登記（一次只處理一項，default_project 與 project_dir 要先），再重新呼叫 prepare_project。`,
