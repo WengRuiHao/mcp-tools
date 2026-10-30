@@ -45,8 +45,21 @@ test("埠號跟著 SVN_EDIT_PORT；設定不合法就退回預設", () => {
   delete process.env.SVN_EDIT_PORT;
 });
 
-test("不適用的專案沒有連結：self-generated（SD 在本機）、unregistered、沒登記 SVN 連線、沒有設定", () => {
-  assert.equal(buildSvnEditLink(cfg({ sdMode: "self-generated", sdOutputPath: "x" })), null);
+test("self-generated 且有 SVN 連線：給上傳用連結，起始目錄不用 saRoot（那是前端規格位置），有 sdRoot 才用", () => {
+  delete process.env.SVN_EDIT_PORT;
+  const link = buildSvnEditLink(cfg({ sdMode: "self-generated", sdRoot: null, sdOutputPath: "x", specOrder: "spec_first" }));
+  assert.equal(link.uploadOnly, true);
+  assert.equal(link.startDir, "");
+  assert.equal(link.url, "http://127.0.0.1:9097/?connection=conn-1&browse=");
+  assert.equal(buildSvnEditLink(cfg({ sdMode: "self-generated", sdRoot: "doc/sd", sdOutputPath: "x" })).startDir, "doc/sd");
+  assert.equal(buildSvnEditLink(cfg()).uploadOnly, undefined); // external 不受影響
+  const html = renderSvnEditSection(link);
+  assert.match(html, /上傳規格書到 SVN/);
+  assert.match(html, /dist-exe\/svn-edit\.exe/);
+});
+
+test("不適用的專案沒有連結：unregistered、沒登記 SVN 連線（含 self-generated）、沒有設定", () => {
+  assert.equal(buildSvnEditLink(cfg({ sdMode: "self-generated", sdOutputPath: "x", svnConnectionId: null })), null);
   assert.equal(buildSvnEditLink(cfg({ sdMode: "unregistered" })), null);
   assert.equal(buildSvnEditLink(cfg({ svnConnectionId: null })), null);
   assert.equal(buildSvnEditLink(null), null);
@@ -106,6 +119,32 @@ test("報告頁：self-generated 專案、票單還沒有 project_gid、沒有�
     }
   } finally {
     [selfGen, noGid, noConfig].forEach(removeDir);
+  }
+});
+
+test("報告頁：self-generated 且有 SVN 連線時，SVN 區塊裡有連到 svn-edit 的按鈕，並有上傳規格書區塊", async () => {
+  delete process.env.SVN_EDIT_PORT;
+  const projectDir = await setup("PG-SELFGEN", cfg({ sdMode: "self-generated", sdRoot: null, sdOutputPath: "SPEC.md", specOrder: "spec_first" }));
+  try {
+    const html = readReport(projectDir);
+    assert.match(html, /id="svn-edit-section"/);
+    assert.match(html, /上傳規格書到 SVN/);
+    const svnBlock = html.slice(html.indexOf("SVN 尚未上傳的變更"));
+    assert.match(svnBlock, /class="svn-edit-shortcut"/);
+    assert.match(svnBlock, /href="http:\/\/127\.0\.0\.1:9097\/\?connection=conn-1&amp;browse="/);
+    assert.match(svnBlock, /開啟 svn-mcp 介面（svn-edit）/);
+    assert.doesNotMatch(html, /\{\{SVN_SECTION\}\}/);
+  } finally {
+    removeDir(projectDir);
+  }
+});
+
+test("報告頁：沒有連結的專案，SVN 區塊不出現 svn-edit 按鈕", async () => {
+  const projectDir = await setup("PG-NOLINK", cfg({ sdMode: "unregistered" }));
+  try {
+    assert.doesNotMatch(readReport(projectDir), /svn-edit-shortcut/);
+  } finally {
+    removeDir(projectDir);
   }
 });
 

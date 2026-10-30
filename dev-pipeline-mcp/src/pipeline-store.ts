@@ -1390,7 +1390,18 @@ function renderSvnWorkCopy(wc: SvnWorkCopySummary): string {
     </div>`;
 }
 
-function renderSvnSection(data: SvnReportData): string {
+/** SVN 區塊最上方的捷徑：連到 svn-mcp 的 svn-edit 介面（瀏覽、批次上傳、編輯）；沒有連結時不顯示。 */
+function renderSvnEditShortcut(link: SvnEditLink | null): string {
+  if (!link) return "";
+  return `<p class="svn-edit-shortcut"><a class="btn btn-yes" href="${escapeHtml(link.url)}" target="_blank" rel="noopener">🧰 開啟 svn-mcp 介面（svn-edit）</a> <span class="meta">瀏覽 SVN 目錄、批次上傳檔案或資料夾、編輯規格書；連線 <code>${escapeHtml(link.connection)}</code>${link.startDir ? `，起始目錄 <code>${escapeHtml(link.startDir)}</code>` : ""}。</span></p>`;
+}
+
+function renderSvnSection(data: SvnReportData, link: SvnEditLink | null): string {
+  const shortcut = renderSvnEditShortcut(link);
+  return shortcut + renderSvnWorkCopies(data);
+}
+
+function renderSvnWorkCopies(data: SvnReportData): string {
   if (!data.registered) {
     return `<p class="empty">這個專案還沒登記 SVN 工作副本。呼叫 <code>project_config(kind='svn_workcopies', action='register')</code> 登記後，這裡會列出還沒上傳到 SVN 的變更，並提供上傳／更新／刪除按鈕。</p>`;
   }
@@ -1560,7 +1571,7 @@ export async function writePendingActionsReport(
     MANUAL_SECTION: renderManualActionsSection(input.manualActions, numberMap, manualBlocks),
     GIT_SECTION: renderUncommittedSectionHtml(input.uncommittedChanges, numberMap),
     SVN_COUNT: svnData.workCopies.reduce((sum, wc) => sum + wc.entries.length, 0),
-    SVN_SECTION: renderSvnSection(svnData),
+    SVN_SECTION: renderSvnSection(svnData, svnEditLink),
     SVN_EDIT_SECTION: renderSvnEditSection(svnEditLink),
     BRIDGE_TOKEN: escapeHtml(bridgeToken),
     PROJECT_DIR: escapeHtml(projectDir),
