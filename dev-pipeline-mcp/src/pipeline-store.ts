@@ -1396,10 +1396,14 @@ function renderSvnEditShortcut(link: SvnEditLink | null): string {
   return `<p class="svn-edit-shortcut"><a class="btn btn-yes" href="${escapeHtml(link.url)}" target="_blank" rel="noopener">🧰 開啟 svn-mcp 介面（svn-edit）</a> <span class="meta">瀏覽 SVN 目錄、批次上傳檔案或資料夾、編輯規格書；連線 <code>${escapeHtml(link.connection)}</code>${link.startDir ? `，起始目錄 <code>${escapeHtml(link.startDir)}</code>` : ""}。</span></p>`;
 }
 
+/** 有 svn-edit 連結的專案，SVN 的瀏覽、上傳、編輯都在 svn-edit 做，報告不再列本機工作副本；沒有連結才退回舊的工作副本清單。 */
 function renderSvnSection(data: SvnReportData, link: SvnEditLink | null): string {
-  const shortcut = renderSvnEditShortcut(link);
-  return shortcut + renderSvnWorkCopies(data);
+  if (link) return renderSvnEditShortcut(link);
+  return renderSvnWorkCopies(data);
 }
+
+const SVN_INTRO_WORKCOPY = `這是本機 SVN 工作副本跟遠端的差距：勾選要上傳的項目、填好 commit 訊息，按「上傳」就會（必要時先加入版控）一次 commit 到 SVN。<strong>這些按鈕只有你在網頁上按得到，AI 沒有任何工具能修改 SVN。</strong>遇到衝突不會自動處理，請到 TortoiseSVN 解決。`;
+const SVN_INTRO_SVN_EDIT = `SVN 的瀏覽、上傳與編輯都在 svn-mcp 的 svn-edit 介面進行。<strong>寫入只有你在 svn-edit 按得到，AI 沒有任何工具能修改 SVN。</strong>`;
 
 function renderSvnWorkCopies(data: SvnReportData): string {
   if (!data.registered) {
@@ -1533,8 +1537,8 @@ export async function writePendingActionsReport(
 
   const manualActionsCount = input.manualActions.reduce((sum, t) => sum + t.actions.length, 0);
   const manualBlocks = await loadManualBlocks(input.manualActions);
-  const svnData = await getSvnReportData(projectDir);
   const svnEditLink = await resolveProjectSvnEditLink(projectDir, projectName);
+  const svnData: SvnReportData = svnEditLink ? { registered: false, workCopies: [] } : await getSvnReportData(projectDir);
   const bridgeToken = await getBridgeToken();
   const bridgePort = resolveHttpBridgePort();
 
@@ -1570,7 +1574,9 @@ export async function writePendingActionsReport(
     MANUAL_COUNT: manualActionsCount,
     MANUAL_SECTION: renderManualActionsSection(input.manualActions, numberMap, manualBlocks),
     GIT_SECTION: renderUncommittedSectionHtml(input.uncommittedChanges, numberMap),
-    SVN_COUNT: svnData.workCopies.reduce((sum, wc) => sum + wc.entries.length, 0),
+    SVN_COUNT_BADGE: svnEditLink ? "" : `<span class="count-badge">${svnData.workCopies.reduce((sum, wc) => sum + wc.entries.length, 0)}</span>`,
+    SVN_TITLE: svnEditLink ? "SVN（svn-edit）" : "SVN 尚未上傳的變更",
+    SVN_INTRO: svnEditLink ? SVN_INTRO_SVN_EDIT : SVN_INTRO_WORKCOPY,
     SVN_SECTION: renderSvnSection(svnData, svnEditLink),
     SVN_EDIT_SECTION: renderSvnEditSection(svnEditLink),
     BRIDGE_TOKEN: escapeHtml(bridgeToken),

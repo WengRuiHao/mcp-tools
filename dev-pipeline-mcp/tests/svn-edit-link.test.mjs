@@ -129,7 +129,9 @@ test("報告頁：self-generated 且有 SVN 連線時，SVN 區塊裡有連到 s
     const html = readReport(projectDir);
     assert.match(html, /id="svn-edit-section"/);
     assert.match(html, /上傳規格書到 SVN/);
-    const svnBlock = html.slice(html.indexOf("SVN 尚未上傳的變更"));
+    const svnBlock = html.slice(html.indexOf('id="svn-section"'));
+    assert.doesNotMatch(svnBlock, /class="svn-wc"/); // 有 svn-edit 就不再列本機工作副本
+    assert.doesNotMatch(svnBlock, /上傳選取的項目到 SVN/);
     assert.match(svnBlock, /class="svn-edit-shortcut"/);
     assert.match(svnBlock, /href="http:\/\/127\.0\.0\.1:9097\/\?connection=conn-1&amp;browse="/);
     assert.match(svnBlock, /開啟 svn-mcp 介面（svn-edit）/);
@@ -139,10 +141,12 @@ test("報告頁：self-generated 且有 SVN 連線時，SVN 區塊裡有連到 s
   }
 });
 
-test("報告頁：沒有連結的專案，SVN 區塊不出現 svn-edit 按鈕", async () => {
+test("報告頁：沒有連結的專案，SVN 區塊不出現 svn-edit 按鈕，維持原本的工作副本說明", async () => {
   const projectDir = await setup("PG-NOLINK", cfg({ sdMode: "unregistered" }));
   try {
-    assert.doesNotMatch(readReport(projectDir), /svn-edit-shortcut/);
+    const html = readReport(projectDir);
+    assert.doesNotMatch(html, /svn-edit-shortcut/);
+    assert.match(html, /SVN 尚未上傳的變更/);
   } finally {
     removeDir(projectDir);
   }
