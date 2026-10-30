@@ -24,6 +24,7 @@ import {
 } from "./pipeline-store.js";
 import { syncPendingActionsReport, getPipelineAsanaUserGid, getUncommittedChangesSummary, filterOutGitCommitActions } from "./pending-actions-sync.js";
 import { textResult } from "./shared.js";
+import { getServerInfo } from "./build-info.js";
 import { checkTestEvidenceForTested, findStaleEvidenceBackups, summarizeTestEvidence } from "./test-evidence-store.js";
 import { filterAndLimitTickets, localDateString, detectTicketNumber, DUE_ON_DATE_PATTERN } from "./ticket-list-filter.js";
 import { computeNextAction } from "./next-action.js";
@@ -220,6 +221,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         success: true,
         projectGid,
         count: listed.tickets.length,
+        server: getServerInfo(),
         ...(onlyMine ? { filteredBy: "assignee=me", skippedNotAssignedToMe: skippedNotMine } : {}),
         ...(hasListFilter
           ? {
