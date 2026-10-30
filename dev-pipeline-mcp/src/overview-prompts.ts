@@ -73,7 +73,7 @@ const OVERVIEW_CORE = `# Asana 票單自動處理 Pipeline — 整體流程說�
 - \`ready: false\` → \`missing\` 列出缺哪幾項與要問使用者的 \`instructions\`；問完用 \`project_config\` 的 \`register\` 登記（\`default_project\`、\`project_dir\` 先），再重新呼叫 \`prepare_project\`（完整版見 \`section: "setup"\`）。
 
 ## 步驟 2：找出待處理票單
-呼叫 \`list_pending_tickets({ projectGid, sectionFilter?, projectName: <步驟 1 拿到的 Asana 專案「全名稱」，一定要帶> })\`，取得尚未完成、尚未驗證 PASS 的票單，一張一張處理。帶了 \`projectName\` 後，「待確認規格草稿／待確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 未 commit／SVN 未上傳」七類項目會整份寫進互動式 HTML \`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.html\`，步驟 4 不用再彙整。第一次告知時順便提醒他在 \`dev-pipeline-mcp\` 目錄跑一次 \`npm run start:http\` 啟動本機 HTTP bridge，按鈕才會生效。
+呼叫 \`list_pending_tickets({ projectGid, sectionFilter?, projectName: <步驟 1 拿到的 Asana 專案「全名稱」，一定要帶> })\`，取得尚未完成、尚未驗證 PASS 的票單，一張一張處理。帶了 \`projectName\` 後，「待確認規格草稿／待確認／卡住需要介入／Asana 內容已變更待重新確認／需要你手動處理的事項／Git 未 commit／SVN 未上傳」七類項目會整份寫進互動式 HTML \`<projectDir>/.asana-pipeline/<projectName>/PENDING_HUMAN_ACTIONS.html\`，步驟 4 不用再彙整。第一次告知時順便提醒他在 \`dev-pipeline-mcp\` 目錄跑一次 \`npm run start:http\` 啟動本機 HTTP bridge，按鈕才會生效。只想重寫報告時加 \`reportOnly:true\`（仍須帶 projectName），回傳只剩路徑與數量。
 
 清單裡的旗標：
 - \`contentChanged: true\`：之前 PASS 過，但 Asana 內容後來被改過——不能因為「之前是 PASS」就跳過，一樣要走步驟 3（\`get_ticket_snapshot\` 會確認內容是不是真的變了）。
