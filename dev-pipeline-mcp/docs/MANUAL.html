@@ -383,7 +383,7 @@
           <div class="example"><b>可以這樣問：</b>「處理今天的問題單」</div>
           <div class="tool-row"><code>prepare_project</code><span>開工準備：一次查完預設 Asana 專案、程式碼目錄、規格設定與 git 根目錄，缺哪項就列出來並附上要問你的說明；只讀、不會登記任何東西，取代逐項查詢</span></div>
           <div class="tool-row"><code>get_pipeline_overview</code><span>取得整條流程說明，AI 開始前一定先讀這個；預設只給核心流程，其他情境（第一次設定、子任務派工等）需要時才另外取</span></div>
-          <div class="tool-row"><code>list_pending_tickets</code><span>列出這個專案尚未處理完的票單，順便整份重寫 PENDING_HUMAN_ACTIONS.html；可只看今天到期的票或限制筆數，不會一次回傳整個專案；帶 <code>search</code>（票號或標題關鍵字）可只查某張票，此時省略各票待辦明細以節省上下文</span></div>
+          <div class="tool-row"><code>list_pending_tickets</code><span>列出這個專案尚未處理完的票單，順便整份重寫 PENDING_HUMAN_ACTIONS.html；可只看今天到期的票或限制筆數，不會一次回傳整個專案；帶 <code>search</code>（票號或標題關鍵字）可只查某張票，此時省略各票待辦明細以節省上下文；只想更新報告時帶 <code>reportOnly: true</code>（要同時帶專案名稱），回傳只剩報告路徑與各類數量</span></div>
           <div class="tool-row"><code>get_ticket_status</code><span>看單一張票目前的進度、驗證結果、確認狀態，並直接告訴 AI 下一步該做什麼、目前被什麼擋住</span></div>
           <div class="tool-row"><code>get_ticket_activity</code><span>看票單完整活動時間軸（留言＋系統事件＋附件）</span></div>
           <div class="tool-row"><code>project_config</code>（<code>kind="default_project"</code>，<code>action</code> 選 <code>resolve</code> 查詢／<code>register</code> 登記）<span>查詢/登記「今天的問題單」預設看哪個 Asana 專案（可依工作目錄各自登記）</span></div>

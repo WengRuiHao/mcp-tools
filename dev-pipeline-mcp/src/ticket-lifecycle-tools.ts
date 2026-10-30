@@ -29,6 +29,7 @@ import { filterAndLimitTickets, localDateString, detectTicketNumber, DUE_ON_DATE
 import { computeNextAction } from "./next-action.js";
 import { sasdForStatus, statusResponse, verboseParam } from "./stage-response.js";
 import { createBoardFetcher } from "./board-cache.js";
+import { buildReportOnlyBody } from "./report-only.js";
 
 const fetchBoard = createBoardFetcher({ call: callAsanaTool, now: Date.now });
 
@@ -40,6 +41,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       "- `tickets`：待處理。`contentChanged:true`=Asana 內容又變了，用 get_ticket_snapshot 判斷是否重分析；`humanRequestedReanalysis:true`=使用者要求優先，**一定先對它呼叫 get_ticket_snapshot**；`humanRejected:true`=使用者打回（依 rootCause 分流）；`specRejected:true`=規格草稿被打回。\n" +
       "- `awaitingConfirmation`／`awaitingSpecConfirmation`（僅 self-generated）：等使用者確認（record_confirmation／record_spec_confirmation），**每次呼叫都要完整秀給使用者**。\n" +
       "- `manualActions`／`uncommittedChanges` 互斥：有檔名的「尚未 commit」只在 `uncommittedChanges`（`registered:false`=尚未登記 git_roots）。\n" +
+      "只想重寫報告、不需要票單明細時帶 `reportOnly:true`（須同時帶 projectName）：照常抓資料並寫報告，回傳只留 pendingActionsReportPath 與各類數量（`awaitingConfirmation`／`awaitingSpecConfirmation` 有項目時仍附完整明細）。\n" +
       "Asana 資料 60 秒內用快取，要最新帶 refresh:true。",
     {
       projectGid: z.string().describe("Asana 專案 gid"),
@@ -74,8 +76,16 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         .optional()
         .describe("限制 `tickets` 筆數（到期日由早到晚）；超過會附 totalMatched／truncated"),
       refresh: z.boolean().nullable().optional().describe("true=強制重抓 Asana"),
+      reportOnly: z
+        .boolean()
+        .nullable()
+        .optional()
+        .describe("true=只重寫報告，回傳精簡（路徑＋各類數量；等確認清單有項目時仍附明細）。必須帶 projectName"),
     },
-    async ({ projectGid, sectionFilter, projectName, onlyAssignedToMe, dueOn, search, limit, refresh }) => {
+    async ({ projectGid, sectionFilter, projectName, onlyAssignedToMe, dueOn, search, limit, refresh, reportOnly }) => {
+      if (reportOnly === true && !projectName) {
+        return textResult({ success: false, message: "reportOnly:true 需要同時帶 projectName（Asana 專案全名稱），否則不知道要把報告寫到哪裡。" }, true);
+      }
       const { board, fromCache, ageSeconds } = await fetchBoard(projectGid, { forceRefresh: refresh === true });
       if (!board?.success) return textResult(board, true);
 
@@ -210,6 +220,26 @@ export function registerTicketLifecycleTools(server: McpServer): void {
             uncommittedChanges,
           });
         }
+      }
+
+      if (reportOnly === true) {
+        if (!pendingActionsReportPath) {
+          return textResult({ success: false, message: "reportOnly 沒寫出報告：這個專案尚未登記程式碼目錄（prepare_project／project_config），無法決定報告位置。" }, true);
+        }
+        // 精簡分支集中在 buildReportOnlyBody；之後要加頂層欄位（例如 server）可直接在這個物件上展開。
+        return textResult(
+          buildReportOnlyBody({
+            projectGid,
+            pendingActionsReportPath,
+            pendingCount: pending.length,
+            awaitingConfirmation,
+            awaitingSpecConfirmation,
+            needsHumanReviewCount: needsHumanReviewList.length,
+            contentChangedCount: contentChangedList.length,
+            manualActionsCount: manualActionsForReport.length,
+            uncommittedChanges,
+          })
+        );
       }
 
       const searchText = typeof search === "string" && search.trim() ? search.trim() : null;
