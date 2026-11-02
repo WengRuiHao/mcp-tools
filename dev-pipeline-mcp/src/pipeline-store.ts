@@ -139,7 +139,7 @@ function nowIso(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-const STAGE_ORDER: TicketStatus["stage"][] = ["new", "snapshot", "project_dir_confirmed", "analyzed", "sd_drafted", "implemented", "verified", "tested"];
+export const STAGE_ORDER: TicketStatus["stage"][] = ["new", "snapshot", "project_dir_confirmed", "analyzed", "sd_drafted", "implemented", "verified", "tested"];
 
 function sanitizeSegment(raw: string, maxLen = 60): string {
   const cleaned = raw
