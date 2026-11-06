@@ -9,6 +9,7 @@ import { getBridgeToken } from "./bridge-token.js";
 import { CREDENTIAL_PATTERN } from "./sensitive-patterns.js";
 import { getSvnReportData, type SvnReportData, type SvnWorkCopySummary, type WcEntry } from "./svn-workcopy-bridge.js";
 import { resolveSasdConfig } from "./project-registry.js";
+import { getStageOrder } from "./workflow/stage-order.js";
 import { buildSvnEditLink, renderSvnEditSection, type SvnEditLink } from "./svn-edit-link.js";
 
 export interface TicketSummaries {
@@ -75,6 +76,8 @@ export interface TestEvidenceRecord {
 }
 
 export interface TicketStatus {
+  /** 這張票走的 workflow id；缺省（舊票單）或 "asana-ticket" 都代表原本的 8 階段流程。刻意不放進 NEW_STATUS，舊 status.json 讀出再寫回不會多出這個 key。 */
+  workflow_id?: string;
   stage: "new" | "snapshot" | "project_dir_confirmed" | "analyzed" | "sd_drafted" | "implemented" | "verified" | "tested";
   project_dir: string | null;
   /** 這張票所屬的 Asana 專案「全名稱」（未消毒過的原始字串）。get_ticket_snapshot 時自動記錄，供任何單張票的狀態異動事後局部重建 PENDING_HUMAN_ACTIONS.html 用（見 syncPendingActionsReport/listTicketsUnderProject），不需要呼叫端每次額外傳遞或記得重新呼叫 list_pending_tickets。 */
@@ -529,7 +532,9 @@ export async function peekStatus(ticketGid: string): Promise<TicketStatus> {
 
 /** Applies a forward-only stage transition to `status`: if `stage` isn't further along than the current one, only `patch` is applied (stage/history untouched); otherwise stage advances and a history entry is appended. Pure — used inside locked read-modify-write transactions below. */
 function applyStageIfForward(status: TicketStatus, stage: TicketStatus["stage"], patch: Partial<TicketStatus>): TicketStatus {
-  if (STAGE_ORDER.indexOf(stage) <= STAGE_ORDER.indexOf(status.stage)) {
+  // 以 string 陣列比較，非 Asana workflow 的階段是角色 id；TicketStatus["stage"] 的 union 維持不變。
+  const order = getStageOrder(status.workflow_id);
+  if (order.indexOf(stage) <= order.indexOf(status.stage)) {
     return { ...status, ...patch };
   }
   return { ...status, ...patch, stage, history: [...status.history, { stage, at: nowIso() }] };
@@ -626,7 +631,9 @@ export async function recordSnapshotContent(
     }
 
     changed = true;
-    const hadPriorProgress = STAGE_ORDER.indexOf(status.stage) > STAGE_ORDER.indexOf("snapshot");
+    const order = getStageOrder(status.workflow_id);
+    // 非 Asana workflow 沒有 snapshot 階段（indexOf 為 -1），以 "new"（0）為基準，避免剛建立的票被當成已有進度。
+    const hadPriorProgress = order.indexOf(status.stage) > Math.max(order.indexOf("snapshot"), 0);
     return applyStageIfForward(status, "snapshot", {
       content_hash: newHash,
       last_seen_modified_at: modifiedAt,
