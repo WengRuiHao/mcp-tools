@@ -103,16 +103,18 @@ ul{margin:6px 0;padding-left:22px}
   <span class="node">SA 分析師</span><span class="arrow">→</span>
   <span class="node opt">DB 設計師</span><span class="arrow">→</span>
   <span class="node">流程分析師</span><span class="arrow">→</span>
-  <span class="node">SD 分析師</span>
+  <span class="node">SD 分析師</span><span class="arrow">→</span>
+  <span class="node">規格驗證師（驗證 SA↔SD 能串起來）</span>
 </div>
 <div class="flow">
-  <span class="node">前端工程師（依 SA，SA 確認後即可開工）</span><span class="arrow">∥</span>
+  <span class="node">前端工程師（依 SA，規格驗證通過後開工）</span><span class="arrow">∥</span>
   <span class="node">後端工程師（依 SD，SD 確認後才能開工）</span><span class="arrow">→</span>
   <span class="node">驗證師（兩者都完成）</span><span class="arrow">→</span>
   <span class="node">測試工程師（白箱→黑箱，截圖留證）</span><span class="arrow">→</span>
   <span class="node lock">人工最終驗收（鎖死 manual）</span>
 </div>
 <p class="note">虛線＝可選／條件式角色。純前端或純後端的需求，對應角色標 <code>optional</code> 略過，驗證師只驗存在的那一邊。</p>
+<p class="note">規格先行：不靠 Asana 的新流程一律「SA、SD 規格確認並通過規格驗證，才能開發」，沒有先寫程式再補規格這條路。「先程式、後補規格」（<code>code_first</code>）只保留在 Asana 票單的舊流程（<code>legacy-adapter</code>），舊的階段排序表不動。</p>
 
 <h3>角色職責</h3>
 <table>
@@ -122,6 +124,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>DB 設計師</td><td>依 SA 設計 table、view、index。</td><td>用 <code>db_diff_schema</code> 比對異動，評估對既有資料的影響與回滾。</td></tr>
 <tr><td>流程分析師</td><td>把 SA 與 DB 串起來，畫 Mermaid 流程圖（authoritative，附 PNG），比對兩邊能否接上。</td><td>另比對「新流程 ↔ 既有流程圖」。</td></tr>
 <tr><td>SD 分析師</td><td>產出後端規格。</td><td>—</td></tr>
+<tr><td>規格驗證師（<code>spec-verifier</code>）</td><td>只看規格、不看程式碼：驗證 SA 與 SD 能串起來——SA 的每個功能／畫面欄位在 SD 都有對應的 API、資料處理；SD 的每個項目都追得到 SA 的需求來源；欄位名稱、型別、流程與 DB 設計一致；沒有孤兒或互相矛盾的條目。</td><td>另檢查規格標明的「新增／修改／不動」與影響分析一致。</td></tr>
 <tr><td>前端／後端工程師</td><td>前端依 SA、後端依 SD 實作。</td><td>—</td></tr>
 <tr><td>驗證師</td><td>驗證前後端 code 是否符合 SA／SD，流程圖是否合理、有無缺漏。</td><td>多檢查「有沒有破壞既有功能」。</td></tr>
 <tr><td>測試工程師</td><td>白箱（開瀏覽器測整個需求並截圖）後再黑箱。</td><td>新功能測試＋影響分析列出的回歸測試。</td></tr>
@@ -136,6 +139,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td><code>db</code></td><td>02-db.sql／02-db.md</td><td>sql＋markdown</td><td>table、view、index 設計與異動</td></tr>
 <tr><td><code>flow</code></td><td>flow.mmd＋flow.png</td><td>mermaid</td><td>流程圖與 SA↔DB 比對結果</td></tr>
 <tr><td><code>sd</code></td><td>03-sd.md</td><td>markdown</td><td>後端規格</td></tr>
+<tr><td><code>spec-check</code></td><td>spec-check.md</td><td>report</td><td>第一行 PASS／FAIL＋<code>rootCause</code>（<code>sa</code>／<code>sd</code>／<code>db</code>）＋SA↔SD 對照表</td></tr>
 <tr><td><code>impl-fe</code></td><td>impl-fe.md＋程式碼異動</td><td>markdown＋git diff</td><td>前端實作說明（依 SA）</td></tr>
 <tr><td><code>impl-be</code></td><td>impl-be.md＋程式碼異動</td><td>markdown＋git diff</td><td>後端實作說明（依 SD）</td></tr>
 <tr><td><code>verify</code></td><td>verify.md</td><td>report</td><td>第一行 PASS／FAIL＋<code>rootCause</code></td></tr>
@@ -149,6 +153,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>after <code>sa</code></td><td>確認</td><td>使用者確認 SA 規格</td><td><code>inherit</code></td></tr>
 <tr><td>after <code>db</code>＋<code>flow</code></td><td>確認（合併）</td><td>DB 與流程圖要一起看才判斷得了接不接得上</td><td><code>inherit</code></td></tr>
 <tr><td>after <code>sd</code></td><td>確認</td><td>使用者確認後端規格</td><td><code>inherit</code></td></tr>
+<tr><td>after <code>spec-verifier</code></td><td>判定關卡</td><td>PASS 才能開工前後端；FAIL 依 <code>rootCause</code> 退回 SA、SD 或 DB 設計師修正，修完重新驗證。沒有 <code>locked</code>，確認模式 <code>inherit</code></td><td><code>inherit</code></td></tr>
 <tr><td>after 前端／後端</td><td>內容關卡</td><td>實作文件必須有專案自訂章節（如「查重」）；對應 SA／SD 條目逐項標註；程式碼異動與文件一致（即現有 <code>gates.json</code> 的 <code>implementationSections</code>）</td><td>—</td></tr>
 <tr><td>after <code>verifier</code></td><td>判定關卡</td><td>PASS／FAIL；FAIL 依 <code>rootCause</code> 回到對應角色（分析、設計或實作）</td><td>—</td></tr>
 <tr><td>after <code>tester</code></td><td>證據關卡</td><td>每個測試項目要有截圖；<code>testLevel</code> 與證據一致；白箱完成才能做黑箱</td><td>—</td></tr>
@@ -221,7 +226,7 @@ interface GateDef { id; after: string|string[]; type: "confirmation"|"content"|"
 <tr><td>1</td><td>workflow schema、驗證、唯讀解析、等價定義；不改現有行為</td><td><span class="tag todo">待確認後開工</span></td></tr>
 <tr><td>2</td><td><code>taskGid</code> 泛化成 <code>workItemId</code>；改 <code>pipeline-store</code>、階段列舉</td><td><span class="tag todo">未開始</span></td></tr>
 <tr><td>3</td><td>改 <code>next-action</code>、prompts 改由 workflow 驅動；<code>data/*.json</code> 搬遷；<code>auto</code> 模式與硬停點的執行期強制</td><td><span class="tag todo">未開始</span></td></tr>
-<tr><td>4</td><td><code>manual</code> 來源、新角色 prompt（現況盤點、DB 設計師、流程分析師、SD 分析師、前後端工程師）、Mermaid 與截圖證據</td><td><span class="tag todo">未開始</span></td></tr>
+<tr><td>4</td><td><code>manual</code> 來源、新角色 prompt（現況盤點、DB 設計師、流程分析師、SD 分析師、規格驗證師、前後端工程師）、Mermaid 與截圖證據</td><td><span class="tag todo">未開始</span></td></tr>
 </table>
 
 <h2 id="open">十、待辦與已知風險</h2>
