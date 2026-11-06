@@ -203,7 +203,7 @@ interface GateDef { id; after: string|string[]; type: "confirmation"|"content"|"
 <p><b>專案 <code>flow.json</code> 覆寫規則</b>：只能覆寫 <code>confirmMode</code>、<code>optional</code>、content 關卡的 <code>checks</code>、角色補充說明（<code>roleNotes</code>）；<b>不能</b>移除 <code>locked</code> 關卡與 <code>hardStops</code>，也不能改角色依賴順序。</p>
 
 <h2 id="phase1">八、階段 1 實作範圍（已完成）</h2>
-<p><b>目標：只定義、驗證、描述，不取代任何現有行為。</b>單人維護，已直接 commit 並 push 到 <code>main</code>（<code>bfa7084</code>）。尚未交 code-reviewer 審查。</p>
+<p><b>目標：只定義、驗證、描述，不取代任何現有行為。</b>單人維護，已直接 commit 並 push 到 <code>main</code>（<code>bfa7084</code>）；code-reviewer 審查後的修補為 <code>99f0486</code>（無 CRITICAL／HIGH，4 個 MEDIUM、6 個 LOW 已全部處理）；規格驗證師的通用 builtin 為 <code>3e1bca0</code>。</p>
 <p class="note">實作時的差異：多一個 <code>project-flow.ts</code>（串接 <code>project_config</code> 的 flow resolve，讓 <code>project-config-tools.ts</code> 只改約 25 行）；<code>tests/toolsets.test.mjs</code> 為了新的 <code>kind: "flow"</code> 選項改了 1 行。<code>RoleDef</code> 多了選填的 <code>roleNotes</code>；<code>testCapability</code>／<code>legacyTestProfile</code> 目前只轉成 <code>roleNotes</code>，不影響角色順序；<code>baseline</code> 暫填 <code>brownfield</code> 當占位。</p>
 <table>
 <tr><th>檔案（<code>src/workflow/</code>）</th><th>內容</th></tr>
@@ -217,9 +217,11 @@ interface GateDef { id; after: string|string[]; type: "confirmation"|"content"|"
 <ul>
   <li><b>唯讀暴露</b>：既有 <code>project_config</code> 新增 <code>kind: "flow"</code>、<code>action: "resolve"</code>；不新增工具，總數維持 42。</li>
   <li><b>關鍵測試</b>：用 <code>fromLegacy</code> 對 <code>sdMode × specOrder × testCapabilityMode</code> 各組合，驗證階段順序與現有 <code>STAGE_ORDER</code>、<code>next-action.ts</code> 一致（等價性）。</li>
-  <li><b>驗收</b>：build 無錯；既有測試不改且全過；<code>pipeline-store.ts</code>、<code>prompts.ts</code>、<code>next-action.ts</code>、<code>overview-prompts.ts</code> 零變更；工具數不變；新模組覆蓋率 ≥ 80%。<b>實況</b>：build 無錯、412 項全過、四個檔案零變更、工具數不變；覆蓋率數字尚未量測。</li>
+  <li><b>驗收</b>：build 無錯；既有測試不改且全過；<code>pipeline-store.ts</code>、<code>prompts.ts</code>、<code>next-action.ts</code>、<code>overview-prompts.ts</code> 零變更；工具數不變；新模組覆蓋率 ≥ 80%。<b>實況</b>：build 無錯、全套 433 項通過、四個檔案零變更、工具數不變；<code>src/workflow/</code> 覆蓋率行 100%、分支 96.53%、函式 100%（修補 agent 量測）。</li>
+  <li><b>審查後的行為修訂</b>：① 專案 <code>flow.json</code> 的 <code>checks</code> 改為<b>追加</b>到既有檢查（以 id 去重，同 id 以專案版本為準），不能靠覆寫清掉 <code>gates.json</code> 的檢查；② 硬停點 fail-closed：<code>triggeredHardStops</code> 只要非空（含未知 id）一律 manual；③ <code>when</code> 的 key 有白名單（<code>sdMode、specOrder、baseline、testCapabilityMode、legacyTestProfile</code>），拼錯會被驗證擋下；④ <code>gates.json</code> 以 zod 驗形狀，錯誤回清楚訊息；<code>CheckDef</code> 新增選填的 <code>pathPrefix、minPaths、requireSasd</code>；⑤ 角色 <code>optional</code> 覆寫在階段 1 只宣告、不影響角色是否出現（resolve 輸出會帶出並附 warning）；⑥ children 鏈加環偵測；⑦ flow resolve 先檢查專案目錄是否仍可用；⑧ 讀檔會寫規則歷史快照（與其他規則檔讀取一致）。</li>
   <li><b>等價性差異（已決定）</b>：<code>code_first</code> 時舊 <code>STAGE_ORDER</code> 把 <code>sd_drafted</code> 排在 <code>implemented</code> 前，但實際流程是先實作再補規格；builtin 照實際流程排，舊表不動，且 <code>code_first</code> 只存在於 Asana 舊流程。<code>self-generated</code> 缺 <code>specOrder</code> 時，adapter 不猜，兩個規格撰寫者角色都不啟用並回警告。</li>
-  <li><b>尚未納入</b>：規格驗證師屬通用（非 Asana）流程，隨階段 4 的角色與 builtin 一起做；階段 1 的 asana-ticket builtin 不含它。</li>
+  <li><b>規格驗證師（已納入）</b>：通用規格先行 builtin <code>builtin/spec-first.ts</code>（9 道關卡、11 個產出物），<code>spec-verifier</code> 在 SD 之後、前後端之前，<code>spec-check-verdict</code> 判定關卡 FAIL 依 <code>rootCause</code> 退回 <code>sa</code>／<code>db</code>／<code>sd</code>；asana-ticket builtin 不含它，行為不變。</li>
+  <li><b>待後續階段處理</b>：① <code>spec-first</code> 的 <code>baseline-survey</code> 用 <code>when: baseline==brownfield</code>，但 <code>fromLegacy</code> 的 context 目前沒有 <code>baseline</code>，接上 spec-first 時要補，否則該角色永遠不啟用；② 前後端只標 <code>optional</code> 旗標，尚無自動略過的 <code>when</code> 條件；③ <code>spec-first</code> 的 verifier 判定關卡 <code>routeOnFail</code>（sa／db／sd／fe／be 五個目標）是實作時自訂的，需確認。</li>
 </ul>
 
 <h2 id="phases">九、各階段規劃</h2>
