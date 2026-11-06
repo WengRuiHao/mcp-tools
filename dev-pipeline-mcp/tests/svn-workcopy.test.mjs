@@ -217,7 +217,7 @@ test("AI-facing tool surface has no SVN write tool", async () => {
   try {
     const names = (await client.listTools()).tools.map((t) => t.name);
     const svnTools = names.filter((n) => n.startsWith("svn_"));
-    assert.deepEqual(svnTools.sort(), ["svn_browse", "svn_cat", "svn_diff", "svn_doc_images", "svn_find_repo", "svn_list_connections", "svn_log", "svn_test_connection"]);
+    assert.deepEqual(svnTools, []);
     // 登記/查詢工作副本併入 project_config（kind: svn_workcopies），只存設定；不再有獨立的 *workcop* 工具
     assert.deepEqual(names.filter((n) => /workcop/i.test(n)), []);
     assert.ok(names.includes("project_config"));
