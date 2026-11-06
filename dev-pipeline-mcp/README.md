@@ -77,10 +77,6 @@ npm run build
 
 每項都是 `project_config({ kind, action: "resolve" | "register" })` 的一個 `kind`：先 `resolve` 查有沒有登記，沒登記才問你再 `register`（2026-10-27 起取代原本的 `resolve_*`／`register_*` 系列工具，各 `kind` 見下方工具表）。「老舊系統測試」（`legacy_test_profile`，管測試工程師手動測試要不要套老 IE 章節，預設 `false`）跟「自動化測試」（`test_capability`，管工程師能不能寫 JUnit/Jest）是不同軸向，一個專案可能兩者都成立，也可能只成立一個。想一次查完專案、程式碼目錄、SA/SD 設定、git 根目錄四項，可呼叫 `prepare_project`（只讀、不登記，缺項列在 `missing`）。
 
-### SA/SD 規格模式
-
-規格放哪、SD 是誰產的（`external`／`self`／`self-generated`／`unregistered`）、先規格還是先程式碼（`specOrder`），**都是各專案自己的設定**，說明已移到下方「專案專屬規則與關卡」的 **§5 規格模式（SA/SD）**。
-
 ---
 
 ## 流程圖解
