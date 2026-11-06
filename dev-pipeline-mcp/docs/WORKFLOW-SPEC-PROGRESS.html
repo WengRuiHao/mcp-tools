@@ -72,8 +72,8 @@ ul{margin:6px 0;padding-left:22px}
 <div class="card">
   <div><b>已完成（週一前的急件）</b> <span class="tag done">3 / 3</span></div>
   <div class="bar"><i style="width:100%"></i></div>
-  <div><b>Workflow 引擎（階段 1～4）</b> <span class="tag todo">尚未開工</span></div>
-  <div class="bar"><i style="width:0%"></i></div>
+  <div><b>Workflow 引擎（階段 1～4）</b> <span class="tag todo">階段 1 完成，1 / 4</span></div>
+  <div class="bar"><i style="width:25%"></i></div>
 </div>
 <table>
 <tr><th>項目</th><th>狀態</th><th>說明</th></tr>
@@ -83,8 +83,8 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>③ 的下一步：主流程 prompt 依模式裁剪</td><td><span class="tag done">完成（未 commit）</span></td><td>分析師說明依 <code>sdMode</code> 只留適用的規格取得做法；<code>prepare_project</code> 新增 <code>stepPlan</code>（該專案要走的步驟與規格撰寫者做法），核心流程 3.4／3.6 改為指向它，核心由 7798 縮到 7174 字。345 項測試通過。</td></tr>
 <tr><td>已合進 <code>main</code></td><td><span class="tag done">完成</span></td><td>merge commit <code>46e32d8</code>，已 push。</td></tr>
 <tr><td>尚未用過本 MCP 的 2 個專案登記</td><td><span class="tag todo">待第一次使用</span></td><td>尚未用過本 MCP，沒有 profile。</td></tr>
-<tr><td>清理舊 <code>data/*.json</code></td><td><span class="tag todo">待你確認遷移</span></td><td>目前作為 fallback 保留。</td></tr>
-<tr><td>Workflow 階段 1：schema、驗證、唯讀解析</td><td><span class="tag todo">規格定稿，待最終確認</span></td><td>設計稿已完整，但「請回覆確認」尚未收到明確確認，且你先把急件排在前面。</td></tr>
+<tr><td>清理舊 <code>data/*.json</code></td><td><span class="tag done">完成</span></td><td>已遷移的 5 個專案條目已移除，備份在 <code>data/backup-before-flow-cleanup/</code>，穩定幾天後再刪。</td></tr>
+<tr><td>Workflow 階段 1：schema、驗證、唯讀解析</td><td><span class="tag done">完成</span></td><td>commit <code>bfa7084</code> 已直接 push 到 <code>main</code>；<code>src/workflow/</code> 7 個檔、7 個測試檔；全部 412 項測試通過（原 345＋新增 67），工具數仍 42。</td></tr>
 </table>
 
 <h2 id="vision">二、願景與三種粒度</h2>
@@ -202,8 +202,9 @@ interface GateDef { id; after: string|string[]; type: "confirmation"|"content"|"
   confirmMode?: "manual"|"auto"|"inherit"; locked?; checks?; routeOnFail? }</code></pre>
 <p><b>專案 <code>flow.json</code> 覆寫規則</b>：只能覆寫 <code>confirmMode</code>、<code>optional</code>、content 關卡的 <code>checks</code>、角色補充說明（<code>roleNotes</code>）；<b>不能</b>移除 <code>locked</code> 關卡與 <code>hardStops</code>，也不能改角色依賴順序。</p>
 
-<h2 id="phase1">八、階段 1 實作範圍（尚未開工）</h2>
-<p><b>目標：只定義、驗證、描述，不取代任何現有行為。</b>分支 <code>feat/workflow-schema</code>，TDD，完成後交 code-reviewer，不自行 commit／merge。</p>
+<h2 id="phase1">八、階段 1 實作範圍（已完成）</h2>
+<p><b>目標：只定義、驗證、描述，不取代任何現有行為。</b>單人維護，已直接 commit 並 push 到 <code>main</code>（<code>bfa7084</code>）。尚未交 code-reviewer 審查。</p>
+<p class="note">實作時的差異：多一個 <code>project-flow.ts</code>（串接 <code>project_config</code> 的 flow resolve，讓 <code>project-config-tools.ts</code> 只改約 25 行）；<code>tests/toolsets.test.mjs</code> 為了新的 <code>kind: "flow"</code> 選項改了 1 行。<code>RoleDef</code> 多了選填的 <code>roleNotes</code>；<code>testCapability</code>／<code>legacyTestProfile</code> 目前只轉成 <code>roleNotes</code>，不影響角色順序；<code>baseline</code> 暫填 <code>brownfield</code> 當占位。</p>
 <table>
 <tr><th>檔案（<code>src/workflow/</code>）</th><th>內容</th></tr>
 <tr><td><code>schema.ts</code></td><td>型別與 zod 驗證</td></tr>
@@ -216,14 +217,16 @@ interface GateDef { id; after: string|string[]; type: "confirmation"|"content"|"
 <ul>
   <li><b>唯讀暴露</b>：既有 <code>project_config</code> 新增 <code>kind: "flow"</code>、<code>action: "resolve"</code>；不新增工具，總數維持 42。</li>
   <li><b>關鍵測試</b>：用 <code>fromLegacy</code> 對 <code>sdMode × specOrder × testCapabilityMode</code> 各組合，驗證階段順序與現有 <code>STAGE_ORDER</code>、<code>next-action.ts</code> 一致（等價性）。</li>
-  <li><b>驗收</b>：build 無錯；既有測試不改且全過；<code>pipeline-store.ts</code>、<code>prompts.ts</code>、<code>next-action.ts</code>、<code>overview-prompts.ts</code> 零變更；工具數不變；新模組覆蓋率 ≥ 80%。</li>
+  <li><b>驗收</b>：build 無錯；既有測試不改且全過；<code>pipeline-store.ts</code>、<code>prompts.ts</code>、<code>next-action.ts</code>、<code>overview-prompts.ts</code> 零變更；工具數不變；新模組覆蓋率 ≥ 80%。<b>實況</b>：build 無錯、412 項全過、四個檔案零變更、工具數不變；覆蓋率數字尚未量測。</li>
+  <li><b>等價性差異（已決定）</b>：<code>code_first</code> 時舊 <code>STAGE_ORDER</code> 把 <code>sd_drafted</code> 排在 <code>implemented</code> 前，但實際流程是先實作再補規格；builtin 照實際流程排，舊表不動，且 <code>code_first</code> 只存在於 Asana 舊流程。<code>self-generated</code> 缺 <code>specOrder</code> 時，adapter 不猜，兩個規格撰寫者角色都不啟用並回警告。</li>
+  <li><b>尚未納入</b>：規格驗證師屬通用（非 Asana）流程，隨階段 4 的角色與 builtin 一起做；階段 1 的 asana-ticket builtin 不含它。</li>
 </ul>
 
 <h2 id="phases">九、各階段規劃</h2>
 <table>
 <tr><th>階段</th><th>內容</th><th>狀態</th></tr>
 <tr><td>0（急件）</td><td>svn_* 移除、README 瘦身、專案模式設定下放到專案目錄</td><td><span class="tag done">完成</span></td></tr>
-<tr><td>1</td><td>workflow schema、驗證、唯讀解析、等價定義；不改現有行為</td><td><span class="tag todo">待確認後開工</span></td></tr>
+<tr><td>1</td><td>workflow schema、驗證、唯讀解析、等價定義；不改現有行為</td><td><span class="tag done">完成</span></td></tr>
 <tr><td>2</td><td><code>taskGid</code> 泛化成 <code>workItemId</code>；改 <code>pipeline-store</code>、階段列舉</td><td><span class="tag todo">未開始</span></td></tr>
 <tr><td>3</td><td>改 <code>next-action</code>、prompts 改由 workflow 驅動；<code>data/*.json</code> 搬遷；<code>auto</code> 模式與硬停點的執行期強制</td><td><span class="tag todo">未開始</span></td></tr>
 <tr><td>4</td><td><code>manual</code> 來源、新角色 prompt（現況盤點、DB 設計師、流程分析師、SD 分析師、規格驗證師、前後端工程師）、Mermaid 與截圖證據</td><td><span class="tag todo">未開始</span></td></tr>
@@ -232,8 +235,9 @@ interface GateDef { id; after: string|string[]; type: "confirmation"|"content"|"
 <h2 id="open">十、待辦與已知風險</h2>
 <h3>下一步（依序）</h3>
 <ul>
-  <li><span class="tag done">完成</span> 主流程 prompt 依模式裁剪（③ 收尾），尚未 commit。</li>
-  <li><span class="tag todo">待你回覆</span> 階段 1 最終確認（硬停點、locked 驗收、schema 與範圍）。</li>
+  <li><span class="tag done">完成</span> 主流程 prompt 依模式裁剪（③ 收尾），已合進 <code>main</code>。</li>
+  <li><span class="tag done">完成</span> 階段 1（workflow schema、驗證、唯讀解析）。</li>
+  <li><span class="tag todo">待你決定</span> 階段 2 是否開工（<code>taskGid</code> 泛化成 <code>workItemId</code>，會改 <code>pipeline-store</code> 與階段列舉，風險較高）。</li>
   <li><span class="tag todo">待使用</span> 尚未用過本 MCP 的 2 個專案，第一次使用時登記 profile。</li>
   <li><span class="tag todo">待你確認</span> 舊 <code>data/*.json</code> 可清理的時機。</li>
 </ul>
