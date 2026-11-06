@@ -120,7 +120,7 @@ test("contract: project_config.kind enum and old resolve_*/register_* tools are 
   const schema = tools.find((t) => t.name === "project_config").inputSchema.properties;
   assert.deepEqual(
     [...schema.kind.enum].sort(),
-    ["default_project", "git_roots", "legacy_test_profile", "project_dir", "sasd_config", "svn_workcopies", "test_capability"]
+    ["default_project", "flow", "git_roots", "legacy_test_profile", "project_dir", "sasd_config", "svn_workcopies", "test_capability"]
   );
   assert.deepEqual([...schema.action.enum].sort(), ["register", "resolve"]);
   const names = tools.map((t) => t.name);

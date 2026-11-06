@@ -24,6 +24,7 @@ import {
   type SpecOrder,
 } from "./project-registry.js";
 import { textResult } from "./shared.js";
+import { resolveProjectFlow } from "./workflow/project-flow.js";
 import { getServerInfo } from "./build-info.js";
 import { SETUP_DEFAULT_PROJECT, SETUP_GIT_ROOTS, SETUP_PROJECT_DIR, SETUP_SASD_CONFIG } from "./overview-prompts.js";
 
@@ -58,6 +59,7 @@ const resolveSchemas = {
   test_capability: z.object({ projectGid: projectGidField }),
   git_roots: z.object({ projectDir: projectDirField }),
   svn_workcopies: z.object({ projectDir: projectDirField }),
+  flow: z.object({ projectGid: projectGidField }),
 } as const;
 
 const registerSchemas = {
@@ -101,8 +103,10 @@ export const PROJECT_CONFIG_KINDS = [
   "test_capability",
   "git_roots",
   "svn_workcopies",
+  "flow",
 ] as const;
 export type ProjectConfigKind = (typeof PROJECT_CONFIG_KINDS)[number];
+type RegisterKind = Exclude<ProjectConfigKind, "flow">;
 
 const PROJECT_CONFIG_DESCRIPTION =
   "專案層級設定單一入口：action=resolve 查詢／register 登記；依 kind 帶欄位（見參數說明）。default_project register 一律帶 cwd。" +
@@ -110,6 +114,7 @@ const PROJECT_CONFIG_DESCRIPTION =
   "legacy_test_profile 預設 false 不用問；test_capability 找不到（found:false）時工程師第一次動手前問使用者一次；**這兩者只有使用者主動告知才 register，不要依程式碼猜**。" +
   "git_roots：run_project_shell 執行 git 前必須已登記。" +
   "svn_workcopies：**上傳/更新/刪除只能由使用者在網頁按按鈕，AI 沒有任何工具能修改 SVN**，此 kind 只存設定；只有使用者主動告知才 register、不要猜路徑；登記前對每份 svn status 驗證，不過整批不登記，且整份覆寫原登記。" +
+  "flow（只有 resolve）：唯讀，回傳依專案模式展開的 workflow（角色順序、關卡、硬停點）。" +
   "resolve 找不到時多數 kind 回傳 needsInput 與 instructions，照做後呼叫 register。";
 
 /** 把 zod 驗證錯誤整理成「哪個 kind 的哪個 action 缺什麼／錯什麼」。 */
@@ -155,6 +160,17 @@ async function resolveConfig<K extends ProjectConfigKind>(kind: K, a: z.infer<(t
       const workCopies = await resolveSvnWorkCopies(args.projectDir);
       return textResult(workCopies ? { found: true, workCopies } : { found: false });
     }
+    case "flow":
+      return resolveFlowSafely(args.projectGid);
+  }
+}
+
+async function resolveFlowSafely(projectGid: string) {
+  try {
+    const result = await resolveProjectFlow(projectGid);
+    return textResult(result, result.success === false);
+  } catch (err: any) {
+    return textResult({ success: false, message: err?.message ?? String(err) }, true);
   }
 }
 
@@ -242,7 +258,7 @@ async function registerSvnWorkcopies(a: z.infer<(typeof registerSchemas)["svn_wo
   return textResult({ success: true, projectDir, workCopies });
 }
 
-async function registerConfig<K extends ProjectConfigKind>(kind: K, a: z.infer<(typeof registerSchemas)[K]>) {
+async function registerConfig<K extends RegisterKind>(kind: K, a: z.infer<(typeof registerSchemas)[K]>) {
   const args = a as any;
   switch (kind) {
     case "project_dir": {
@@ -277,12 +293,15 @@ async function registerConfig<K extends ProjectConfigKind>(kind: K, a: z.infer<(
 /** 依 kind/action 驗證並分派。 */
 export async function handleProjectConfig(args: { kind: ProjectConfigKind; action: "resolve" | "register" } & Record<string, unknown>) {
   const { kind, action } = args;
-  const schema = action === "resolve" ? resolveSchemas[kind] : registerSchemas[kind];
+  if (kind === "flow" && action !== "resolve") {
+    return textResult({ success: false, message: 'project_config(kind="flow") 只支援 action="resolve"（唯讀）。' }, true);
+  }
+  const schema = action === "resolve" ? resolveSchemas[kind] : registerSchemas[kind as RegisterKind];
   const parsed = schema.safeParse(args);
   if (!parsed.success) {
     return textResult({ success: false, message: formatConfigError(kind, action, parsed.error) }, true);
   }
-  return action === "resolve" ? resolveConfig(kind, parsed.data as any) : registerConfig(kind, parsed.data as any);
+  return action === "resolve" ? resolveConfig(kind, parsed.data as any) : registerConfig(kind as RegisterKind, parsed.data as any);
 }
 
 interface MissingConfig {
