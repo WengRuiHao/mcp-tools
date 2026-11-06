@@ -77,14 +77,9 @@ npm run build
 
 每項都是 `project_config({ kind, action: "resolve" | "register" })` 的一個 `kind`：先 `resolve` 查有沒有登記，沒登記才問你再 `register`（2026-10-27 起取代原本的 `resolve_*`／`register_*` 系列工具，各 `kind` 見下方工具表）。「老舊系統測試」（`legacy_test_profile`，管測試工程師手動測試要不要套老 IE 章節，預設 `false`）跟「自動化測試」（`test_capability`，管工程師能不能寫 JUnit/Jest）是不同軸向，一個專案可能兩者都成立，也可能只成立一個。想一次查完專案、程式碼目錄、SA/SD 設定、git 根目錄四項，可呼叫 `prepare_project`（只讀、不登記，缺項列在 `missing`）。
 
-### SA/SD 規格四種模式
+### SA/SD 規格模式
 
-![SA/SD 規格四種模式：external 只能參考不能建議修改；self 可在報告建議修改但不寫回 SVN；self-generated 由 AI 維護並多一關規格確認 sd_drafted；unregistered 每張票單獨詢問。self-generated 再依 specOrder 分兩種順序：spec_first 先定規格再寫程式碼，擋在推進到 implemented 之前；code_first 先寫程式碼再反推規格，擋在推進到 verified 之前。這道關卡由工具強制：沒有使用者確認過的 SD 草稿，也沒有使用者明確說本票不需要 SD 的紀錄（record_spec_confirmation 帶 sdNotRequired:true 與使用者原話），就推進不下去；AI 不可自行提議或決定略過，略過時狀態會留下稽核紀錄（含使用者原話）。external、self、unregistered 三種模式不受影響](docs/img/sasd-modes.svg)
-
-- `self-generated` 的規格確認用 `record_spec_confirmation`；`specOrder`（`spec_first`／`code_first`）在 `project_config({ kind: "sasd_config", action: "register" })` 時一併登記，`spec_first` 是原本唯一支援的順序。
-- **登記時的檢查**（`project_config({ kind: "sasd_config", action: "register" })`）：只要 SA 有真實的 SVN 路徑（`saRoot` 不是 `N/A` 開頭的占位），任何模式都要帶 `svnConnectionId`（`external`／`self` 一律要）——分析師一定要到 SVN 讀 SA，沒登記連線就讀不到。工具會先 `svn_test_connection`，再用 `svn_browse` 確認 `saRoot`／`sdRoot` 真的存在於該連線的 repo；路徑要用正斜線、相對於 repo 根目錄，**不含本機工作副本的資料夾名**（例如不要寫 `WC資料夾\2-SA\…`），含反斜線、本機絕對路徑、`..` 或路徑不存在都會被拒絕登記。專案真的沒有 SA 文件時，`saRoot` 填 `N/A-無SA文件` 這類 N/A 開頭的占位即可免連線。
-- **規格關卡由 `advance_ticket_stage` 強制**（2026-10-28 起，僅 `self-generated`）：`spec_first` 擋推進到 `implemented`、`code_first` 擋推進到 `verified`；沒有「使用者確認過的 SD 草稿」（`record_spec_confirmation({ confirmed: true })`）或「使用者明確表示不需要 SD 的紀錄」就不能過。另外只要票單目前卡在 `sd_drafted` 又還沒確認，不管推進到哪個階段都會被擋。`external`／`self`／`unregistered` 三種模式不受影響，查不到專案設定的票也維持原有行為。
-- **「不需 SD」選項**（2026-10-28 起）：`record_spec_confirmation({ taskGid, confirmed: true, sdNotRequired: true, userInstruction })`，僅 `self-generated`，可在 `analyzed` 或 `sd_drafted` 階段呼叫。使用條件：必須是**使用者明確表示**本票不需要 SD，`userInstruction` 必填並記下使用者原話（或原意）；**AI 不可自行提議或決定略過 SD**，不確定就先問使用者。有這筆紀錄時，`get_ticket_status` 與各階段回傳的 `spec_confirmation` 會附 `sdSkipNotice` 稽核字樣（「本票未產出 SD，依使用者指示略過：原話」）。
+規格放哪、SD 是誰產的（`external`／`self`／`self-generated`／`unregistered`）、先規格還是先程式碼（`specOrder`），**都是各專案自己的設定**，說明已移到下方「專案專屬規則與關卡」的 **§5 規格模式（SA/SD）**。
 
 ---
 
@@ -194,19 +189,40 @@ npm run build
 - 沒有這個檔案就是預設行為（列出所有人的票）。檔案存在但不是合法 JSON 時，`list_pending_tickets` 會直接報錯，**不會悄悄退回「列出所有人」**；判斷不出目前帳號是誰時也一樣報錯。
 - 注意：帶了過濾之後，這次寫出的 `PENDING_HUMAN_ACTIONS.html` 只包含你自己的票，其他人的待辦事項要等下一次不過濾的呼叫才會回來；各種票單狀態異動後的局部重寫則不受這個設定影響。
 
-### 5. 非 Claude 的 AI 怎麼接入
+### 5. 規格模式（SA/SD）：每個專案自己的設定
+
+規格模式存在各專案自己的 `<projectDir>/.pipeline/settings.json` 的 `flow.profiles[]`（見 §4）；專案目錄沒有 profile 時才退回 MCP 自己的 `data/*.json`。同一個專案目錄底下有多個 Asana 專案時，每個專案各自一筆、各自不同模式。**SA 與 SD 分開設定**：`saRoot` 永遠指向 SVN 上的 SA，`sdMode` 只管 SD。
+
+| 你的情況 | `sdMode` | 其他欄位 |
+|---|---|---|
+| SA、SD 都是別人產的，我們只能照著做 | `external` | `saRoot`／`sdRoot`＋`svnConnectionId` |
+| SD 是自己團隊產的（放 SVN），要改只能建議、不寫回 | `self` | `saRoot`／`sdRoot`＋`svnConnectionId` |
+| SA 別人產，SD 由這個 MCP 產 | `self-generated` | `saRoot`（SVN）、`sdOutputPath`、`specOrder`（必填） |
+| 規格和程式都由這個 MCP 產 | `self-generated` | `saRoot` 可填 `N/A-無SA文件`，`sdOutputPath`、`specOrder` 必填 |
+| 沒有固定規格，每張票自己問 | `unregistered` | 只需 `saRoot` |
+
+這些設定決定票單要走哪些步驟：`prepare_project` 會依它回傳 `stepPlan`（該專案每張票要走的步驟，`spec_first` 才有「先定規格」步驟、`code_first` 才有「反推規格」步驟），`get_role_prompt` 也只輸出該模式適用的說明。登記方式見 §4 的 `flow.profiles[]`，或用 `project_config({ kind: "sasd_config", action: "register" })`（專案目錄可用時寫進專案目錄，回傳 `savedTo: "project"`）。
+
+![SA/SD 規格四種模式：external 只能參考不能建議修改；self 可在報告建議修改但不寫回 SVN；self-generated 由 AI 維護並多一關規格確認 sd_drafted；unregistered 每張票單獨詢問。self-generated 再依 specOrder 分兩種順序：spec_first 先定規格再寫程式碼，擋在推進到 implemented 之前；code_first 先寫程式碼再反推規格，擋在推進到 verified 之前。這道關卡由工具強制：沒有使用者確認過的 SD 草稿，也沒有使用者明確說本票不需要 SD 的紀錄（record_spec_confirmation 帶 sdNotRequired:true 與使用者原話），就推進不下去；AI 不可自行提議或決定略過，略過時狀態會留下稽核紀錄（含使用者原話）。external、self、unregistered 三種模式不受影響](docs/img/sasd-modes.svg)
+
+- `self-generated` 的規格確認用 `record_spec_confirmation`；`specOrder`（`spec_first`／`code_first`）在 `project_config({ kind: "sasd_config", action: "register" })` 時一併登記，`spec_first` 是原本唯一支援的順序。
+- **登記時的檢查**（`project_config({ kind: "sasd_config", action: "register" })`）：只要 SA 有真實的 SVN 路徑（`saRoot` 不是 `N/A` 開頭的占位），任何模式都要帶 `svnConnectionId`（`external`／`self` 一律要）——分析師一定要到 SVN 讀 SA，沒登記連線就讀不到。工具會先 `svn_test_connection`，再用 `svn_browse` 確認 `saRoot`／`sdRoot` 真的存在於該連線的 repo；路徑要用正斜線、相對於 repo 根目錄，**不含本機工作副本的資料夾名**（例如不要寫 `WC資料夾\2-SA\…`），含反斜線、本機絕對路徑、`..` 或路徑不存在都會被拒絕登記。專案真的沒有 SA 文件時，`saRoot` 填 `N/A-無SA文件` 這類 N/A 開頭的占位即可免連線。
+- **規格關卡由 `advance_ticket_stage` 強制**（2026-10-28 起，僅 `self-generated`）：`spec_first` 擋推進到 `implemented`、`code_first` 擋推進到 `verified`；沒有「使用者確認過的 SD 草稿」（`record_spec_confirmation({ confirmed: true })`）或「使用者明確表示不需要 SD 的紀錄」就不能過。另外只要票單目前卡在 `sd_drafted` 又還沒確認，不管推進到哪個階段都會被擋。`external`／`self`／`unregistered` 三種模式不受影響，查不到專案設定的票也維持原有行為。
+- **「不需 SD」選項**（2026-10-28 起）：`record_spec_confirmation({ taskGid, confirmed: true, sdNotRequired: true, userInstruction })`，僅 `self-generated`，可在 `analyzed` 或 `sd_drafted` 階段呼叫。使用條件：必須是**使用者明確表示**本票不需要 SD，`userInstruction` 必填並記下使用者原話（或原意）；**AI 不可自行提議或決定略過 SD**，不確定就先問使用者。有這筆紀錄時，`get_ticket_status` 與各階段回傳的 `spec_confirmation` 會附 `sdSkipNotice` 稽核字樣（「本票未產出 SD，依使用者指示略過：原話」）。
+
+### 6. 非 Claude 的 AI 怎麼接入
 - **關卡與補充規則的套用都在 MCP 裡**，AI 只要連上這個 MCP 並照流程呼叫工具就會生效，繞不過去（關卡）或自動附上（補充規則）。
 - **入口**：MCP 連線時會附上一段 `instructions`（處理票單先呼叫 `get_pipeline_overview`、切角色前先呼叫 `get_role_prompt` 並帶 `projectDir`／`taskGid`）。**是否把它顯示給模型由各家 client 決定，不保證每個工具都會用到**，所以這個 MCP 不能只靠它。
 - **不走票單流程、只是要在專案裡寫程式碼**時，AI 開始前呼叫 `get_project_rules` 就能拿到共通規則；專案不需要為每個 AI 工具各放一份入口檔（`CLAUDE.md`／`AGENTS.md` 等），規則只維護 `.pipeline/` 這一份。
 - 實務上，非 Claude 的 AI 要進入流程，最穩的做法是在該工具自己的專案規則檔（例如 Codex 的 `AGENTS.md`）加一句：「處理 Asana 票單前，先呼叫 dev-pipeline-mcp 的 `get_pipeline_overview` 並照著做」。Claude Code 的「處理今天的問題單」關鍵字觸發，是 `~/.claude/skills/` 底下的 skill，屬於 Claude 專用，其他工具不會有。
 
-### 6. 規則檔快照與還原（`<projectDir>/.pipeline/.history/`）
+### 7. 規則檔快照與還原（`<projectDir>/.pipeline/.history/`）
 
 ![規則檔快照與還原：MCP 每次讀取專案規則檔時，內容跟最近一份快照不同就存進 .pipeline/.history/，每個檔案保留最近 10 份，相同不重複存；還原時先用 list_rule_history 列出快照，再用 restore_rule_file 選一版，還原前會先把目前內容也存一份，所以還原本身也能反悔](docs/img/rule-history.svg)
 
 快照是「MCP 讀到時」才建立，不是存檔當下，是安全網而不是正式版本控制；專案目錄若有進 git，記得把 `.pipeline/.history/` 加進忽略清單。
 
-### 7. 工具群組可關閉（`DEV_PIPELINE_DISABLE_TOOLSETS`）
+### 8. 工具群組可關閉（`DEV_PIPELINE_DISABLE_TOOLSETS`）
 
 用環境變數縮小工具清單（tools/list）送進 AI 上下文的量；**預設（沒設）全部註冊**。
 
@@ -219,7 +235,7 @@ npm run build
 - 逗號分隔、不分大小寫、容許空白。`bridge` 關閉時，`get_pipeline_overview` 與 `get_role_prompt` 的回傳會自動附上替代工具說明；預設不關閉時不會多出任何字。
 - **工具數量有變動時，記得同步更新這張圖**（數字以 `tests/toolsets.test.mjs` 為準）。
 
-### 8. 自動化測試
+### 9. 自動化測試
 
 ```bash
 cd dev-pipeline-mcp
