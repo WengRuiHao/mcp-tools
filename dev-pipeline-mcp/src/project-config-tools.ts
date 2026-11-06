@@ -4,6 +4,7 @@ import path from "node:path";
 import { stat } from "node:fs/promises";
 import { GATES_FILE_CANDIDATES } from "./project-rule-files.js";
 import { callSvnTool } from "./mcp-clients.js";
+import { buildStepPlan } from "./step-plan.js";
 import { isNoSaPlaceholder, requiresSvnConnection, verifySvnRoots } from "./sasd-path-check.js";
 import { resolveGitRoots, registerGitRoots, type GitRootEntry } from "./git-roots-store.js";
 import { resolveSvnWorkCopies, registerSvnWorkCopies, type SvnWorkCopyEntry } from "./svn-workcopy-store.js";
@@ -19,6 +20,8 @@ import {
   registerLegacyTestProfile,
   resolveTestCapability,
   registerTestCapability,
+  type SdMode,
+  type SpecOrder,
 } from "./project-registry.js";
 import { textResult } from "./shared.js";
 import { getServerInfo } from "./build-info.js";
@@ -325,6 +328,7 @@ export async function handlePrepareProject(args: { cwd?: string | null; projectG
     workspaceGid,
     projectDir,
     sasd,
+    stepPlan: buildStepPlan(sasd as { sdMode: SdMode; specOrder?: SpecOrder | null } | null),
     gitRoots,
     missing,
     server: getServerInfo(),

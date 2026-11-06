@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workflow 引擎規格與進度</title>
+<style>
+:root{
+  --bg:#f7f8fa;--card:#fff;--text:#1d2330;--muted:#5d6678;--line:#dfe3ea;
+  --accent:#2f5bea;--ok:#1e8a4c;--ok-bg:#e3f5ea;--wip:#b26a00;--wip-bg:#fff1d6;
+  --todo:#5d6678;--todo-bg:#eceff4;--stop:#b3261e;--stop-bg:#fde7e5;--code:#eef1f6;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#12151c;--card:#1a1f2a;--text:#e6e9f0;--muted:#9aa3b5;--line:#2c3342;
+    --accent:#7d9bff;--ok:#5fd18b;--ok-bg:#16301f;--wip:#f0b25a;--wip-bg:#3a2c10;
+    --todo:#9aa3b5;--todo-bg:#242a37;--stop:#ff8f86;--stop-bg:#3d1b19;--code:#232938;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12151c;--card:#1a1f2a;--text:#e6e9f0;--muted:#9aa3b5;--line:#2c3342;
+  --accent:#7d9bff;--ok:#5fd18b;--ok-bg:#16301f;--wip:#f0b25a;--wip-bg:#3a2c10;
+  --todo:#9aa3b5;--todo-bg:#242a37;--stop:#ff8f86;--stop-bg:#3d1b19;--code:#232938;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.65 "Segoe UI","Microsoft JhengHei",system-ui,sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:26px;margin:0 0 4px}
+h2{font-size:19px;margin:36px 0 12px;padding-top:8px;border-top:1px solid var(--line)}
+h3{font-size:16px;margin:20px 0 8px}
+.sub{color:var(--muted);margin:0 0 18px}
+nav{display:flex;flex-wrap:wrap;gap:6px 14px;margin:14px 0 6px;font-size:13px}
+nav a{color:var(--accent);text-decoration:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0}
+table{width:100%;border-collapse:collapse;font-size:14px;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:block;overflow-x:auto}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:var(--todo-bg);font-weight:600;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+code{background:var(--code);padding:1px 6px;border-radius:4px;font:13px Consolas,monospace}
+pre{background:var(--code);padding:12px 14px;border-radius:8px;overflow-x:auto;font:13px/1.5 Consolas,monospace;margin:8px 0}
+pre code{background:none;padding:0}
+.tag{display:inline-block;padding:1px 9px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+.done{background:var(--ok-bg);color:var(--ok)}
+.wip{background:var(--wip-bg);color:var(--wip)}
+.todo{background:var(--todo-bg);color:var(--todo)}
+.stop{background:var(--stop-bg);color:var(--stop)}
+.bar{height:10px;background:var(--todo-bg);border-radius:99px;overflow:hidden;margin:6px 0}
+.bar i{display:block;height:100%;background:var(--ok)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:10px 0}
+.node{border:1.5px solid var(--accent);border-radius:8px;padding:5px 11px;background:var(--card);font-size:13px}
+.node.opt{border-style:dashed;color:var(--muted)}
+.node.gate{border-color:var(--wip);background:var(--wip-bg);color:var(--wip)}
+.node.lock{border-color:var(--stop);background:var(--stop-bg);color:var(--stop)}
+.arrow{color:var(--muted)}
+ul{margin:6px 0;padding-left:22px}
+.note{color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Workflow 引擎：規格與進度</h1>
+<p class="sub">dev-pipeline-mcp · 整理日期 2026-11-06 · 規格來源為先前對話已逐項確認的設計稿；本頁只整理，不新增決策。</p>
+<nav>
+  <a href="#progress">整體進度</a><a href="#vision">願景與粒度</a><a href="#roles">角色流程</a>
+  <a href="#artifacts">產出物</a><a href="#gates">關卡</a><a href="#confirm">確認開關與硬停點</a>
+  <a href="#schema">Schema</a><a href="#phase1">階段 1 範圍</a><a href="#phases">各階段</a><a href="#open">待辦與風險</a>
+</nav>
+
+<h2 id="progress">一、整體進度</h2>
+<div class="card">
+  <div><b>已完成（週一前的急件）</b> <span class="tag done">3 / 3</span></div>
+  <div class="bar"><i style="width:100%"></i></div>
+  <div><b>Workflow 引擎（階段 1～4）</b> <span class="tag todo">尚未開工</span></div>
+  <div class="bar"><i style="width:0%"></i></div>
+</div>
+<table>
+<tr><th>項目</th><th>狀態</th><th>說明</th></tr>
+<tr><td>① 移除重複 <code>svn_*</code> 工具</td><td><span class="tag done">完成</span></td><td>dev-pipeline-mcp 的 8 個 <code>svn_*</code> 已移除，SVN 讀取一律走 svn-mcp；工具數 42。</td></tr>
+<tr><td>② README 瘦身</td><td><span class="tag done">完成</span></td><td>約 84KB → 28KB，拆出 <code>docs/FLOW.md</code>、<code>docs/TOOLS.md</code>。</td></tr>
+<tr><td>③ 專案模式搬到各專案自己的規則</td><td><span class="tag done">設定層完成</span></td><td><code>&lt;專案目錄&gt;/.pipeline/settings.json</code> 的 <code>flow.profiles[]</code>；現有的 4 個專案目錄（共 5 個 Asana 專案）已遷移；338 項測試通過。</td></tr>
+<tr><td>③ 的下一步：主流程 prompt 依模式裁剪</td><td><span class="tag done">完成（未 commit）</span></td><td>分析師說明依 <code>sdMode</code> 只留適用的規格取得做法；<code>prepare_project</code> 新增 <code>stepPlan</code>（該專案要走的步驟與規格撰寫者做法），核心流程 3.4／3.6 改為指向它，核心由 7798 縮到 7174 字。345 項測試通過。</td></tr>
+<tr><td>已合進 <code>main</code></td><td><span class="tag done">完成</span></td><td>merge commit <code>46e32d8</code>，已 push。</td></tr>
+<tr><td>尚未用過本 MCP 的 2 個專案登記</td><td><span class="tag todo">待第一次使用</span></td><td>尚未用過本 MCP，沒有 profile。</td></tr>
+<tr><td>清理舊 <code>data/*.json</code></td><td><span class="tag todo">待你確認遷移</span></td><td>目前作為 fallback 保留。</td></tr>
+<tr><td>Workflow 階段 1：schema、驗證、唯讀解析</td><td><span class="tag todo">規格定稿，待最終確認</span></td><td>設計稿已完整，但「請回覆確認」尚未收到明確確認，且你先把急件排在前面。</td></tr>
+</table>
+
+<h2 id="vision">二、願景與三種粒度</h2>
+<p>把目前只服務 Asana 票單的流程，泛化成可支援 greenfield／brownfield 的流程引擎。同一份 workflow 定義用 <code>granularity</code> 決定層級，並以 <code>children</code> 遞迴展開。</p>
+<div class="grid">
+  <div class="card"><b>feature（功能）</b><br>最小單位。現有 Asana 票單流程等價於此層。</div>
+  <div class="card"><b>module（模組）</b><br>由 SA 規格的功能清單展開成多個 feature。</div>
+  <div class="card"><b>system（系統）</b><br>先做模組切分，再展開成多個 module。切分錯誤會全部重工，屬硬停點。</div>
+</div>
+<p><b>Greenfield／Brownfield 是同一套流程的旗標（<code>baseline</code>）</b>，不是兩套流程。brownfield 才啟用「現況盤點／影響分析師」。</p>
+
+<h2 id="roles">三、角色與流程</h2>
+<h3>主線（依賴順序）</h3>
+<div class="flow">
+  <span class="node opt">現況盤點／影響分析（僅 brownfield）</span><span class="arrow">→</span>
+  <span class="node">SA 分析師</span><span class="arrow">→</span>
+  <span class="node opt">DB 設計師</span><span class="arrow">→</span>
+  <span class="node">流程分析師</span><span class="arrow">→</span>
+  <span class="node">SD 分析師</span>
+</div>
+<div class="flow">
+  <span class="node">前端工程師（依 SA，SA 確認後即可開工）</span><span class="arrow">∥</span>
+  <span class="node">後端工程師（依 SD，SD 確認後才能開工）</span><span class="arrow">→</span>
+  <span class="node">驗證師（兩者都完成）</span><span class="arrow">→</span>
+  <span class="node">測試工程師（白箱→黑箱，截圖留證）</span><span class="arrow">→</span>
+  <span class="node lock">人工最終驗收（鎖死 manual）</span>
+</div>
+<p class="note">虛線＝可選／條件式角色。純前端或純後端的需求，對應角色標 <code>optional</code> 略過，驗證師只驗存在的那一邊。</p>
+
+<h3>角色職責</h3>
+<table>
+<tr><th>角色</th><th>職責</th><th>brownfield 多做的事</th></tr>
+<tr><td>現況盤點／影響分析師</td><td>盤點程式碼結構、DB 現況（<code>db_schema</code>／<code>db_search_tables</code>）、既有 SA／SD／流程圖、既有畫面（截圖當現況 mockup）；產出基線＋影響分析報告；維護 living 基線文件。</td><td>（本身只在 brownfield 啟用）</td></tr>
+<tr><td>SA 分析師</td><td>畫 mockup、分析需求、寫規格（可含圖片）。</td><td>規格標明「新增／修改／不動」並引用影響分析。</td></tr>
+<tr><td>DB 設計師</td><td>依 SA 設計 table、view、index。</td><td>用 <code>db_diff_schema</code> 比對異動，評估對既有資料的影響與回滾。</td></tr>
+<tr><td>流程分析師</td><td>把 SA 與 DB 串起來，畫 Mermaid 流程圖（authoritative，附 PNG），比對兩邊能否接上。</td><td>另比對「新流程 ↔ 既有流程圖」。</td></tr>
+<tr><td>SD 分析師</td><td>產出後端規格。</td><td>—</td></tr>
+<tr><td>前端／後端工程師</td><td>前端依 SA、後端依 SD 實作。</td><td>—</td></tr>
+<tr><td>驗證師</td><td>驗證前後端 code 是否符合 SA／SD，流程圖是否合理、有無缺漏。</td><td>多檢查「有沒有破壞既有功能」。</td></tr>
+<tr><td>測試工程師</td><td>白箱（開瀏覽器測整個需求並截圖）後再黑箱。</td><td>新功能測試＋影響分析列出的回歸測試。</td></tr>
+</table>
+
+<h2 id="artifacts">四、產出物（artifacts）</h2>
+<table>
+<tr><th>id</th><th>檔案</th><th>類型</th><th>說明</th></tr>
+<tr><td><code>baseline</code></td><td>baseline.md</td><td>markdown</td><td>現況基線（brownfield 才有）</td></tr>
+<tr><td><code>impact</code></td><td>impact.md</td><td>markdown</td><td>影響分析報告（brownfield 才有）</td></tr>
+<tr><td><code>sa</code></td><td>01-sa.md＋<code>sa-images/</code></td><td>markdown＋附圖</td><td>SA 規格、mockup</td></tr>
+<tr><td><code>db</code></td><td>02-db.sql／02-db.md</td><td>sql＋markdown</td><td>table、view、index 設計與異動</td></tr>
+<tr><td><code>flow</code></td><td>flow.mmd＋flow.png</td><td>mermaid</td><td>流程圖與 SA↔DB 比對結果</td></tr>
+<tr><td><code>sd</code></td><td>03-sd.md</td><td>markdown</td><td>後端規格</td></tr>
+<tr><td><code>impl-fe</code></td><td>impl-fe.md＋程式碼異動</td><td>markdown＋git diff</td><td>前端實作說明（依 SA）</td></tr>
+<tr><td><code>impl-be</code></td><td>impl-be.md＋程式碼異動</td><td>markdown＋git diff</td><td>後端實作說明（依 SD）</td></tr>
+<tr><td><code>verify</code></td><td>verify.md</td><td>report</td><td>第一行 PASS／FAIL＋<code>rootCause</code></td></tr>
+<tr><td><code>test</code></td><td>test.md＋<code>evidence/</code></td><td>report＋截圖</td><td>白箱、黑箱結果與截圖證據</td></tr>
+</table>
+
+<h2 id="gates">五、關卡（gates）</h2>
+<table>
+<tr><th>位置</th><th>類型</th><th>內容</th><th>預設</th></tr>
+<tr><td>after 現況盤點</td><td>內容關卡</td><td>影響分析必須列出受影響的表、API、畫面</td><td>—</td></tr>
+<tr><td>after <code>sa</code></td><td>確認</td><td>使用者確認 SA 規格</td><td><code>inherit</code></td></tr>
+<tr><td>after <code>db</code>＋<code>flow</code></td><td>確認（合併）</td><td>DB 與流程圖要一起看才判斷得了接不接得上</td><td><code>inherit</code></td></tr>
+<tr><td>after <code>sd</code></td><td>確認</td><td>使用者確認後端規格</td><td><code>inherit</code></td></tr>
+<tr><td>after 前端／後端</td><td>內容關卡</td><td>實作文件必須有專案自訂章節（如「查重」）；對應 SA／SD 條目逐項標註；程式碼異動與文件一致（即現有 <code>gates.json</code> 的 <code>implementationSections</code>）</td><td>—</td></tr>
+<tr><td>after <code>verifier</code></td><td>判定關卡</td><td>PASS／FAIL；FAIL 依 <code>rootCause</code> 回到對應角色（分析、設計或實作）</td><td>—</td></tr>
+<tr><td>after <code>tester</code></td><td>證據關卡</td><td>每個測試項目要有截圖；<code>testLevel</code> 與證據一致；白箱完成才能做黑箱</td><td>—</td></tr>
+<tr><td>after <code>tester</code></td><td>最終確認</td><td>人工驗收</td><td><code>manual</code>，<b>locked</b></td></tr>
+</table>
+
+<h2 id="confirm">六、確認開關與硬停點</h2>
+<p>每道關卡有自己的 <code>confirmMode</code>：<code>manual</code>（停下來等你）、<code>auto</code>（各 agent 分工、主 Agent 判斷）、<code>inherit</code>（跟隨上層，預設）。層級：workflow 預設 → 專案 <code>flow.json</code> 覆寫 → 單一關卡覆寫。</p>
+<h3><code>auto</code> 的安全設計</h3>
+<ul>
+  <li><b>審查者與作者分離</b>：<code>auto</code> 時由獨立審查子 Agent（帶檢查清單）審產出物，不讓同一個模型自寫自審。</li>
+  <li><b>決定留紀錄</b>：確認紀錄加 <code>confirmedBy: "human" | "agent"</code>，附審查理由與清單結果。</li>
+  <li><b>硬停點</b>：<code>auto</code> 也不能略過（下表）。</li>
+  <li><b>最終人工驗收</b>：<code>locked</code>，不可設為 <code>auto</code>。</li>
+</ul>
+<table>
+<tr><th>#</th><th>HardStopId</th><th>情境</th></tr>
+<tr><td>1</td><td><code>destructive-db</code></td><td>破壞性 DB 異動（drop／改欄位型別／刪資料）</td></tr>
+<tr><td>2</td><td><code>breaks-existing</code></td><td>影響分析判定會破壞既有功能</td></tr>
+<tr><td>3</td><td><code>consecutive-fail-3</code></td><td>連續 FAIL 3 次</td></tr>
+<tr><td>4</td><td><code>reviewer-uncertain</code></td><td>審查子 Agent 回報「不確定」或規格有矛盾</td></tr>
+<tr><td>5</td><td><code>scope-split</code></td><td>模組切分（系統層）這類一錯就全部重工的決策</td></tr>
+<tr><td>6</td><td><code>sensitive-data</code></td><td>敏感資訊攔截命中</td></tr>
+</table>
+<p class="note">與現有硬規則一致：不確定就停下來問、略過 SD 只能依使用者原話。<code>auto</code> 不能凌駕這些規則。</p>
+
+<h2 id="schema">七、Schema 草案（<code>schemaVersion: 1</code>）</h2>
+<pre><code>interface WorkflowDefinition {
+  schemaVersion: 1;
+  id: string;                                   // "asana-ticket"、"module-brownfield"
+  granularity: "feature" | "module" | "system";
+  source: "asana" | "manual";
+  baseline: "greenfield" | "brownfield";
+  confirmDefault: "manual" | "auto";
+  hardStops: HardStopId[];                      // workflow 層級，auto 也不能略過
+  artifacts: ArtifactDef[];
+  roles: RoleDef[];
+  gates: GateDef[];
+  children?: { from: string; workflow: string };
+}
+interface ArtifactDef { id; file; kind: "markdown"|"mermaid"|"sql"|"report"|"code-change";
+  attachments?; render?; evidence?: ("screenshot")[] }
+interface RoleDef { id; promptRef; dependsOn: string[]; parallelWith?; inputs; outputs;
+  optional?; when?: string /* 只支援 key==value，可用 &amp;&amp; 連接 */ }
+interface GateDef { id; after: string|string[]; type: "confirmation"|"content"|"verdict"|"evidence";
+  confirmMode?: "manual"|"auto"|"inherit"; locked?; checks?; routeOnFail? }</code></pre>
+<p><b>專案 <code>flow.json</code> 覆寫規則</b>：只能覆寫 <code>confirmMode</code>、<code>optional</code>、content 關卡的 <code>checks</code>、角色補充說明（<code>roleNotes</code>）；<b>不能</b>移除 <code>locked</code> 關卡與 <code>hardStops</code>，也不能改角色依賴順序。</p>
+
+<h2 id="phase1">八、階段 1 實作範圍（尚未開工）</h2>
+<p><b>目標：只定義、驗證、描述，不取代任何現有行為。</b>分支 <code>feat/workflow-schema</code>，TDD，完成後交 code-reviewer，不自行 commit／merge。</p>
+<table>
+<tr><th>檔案（<code>src/workflow/</code>）</th><th>內容</th></tr>
+<tr><td><code>schema.ts</code></td><td>型別與 zod 驗證</td></tr>
+<tr><td><code>validate.ts</code></td><td>語意驗證：id 唯一、引用存在、依賴無環、<code>locked</code> 不得為 <code>auto</code>、children 鏈合法（system→module→feature）、<code>when</code> 語法合法</td></tr>
+<tr><td><code>resolve.ts</code></td><td><code>resolveConfirmMode</code>（inherit 逐層解析、locked 與 hardStops 優先）、<code>mergeProjectOverride</code>（拒絕越權欄位）</td></tr>
+<tr><td><code>load.ts</code></td><td>讀專案 <code>flow.json</code>，沿用 <code>gates.json</code> 候選路徑機制；無檔案回 null</td></tr>
+<tr><td><code>builtin/asana-ticket.ts</code></td><td>現有流程的等價定義（含 spec_first／code_first 變體，以 <code>when</code> 表達）</td></tr>
+<tr><td><code>legacy-adapter.ts</code></td><td><code>fromLegacy(sasdConfig, testCapability, legacyTestProfile, gates.json)</code> → 解析後的 workflow（唯讀）</td></tr>
+</table>
+<ul>
+  <li><b>唯讀暴露</b>：既有 <code>project_config</code> 新增 <code>kind: "flow"</code>、<code>action: "resolve"</code>；不新增工具，總數維持 42。</li>
+  <li><b>關鍵測試</b>：用 <code>fromLegacy</code> 對 <code>sdMode × specOrder × testCapabilityMode</code> 各組合，驗證階段順序與現有 <code>STAGE_ORDER</code>、<code>next-action.ts</code> 一致（等價性）。</li>
+  <li><b>驗收</b>：build 無錯；既有測試不改且全過；<code>pipeline-store.ts</code>、<code>prompts.ts</code>、<code>next-action.ts</code>、<code>overview-prompts.ts</code> 零變更；工具數不變；新模組覆蓋率 ≥ 80%。</li>
+</ul>
+
+<h2 id="phases">九、各階段規劃</h2>
+<table>
+<tr><th>階段</th><th>內容</th><th>狀態</th></tr>
+<tr><td>0（急件）</td><td>svn_* 移除、README 瘦身、專案模式設定下放到專案目錄</td><td><span class="tag done">完成</span></td></tr>
+<tr><td>1</td><td>workflow schema、驗證、唯讀解析、等價定義；不改現有行為</td><td><span class="tag todo">待確認後開工</span></td></tr>
+<tr><td>2</td><td><code>taskGid</code> 泛化成 <code>workItemId</code>；改 <code>pipeline-store</code>、階段列舉</td><td><span class="tag todo">未開始</span></td></tr>
+<tr><td>3</td><td>改 <code>next-action</code>、prompts 改由 workflow 驅動；<code>data/*.json</code> 搬遷；<code>auto</code> 模式與硬停點的執行期強制</td><td><span class="tag todo">未開始</span></td></tr>
+<tr><td>4</td><td><code>manual</code> 來源、新角色 prompt（現況盤點、DB 設計師、流程分析師、SD 分析師、前後端工程師）、Mermaid 與截圖證據</td><td><span class="tag todo">未開始</span></td></tr>
+</table>
+
+<h2 id="open">十、待辦與已知風險</h2>
+<h3>下一步（依序）</h3>
+<ul>
+  <li><span class="tag done">完成</span> 主流程 prompt 依模式裁剪（③ 收尾），尚未 commit。</li>
+  <li><span class="tag todo">待你回覆</span> 階段 1 最終確認（硬停點、locked 驗收、schema 與範圍）。</li>
+  <li><span class="tag todo">待使用</span> 尚未用過本 MCP 的 2 個專案，第一次使用時登記 profile。</li>
+  <li><span class="tag todo">待你確認</span> 舊 <code>data/*.json</code> 可清理的時機。</li>
+</ul>
+<h3>風險</h3>
+<ul>
+  <li><code>when</code> 刻意只支援 <code>key==value &amp;&amp; ...</code>，避免變成自製語言；不夠用再擴充。</li>
+  <li>等價性測試若發現現有行為有未盤到的分支，先回報，不悄悄把差異寫進 builtin 定義。</li>
+  <li>階段 1 只驗證「宣告合法」，<code>auto</code> 與硬停點在階段 3 前不會真的被強制執行。</li>
+</ul>
+
+</div>
+</body>
+</html>
