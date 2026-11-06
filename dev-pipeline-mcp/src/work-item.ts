@@ -22,3 +22,40 @@ export function resolveWorkItemIdArg(args: { taskGid?: string; workItemId?: stri
   }
   return id;
 }
+
+type WorkItemArgs = { taskGid?: string; workItemId?: string };
+type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean };
+
+/** 輸出若為 JSON 物件，補上與 taskGid 同值的 workItemId（已有則不動，原欄位與順序不變）。 */
+export function withWorkItemIdInOutput<R extends ToolResult>(result: R, id: string): R {
+  const first = result.content?.[0];
+  if (!first || first.type !== "text") return result;
+  try {
+    const parsed: unknown = JSON.parse(first.text);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || "workItemId" in parsed) return result;
+    return { ...result, content: [{ ...first, text: JSON.stringify({ ...parsed, workItemId: id }) }, ...result.content.slice(1)] };
+  } catch {
+    return result;
+  }
+}
+
+/**
+ * 工具入參邊界：把 taskGid / workItemId 解析成單一 taskGid 後交給原 handler，
+ * 缺／衝突時回 isError 結果而非拋例外；成功輸出多帶 workItemId（同值）。
+ */
+export function withTaskGid<A extends WorkItemArgs, R extends ToolResult>(
+  handler: (args: Omit<A, "taskGid" | "workItemId"> & { taskGid: string }) => Promise<R>
+): (args: A) => Promise<R | ToolResult> {
+  return async (args) => {
+    let taskGid: string;
+    try {
+      taskGid = resolveWorkItemIdArg(args);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return { content: [{ type: "text", text: JSON.stringify({ success: false, message }) }], isError: true };
+    }
+    const { workItemId: _drop, ...rest } = args;
+    const result = await handler({ ...rest, taskGid } as Omit<A, "taskGid" | "workItemId"> & { taskGid: string });
+    return withWorkItemIdInOutput(result, taskGid);
+  };
+}

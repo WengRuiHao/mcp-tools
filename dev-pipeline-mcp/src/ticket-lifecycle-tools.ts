@@ -24,6 +24,7 @@ import {
 } from "./pipeline-store.js";
 import { syncPendingActionsReport, getPipelineAsanaUserGid, getUncommittedChangesSummary, filterOutGitCommitActions } from "./pending-actions-sync.js";
 import { textResult } from "./shared.js";
+import { workItemIdParams, withTaskGid } from "./work-item.js";
 import { getServerInfo } from "./build-info.js";
 import { checkTestEvidenceForTested, findStaleEvidenceBackups, summarizeTestEvidence } from "./test-evidence-store.js";
 import { filterAndLimitTickets, localDateString, detectTicketNumber, DUE_ON_DATE_PATTERN } from "./ticket-list-filter.js";
@@ -297,10 +298,10 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       "- external_changes 的 *_externally_modified 為 true=檔案被外部改過，summaries 與 sync_flags 可能過期，**要 read_ticket_artifact 讀全文**，確認後 resync_ticket_artifact。\n" +
       "- nextAction：依狀態算出的下一步，與工具實際把關一致，優先照做。",
     {
-      taskGid: z.string().describe("任務 gid"),
+      ...workItemIdParams,
       verbose: z.boolean().nullable().optional().describe("true=回完整 status（含 history）；預設精簡"),
     },
-    async ({ taskGid, verbose }) => {
+    withTaskGid(async ({ taskGid, verbose }) => {
       const status = await readStatus(taskGid);
       const { history: _history, sync: _sync, ...slimStatus } = status;
       const base = verbose ? status : slimStatus;
@@ -321,7 +322,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         external_changes: externalChanges,
         nextAction: computeNextAction(status, { syncFlags, externalChanges, sasd }),
       });
-    }
+    })
   );
 
   server.tool(
@@ -331,12 +332,12 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       "confirmed: false=使用者測出問題：記下 note、verdict 重設為 null，票單回一般清單（humanRejected: true），走與 AI 判 FAIL 相同的根因分流。" +
       "呼叫後自動重寫報告；verbose:true 取完整狀態。",
     {
-      taskGid: z.string().describe("任務 gid"),
+      ...workItemIdParams,
       confirmed: z.boolean().describe("使用者實測＋審視程式碼是否通過：true=結案，false=有問題"),
       note: z.string().nullable().optional().describe("備註：測了哪些情境、審視發現；confirmed=false 時寫具體問題"),
       verbose: verboseParam,
     },
-    async ({ taskGid, confirmed, note, verbose }) => {
+    withTaskGid(async ({ taskGid, confirmed, note, verbose }) => {
       const current = await readStatus(taskGid);
       if (current.stage !== "tested") {
         return textResult(
@@ -350,7 +351,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       const status = await recordConfirmation(taskGid, confirmed, note ?? null);
       await syncPendingActionsReport(taskGid);
       return statusResponse(taskGid, status, verbose);
-    }
+    })
   );
 
   server.tool(
@@ -359,14 +360,14 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       "confirmed: true=解鎖下一步（spec_first 到 implemented；code_first 到 verified）。confirmed: false=記下 note，stage 維持 sd_drafted（specRejected: true），規格撰寫者修改後重新 advance_ticket_stage({ stage: \"sd_drafted\" })。" +
       "**sdNotRequired: true=使用者明確表示本票不需要 SD**：userInstruction 必填（使用者原話或原意），可在 \"analyzed\" 或 \"sd_drafted\" 呼叫、僅 self-generated。**AI 不可自行提議或決定略過 SD**，沒有使用者明確表示不得使用；不確定先問。紀錄供稽核。verbose:true 取完整狀態。",
     {
-      taskGid: z.string().describe("任務 gid"),
+      ...workItemIdParams,
       confirmed: z.boolean().describe("規格草稿是否可動手寫程式碼：true=可以，false=要修改。sdNotRequired 為 true 時必須是 true"),
       note: z.string().nullable().optional().describe("備註；confirmed=false 時具體說明哪裡要改"),
       sdNotRequired: z.boolean().nullable().optional().describe("true=使用者明確表示本票不需要 SD。必須同時帶 userInstruction；絕不可由 AI 自行決定。"),
       userInstruction: z.string().nullable().optional().describe("sdNotRequired=true 時必填：使用者表示不需要 SD 的原話或原意，原文記錄供稽核"),
       verbose: verboseParam,
     },
-    async ({ taskGid, confirmed, note, sdNotRequired, userInstruction, verbose }) => {
+    withTaskGid(async ({ taskGid, confirmed, note, sdNotRequired, userInstruction, verbose }) => {
       const current = await readStatus(taskGid);
       if (sdNotRequired === true) {
         const instruction = (userInstruction ?? "").trim();
@@ -414,25 +415,25 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       const status = await recordSpecConfirmation(taskGid, confirmed, note ?? null);
       await syncPendingActionsReport(taskGid);
       return statusResponse(taskGid, status, verbose);
-    }
+    })
   );
 
   server.tool(
     "record_sasd_check",
     "記錄這張票單是否有對應的 SA/SD 規格文件。強制：寫入 01-analysis.md 前一定要先呼叫，否則 write_ticket_artifact 拒絕寫入。verbose:true 取完整狀態。",
     {
-      taskGid: z.string().describe("任務 gid"),
+      ...workItemIdParams,
       hasSasd: z.boolean().describe("這張票是否有對應的 SA/SD 規格文件"),
       sasdInfo: z.string().nullable().optional().describe("有的話：規格文件路徑、連結或摘要"),
       verbose: verboseParam,
     },
-    async ({ taskGid, hasSasd, sasdInfo, verbose }) => {
+    withTaskGid(async ({ taskGid, hasSasd, sasdInfo, verbose }) => {
       const status = await advanceStage(taskGid, (await readStatus(taskGid)).stage, {
         sasd_checked: true,
         sasd_info: hasSasd ? sasdInfo ?? "(使用者確認有 SA/SD 規格，但未提供詳細內容)" : null,
       });
       return statusResponse(taskGid, status, verbose);
-    }
+    })
   );
 
   server.tool(
@@ -440,13 +441,13 @@ export function registerTicketLifecycleTools(server: McpServer): void {
     "移除 manualActions 裡『使用者確認已處理完』的一項（其餘保留），用在使用者說某項手動待辦（SQL、I18N 匯入等）做完了。" +
       "**`action` 要與 get_ticket_status/list_pending_tickets 的 manualActions 文字一字不差**（前後空白忽略）；找不到時回傳 success:false 與目前清單，核對後重試，不要憑印象猜。移除後自動重寫報告。",
     {
-      taskGid: z.string().describe("任務 gid"),
+      ...workItemIdParams,
       filename: z
         .enum(["02-implementation.md", "03-verification.md", "04-test.md"])
         .describe("該待辦由哪份文件宣告（工程師 02、驗證師 03、測試工程師 04）"),
       action: z.string().describe("要移除的事項完整文字（從 manualActions 複製）"),
     },
-    async ({ taskGid, filename, action }) => {
+    withTaskGid(async ({ taskGid, filename, action }) => {
       const result = await resolveManualAction(taskGid, filename, action);
       if (!result.removed) {
         return textResult(
@@ -460,7 +461,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       }
       await syncPendingActionsReport(taskGid);
       return textResult({ success: true, taskGid, filename, remaining: result.remaining });
-    }
+    })
   );
 
   server.tool(
@@ -468,14 +469,14 @@ export function registerTicketLifecycleTools(server: McpServer): void {
     "標記某票「使用者要求優先重新確認」（human_requested_reanalysis），純資料操作、不會自己觸發分析。" +
       "用在使用者要求標記，或 PENDING_HUMAN_ACTIONS.html 勾選按鈕背後的呼叫。**呼叫完你自己應直接接著對這張票呼叫 get_ticket_snapshot**；旗標是留給之後連上的其他 AI/session 看的，不是延後處理的藉口。自動重寫報告；verbose:true 取完整狀態。",
     {
-      taskGid: z.string().describe("任務 gid"),
+      ...workItemIdParams,
       verbose: verboseParam,
     },
-    async ({ taskGid, verbose }) => {
+    withTaskGid(async ({ taskGid, verbose }) => {
       const status = await requestReanalysis(taskGid);
       await syncPendingActionsReport(taskGid);
       return statusResponse(taskGid, status, verbose, { taskGid });
-    }
+    })
   );
 
   server.tool(
@@ -486,7 +487,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       "tested 的 verdict 規則同 verified：只有 AI 有把握的 verified_fail 才算 FAIL，needs_manual_check 不影響（見 get_role_prompt({role:\"tester\"})）。" +
       "更新 verdict 會清空 confirmation，並維護 consecutive_fail_count（FAIL 累加、PASS 歸零，達 3 時 needs_human_review 為 true）。verbose:true 取完整狀態。",
     {
-      taskGid: z.string().describe("任務 gid"),
+      ...workItemIdParams,
       stage: z
         .enum(["new", "snapshot", "project_dir_confirmed", "analyzed", "sd_drafted", "implemented", "verified", "tested"])
         .describe(
@@ -501,7 +502,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         .describe("verdict=\"FAIL\" 時必填：根因在分析或實作階段；非 FAIL 不可帶"),
       verbose: verboseParam,
     },
-    async ({ taskGid, stage, project_dir, verdict, rootCause, verbose }) => {
+    withTaskGid(async ({ taskGid, stage, project_dir, verdict, rootCause, verbose }) => {
       if (verdict != null && stage !== "verified" && stage !== "tested") {
         return textResult(
           {
@@ -632,6 +633,6 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       const status = await advanceStage(taskGid, stage, patch);
       await syncPendingActionsReport(taskGid);
       return statusResponse(taskGid, status, verbose, { needs_human_review: needsHumanReview(status) });
-    }
+    })
   );
 }

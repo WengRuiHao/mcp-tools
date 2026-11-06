@@ -23,6 +23,7 @@ export async function buildCompactStatus(taskGid: string, status: TicketStatus):
   const sasd = await sasdForStatus(status);
   return {
     taskGid,
+    workItemId: taskGid,
     stage: status.stage,
     verdict: status.verdict,
     needs_human_review: needsHumanReview(status),
