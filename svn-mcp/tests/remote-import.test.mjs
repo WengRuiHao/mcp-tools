@@ -69,7 +69,6 @@ test("遠端已有同名檔案：拒絕，不覆蓋", async () => {
 
 test("不合法的輸入一律拒絕，且不留暫存", async () => {
   const ok = { connectionId: "t1", path: "fine.md", content: Buffer.from("x\n"), message: "m" };
-  await assertEditError(importNewFile({ ...ok, message: "  " }), "INVALID_INPUT", /message/);
   await assertEditError(importNewFile({ ...ok, message: "x".repeat(4001) }), "INVALID_INPUT", /太長/);
   await assertEditError(importNewFile({ ...ok, path: "../out.md" }), "INVALID_INPUT", /\.\./);
   await assertEditError(importNewFile({ ...ok, path: "tool.exe" }), "INVALID_INPUT", /不支援/);
@@ -126,8 +125,8 @@ test("HTTP：上傳新檔案成功；重複、缺少 token、缺少訊息各回�
 
   assert.equal((await upload({ connection: "test", path: "web/x.md", message: "m" }, body, { token: null })).status, 401);
   assert.equal((await upload({ connection: "test", path: "web/x.md", message: "m" }, body, { headers: { Origin: "http://evil.example" } })).status, 403);
+  // 說明改為選填：留空會自動產生，不再回 400
   const noMsg = await upload({ connection: "test", path: "web/y.md" }, body);
-  assert.equal(noMsg.status, 400);
-  assert.equal(noMsg.json.code, "INVALID_INPUT");
-  assert.throws(() => svn("info", `${repoUrl}/web/y.md`));
+  assert.equal(noMsg.status, 200);
+  assert.equal(remoteCat("web/y.md"), "# 從網頁上傳\n");
 });
