@@ -163,13 +163,14 @@ test("目錄不是檔案：拒絕", async () => {
   await assertEditError(openEdit({ connectionId: "t1", path: "folder.md" }), "INVALID_INPUT", /不是檔案/);
 });
 
-test("commit 訊息不能是空的；過長也拒絕", async () => {
+test("commit 訊息過長拒絕；留空不拒絕，會自動補「更新 檔名」", async () => {
   seed("msg.md", "m1\n");
   const session = await openEdit({ connectionId: "t1", path: "msg.md" });
   fs.writeFileSync(session.filePath, "m2\n");
-  await assertEditError(commitEdit(session.id, "   "), "INVALID_INPUT", /message/);
   await assertEditError(commitEdit(session.id, "x".repeat(4001)), "INVALID_INPUT", /太長/);
-  await discardEdit(session.id);
+  const result = await commitEdit(session.id, "   ");
+  assert.ok(result.committedRevision, "空白說明可以直接上傳");
+  assert.match(svn("log", "--xml", "-r", "HEAD", repoUrl), /更新 msg\.md/);
 });
 
 test("稽核紀錄：每個動作留一行，commit 訊息只記長度與前 80 字", async () => {

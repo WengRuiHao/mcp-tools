@@ -19,6 +19,9 @@ import { inspectLocalDirs, listLocalDirs } from "./local-fs.js";
 import { pickLocalFolder } from "./local-picker.js";
 import { commitEditAndSync } from "./local-sync.js";
 import { deleteRemoteFileAndSync } from "./remote-delete.js";
+import { moveRemoteFilesAndSync } from "./remote-move.js";
+import { renameRemoteEntryAndSync } from "./remote-rename.js";
+import { resolveRemoteUrl } from "./remote-url.js";
 import { renderPage } from "./edit-ui.js";
 import { openForEdit, openFile, revealFile } from "./os-open.js";
 import { cancelImport, commitImport, planImport, stageImportFile, startImportBatch } from "./remote-import-batch.js";
@@ -219,6 +222,10 @@ const API_POST: Record<string, ApiHandler> = {
   },
   // 刪除遠端單一檔案（成功後依「同步本地端」開關更新本地工作目錄）
   "/api/delete": (body) => deleteRemoteFileAndSync({ connectionId: str(body, "connection") || undefined, path: str(body, "path"), paths: body.paths, message: str(body, "message") }),
+  // 移動遠端檔案或資料夾到另一個資料夾（svn move，歷史保留；成功後依「同步本地端」開關更新本地工作目錄）
+  "/api/move": (body) => moveRemoteFilesAndSync({ connectionId: str(body, "connection") || undefined, paths: body.paths, targetDir: str(body, "targetDir"), message: str(body, "message") }),
+  // 直接改遠端檔案或資料夾的名稱（svn move，歷史保留；不用填 commit 說明，自動產生）
+  "/api/rename-entry": (body) => renameRemoteEntryAndSync({ connectionId: str(body, "connection") || undefined, path: str(body, "path"), newName: str(body, "newName") }),
   "/api/discard": (body) => discardEdit(str(body, "id")),
   "/api/reopen": async (body) => {
     const { session } = await getEditStatus(str(body, "id"));
@@ -311,6 +318,7 @@ export function createEditServer(): EditServer {
       return sendJson(res, 200, await getUpgradePlan(url.searchParams.get("id") ?? "", url.searchParams.get("newName") || undefined));
     }
     if (req.method === "GET" && route === "/api/local/list") return sendJson(res, 200, listLocalDirs(url.searchParams.get("path") ?? ""));
+    if (req.method === "GET" && route === "/api/resolve-url") return sendJson(res, 200, await resolveRemoteUrl(url.searchParams.get("url") ?? ""));
     if (req.method === "GET" && route === "/api/browse") {
       return sendJson(res, 200, await browseRemote(url.searchParams.get("connection") || undefined, url.searchParams.get("path") ?? ""));
     }

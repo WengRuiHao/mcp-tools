@@ -100,14 +100,12 @@ test("完整流程：開始編輯 → 狀態 → 上傳，遠端內容更新", a
   state = (await call("GET", "/api/state")).json;
   assert.equal(state.sessions.find((s) => s.session.id === session.id).modified, true);
 
-  const empty = await post("/api/commit", { id: session.id, message: "  " });
-  assert.equal(empty.status, 400);
-  assert.equal(empty.json.code, "INVALID_INPUT");
-
-  const done = await post("/api/commit", { id: session.id, message: "[GV-9] 更新" });
+  // 說明不是必填：留空也能直接上傳，會自動補「更新 檔名」
+  const done = await post("/api/commit", { id: session.id, message: "  " });
   assert.equal(done.status, 200);
   assert.ok(done.json.committedRevision > 1);
   assert.equal(svn("cat", `${repoUrl}/flow/spec.md`), "v2\n");
+  assert.match(svn("log", "--xml", "-r", "HEAD", repoUrl), /更新 spec\.md/);
   assert.equal((await call("GET", "/api/state")).json.sessions.some((s) => s.session.id === session.id), false);
 });
 
@@ -241,6 +239,27 @@ test("瀏覽遠端目錄：資料夾在前、標示哪些檔案可編輯；拒�
   assert.equal((await call("GET", "/api/browse?connection=test&path=a:b")).status, 400);
   assert.equal((await call("GET", "/api/browse?connection=test&path=no/such/dir")).status, 404);
   assert.equal((await call("GET", "/api/browse?connection=test&path=browse", { token: null })).status, 401);
+});
+
+test("移動遠端檔案 API：要 token；成功回新位置；說明留空也能移動；同名衝突回 409，並且什麼都不動", async () => {
+  seed("mv/src/a.md", "a");
+  seed("mv/dst/b.md", "b");
+  seed("mv/src/b.md", "dup");
+  const body = { connection: "test", paths: ["mv/src/a.md"], targetDir: "mv/dst", message: "[GV-9] 整理" };
+
+  assert.notEqual((await post("/api/move", body, { token: null })).status, 200, "沒有 token 不能移動");
+  assert.deepEqual(svn("list", "--xml", `${repoUrl}/mv/src`).match(/<name>[^<]*<\/name>/g), ["<name>a.md</name>", "<name>b.md</name>"], "沒有 token 時什麼都沒動");
+
+  const clash = await post("/api/move", { ...body, paths: ["mv/src/b.md"] });
+  assert.equal(clash.json.code, "ALREADY_EXISTS");
+  assert.equal(clash.status, 409);
+
+  const ok = await post("/api/move", { ...body, message: " " }); // 說明不是必填
+  assert.equal(ok.status, 200);
+  assert.deepEqual(ok.json.moved, [{ from: "mv/src/a.md", to: "mv/dst/a.md" }]);
+  assert.equal(typeof ok.json.movedRevision, "number");
+  const dst = await call("GET", "/api/browse?connection=test&path=mv/dst");
+  assert.deepEqual(dst.json.entries.map((e) => e.name), ["a.md", "b.md"]);
 });
 
 test("沒指定連線、或連線名稱不存在：回 400（輸入問題），不是 500", async () => {

@@ -97,7 +97,7 @@ export async function deleteRemoteFiles(params: DeleteParams): Promise<DeleteRes
 const SEVERITY: Record<LocalSyncResult["status"], number> = { updated: 0, warning: 1, failed: 2 };
 
 /** 多個資料夾各自同步的結果合併成一個：狀態取最嚴重的；有警示時列出所有不同的說明。 */
-function mergeSyncResults(results: LocalSyncResult[]): LocalSyncResult {
+export function mergeSyncResults(results: LocalSyncResult[]): LocalSyncResult {
   if (results.length === 1) return results[0];
   const status = results.reduce<LocalSyncResult["status"]>((worst, r) => (SEVERITY[r.status] > SEVERITY[worst] ? r.status : worst), "updated");
   if (status === "updated") return { status, message: `已同步本地端（${results.length} 個資料夾）` };

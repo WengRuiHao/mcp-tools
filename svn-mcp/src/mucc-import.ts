@@ -15,6 +15,7 @@
 import { execFile, execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import iconv from "iconv-lite";
 import type { SvnConnection } from "./svn-client.js";
 import { decodeSvnText } from "./svn-text.js";
 import { errorMessage, parseRevision } from "./util.js";
@@ -86,7 +87,8 @@ function readAnsiCodePage(): number | null {
  * 先找單位元組（0x80–0xFF），再找雙位元組；只有「解碼剛好是一個字元」的組合才收進來。
  */
 export function buildEncoder(label: string): MessageEncoder {
-  const decoder = new TextDecoder(label, { fatal: false });
+  // 用 iconv-lite 而不是 TextDecoder：pkg 打包的 Node 是 small-icu，不支援 big5／gbk 等。
+  const decoder = { decode: (bytes: Uint8Array): string => iconv.decode(Buffer.from(bytes), label) };
   const map = new Map<string, number[]>();
   const add = (bytes: number[]): void => {
     const s = decoder.decode(Uint8Array.from(bytes));

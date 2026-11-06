@@ -4,12 +4,14 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
+import path from "node:path";
 import { createSvnFixture } from "./helpers/svn-fixture.mjs";
 import { EditError } from "../dist/remote-edit-client.js";
 import { cancelImport, commitImport, planImport, stageImportFile, startImportBatch } from "../dist/remote-import-batch.js";
 import { createEditServer } from "../dist/edit-server.js";
+import { addLocalPath, removeLocalPath, readRepoPrefs, setSyncLocal } from "../dist/repo-prefs.js";
 
-const { svn, repoUrl } = createSvnFixture({ prefix: "svn-batch-test-", noLaunch: true });
+const { svn, repoUrl, checkoutLocal } = createSvnFixture({ prefix: "svn-batch-test-", noLaunch: true });
 
 const remoteCat = (rel) => svn("cat", `${repoUrl}/${rel}`).replaceAll("\r\n", "\n");
 const youngest = () => Number(svn("info", "--show-item", "revision", repoUrl).trim());
@@ -113,7 +115,6 @@ test("路徑安全：.. 、完整 URL、不允許的字元、空檔案、過大�
   await assertEditError(stageImportFile(batch, "大.bin", Buffer.alloc(50 * 1024 * 1024 + 1)), "FILE_TOO_LARGE");
   await stageImportFile(batch, "ok.txt", Buffer.from("x"));
   await assertEditError(planImport({ batch, connectionId: "t1", targetDir: "../外面" }), "INVALID_INPUT", /\.\./);
-  await assertEditError(commitImport({ batch, connectionId: "t1", targetDir: "x", message: "   " }), "INVALID_INPUT", /commit message/);
   await assertEditError(stageImportFile("not-a-uuid", "a.txt", Buffer.from("x")), "INVALID_INPUT");
   await cancelImport(batch);
 });
@@ -172,7 +173,6 @@ test("HTTP：start → stage（保留相對路徑）→ plan → commit 整條�
   assert.equal(plan.status, 200);
   assert.equal(plan.json.add.length, 2);
 
-  assert.equal((await call("POST", "/api/import/commit", { batch, connection: "test", targetDir: "網頁上傳", message: "" })).status, 400);
   const done = await call("POST", "/api/import/commit", { batch, connection: "test", targetDir: "網頁上傳", message: "[GV-3] 網頁批次上傳", ticket: "GV-3" });
   assert.equal(done.status, 200);
   assert.equal(done.json.added, 2);
@@ -236,4 +236,38 @@ test("HTTP：stage 的 mtime 參數會進到 plan 的 remoteNewer 判斷", async
   assert.equal(plan.json.overwriteDetails[0].remoteNewer, true);
   assert.match(plan.json.overwriteDetails[0].localModified, /^1970-/);
   await call("POST", "/api/import/cancel", { batch });
+});
+
+test("commit 說明是選填：留空（或只有空白）會自動補「上傳 N 個檔案到「目錄」」", async () => {
+  const batch = await stageAll({ "說明/a.txt": "a\n", "說明/b.txt": "b\n" });
+  const result = await commitImport({ batch, connectionId: "t1", targetDir: "說明測試", message: "   " });
+  assert.equal(result.added, 2);
+  assert.equal(result.localSync, undefined, "同步本地端開關關閉時不該有 localSync");
+  assert.match(svn("log", "--xml", "-l", "1", repoUrl), /上傳 2 個檔案到「說明測試」/);
+});
+
+test("同步本地端：開關開啟時，上傳完成後本地追蹤目錄會一起更新；開關關閉則不動", async () => {
+  const local = checkoutLocal("local-wc");
+  const localFile = (rel) => path.join(local, ...rel.split("/"));
+  const conn = "test"; // 連線名稱（本地目錄是以名稱記錄的）
+  for (const existing of (await readRepoPrefs()).localPaths[conn] ?? []) await removeLocalPath(conn, existing);
+  await addLocalPath(conn, local);
+  try {
+    await setSyncLocal(false);
+    const off = await stageAll({ "同步/關閉.txt": "off\n" });
+    const offResult = await commitImport({ batch: off, connectionId: "t1", targetDir: "同步測試", message: "開關關閉" });
+    assert.equal(offResult.localSync, undefined);
+    assert.equal(fs.existsSync(localFile("同步測試/同步/關閉.txt")), false, "開關關閉不該更新本地端");
+
+    await setSyncLocal(true);
+    const on = await stageAll({ "同步/開啟.txt": "on\n" });
+    const onResult = await commitImport({ batch: on, connectionId: "t1", targetDir: "同步測試", message: "" });
+    assert.equal(onResult.localSync?.status, "updated", onResult.localSync?.message);
+    // Windows 上 svn 會把 text 檔轉成 CRLF，只比內容
+    assert.equal(fs.readFileSync(localFile("同步測試/同步/開啟.txt"), "utf-8").replaceAll("\r\n", "\n"), "on\n");
+    assert.equal(fs.existsSync(localFile("同步測試/同步/關閉.txt")), true, "更新目錄時，先前沒同步到的也會一起補上");
+  } finally {
+    await setSyncLocal(false);
+    await removeLocalPath(conn, local);
+  }
 });
