@@ -78,14 +78,14 @@ test("sasd_config: found:false 帶 instructions；unregistered/N-A 往返；self
 test("legacy_test_profile: 預設 false、register 往返", withConfig(async (call) => {
   assert.deepEqual((await call({ kind: "legacy_test_profile", action: "resolve", projectGid: "PL" })).json, { legacyTestProfile: false });
   const reg = await call({ kind: "legacy_test_profile", action: "register", projectGid: "PL", legacyTestProfile: true });
-  assert.deepEqual(reg.json, { success: true, projectGid: "PL", legacyTestProfile: true });
+  assert.deepEqual(reg.json, { success: true, projectGid: "PL", legacyTestProfile: true, savedTo: "mcp-data" });
   assert.deepEqual((await call({ kind: "legacy_test_profile", action: "resolve", projectGid: "PL" })).json, { legacyTestProfile: true });
 }));
 
 test("test_capability: found:false、register 往返、mode 不合法被擋", withConfig(async (call) => {
   assert.deepEqual((await call({ kind: "test_capability", action: "resolve", projectGid: "PT" })).json, { found: false });
   const reg = await call({ kind: "test_capability", action: "register", projectGid: "PT", mode: "legacy_junit4", note: "JDK7 + JUnit 4.12" });
-  assert.deepEqual(reg.json, { success: true, projectGid: "PT", mode: "legacy_junit4", note: "JDK7 + JUnit 4.12" });
+  assert.deepEqual(reg.json, { success: true, projectGid: "PT", mode: "legacy_junit4", note: "JDK7 + JUnit 4.12", savedTo: "mcp-data" });
   const hit = await call({ kind: "test_capability", action: "resolve", projectGid: "PT" });
   assert.equal(hit.json.found, true);
   assert.equal(hit.json.mode, "legacy_junit4");

@@ -70,7 +70,7 @@ test("role prompt ends with a single ToolSearch select line matching the role's 
 });
 
 test("role toolset: analyst keeps the tools named in the task and spec-writer does not write ticket artifacts", () => {
-  for (const t of ["get_ticket_status", "record_sasd_check", "read_ticket_artifact", "write_ticket_artifact", "advance_ticket_stage", "svn_cat", "svn_doc_images", "get_recent_commits"]) {
+  for (const t of ["get_ticket_status", "record_sasd_check", "read_ticket_artifact", "write_ticket_artifact", "advance_ticket_stage", "get_recent_commits"]) {
     assert.ok(ROLE_TOOLS.analyst.includes(t), t);
   }
   assert.ok(!ROLE_TOOLS["spec-writer"].includes("write_ticket_artifact"));
@@ -160,4 +160,16 @@ test("forSubagent brief carries the mismatch warning only when the role is wrong
   };
   assert.match(buildSubagentBrief({ ...base, role: "engineer" }), /角色與票單進度可能不符/);
   assert.ok(!buildSubagentBrief({ ...base, role: "tester" }).includes("角色與票單進度可能不符"));
+});
+
+test("SVN 讀取不在本 MCP：分析師說明另附 svn-mcp 的載入查詢，其他角色沒有", () => {
+  const analyst = getRolePrompt("analyst");
+  assert.match(analyst, /mcp__svn-mcp__svn_browse/);
+  assert.match(analyst, /mcp__svn-mcp__svn_cat/);
+  assert.match(analyst, /mcp__svn-mcp__svn_doc_images/);
+  // 本 MCP 自己的工具載入查詢不可混進 svn-mcp 的名稱
+  assert.ok(!buildToolLoadQuery("analyst").includes("svn"));
+  for (const role of ["spec-writer", "engineer", "verifier", "tester"]) {
+    assert.ok(!getRolePrompt(role).includes("mcp__svn-mcp__"), role);
+  }
 });

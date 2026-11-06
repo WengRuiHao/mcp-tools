@@ -10,25 +10,15 @@
  * `--xml` 的輸出一律是 UTF-8，不需要經過這裡。
  */
 
-let big5Decoder: TextDecoder | null | undefined;
+import iconv from "iconv-lite";
 
-function getBig5Decoder(): TextDecoder | null {
-  if (big5Decoder === undefined) {
-    try {
-      big5Decoder = new TextDecoder("big5");
-    } catch {
-      big5Decoder = null; // Node 沒有完整 ICU 時無法解 Big5，退回 UTF-8 容錯解碼
-    }
-  }
-  return big5Decoder;
-}
-
+// 用純 JS 的 iconv-lite 解 Big5：pkg 打包的 Node 是 small-icu，`new TextDecoder("big5")` 會丟
+// 「The "big5" encoding is not supported」。
 function decodeLine(line: Uint8Array): string {
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(line);
   } catch {
-    const big5 = getBig5Decoder();
-    return big5 ? big5.decode(line) : Buffer.from(line).toString("utf-8");
+    return iconv.decode(Buffer.from(line), "big5");
   }
 }
 

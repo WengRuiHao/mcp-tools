@@ -1,6 +1,16 @@
 import path from "node:path";
 import { getDataDir } from "./config-store.js";
 import { readJsonFile, updateJsonFile } from "./atomic-store.js";
+import { isUsableProjectDir, readFlowProfile, upsertFlowProfile } from "./project-flow-settings.js";
+
+/** 設定實際存在哪：專案目錄的 .pipeline/settings.json（flow.profiles），或這個 MCP 自己的 data/*.json（舊資料／專案目錄不可用時的 fallback）。 */
+export type ConfigStorage = "project" | "mcp-data";
+
+/** 這個 Asana 專案登記的程式碼目錄，且目錄在這台機器上真的存在才回傳；否則回傳 null（呼叫端退回 data/*.json）。 */
+async function usableProjectDirFor(projectGid: string): Promise<string | null> {
+  const dir = await resolveProjectDir(projectGid);
+  return dir && (await isUsableProjectDir(dir)) ? dir : null;
+}
 
 // ---------------------------------------------------------------------------
 // SA/SD spec configuration — per Asana project (each project's SVN layout and
@@ -31,12 +41,21 @@ function sasdConfigPath(): string {
 }
 
 export async function resolveSasdConfig(projectGid: string): Promise<SasdConfig | null> {
+  const dir = await usableProjectDirFor(projectGid);
+  const fromProject = dir ? (await readFlowProfile(dir, projectGid))?.sasd : undefined;
+  if (fromProject) return fromProject;
   const map = await readJsonFile<Record<string, SasdConfig>>(sasdConfigPath(), {});
   return map[projectGid] ?? null;
 }
 
-export async function registerSasdConfig(projectGid: string, config: SasdConfig): Promise<void> {
+export async function registerSasdConfig(projectGid: string, config: SasdConfig): Promise<ConfigStorage> {
+  const dir = await usableProjectDirFor(projectGid);
+  if (dir) {
+    await upsertFlowProfile(dir, projectGid, { sasd: config });
+    return "project";
+  }
   await updateJsonFile<Record<string, SasdConfig>>(sasdConfigPath(), {}, (map) => ({ ...map, [projectGid]: config }));
+  return "mcp-data";
 }
 
 const PROJECT_DIR_FILE = "project-dir-config.json";
@@ -67,12 +86,21 @@ function legacyTestProfilePath(): string {
  * 跟 SasdConfig 分開存放，因為這個判斷跟 sdMode 無關（sdMode: "unregistered" 的專案一樣可能是老系統）。
  */
 export async function resolveLegacyTestProfile(projectGid: string): Promise<boolean> {
+  const dir = await usableProjectDirFor(projectGid);
+  const fromProject = dir ? (await readFlowProfile(dir, projectGid))?.legacyTestProfile : undefined;
+  if (fromProject !== undefined) return fromProject;
   const map = await readJsonFile<Record<string, boolean>>(legacyTestProfilePath(), {});
   return map[projectGid] ?? false;
 }
 
-export async function registerLegacyTestProfile(projectGid: string, legacyTestProfile: boolean): Promise<void> {
+export async function registerLegacyTestProfile(projectGid: string, legacyTestProfile: boolean): Promise<ConfigStorage> {
+  const dir = await usableProjectDirFor(projectGid);
+  if (dir) {
+    await upsertFlowProfile(dir, projectGid, { legacyTestProfile });
+    return "project";
+  }
   await updateJsonFile<Record<string, boolean>>(legacyTestProfilePath(), {}, (map) => ({ ...map, [projectGid]: legacyTestProfile }));
+  return "mcp-data";
 }
 
 // ---------------------------------------------------------------------------
@@ -99,12 +127,21 @@ function testCapabilityConfigPath(): string {
 }
 
 export async function resolveTestCapability(projectGid: string): Promise<TestCapabilityConfig | null> {
+  const dir = await usableProjectDirFor(projectGid);
+  const fromProject = dir ? (await readFlowProfile(dir, projectGid))?.testCapability : undefined;
+  if (fromProject) return fromProject;
   const map = await readJsonFile<Record<string, TestCapabilityConfig>>(testCapabilityConfigPath(), {});
   return map[projectGid] ?? null;
 }
 
-export async function registerTestCapability(projectGid: string, config: TestCapabilityConfig): Promise<void> {
+export async function registerTestCapability(projectGid: string, config: TestCapabilityConfig): Promise<ConfigStorage> {
+  const dir = await usableProjectDirFor(projectGid);
+  if (dir) {
+    await upsertFlowProfile(dir, projectGid, { testCapability: config });
+    return "project";
+  }
   await updateJsonFile<Record<string, TestCapabilityConfig>>(testCapabilityConfigPath(), {}, (map) => ({ ...map, [projectGid]: config }));
+  return "mcp-data";
 }
 
 function normalizeDirForCompare(dir: string): string {
@@ -125,8 +162,7 @@ export async function resolveUniformTestCapabilityMode(projectDir: string): Prom
     .map(([gid]) => gid);
   if (gids.length === 0) return null;
 
-  const capMap = await readJsonFile<Record<string, TestCapabilityConfig>>(testCapabilityConfigPath(), {});
-  const modes = new Set(gids.map((gid) => capMap[gid]?.mode ?? null));
+  const modes = new Set(await Promise.all(gids.map(async (gid) => (await resolveTestCapability(gid))?.mode ?? null)));
   if (modes.size !== 1) return null;
   return [...modes][0];
 }

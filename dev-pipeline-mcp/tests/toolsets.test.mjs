@@ -25,15 +25,13 @@ const EXPECTED_TOOLS = [
   "prepare_project", "project_config", "read_ticket_artifact", "record_confirmation", "record_sasd_check", "record_spec_confirmation", "record_test_evidence",
   "relocate_ticket_project", "request_reanalysis",
   "resolve_manual_action", "restore_rule_file",
-  "resync_ticket_artifact", "run_project_shell", "search_project_text", "svn_browse", "svn_cat", "svn_doc_images",
-  "svn_diff", "svn_find_repo", "svn_list_connections", "svn_log", "svn_test_connection", "write_project_file", "write_project_sd_doc", "write_ticket_artifact",
+  "resync_ticket_artifact", "run_project_shell", "search_project_text", "write_project_file", "write_project_sd_doc", "write_ticket_artifact",
 ];
 const WORKTREE_TOOLS = [
   "create_ticket_worktree", "join_ticket_worktree", "list_worktrees", "get_worktree_status", "merge_ticket_worktree",
   "finalize_ticket_worktree", "abandon_ticket_round", "install_git_hooks",
 ];
 const BRIDGE_TOOLS = [
-  "svn_find_repo", "svn_list_connections", "svn_test_connection", "svn_browse", "svn_cat", "svn_doc_images", "svn_log", "svn_diff",
   "get_ticket_activity", "download_ticket_attachment", "get_recent_commits",
 ];
 
@@ -57,8 +55,8 @@ test("parseDisabledToolsets: unknown names are reported once, undefined/empty me
 });
 
 test("registerAllTools: tool counts by disabled group", async () => {
-  assert.equal((await listToolsWith()).length, 50);
-  assert.equal((await listToolsWith(["worktree"])).length, 42);
+  assert.equal((await listToolsWith()).length, 42);
+  assert.equal((await listToolsWith(["worktree"])).length, 34);
   assert.equal((await listToolsWith(["bridge"])).length, 39);
   assert.equal((await listToolsWith(["worktree", "bridge"])).length, 31);
 });
@@ -79,7 +77,7 @@ test("bridgeDisabledNote: non-null only when bridge is disabled", () => {
   assert.equal(bridgeDisabledNote("unknown"), null);
   const note = bridgeDisabledNote("worktree, Bridge");
   assert.equal(typeof note, "string");
-  assert.match(note, /svn_cat/);
+  assert.match(note, /svn-mcp/);
   assert.match(note, /get_ticket_activity/);
 });
 

@@ -128,7 +128,7 @@ test("get_role_prompt: bridge group disabled appends the replacement note", () =
     try {
       const res = await callTool(client, "get_role_prompt", { role: "analyst" });
       assert.ok(res.text.startsWith(getRolePrompt("analyst")));
-      assert.match(res.text, /svn_cat/);
+      assert.match(res.text, /svn-mcp/);
       assert.ok(res.text.length > getRolePrompt("analyst").length);
     } finally {
       delete process.env.DEV_PIPELINE_DISABLE_TOOLSETS;

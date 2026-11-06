@@ -427,7 +427,7 @@ const ARCHIVE_DIR_NAME = "old";
 const FORBIDDEN_NAME_CHARS = /[<>:"|?*\u0000-\u001f]/;
 
 /** 列出遠端資料夾裡的項目名稱與型別；資料夾不存在回傳 null，其他錯誤（連線、權限）照實丟出。 */
-async function listRemoteEntries(conn: SvnConnection, dirUrl: string): Promise<Array<{ name: string; kind: "file" | "dir" }> | null> {
+export async function listRemoteEntries(conn: SvnConnection, dirUrl: string): Promise<Array<{ name: string; kind: "file" | "dir" }> | null> {
   try {
     const { stdout } = await runSvn(["list", "--xml", pegUrl(dirUrl)], conn, getSvnTimeoutMs());
     const entries: Array<{ name: string; kind: "file" | "dir" }> = [];
@@ -546,12 +546,13 @@ async function commitWithUpgrade(conn: SvnConnection, session: EditSession, plan
 }
 
 /** 新檔名本身有沒有問題（不看遠端）：空白、不允許的字元、副檔名跟原檔不同。沒問題回 null。 */
-function newNameProblem(currentName: string, newName: string, label: string): string | null {
+export function newNameProblem(currentName: string, newName: string, label: string, checkExtension = true): string | null {
   if (!newName) return `${label}不能是空的。`;
   if (newName.includes("/") || newName.includes("\\") || newName === "." || newName === ".." || FORBIDDEN_NAME_CHARS.test(newName)) {
     return `${label}不能包含 / \\ : * ? " < > | 這些字元。`;
   }
-  const ext = (/\.[A-Za-z][A-Za-z0-9]{0,7}$/.exec(currentName)?.[0] ?? "").toLowerCase();
+  // 資料夾名稱常含 "." 但那不是副檔名，改名時不檢查副檔名
+  const ext = checkExtension ? (/\.[A-Za-z][A-Za-z0-9]{0,7}$/.exec(currentName)?.[0] ?? "").toLowerCase() : "";
   if (ext && !newName.toLowerCase().endsWith(ext)) return `${label}的副檔名要跟原檔一樣（${ext}）。`;
   return null;
 }
@@ -599,11 +600,12 @@ async function commitWithRename(conn: SvnConnection, session: EditSession, newNa
 }
 
 export async function commitEdit(id: string, message: string, upgrade?: UpgradeOptions | boolean, rename?: RenameOptions): Promise<EditCommitResult> {
-  const trimmed = typeof message === "string" ? message.trim() : "";
-  if (!trimmed) throw new EditError("INVALID_INPUT", "commit message 不能是空的");
+  let trimmed = typeof message === "string" ? message.trim() : "";
   if (trimmed.length > MAX_COMMIT_MESSAGE_LENGTH) throw new EditError("INVALID_INPUT", `commit message 太長（上限 ${MAX_COMMIT_MESSAGE_LENGTH} 字）`);
   if (upgrade && rename) throw new EditError("INVALID_INPUT", "升級版本與改檔名只能選一個（升級版本時，新版檔名可以自己修改）。");
   const session = await loadSession(id);
+  // 說明不是必填：留空時自動補一句（SVN 的 commit 一定要有訊息）
+  if (!trimmed) trimmed = rename ? `更新並重新命名：${session.fileName} → ${(rename.newName ?? "").trim()}` : upgrade ? `升級版本：${session.fileName}` : `更新 ${session.fileName}`;
   const conn = await resolveConn(session.connectionId);
 
   return withWcLock(session.wcDir, async () => {
@@ -819,10 +821,11 @@ export interface ImportParams {
  * 內容寫到暫存資料夾後以 `svn import` 一次提交，並依副檔名設定屬性（見 IMPORT_AUTO_PROPS）。
  */
 export async function importNewFile(params: ImportParams): Promise<{ committedRevision: number | null; path: string }> {
-  const message = typeof params.message === "string" ? params.message.trim() : "";
-  if (!message) throw new EditError("INVALID_INPUT", "commit message 不能是空的");
-  if (message.length > MAX_COMMIT_MESSAGE_LENGTH) throw new EditError("INVALID_INPUT", `commit message 太長（上限 ${MAX_COMMIT_MESSAGE_LENGTH} 字）`);
+  const typed = typeof params.message === "string" ? params.message.trim() : "";
+  if (typed.length > MAX_COMMIT_MESSAGE_LENGTH) throw new EditError("INVALID_INPUT", `commit message 太長（上限 ${MAX_COMMIT_MESSAGE_LENGTH} 字）`);
   const { subPath, fileName, ext } = normalizeRemotePath(params.path);
+  // 說明不是必填：留空時自動補一句（SVN 的 commit 一定要有訊息）
+  const message = typed || `新增 ${fileName}`;
   if (!Buffer.isBuffer(params.content) || params.content.length === 0) throw new EditError("INVALID_INPUT", "檔案內容是空的");
   if (params.content.length > MAX_FILE_BYTES) {
     throw new EditError("FILE_TOO_LARGE", `檔案太大（${Math.round(params.content.length / 1024 / 1024)} MB），上限 ${MAX_FILE_BYTES / 1024 / 1024} MB`);

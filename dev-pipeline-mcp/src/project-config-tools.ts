@@ -180,7 +180,7 @@ async function registerSasd(a: z.infer<(typeof registerSchemas)["sasd_config"]>)
       {
         success: false,
         message:
-          "必須提供 svnConnectionId：sdMode 是 external/self，或 saRoot 是 SVN 上的真實路徑（分析師一定要到 SVN 讀 SA，沒連線就讀不到）時都要——請先用 svn_find_repo（用使用者說的專案名稱搜尋）或 svn_list_connections 確認可用的連線，問清楚使用者要用哪一個，再重新呼叫。若這個專案真的沒有 SA 文件，saRoot 請填 N/A 開頭的占位（例如 \"N/A-無SA文件\"）。",
+          "必須提供 svnConnectionId：sdMode 是 external/self，或 saRoot 是 SVN 上的真實路徑（分析師一定要到 SVN 讀 SA，沒連線就讀不到）時都要——請先用 svn-mcp 的 svn_find_repo（用使用者說的專案名稱搜尋）或 svn_list_connections（都是 svn-mcp 的工具）確認可用的連線，問清楚使用者要用哪一個，再重新呼叫。若這個專案真的沒有 SA 文件，saRoot 請填 N/A 開頭的占位（例如 \"N/A-無SA文件\"）。",
       },
       true
     );
@@ -204,7 +204,7 @@ async function registerSasd(a: z.infer<(typeof registerSchemas)["sasd_config"]>)
     if (rootProblem) return textResult({ success: false, message: `拒絕登記：${rootProblem}` }, true);
   }
   const resolvedSpecOrder = sdMode === "self-generated" ? specOrder ?? null : null;
-  await registerSasdConfig(projectGid, {
+  const savedTo = await registerSasdConfig(projectGid, {
     saRoot,
     sdMode,
     sdRoot: sdRoot ?? null,
@@ -221,6 +221,7 @@ async function registerSasd(a: z.infer<(typeof registerSchemas)["sasd_config"]>)
     sdOutputPath: sdOutputPath ?? null,
     svnConnectionId: svnConnectionId ?? null,
     specOrder: resolvedSpecOrder,
+    savedTo,
   });
 }
 
@@ -254,12 +255,14 @@ async function registerConfig<K extends ProjectConfigKind>(kind: K, a: z.infer<(
       await registerDefaultProject({ workspaceGid, projectGid, projectName }, cwd);
       return textResult({ success: true, workspaceGid, projectGid, projectName, cwd: cwd ?? null });
     }
-    case "legacy_test_profile":
-      await registerLegacyTestProfile(args.projectGid, args.legacyTestProfile);
-      return textResult({ success: true, projectGid: args.projectGid, legacyTestProfile: args.legacyTestProfile });
-    case "test_capability":
-      await registerTestCapability(args.projectGid, { mode: args.mode, note: args.note ?? null });
-      return textResult({ success: true, projectGid: args.projectGid, mode: args.mode, note: args.note ?? null });
+    case "legacy_test_profile": {
+      const savedTo = await registerLegacyTestProfile(args.projectGid, args.legacyTestProfile);
+      return textResult({ success: true, projectGid: args.projectGid, legacyTestProfile: args.legacyTestProfile, savedTo });
+    }
+    case "test_capability": {
+      const savedTo = await registerTestCapability(args.projectGid, { mode: args.mode, note: args.note ?? null });
+      return textResult({ success: true, projectGid: args.projectGid, mode: args.mode, note: args.note ?? null, savedTo });
+    }
     case "git_roots":
       await registerGitRoots(args.projectDir, args.gitRoots as GitRootEntry[]);
       return textResult({ success: true, projectDir: args.projectDir, gitRoots: args.gitRoots });

@@ -87,6 +87,19 @@ button:disabled{opacity:.5;cursor:default}
 .switch input:disabled{cursor:default}
 .delbox{margin:0 0 12px;padding:12px 14px;border:1px solid var(--danger);border-radius:12px;background:var(--danger-bg)}
 .delbox p{margin:0 0 8px;overflow-wrap:anywhere}
+.urlbar{margin:0 0 10px}
+.urlbar .row{display:flex;gap:6px;align-items:center}
+.urlbar .urlinput{flex:1 1 auto;min-width:0}
+.ctxmenu{position:fixed;z-index:80;min-width:180px;padding:5px;background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;box-shadow:0 10px 30px rgb(51 46 44 / .22);display:flex;flex-direction:column;gap:2px}
+.ctxmenu__item{display:block;width:100%;text-align:left;border:0;background:none;box-shadow:none;border-radius:8px;padding:8px 12px;font-size:14px;font-weight:500;color:var(--ink);white-space:nowrap;cursor:pointer}
+.ctxmenu__item:hover,.ctxmenu__item:focus-visible{background:var(--pink-soft);color:var(--brand-dark);outline:none}
+.entryrow--hit>.entry{box-shadow:0 0 0 2px var(--brand)}
+.entryrow--edit{align-items:flex-start}
+.renamerow{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--brand);border-radius:12px}
+.renamerow__top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.renamerow .renameinput{flex:1 1 180px;min-width:0}
+.movebox{margin:0 0 12px;padding:12px 14px;border:1px solid var(--brand);border-radius:12px}
+.movebox p{margin:0 0 8px;overflow-wrap:anywhere}
 
 /* 帳號清單標題列：右側的＋按鈕用來展開「新增帳號」 */
 .sethead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px}

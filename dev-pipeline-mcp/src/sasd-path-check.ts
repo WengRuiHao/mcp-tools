@@ -44,7 +44,7 @@ export async function verifySvnRoots(connectionId: string, roots: SvnRootInput[]
       failure = err instanceof Error ? err.message : String(err);
     }
     if (failure !== null) {
-      return `${field}「${value}」在 SVN 連線「${connectionId}」底下瀏覽失敗（路徑不存在或沒有權限）：${failure}。請先用 svn_browse 從 repo 根目錄一層層確認真實路徑，再重新呼叫 project_config(kind='sasd_config', action='register')。`;
+      return `${field}「${value}」在 SVN 連線「${connectionId}」底下瀏覽失敗（路徑不存在或沒有權限）：${failure}。請先用 svn-mcp 的 svn_browse 從 repo 根目錄一層層確認真實路徑，再重新呼叫 project_config(kind='sasd_config', action='register')。`;
     }
   }
   return null;

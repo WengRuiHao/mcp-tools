@@ -89,7 +89,7 @@ export const CLIENT_EDIT = String.raw`  function renderPending() {
     if (messages[id] === undefined) messages[id] = session.ticket ? "[" + session.ticket + "] " : "";
     var note = cardNotes[id];
     var disabled = !!busy[id];
-    var textarea = h("textarea", { placeholder: "說明這次改了什麼（必填）", oninput: function () { messages[id] = textarea.value; } });
+    var textarea = h("textarea", { placeholder: "說明這次改了什麼（選填，留空會自動補「更新 檔名」）", oninput: function () { messages[id] = textarea.value; } });
     textarea.value = messages[id];
     function run(label, fn) {
       busy[id] = label; cardNotes[id] = null; render();
@@ -197,7 +197,7 @@ export const CLIENT_EDIT = String.raw`  function renderPending() {
         h("span", { class: "badge" }, "基準版本 r" + session.baseRevision),
         s.modified ? h("span", { class: "badge ok" }, "已修改") : h("span", { class: "badge" }, "尚未修改"),
         s.editorStillOpen ? h("span", { class: "badge warn" }, "檔案還開著（請先關閉再上傳）") : null),
-      h("label", null, "上傳說明（commit 訊息）"), textarea,
+      h("label", null, "上傳說明（commit 訊息，選填）"), textarea,
       upgradeBox,
       renameBox,
       note ? h("div", { class: note.info ? "msg info" : "msg" }, note.text) : null,

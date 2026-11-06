@@ -19,7 +19,7 @@ ${PROMPT_DEFENSE_BASELINE}
 **前端、後端都要有結論**：票單描述若有畫面、按鈕、欄位、提示文字、彈窗文案等前端行為，必須讀對應的 SA（依票單標的版本／功能代號到 SVN 的 SA 目錄找，docx 連圖片一起讀），在分析裡為前端與後端各自寫明「要不要改、依據哪份規格」。不可只因 SD 只寫後端、或 \`sasd_info\` 只有 SD，就推論「前端不在範圍」；找不到 SA 時列入「不確定／待問」，由使用者決定，不能自己預設前端不做。（判斷前端需要的資料欄位，後端查詢回傳有沒有，也要實際查程式碼確認，沒有就記錄為待確認。）
 
 **怎麼取得規格（依 \`sdMode\`；設定在 \`prepare_project\` 的 \`sasd\`，不用再查、不用重驗 SVN）**：
-- \`external\`／\`self\` 讀取規格：**一律以 SVN 遠端為準**，用 \`svn_browse\`/\`svn_cat\`（帶登記的 \`svnConnectionId\`）在 \`saRoot\`/\`sdRoot\` 底下用票號/票名關鍵字找規格（docx 要連 \`svn_doc_images\` 一起抓圖）。**不要讀 \`projectDir\` 底下可能存在的本機 checkout**——使用者不一定有更新，會讀到過期規格（所以 register 時要先驗證 SVN 連線）。找到就讀內容並 \`record_sasd_check({ taskGid: T, hasSasd: true, sasdInfo: "<SVN 路徑 + 內容摘要；external 註明「外部規格，只能參考不能建議修改」>" })\`；找不到就 \`hasSasd: false\`。
+- \`external\`／\`self\` 讀取規格：**一律以 SVN 遠端為準**，用 svn-mcp 的 \`svn_browse\`/\`svn_cat\`（帶登記的 \`svnConnectionId\`）在 \`saRoot\`/\`sdRoot\` 底下用票號/票名關鍵字找規格（docx 要連 \`svn_doc_images\` 一起抓圖）。**不要讀 \`projectDir\` 底下可能存在的本機 checkout**——使用者不一定有更新，會讀到過期規格（所以 register 時要先驗證 SVN 連線）。找到就讀內容並 \`record_sasd_check({ taskGid: T, hasSasd: true, sasdInfo: "<SVN 路徑 + 內容摘要；external 註明「外部規格，只能參考不能建議修改」>" })\`；找不到就 \`hasSasd: false\`。
 - \`external\`：SD 是別人的，絕對不能建議修改 SD 本身，只能讓程式碼配合它。
 - \`self\`：SD 是自己團隊產的；判斷 SD 本身也需要更新時，可在 \`sasdInfo\` 或 02/03 寫出建議修改的段落，但不要嘗試寫回 SVN（唯讀），交人工更新。
 - \`self-generated\`：\`read_project_sd_doc({ projectGid, projectDir })\` 取得自維護的 SD（本機 \`sdOutputPath\` 檔案，第一次可能是空的）當設計依據；需要時可用 \`write_project_sd_doc({ projectGid, projectDir, content: <完整 SD> })\` 真的寫到 \`sdOutputPath\`，寫完提醒使用者可自行傳 SVN。\`record_sasd_check({ taskGid: T, hasSasd: true, sasdInfo: "自維護 SD 文件，見 sdOutputPath" })\`。
@@ -285,7 +285,7 @@ const READ_CODE_TOOLS = ["read_project_file", "list_project_dir", "search_projec
 
 /** 各角色實際會用到的 dev-pipeline-mcp 工具（依各角色說明；tests/role-toolset.test.mjs 會比對實際註冊的工具名稱）。 */
 export const ROLE_TOOLS: Record<RoleName, readonly string[]> = {
-  analyst: [...CORE_TICKET_TOOLS, "record_sasd_check", ...READ_CODE_TOOLS, "svn_browse", "svn_cat", "svn_doc_images", "get_recent_commits"],
+  analyst: [...CORE_TICKET_TOOLS, "record_sasd_check", ...READ_CODE_TOOLS, "get_recent_commits"],
   "spec-writer": [
     "get_ticket_status", "read_ticket_artifact", "advance_ticket_stage", ...READ_CODE_TOOLS,
     "read_project_sd_doc", "write_project_sd_doc", "get_sd_spec_template", "get_sd_spec_versioning_rules",
@@ -293,6 +293,13 @@ export const ROLE_TOOLS: Record<RoleName, readonly string[]> = {
   engineer: [...CORE_TICKET_TOOLS, ...READ_CODE_TOOLS, "write_project_file", "run_project_shell", "read_project_sd_doc", "project_config"],
   verifier: [...CORE_TICKET_TOOLS, ...READ_CODE_TOOLS, "run_project_shell", "read_project_sd_doc", "project_config"],
   tester: [...CORE_TICKET_TOOLS, ...READ_CODE_TOOLS, "run_project_shell", "project_config", "get_test_engineer_guide", "record_test_evidence"],
+};
+
+export const SVN_TOOL_PREFIX = "mcp__svn-mcp__";
+
+/** 各角色讀規格另外要用的 svn-mcp 工具（SVN 讀取不經本 MCP，由 AI 直接連 svn-mcp）。 */
+export const ROLE_SVN_TOOLS: Partial<Record<RoleName, readonly string[]>> = {
+  analyst: ["svn_find_repo", "svn_browse", "svn_cat", "svn_doc_images"],
 };
 
 /** 所有角色都不該自己呼叫的工具：需要使用者決定，或屬於主流程／使用者的操作。 */
@@ -305,12 +312,21 @@ export function buildToolLoadQuery(role: RoleName): string {
   return `select:${ROLE_TOOLS[role].map((name) => TOOL_PREFIX + name).join(",")}`;
 }
 
+function buildSvnToolLoadLines(role: RoleName): string[] {
+  const svnTools = ROLE_SVN_TOOLS[role];
+  if (!svnTools || svnTools.length === 0) return [];
+  return [
+    "讀 SVN 規格另需 svn-mcp 的工具（不在本 MCP，尚未載入才需要）：`select:" + svnTools.map((name) => SVN_TOOL_PREFIX + name).join(",") + "`",
+  ];
+}
+
 /** 附在每個角色說明末端：一次載入工具的 ToolSearch 查詢與不該呼叫的工具。 */
 function buildToolLoadSection(role: RoleName): string {
   return [
     "## 一次載入所需工具",
     "工具是延遲載入的：用「一次」ToolSearch 載入本角色全部工具，不要逐個載入。查詢字串：",
     "`" + buildToolLoadQuery(role) + "`",
+    ...buildSvnToolLoadLines(role),
     "不要自己呼叫（需要使用者決定或屬於主流程，遇到時在最終訊息回報主流程）：" +
       ROLE_FORBIDDEN_TOOLS.map((name) => "`" + name + "`").join("、") +
       "；`project_config` 只可用 `action: \"resolve\"`，不可 `register`。",

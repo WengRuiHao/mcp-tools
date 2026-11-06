@@ -174,7 +174,6 @@ export const CLIENT_UPLOAD = String.raw`  function cleanDir(p) { return (p || ""
   function startUpload() {
     var f = importForm;
     if (f.files.length === 0) { importNote("請先選擇要上傳的檔案或資料夾。", false); return; }
-    if (!f.message.trim()) { importNote("請填寫上傳說明（commit 訊息）。", false); return; }
     f.path = cleanDir(f.path);
     f.phase = "staging"; f.progress = 0; f.note = null; f.plan = null; f.startedAt = Date.now(); f.stagingMs = 0;
     importRerender();
@@ -211,9 +210,11 @@ export const CLIENT_UPLOAD = String.raw`  function cleanDir(p) { return (p || ""
       // 耗時 = 傳檔案 + 送出 commit；不含使用者在覆蓋確認畫面停留的時間
       var tookMs = (f.stagingMs || 0) + (Date.now() - commitStartedAt);
       f.files = []; f.skipped = { temp: 0, empty: 0, big: 0 }; f.message = ""; f.batch = null; f.plan = null; f.phase = "idle"; f.unreadable = []; f.commitError = "";
-      f.note = { text: "已上傳到 SVN" + (r.committedRevision ? "（r" + r.committedRevision + "）" : "") + "：" + parts.join("、") + (skippedBad ? "（另有 " + skippedBad + " 個檔案讀取失敗，已略過）" : "") + "。位置：" + (r.targetDir || "（連線根目錄）") + "。耗時：" + fmtDuration(tookMs), info: true };
+      f.note = { text: "已上傳到 SVN" + (r.committedRevision ? "（r" + r.committedRevision + "）" : "") + "：" + parts.join("、") + (skippedBad ? "（另有 " + skippedBad + " 個檔案讀取失敗，已略過）" : "") + "。位置：" + (r.targetDir || "（連線根目錄）") + "。耗時：" + fmtDuration(tookMs) + (r.localSync && r.localSync.status === "updated" ? "。" + r.localSync.message : ""), info: true };
       pick.loadedFor = null;
       importRerender();
+      var sync = r.localSync;
+      if (sync && sync.status !== "updated") showAlert(syncAlertTitle(sync, "已上傳到 SVN"), sync.message);
     }).catch(function (e) { clearInterval(commitTimer); commitFailed(e); });
   }
   /**
@@ -274,7 +275,7 @@ export const CLIENT_UPLOAD = String.raw`  function cleanDir(p) { return (p || ""
     pathInput.value = f.path;
     var pickBtn = openerButton("pick", "從 SVN 選擇", "", !idle);
 
-    var messageInput = h("textarea", { placeholder: "說明這次上傳了什麼（必填）", disabled: idle ? null : "disabled", oninput: function () { f.message = messageInput.value; } });
+    var messageInput = h("textarea", { placeholder: "說明這次上傳了什麼（選填，留空會自動補一句）", disabled: idle ? null : "disabled", oninput: function () { f.message = messageInput.value; } });
     messageInput.value = f.message;
 
     var overwriteBox = null;

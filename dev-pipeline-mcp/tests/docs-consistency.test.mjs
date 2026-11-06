@@ -128,6 +128,9 @@ test("getOverview(core) 提到的工具名稱都存在於註冊名單", () => {
   const mentioned = new Set();
   for (const m of text.matchAll(/`([a-z][a-z0-9_]*)`/g)) if (toolLike.test(m[1])) mentioned.add(m[1]);
   assert.ok(mentioned.size >= 5, "core 流程說明解析不到足夠的工具名稱，請檢查解析規則");
-  const unknown = [...mentioned].filter((n) => !TOOL_SET.has(n));
+  // svn-mcp 的工具（SVN 讀取不經本 MCP）：流程說明可以提到，但不屬於本 MCP 的註冊名單。
+  const SVN_MCP_TOOLS = new Set(["svn_browse", "svn_cat", "svn_diff", "svn_doc_images", "svn_find_repo", "svn_list_connections", "svn_log", "svn_test_connection"]);
+  const unknown = [...mentioned].filter((n) => !TOOL_SET.has(n) && !SVN_MCP_TOOLS.has(n));
   assert.deepEqual(unknown, [], `core 流程說明提到不存在的工具：${unknown.join(", ")}`);
+  for (const n of SVN_MCP_TOOLS) assert.ok(!TOOL_SET.has(n), `${n} 不應再註冊在本 MCP（SVN 讀取一律直連 svn-mcp）`);
 });

@@ -21,6 +21,7 @@ import { getLongSvnTimeoutMs, getSvnTimeoutMs } from "./config-store.js";
 import { buildFullUrl, runSvn, type SvnConnection } from "./svn-client.js";
 import { removeDirWithRetry } from "./temp-clean.js";
 import { buildMuccArgsFile, findSvnmucc, isAscii, MuccUnavailableError, prepareNativeEol, runMucc, systemMessageEncoder, type MuccPut } from "./mucc-import.js";
+import { syncLocalAfterChange, type LocalSyncResult } from "./local-sync.js";
 import { commitWithMessage, pegSafe } from "./workcopy-client.js";
 import {
   audit,
@@ -114,6 +115,8 @@ export interface ImportBatchResult {
   unchanged: number;
   /** 用哪種方式送出：mucc＝全部都是新檔案，用 svnmucc 一次送出（沒有工作副本，快很多）；wc＝工作副本。 */
   method: "mucc" | "wc";
+  /** 「同步本地端」的結果；開關關閉時沒有這個欄位。 */
+  localSync?: LocalSyncResult;
 }
 
 interface StagedFile {
@@ -704,8 +707,8 @@ async function commitViaMucc(conn: SvnConnection, id: string, classified: Classi
 }
 
 export async function commitImport(params: { batch: unknown; connectionId?: string; targetDir: unknown; message: unknown; ticket?: string }): Promise<ImportBatchResult> {
+  // 說明不是必填：留空時等分類完才知道檔案數量，在 commitImportLocked 裡自動補一句
   const message = typeof params.message === "string" ? params.message.trim() : "";
-  if (!message) throw new EditError("INVALID_INPUT", "commit message 不能是空的");
   if (message.length > MAX_COMMIT_MESSAGE_LENGTH) throw new EditError("INVALID_INPUT", `commit message 太長（上限 ${MAX_COMMIT_MESSAGE_LENGTH} 字）`);
   const id = await requireBatch(params.batch);
   if (committingBatches.has(id)) throw new EditError("ALREADY_EDITING", "這批檔案已經在送出中了，請等它完成（不要重複按上傳）。");
@@ -718,10 +721,11 @@ export async function commitImport(params: { batch: unknown; connectionId?: stri
   }
 }
 
-async function commitImportLocked(id: string, conn: SvnConnection, targetDirRaw: unknown, message: string, ticket: string | undefined): Promise<ImportBatchResult> {
+async function commitImportLocked(id: string, conn: SvnConnection, targetDirRaw: unknown, typedMessage: string, ticket: string | undefined): Promise<ImportBatchResult> {
   const trace = startTrace();
   const classified = await classify(conn, id, targetDirRaw);
   const { plan, staged, existingDirs } = classified;
+  const message = typedMessage || `上傳 ${staged.length} 個檔案到「${plan.targetDir || "根目錄"}」`;
   trace(`比對遠端（${plan.totalFiles} 個檔案）`);
 
   const wcDir = path.join(batchDirOf(id), "wc");
@@ -734,7 +738,9 @@ async function commitImportLocked(id: string, conn: SvnConnection, targetDirRaw:
     stagedMtimes.delete(id);
     stagedTotals.delete(id);
     await removeDirWithRetry(batchDirOf(id));
-    return result;
+    // 遠端已經送出：依「同步本地端」開關更新本地追蹤目錄（不會丟錯誤；沒有本地目錄對應時只回警告）
+    const localSync = await syncLocalAfterChange(conn, plan.targetDir, "file");
+    return localSync ? { ...result, localSync } : result;
   };
   try {
     // 全部都是新檔案：用 svnmucc 一次送出，不建立工作副本（每個檔案省下好幾次被資安軟體攔截的改名）
