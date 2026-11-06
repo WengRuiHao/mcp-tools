@@ -120,11 +120,11 @@ ul{margin:6px 0;padding-left:22px}
 <table>
 <tr><th>角色</th><th>職責</th><th>brownfield 多做的事</th></tr>
 <tr><td>現況盤點／影響分析師</td><td>盤點程式碼結構、DB 現況（<code>db_schema</code>／<code>db_search_tables</code>）、既有 SA／SD／流程圖、既有畫面（截圖當現況 mockup）；產出基線＋影響分析報告；維護 living 基線文件。</td><td>（本身只在 brownfield 啟用）</td></tr>
-<tr><td>SA 分析師</td><td>畫 mockup、分析需求、寫規格。規格裡放的圖片就是 mockup 的功能畫面（每個功能對應它的 mockup 圖，圖檔放 <code>sa-images/</code>，規格條目引用該圖），不是隨意的示意圖。</td><td>規格標明「新增／修改／不動」並引用影響分析。</td></tr>
+<tr><td>SA 分析師</td><td>先畫出能在瀏覽器開啟的 mockup（例如 HTML，才能截圖），再分析需求、寫規格。規格是給客戶看的，程式還沒開發，前端畫面只能從 mockup 截圖，所以<b>每個前端功能條目都必須附上對應的 mockup 截圖</b>（圖檔放 <code>sa-images/</code>，規格條目引用該圖）；純後端、沒有畫面的需求可例外。規格定稿後圖片不換成實際系統畫面（那是客戶確認時的版本），實際畫面由測試工程師的截圖證據負責。</td><td>規格標明「新增／修改／不動」並引用影響分析。</td></tr>
 <tr><td>DB 設計師</td><td>依 SA 設計 table、view、index。</td><td>用 <code>db_diff_schema</code> 比對異動，評估對既有資料的影響與回滾。</td></tr>
 <tr><td>流程分析師</td><td>把 SA 與 DB 串起來，畫 Mermaid 流程圖（authoritative，附 PNG），比對兩邊能否接上。</td><td>另比對「新流程 ↔ 既有流程圖」。</td></tr>
 <tr><td>SD 分析師</td><td>產出後端規格。</td><td>—</td></tr>
-<tr><td>規格驗證師（<code>spec-verifier</code>）</td><td>只看規格、不看程式碼：驗證 SA 與 SD 能串起來——SA 的每個功能／畫面欄位在 SD 都有對應的 API、資料處理；SD 的每個項目都追得到 SA 的需求來源；欄位名稱、型別、流程與 DB 設計一致；沒有孤兒或互相矛盾的條目。</td><td>另檢查規格標明的「新增／修改／不動」與影響分析一致。</td></tr>
+<tr><td>規格驗證師（<code>spec-verifier</code>）</td><td>只看規格、不看程式碼：驗證 SA 與 SD 能串起來——SA 的每個功能／畫面欄位在 SD 都有對應的 API、資料處理；SD 的每個項目都追得到 SA 的需求來源；欄位名稱、型別、流程與 DB 設計一致；沒有孤兒或互相矛盾的條目；每個前端功能條目都有對應的 mockup 截圖，且圖與功能對得上（純後端條目除外）。</td><td>另檢查規格標明的「新增／修改／不動」與影響分析一致。</td></tr>
 <tr><td>前端／後端工程師</td><td>前端依 SA、後端依 SD 實作。</td><td>—</td></tr>
 <tr><td>驗證師</td><td>驗證前後端 code 是否符合 SA／SD，流程圖是否合理、有無缺漏。</td><td>多檢查「有沒有破壞既有功能」。</td></tr>
 <tr><td>測試工程師</td><td>白箱（開瀏覽器測整個需求並截圖）後再黑箱。</td><td>新功能測試＋影響分析列出的回歸測試。</td></tr>
@@ -135,7 +135,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><th>id</th><th>檔案</th><th>類型</th><th>說明</th></tr>
 <tr><td><code>baseline</code></td><td>baseline.md</td><td>markdown</td><td>現況基線（brownfield 才有）</td></tr>
 <tr><td><code>impact</code></td><td>impact.md</td><td>markdown</td><td>影響分析報告（brownfield 才有）</td></tr>
-<tr><td><code>sa</code></td><td>01-sa.md＋<code>sa-images/</code></td><td>markdown＋附圖</td><td>SA 規格；附圖為 mockup 的功能畫面，每個功能條目引用對應的 mockup 圖</td></tr>
+<tr><td><code>sa</code></td><td>01-sa.md＋<code>sa-images/</code></td><td>markdown＋附圖</td><td>SA 規格；附圖為 mockup 的功能畫面截圖（必要），每個前端功能條目引用對應的圖；mockup 本身也要保存成可開啟的檔案</td></tr>
 <tr><td><code>db</code></td><td>02-db.sql／02-db.md</td><td>sql＋markdown</td><td>table、view、index 設計與異動</td></tr>
 <tr><td><code>flow</code></td><td>flow.mmd＋flow.png</td><td>mermaid</td><td>流程圖與 SA↔DB 比對結果</td></tr>
 <tr><td><code>sd</code></td><td>03-sd.md</td><td>markdown</td><td>後端規格</td></tr>
@@ -150,7 +150,7 @@ ul{margin:6px 0;padding-left:22px}
 <table>
 <tr><th>位置</th><th>類型</th><th>內容</th><th>預設</th></tr>
 <tr><td>after 現況盤點</td><td>內容關卡</td><td>影響分析必須列出受影響的表、API、畫面</td><td>—</td></tr>
-<tr><td>after <code>sa</code></td><td>確認</td><td>使用者確認 SA 規格</td><td><code>inherit</code></td></tr>
+<tr><td>after <code>sa</code></td><td>內容關卡＋確認</td><td>先過內容檢查：每個前端功能條目都有 mockup 截圖（圖檔存在於 <code>sa-images/</code> 且被規格引用，純後端條目除外）；再由使用者確認 SA 規格</td><td><code>inherit</code></td></tr>
 <tr><td>after <code>db</code>＋<code>flow</code></td><td>確認（合併）</td><td>DB 與流程圖要一起看才判斷得了接不接得上</td><td><code>inherit</code></td></tr>
 <tr><td>after <code>sd</code></td><td>確認</td><td>使用者確認後端規格</td><td><code>inherit</code></td></tr>
 <tr><td>after <code>spec-verifier</code></td><td>判定關卡</td><td>PASS 才能開工前後端；FAIL 依 <code>rootCause</code> 退回 SA、SD 或 DB 設計師修正，修完重新驗證。沒有 <code>locked</code>，確認模式 <code>inherit</code></td><td><code>inherit</code></td></tr>
@@ -239,6 +239,7 @@ interface GateDef { id; after: string|string[]; type: "confirmation"|"content"|"
 <ul>
   <li><span class="tag done">完成</span> 主流程 prompt 依模式裁剪（③ 收尾），已合進 <code>main</code>。</li>
   <li><span class="tag done">完成</span> 階段 1（workflow schema、驗證、唯讀解析）。</li>
+  <li><span class="tag todo">待做</span> <code>builtin/spec-first.ts</code> 同步「SA 附 mockup 截圖」的規則：<code>sa</code> 關卡加內容檢查（每個前端功能條目有截圖）、<code>spec-verifier</code> 職責加查圖，並補測試（等階段 2 步驟 4 完成後再改，避免同時 build 互相干擾）。</li>
   <li><span class="tag todo">進行中</span> 階段 2 步驟 4（對外雙收 <code>workItemId</code>）與步驟 5（文件）；步驟 1～3 已完成。</li>
   <li><span class="tag todo">待你決定</span> 階段 3 是否開工（改 <code>next-action</code>、prompts 由 workflow 驅動，會影響現有 Asana 流程，風險最高，建議你在場時做）。</li>
   <li><span class="tag todo">待使用</span> 尚未用過本 MCP 的 2 個專案，第一次使用時登記 profile。</li>
