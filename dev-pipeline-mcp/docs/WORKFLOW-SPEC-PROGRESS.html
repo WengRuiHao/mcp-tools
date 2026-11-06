@@ -120,7 +120,7 @@ ul{margin:6px 0;padding-left:22px}
 <table>
 <tr><th>角色</th><th>職責</th><th>brownfield 多做的事</th></tr>
 <tr><td>現況盤點／影響分析師</td><td>盤點程式碼結構、DB 現況（<code>db_schema</code>／<code>db_search_tables</code>）、既有 SA／SD／流程圖、既有畫面（截圖當現況 mockup）；產出基線＋影響分析報告；維護 living 基線文件。</td><td>（本身只在 brownfield 啟用）</td></tr>
-<tr><td>SA 分析師</td><td>畫 mockup、分析需求、寫規格（可含圖片）。</td><td>規格標明「新增／修改／不動」並引用影響分析。</td></tr>
+<tr><td>SA 分析師</td><td>畫 mockup、分析需求、寫規格。規格裡放的圖片就是 mockup 的功能畫面（每個功能對應它的 mockup 圖，圖檔放 <code>sa-images/</code>，規格條目引用該圖），不是隨意的示意圖。</td><td>規格標明「新增／修改／不動」並引用影響分析。</td></tr>
 <tr><td>DB 設計師</td><td>依 SA 設計 table、view、index。</td><td>用 <code>db_diff_schema</code> 比對異動，評估對既有資料的影響與回滾。</td></tr>
 <tr><td>流程分析師</td><td>把 SA 與 DB 串起來，畫 Mermaid 流程圖（authoritative，附 PNG），比對兩邊能否接上。</td><td>另比對「新流程 ↔ 既有流程圖」。</td></tr>
 <tr><td>SD 分析師</td><td>產出後端規格。</td><td>—</td></tr>
@@ -135,7 +135,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><th>id</th><th>檔案</th><th>類型</th><th>說明</th></tr>
 <tr><td><code>baseline</code></td><td>baseline.md</td><td>markdown</td><td>現況基線（brownfield 才有）</td></tr>
 <tr><td><code>impact</code></td><td>impact.md</td><td>markdown</td><td>影響分析報告（brownfield 才有）</td></tr>
-<tr><td><code>sa</code></td><td>01-sa.md＋<code>sa-images/</code></td><td>markdown＋附圖</td><td>SA 規格、mockup</td></tr>
+<tr><td><code>sa</code></td><td>01-sa.md＋<code>sa-images/</code></td><td>markdown＋附圖</td><td>SA 規格；附圖為 mockup 的功能畫面，每個功能條目引用對應的 mockup 圖</td></tr>
 <tr><td><code>db</code></td><td>02-db.sql／02-db.md</td><td>sql＋markdown</td><td>table、view、index 設計與異動</td></tr>
 <tr><td><code>flow</code></td><td>flow.mmd＋flow.png</td><td>mermaid</td><td>流程圖與 SA↔DB 比對結果</td></tr>
 <tr><td><code>sd</code></td><td>03-sd.md</td><td>markdown</td><td>後端規格</td></tr>
