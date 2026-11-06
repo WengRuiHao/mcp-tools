@@ -1,12 +1,35 @@
+import { z } from "zod";
 import type { SasdConfig, TestCapabilityConfig } from "../project-registry.js";
 import { buildAsanaTicketWorkflow } from "./builtin/asana-ticket.js";
 import type { CheckDef, WorkflowDefinition } from "./schema.js";
 import type { WhenContext } from "./validate.js";
 
-/** gates.json 的形狀（只取 workflow 用得到的兩組；與 project-gates.ts 內部型別一致，這裡不改動它）。 */
-export interface LegacyGatesConfig {
-  analysisReferences?: Array<{ ticketNamePattern: string; heading: string; pathPrefix: string; minPaths?: number; requireSasd?: boolean }>;
-  implementationSections?: Array<{ ticketNamePattern: string; heading: string; minChars?: number }>;
+/** gates.json 的形狀（只取 workflow 用得到的兩組；與 project-gates.ts 內部型別一致，這裡不改動它）。其他欄位放行。 */
+const LegacyGatesSchema = z
+  .object({
+    analysisReferences: z
+      .array(
+        z.object({
+          ticketNamePattern: z.string(),
+          heading: z.string().min(1),
+          pathPrefix: z.string(),
+          minPaths: z.number().int().positive().optional(),
+          requireSasd: z.boolean().optional(),
+        })
+      )
+      .optional(),
+    implementationSections: z
+      .array(z.object({ ticketNamePattern: z.string(), heading: z.string().min(1), minChars: z.number().int().positive().optional() }))
+      .optional(),
+  })
+  .passthrough();
+export type LegacyGatesConfig = z.infer<typeof LegacyGatesSchema>;
+
+/** 驗 gates.json 形狀；不合法丟出帶路徑的清楚錯誤（不讓後續對映出 TypeError 或 "undefined"）。 */
+export function parseLegacyGates(raw: unknown): LegacyGatesConfig {
+  const parsed = LegacyGatesSchema.safeParse(raw);
+  if (parsed.success) return parsed.data;
+  throw new Error(`gates.json 形狀不合法：${parsed.error.issues.map((i) => `${i.path.join(".") || "(root)"}：${i.message}`).join("；")}`);
 }
 
 export interface LegacyFlow {
@@ -22,6 +45,9 @@ function analysisChecks(gates: LegacyGatesConfig | null): CheckDef[] {
     description: `分析文件必須有標題含「${g.heading}」的一節，並引用 ${g.pathPrefix} 底下至少 ${g.minPaths ?? 1} 個既有路徑`,
     heading: g.heading,
     ticketNamePattern: g.ticketNamePattern,
+    pathPrefix: g.pathPrefix,
+    ...(g.minPaths !== undefined ? { minPaths: g.minPaths } : {}),
+    ...(g.requireSasd !== undefined ? { requireSasd: g.requireSasd } : {}),
   }));
 }
 
@@ -53,6 +79,7 @@ export function fromLegacy(
   gates: LegacyGatesConfig | null
 ): LegacyFlow {
   const base = buildAsanaTicketWorkflow();
+  if (gates !== null) gates = parseLegacyGates(gates);
   const warnings: string[] = [];
   if (!sasd) warnings.push("尚未登記 sasd_config：沒有規格模式，規格撰寫者角色一律不啟用");
   if (sasd?.sdMode === "self-generated" && !sasd.specOrder) warnings.push("self-generated 缺 specOrder：不猜，規格撰寫者角色都不啟用");

@@ -114,7 +114,7 @@ const PROJECT_CONFIG_DESCRIPTION =
   "legacy_test_profile 預設 false 不用問；test_capability 找不到（found:false）時工程師第一次動手前問使用者一次；**這兩者只有使用者主動告知才 register，不要依程式碼猜**。" +
   "git_roots：run_project_shell 執行 git 前必須已登記。" +
   "svn_workcopies：**上傳/更新/刪除只能由使用者在網頁按按鈕，AI 沒有任何工具能修改 SVN**，此 kind 只存設定；只有使用者主動告知才 register、不要猜路徑；登記前對每份 svn status 驗證，不過整批不登記，且整份覆寫原登記。" +
-  "flow（只有 resolve）：唯讀，回傳依專案模式展開的 workflow（角色順序、關卡、硬停點）。" +
+  "flow（只有 resolve）：唯讀，回傳依專案模式展開的 workflow（角色順序、關卡、硬停點）；讀 gates.json／flow.json 時與其他規則檔讀取一致，會寫規則歷史快照（內容有變才寫）。" +
   "resolve 找不到時多數 kind 回傳 needsInput 與 instructions，照做後呼叫 register。";
 
 /** 把 zod 驗證錯誤整理成「哪個 kind 的哪個 action 缺什麼／錯什麼」。 */

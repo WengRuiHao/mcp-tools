@@ -7,7 +7,7 @@ import { isUsableProjectDir, readFlowProfile, upsertFlowProfile } from "./projec
 export type ConfigStorage = "project" | "mcp-data";
 
 /** 這個 Asana 專案登記的程式碼目錄，且目錄在這台機器上真的存在才回傳；否則回傳 null（呼叫端退回 data/*.json）。 */
-async function usableProjectDirFor(projectGid: string): Promise<string | null> {
+export async function usableProjectDirFor(projectGid: string): Promise<string | null> {
   const dir = await resolveProjectDir(projectGid);
   return dir && (await isUsableProjectDir(dir)) ? dir : null;
 }

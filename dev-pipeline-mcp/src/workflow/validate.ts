@@ -52,8 +52,11 @@ function findCycle(roles: WorkflowDefinition["roles"]): string[] | null {
 
 const CHILD_OF: Readonly<Record<string, string | undefined>> = { system: "module", module: "feature" };
 
-/** 回傳所有語意錯誤；空陣列代表合法。 */
-export function validateWorkflow(def: WorkflowDefinition): string[] {
+/** fromLegacy 實際提供給 when 的 key（含內建 workflow 用到的 baseline）。 */
+export const KNOWN_WHEN_KEYS: readonly string[] = ["sdMode", "specOrder", "baseline", "testCapabilityMode", "legacyTestProfile"];
+
+/** 回傳所有語意錯誤；空陣列代表合法。knownWhenKeys 有給時，when 用到清單外的 key 也算錯。 */
+export function validateWorkflow(def: WorkflowDefinition, knownWhenKeys?: readonly string[]): string[] {
   const errors: string[] = [];
   const artifactIds = def.artifacts.map((a) => a.id);
   const roleIds = def.roles.map((r) => r.id);
@@ -70,6 +73,9 @@ export function validateWorkflow(def: WorkflowDefinition): string[] {
       if (!artifactSet.has(a)) errors.push(`role ${r.id} 引用不存在的產出物：${a}`);
     }
     if (r.when !== undefined && !parseWhen(r.when)) errors.push(`role ${r.id} 的 when 語法不合法（只支援 key==value 以 && 連接）：${r.when}`);
+    for (const [key] of knownWhenKeys && r.when !== undefined ? (parseWhen(r.when) ?? []) : []) {
+      if (!knownWhenKeys?.includes(key)) errors.push(`role ${r.id} 的 when 使用未知的 key：${key}`);
+    }
   }
   const cycle = findCycle(def.roles);
   if (cycle) errors.push(`角色依賴有環：${cycle.join(" -> ")}`);
@@ -91,13 +97,18 @@ export function validateWorkflow(def: WorkflowDefinition): string[] {
 }
 
 /** children 鏈合法性（system→module→feature）：由呼叫端提供以 id 查 workflow 的函式。 */
-export function validateChildrenChain(def: WorkflowDefinition, lookup: (id: string) => WorkflowDefinition | undefined): string[] {
+export function validateChildrenChain(
+  def: WorkflowDefinition,
+  lookup: (id: string) => WorkflowDefinition | undefined,
+  visited: ReadonlySet<string> = new Set()
+): string[] {
   if (!def.children) return [];
+  if (visited.has(def.id)) return [`children 鏈有環：${[...visited, def.id].join(" -> ")}`];
   const child = lookup(def.children.workflow);
   if (!child) return [`children.workflow 找不到：${def.children.workflow}`];
   const expected = CHILD_OF[def.granularity];
   if (expected && child.granularity !== expected) {
     return [`${def.granularity} 的 children 必須是 ${expected}，但 ${child.id} 是 ${child.granularity}`];
   }
-  return validateChildrenChain(child, lookup);
+  return validateChildrenChain(child, lookup, new Set([...visited, def.id]));
 }

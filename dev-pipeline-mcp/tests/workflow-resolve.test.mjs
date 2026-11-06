@@ -79,3 +79,30 @@ test("resolveWorkflow：略過角色會從 dependsOn 移除，關卡只留有啟
   assert.ok(!r.gates.some((g) => g.id.startsWith("sd-confirm")));
   assert.equal(r.gates.find((g) => g.id === "final-acceptance").effectiveConfirm.mode, "manual");
 });
+
+test("M1：checks 覆寫是追加，空陣列不會清掉既有檢查", () => {
+  const d = base();
+  d.gates = d.gates.map((g) => (g.id === "implementation-content" ? { ...g, checks: [{ id: "legacy-1", description: "舊" }] } : g));
+  const gate = (r) => r.workflow.gates.find((g) => g.id === "implementation-content");
+  const empty = mergeProjectOverride(d, { schemaVersion: 1, gates: { "implementation-content": { checks: [] } } });
+  assert.deepEqual(gate(empty).checks.map((c) => c.id), ["legacy-1"]);
+  const added = mergeProjectOverride(d, { schemaVersion: 1, gates: { "implementation-content": { checks: [{ id: "extra", description: "新" }] } } });
+  assert.deepEqual(gate(added).checks.map((c) => c.id), ["legacy-1", "extra"]);
+});
+
+test("M1：同 id 以專案版本為準，其他既有檢查保留", () => {
+  const d = base();
+  d.gates = d.gates.map((g) =>
+    g.id === "implementation-content" ? { ...g, checks: [{ id: "a", description: "舊a" }, { id: "b", description: "舊b" }] } : g
+  );
+  const r = mergeProjectOverride(d, { schemaVersion: 1, gates: { "implementation-content": { checks: [{ id: "a", description: "新a", minChars: 99 }] } } });
+  const checks = r.workflow.gates.find((g) => g.id === "implementation-content").checks;
+  assert.deepEqual(checks.map((c) => [c.id, c.description]), [["a", "新a"], ["b", "舊b"]]);
+  assert.equal(checks[0].minChars, 99);
+});
+
+test("L1：未知硬停點 id 也 fail-closed 為 manual", () => {
+  const r = resolveConfirmMode(withAuto(), "sd-confirm-first", ["not-a-real-stop"]);
+  assert.deepEqual([r.mode, r.reason], ["manual", "hard-stop"]);
+  assert.equal(resolveConfirmMode(withAuto(), "verdict", []).mode, "auto");
+});

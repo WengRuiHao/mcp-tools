@@ -51,6 +51,10 @@ export const CheckDefSchema = z
     heading: z.string().optional(),
     minChars: z.number().int().positive().optional(),
     ticketNamePattern: z.string().optional(),
+    /** 以下三項來自 gates.json analysisReferences 的結構化保留（向後相容，皆選填）。 */
+    pathPrefix: z.string().optional(),
+    minPaths: z.number().int().positive().optional(),
+    requireSasd: z.boolean().optional(),
   })
   .strict();
 

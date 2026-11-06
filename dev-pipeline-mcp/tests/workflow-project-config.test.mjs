@@ -71,3 +71,39 @@ test("flow resolve：專案尚未登記任何設定時仍回傳最小流程並�
   assert.equal(r.json.found, true);
   assert.ok(r.json.warnings.length > 0);
 }));
+
+test("M1：flow.json checks 追加到 gates.json 對映的既有檢查，空陣列不清掉", withConfig(async (call, dir) => {
+  await setup(call, dir, "unregistered", null);
+  writeFile(dir, ".pipeline/gates.json", JSON.stringify({ implementationSections: [{ ticketNamePattern: ".*", heading: "查重", minChars: 40 }] }));
+  const ids = async () => (await call({ kind: "flow", action: "resolve", projectGid: "PF" })).json.gates.find((g) => g.id === "implementation-content").checks.map((c) => c.id);
+  writeFile(dir, ".pipeline/flow.json", JSON.stringify({ schemaVersion: 1, gates: { "implementation-content": { checks: [] } } }));
+  assert.deepEqual(await ids(), ["implementation-section-1"]);
+  writeFile(dir, ".pipeline/flow.json", JSON.stringify({ schemaVersion: 1, gates: { "implementation-content": { checks: [{ id: "x", description: "d" }, { id: "implementation-section-1", description: "專案版" }] } } }));
+  assert.deepEqual(await ids(), ["implementation-section-1", "x"]);
+}));
+
+test("M2：角色 optional 帶出，並警告階段 1 只宣告不生效", withConfig(async (call, dir) => {
+  await setup(call, dir, "unregistered", null);
+  const none = await call({ kind: "flow", action: "resolve", projectGid: "PF" });
+  assert.ok(!none.json.warnings.some((w) => /optional/.test(w)));
+  writeFile(dir, ".pipeline/flow.json", JSON.stringify({ schemaVersion: 1, roles: { tester: { optional: true } } }));
+  const r = await call({ kind: "flow", action: "resolve", projectGid: "PF" });
+  assert.equal(r.json.roles.find((x) => x.id === "tester").optional, true);
+  assert.ok(r.json.warnings.some((w) => /optional 只宣告、不影響角色是否出現/.test(w)));
+}));
+
+test("L4：登記的專案目錄不存在時視為不可用（projectDir 為 null）", withConfig(async (call, dir) => {
+  await call({ kind: "project_dir", action: "register", projectGid: "PG", projectDir: dir });
+  removeDir(dir);
+  const r = await call({ kind: "flow", action: "resolve", projectGid: "PG" });
+  assert.equal(r.json.projectDir, null);
+  assert.equal(r.json.overrideApplied, false);
+}));
+
+test("L5：gates.json 形狀錯誤回清楚訊息", withConfig(async (call, dir) => {
+  await setup(call, dir, "unregistered", null);
+  writeFile(dir, ".pipeline/gates.json", JSON.stringify({ analysisReferences: [{ ticketNamePattern: ".*", pathPrefix: "src/" }] }));
+  const r = await call({ kind: "flow", action: "resolve", projectGid: "PF" });
+  assert.equal(r.json.success, false);
+  assert.match(r.json.message, /gates\.json 不合法.*heading/);
+}));

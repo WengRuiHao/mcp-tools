@@ -1,8 +1,9 @@
 // workflow 語意驗證：id 唯一、引用存在、依賴無環、locked 不得 auto、children 鏈、when 語法。
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateWorkflow, validateChildrenChain, parseWhen, evalWhen } from "../dist/workflow/validate.js";
+import { validateWorkflow, validateChildrenChain, parseWhen, evalWhen, KNOWN_WHEN_KEYS } from "../dist/workflow/validate.js";
 import { buildAsanaTicketWorkflow } from "../dist/workflow/builtin/asana-ticket.js";
+import { buildSpecFirstWorkflow } from "../dist/workflow/builtin/spec-first.js";
 
 const base = () => buildAsanaTicketWorkflow();
 const has = (errors, re) => errors.some((e) => re.test(e));
@@ -75,4 +76,29 @@ test("children 鏈：system→module→feature 合法，跳級被拒，找不到
   assert.ok(has(validateChildrenChain(skip, lookup), /必須是 module/));
   assert.ok(has(validateChildrenChain({ ...sys, children: { from: "analysis", workflow: "zzz" } }, lookup), /找不到/));
   assert.deepEqual(validateChildrenChain(feature, lookup), []);
+});
+
+test("L2：所有內建 workflow 的 when key 都在白名單", () => {
+  const used = new Set();
+  for (const d of [buildAsanaTicketWorkflow(), buildSpecFirstWorkflow()]) {
+    assert.deepEqual(validateWorkflow(d, KNOWN_WHEN_KEYS), [], d.id);
+    for (const r of d.roles) for (const [k] of parseWhen(r.when ?? "") ?? []) used.add(k);
+  }
+  assert.deepEqual([...used].sort(), ["baseline", "sdMode", "specOrder"]);
+  for (const k of used) assert.ok(KNOWN_WHEN_KEYS.includes(k), k);
+});
+
+test("L2：未知 when key 被偵測；不給清單時不檢查", () => {
+  const d = base();
+  d.roles[0] = { ...d.roles[0], when: "typoKey==x" };
+  assert.ok(has(validateWorkflow(d, KNOWN_WHEN_KEYS), /未知的 key：typoKey/));
+  assert.deepEqual(validateWorkflow(d), []);
+  assert.deepEqual(validateWorkflow(d, [...KNOWN_WHEN_KEYS, "typoKey"]), []);
+});
+
+test("L3：children 鏈有環時回錯誤而不是無限遞迴", () => {
+  const x = { ...base(), id: "x", granularity: "module", children: { from: "analysis", workflow: "y" } };
+  const y = { ...base(), id: "y", granularity: "feature", children: { from: "analysis", workflow: "x" } };
+  const reg = new Map([["x", x], ["y", y]]);
+  assert.ok(has(validateChildrenChain(x, (id) => reg.get(id)), /children 鏈有環：x -> y -> x/));
 });

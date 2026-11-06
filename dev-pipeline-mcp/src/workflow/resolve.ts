@@ -1,4 +1,4 @@
-import { HARD_STOP_IDS, type GateDef, type HardStopId, type ProjectFlowOverride, type RoleDef, type WorkflowDefinition } from "./schema.js";
+import { HARD_STOP_IDS, type CheckDef, type GateDef, type HardStopId, type ProjectFlowOverride, type RoleDef, type WorkflowDefinition } from "./schema.js";
 import { evalWhen, type WhenContext } from "./validate.js";
 
 export interface ConfirmDecision {
@@ -15,8 +15,11 @@ export function resolveConfirmMode(def: WorkflowDefinition, gateId: string, trig
   const gate = def.gates.find((g) => g.id === gateId);
   if (!gate) throw new Error(`找不到關卡：${gateId}`);
   if (gate.locked) return { mode: "manual", reason: "locked" };
-  const hit = triggeredHardStops.find((h) => HARD_STOP_IDS.includes(h));
-  if (hit) return { mode: "manual", reason: "hard-stop", hardStop: hit };
+  // fail-closed：只要有任何硬停點被觸發（含未知 id）一律 manual，不因 id 不認得就放行。
+  if (triggeredHardStops.length > 0) {
+    const hit = triggeredHardStops.find((h) => HARD_STOP_IDS.includes(h)) ?? triggeredHardStops[0];
+    return { mode: "manual", reason: "hard-stop", hardStop: hit };
+  }
   if (gate.confirmMode === "manual" || gate.confirmMode === "auto") return { mode: gate.confirmMode, reason: "gate" };
   return { mode: def.confirmDefault, reason: "inherit-default" };
 }
@@ -40,13 +43,24 @@ function overrideErrors(def: WorkflowDefinition, o: ProjectFlowOverride): string
   return errors;
 }
 
+/** 追加 checks：以 check id 去重，同 id 以後者（專案版本）取代，其餘既有檢查一律保留。 */
+function appendChecks(existing: readonly CheckDef[], added: readonly CheckDef[]): CheckDef[] {
+  const out = [...existing];
+  for (const c of added) {
+    const at = out.findIndex((e) => e.id === c.id);
+    if (at >= 0) out[at] = c;
+    else out.push(c);
+  }
+  return out;
+}
+
 /** 套用專案覆寫（不修改原物件）。越權（locked、非 content 的 checks、不存在的 id）回傳錯誤。 */
 export function mergeProjectOverride(def: WorkflowDefinition, o: ProjectFlowOverride): MergeResult {
   const errors = overrideErrors(def, o);
   if (errors.length > 0) return { ok: false, errors };
   const gates: GateDef[] = def.gates.map((g) => {
     const p = o.gates?.[g.id];
-    return p ? { ...g, ...(p.confirmMode !== undefined ? { confirmMode: p.confirmMode } : {}), ...(p.checks !== undefined ? { checks: p.checks } : {}) } : g;
+    return p ? { ...g, ...(p.confirmMode !== undefined ? { confirmMode: p.confirmMode } : {}), ...(p.checks !== undefined ? { checks: appendChecks(g.checks ?? [], p.checks) } : {}) } : g;
   });
   const roles: RoleDef[] = def.roles.map((r) => {
     const p = o.roles?.[r.id];
