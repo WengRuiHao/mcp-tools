@@ -229,7 +229,7 @@ interface GateDef { id; after: string|string[]; type: "confirmation"|"content"|"
 <tr><th>階段</th><th>內容</th><th>狀態</th></tr>
 <tr><td>0（急件）</td><td>svn_* 移除、README 瘦身、專案模式設定下放到專案目錄</td><td><span class="tag done">完成</span></td></tr>
 <tr><td>1</td><td>workflow schema、驗證、唯讀解析、等價定義；不改現有行為</td><td><span class="tag done">完成</span></td></tr>
-<tr><td>2</td><td><code>taskGid</code> 泛化成 <code>workItemId</code>；改 <code>pipeline-store</code>、階段列舉</td><td><span class="tag todo">未開始</span></td></tr>
+<tr><td>2</td><td><code>taskGid</code> 泛化成 <code>workItemId</code>；改 <code>pipeline-store</code>、階段列舉。採「內部泛化＋對外雙收」：磁碟格式不改、現有 8 階段與 <code>STAGE_ORDER</code> 原樣保留、不整批改名既有 <code>taskGid</code> 變數。步驟：① <code>src/work-item.ts</code>（<code>323185e</code>，完成）② <code>src/workflow/stage-order.ts</code>（<code>b011f72</code>，完成）③ <code>pipeline-store</code> 接上階段順序並加選填 <code>workflow_id</code>（<code>e6a1a51</code>，完成，453 項測試通過）④ 對外工具雙收 <code>taskGid</code>／<code>workItemId</code>（4a 生命週期、4b 產出物與測試證據、4c worktree／資訊／http-server；進行中）⑤ 文件。已知限制：自訂（非內建）workflow 的票推進階段會因缺流程定義而報錯，留待階段 3／4 決定如何帶入定義。</td><td><span class="tag todo">進行中（3／5 步完成）</span></td></tr>
 <tr><td>3</td><td>改 <code>next-action</code>、prompts 改由 workflow 驅動；<code>data/*.json</code> 搬遷；<code>auto</code> 模式與硬停點的執行期強制</td><td><span class="tag todo">未開始</span></td></tr>
 <tr><td>4</td><td><code>manual</code> 來源、新角色 prompt（現況盤點、DB 設計師、流程分析師、SD 分析師、規格驗證師、前後端工程師）、Mermaid 與截圖證據</td><td><span class="tag todo">未開始</span></td></tr>
 </table>
@@ -239,7 +239,8 @@ interface GateDef { id; after: string|string[]; type: "confirmation"|"content"|"
 <ul>
   <li><span class="tag done">完成</span> 主流程 prompt 依模式裁剪（③ 收尾），已合進 <code>main</code>。</li>
   <li><span class="tag done">完成</span> 階段 1（workflow schema、驗證、唯讀解析）。</li>
-  <li><span class="tag todo">待你決定</span> 階段 2 是否開工（<code>taskGid</code> 泛化成 <code>workItemId</code>，會改 <code>pipeline-store</code> 與階段列舉，風險較高）。</li>
+  <li><span class="tag todo">進行中</span> 階段 2 步驟 4（對外雙收 <code>workItemId</code>）與步驟 5（文件）；步驟 1～3 已完成。</li>
+  <li><span class="tag todo">待你決定</span> 階段 3 是否開工（改 <code>next-action</code>、prompts 由 workflow 驅動，會影響現有 Asana 流程，風險最高，建議你在場時做）。</li>
   <li><span class="tag todo">待使用</span> 尚未用過本 MCP 的 2 個專案，第一次使用時登記 profile。</li>
   <li><span class="tag todo">待你確認</span> 舊 <code>data/*.json</code> 可清理的時機。</li>
 </ul>
