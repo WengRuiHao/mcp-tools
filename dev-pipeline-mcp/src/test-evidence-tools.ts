@@ -3,6 +3,7 @@ import { z } from "zod";
 import { readStatus } from "./pipeline-store.js";
 import { syncPendingActionsReport } from "./pending-actions-sync.js";
 import { textResult } from "./shared.js";
+import { workItemIdParams, withTaskGid } from "./work-item.js";
 import { EVIDENCE_KINDS, FAKE_DATA_LABEL, TEST_LEVELS, EvidenceInputError, recordTestEvidence } from "./test-evidence-store.js";
 
 export function registerTestEvidenceTools(server: McpServer): void {
@@ -17,7 +18,7 @@ export function registerTestEvidenceTools(server: McpServer): void {
       "4) 文字檔會掃描未遮蔽的 Authorization/Bearer token、JWT、password/secret/api key/token 值、連線字串帳密，命中即拒絕（回報檔名與行號），請遮蔽成 **** 後重送。" +
       "路徑限制在票單目錄內，拒絕不存在、非一般檔案、符號連結、副檔名不符、超過 50MB。",
     {
-      taskGid: z.string().describe("任務 gid"),
+      ...workItemIdParams,
       featureName: z.string().min(1).describe("功能名稱，當備份資料夾名（自動處理檔名安全）"),
       fileKind: z.enum(EVIDENCE_KINDS).describe("證據類型"),
       testLevel: z.enum(TEST_LEVELS).describe("測試層級"),
@@ -29,7 +30,7 @@ export function registerTestEvidenceTools(server: McpServer): void {
       screenshotPaths: z.array(z.string()).nullable().optional().describe("實際渲染截圖絕對路徑（png/jpg/jpeg）；pdf 至少 1 張，其他可省略"),
       note: z.string().nullable().optional().describe("選填備註"),
     },
-    async (args) => {
+    withTaskGid(async (args) => {
       try {
         const { record, backupDir, cleanupWarnings } = await recordTestEvidence(args);
         await syncPendingActionsReport(args.taskGid);
@@ -61,6 +62,6 @@ export function registerTestEvidenceTools(server: McpServer): void {
         if (err instanceof EvidenceInputError) return textResult({ success: false, message: err.message }, true);
         return textResult({ success: false, message: `記錄測試證據失敗：${err.message}` }, true);
       }
-    }
+    })
   );
 }

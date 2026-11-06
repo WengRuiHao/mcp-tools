@@ -17,6 +17,7 @@ import {
 import { checkAnalysisGates, checkImplementationGates } from "./project-gates.js";
 import { syncPendingActionsReport } from "./pending-actions-sync.js";
 import { textResult } from "./shared.js";
+import { workItemIdParams, withTaskGid } from "./work-item.js";
 import {
   TEST_LEVELS,
   checkTestEvidenceForArtifact,
@@ -93,7 +94,7 @@ export function registerTicketArtifactTools(server: McpServer): void {
       `寫 02/03/04 必填 syncNote（無需同步帶 "${NO_SYNC_NEEDED}"）與 manualActions（沒有帶 []）。` +
       "**寫 04 另必填 producesOfficeFiles 與 testLevel（須等於證據最高層級）**，且須先 record_test_evidence 至少 1 筆；內文要有標題含「測試證據」的一節、提及每筆證據的功能名稱與 testLevel，producesOfficeFiles=true 另需 excel/pdf 證據。",
     {
-      taskGid: z.string().describe("任務 gid"),
+      ...workItemIdParams,
       filename: z
         .enum(["01-analysis.md", "02-implementation.md", "03-verification.md", "04-test.md"])
         .describe("要寫入哪一份追蹤文件"),
@@ -129,7 +130,7 @@ export function registerTicketArtifactTools(server: McpServer): void {
         .optional()
         .describe("04 必填：unit-mock｜integration-db｜live-api，須等於證據最高層級；其他檔忽略"),
     },
-    async ({ taskGid, filename, mode, content: rawContent, oldString, newString, summary, syncNote, manualActions, producesOfficeFiles, testLevel }) => {
+    withTaskGid(async ({ taskGid, filename, mode, content: rawContent, oldString, newString, summary, syncNote, manualActions, producesOfficeFiles, testLevel }) => {
       const writeMode: WriteMode = mode ?? "overwrite";
       const hasSummary = Boolean(summary && summary.trim());
       if (writeMode === "overwrite" && !hasSummary) {
@@ -302,18 +303,18 @@ export function registerTicketArtifactTools(server: McpServer): void {
         );
       }
       return textResult({ success: true, taskGid, filename, filePath: await artifactFilePath(taskGid, filename) });
-    }
+    })
   );
 
   server.tool(
     "read_ticket_artifact",
     "讀取票單追蹤目錄下的一個檔案（如 ticket.md / 01-analysis.md）。",
-    { taskGid: z.string().describe("任務 gid"), filename: z.string().describe("檔名，例如 ticket.md") },
-    async ({ taskGid, filename }) => {
+    { ...workItemIdParams, filename: z.string().describe("檔名，例如 ticket.md") },
+    withTaskGid(async ({ taskGid, filename }) => {
       const result = await readArtifactResult(taskGid, filename);
       if (result.status === "ok") return textResult({ success: true, filePath: await artifactFilePath(taskGid, filename), content: result.content });
       return textResult({ success: false, content: null, reason: result.status, message: result.message }, true);
-    }
+    })
   );
 
   server.tool(
@@ -322,7 +323,7 @@ export function registerTicketArtifactTools(server: McpServer): void {
       "用在檔案剛被一般編輯工具（非 write_ticket_artifact）直接改過之後；不需 syncNote、不觸發角色階段，只更新雜湊，不判斷修改是否正確。" +
       "summary 選填（修改大到摘要該換時才帶）。manualActions 選填（陣列）：回填舊 02/03/04 檔案裡散落在自由文字的人工待辦（01 不支援）。",
     {
-      taskGid: z.string().describe("任務 gid"),
+      ...workItemIdParams,
       filename: z
         .enum(["01-analysis.md", "02-implementation.md", "03-verification.md", "04-test.md"])
         .describe("要重新同步雜湊的檔"),
@@ -337,7 +338,7 @@ export function registerTicketArtifactTools(server: McpServer): void {
         .optional()
         .describe("回填文件裡的人工待辦（僅 02/03/04 有意義）；不帶就不動"),
     },
-    async ({ taskGid, filename, summary, manualActions }) => {
+    withTaskGid(async ({ taskGid, filename, summary, manualActions }) => {
       const content = await readArtifact(taskGid, filename);
       if (content === null) {
         return textResult(
@@ -368,6 +369,6 @@ export function registerTicketArtifactTools(server: McpServer): void {
       }
       await syncPendingActionsReport(taskGid);
       return textResult({ success: true, taskGid, filename, message: "雜湊已同步為目前磁碟上的實際內容。" });
-    }
+    })
   );
 }
