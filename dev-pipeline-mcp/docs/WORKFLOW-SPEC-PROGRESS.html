@@ -150,7 +150,7 @@ ul{margin:6px 0;padding-left:22px}
 <table>
 <tr><th>位置</th><th>類型</th><th>內容</th><th>預設</th></tr>
 <tr><td>after 現況盤點</td><td>內容關卡</td><td>影響分析必須列出受影響的表、API、畫面</td><td>—</td></tr>
-<tr><td>after <code>sa</code></td><td>內容關卡＋確認</td><td>先過內容檢查：每個前端功能條目都有 mockup 截圖（圖檔存在於 <code>sa-images/</code> 且被規格引用，純後端條目除外）；再由使用者確認 SA 規格</td><td><code>inherit</code></td></tr>
+<tr><td>after <code>sa</code></td><td>內容關卡＋確認（<code>sa-content-check</code>、<code>sa-confirm</code> 兩道）</td><td>先過內容檢查：每個前端功能條目都有 mockup 截圖（圖檔存在於 <code>sa-images/</code> 且被規格引用，純後端條目除外）；再由使用者確認 SA 規格</td><td><code>inherit</code></td></tr>
 <tr><td>after <code>db</code>＋<code>flow</code></td><td>確認（合併）</td><td>DB 與流程圖要一起看才判斷得了接不接得上</td><td><code>inherit</code></td></tr>
 <tr><td>after <code>sd</code></td><td>確認</td><td>使用者確認後端規格</td><td><code>inherit</code></td></tr>
 <tr><td>after <code>spec-verifier</code></td><td>判定關卡</td><td>PASS 才能開工前後端；FAIL 依 <code>rootCause</code> 退回 SA、SD 或 DB 設計師修正，修完重新驗證。沒有 <code>locked</code>，確認模式 <code>inherit</code></td><td><code>inherit</code></td></tr>
@@ -239,7 +239,7 @@ interface GateDef { id; after: string|string[]; type: "confirmation"|"content"|"
 <ul>
   <li><span class="tag done">完成</span> 主流程 prompt 依模式裁剪（③ 收尾），已合進 <code>main</code>。</li>
   <li><span class="tag done">完成</span> 階段 1（workflow schema、驗證、唯讀解析）。</li>
-  <li><span class="tag todo">待做</span> <code>builtin/spec-first.ts</code> 同步「SA 附 mockup 截圖」的規則：<code>sa</code> 關卡加內容檢查（每個前端功能條目有截圖）、<code>spec-verifier</code> 職責加查圖，並補測試（等階段 2 步驟 4 完成後再改，避免同時 build 互相干擾）。</li>
+  <li><span class="tag done">完成</span> <code>builtin/spec-first.ts</code> 同步「SA 附 mockup 截圖」（<code>3bb0da4</code>）：新增內容關卡 <code>sa-content-check</code>（檢查 id <code>sa-mockup-screenshot</code>）排在 <code>sa-confirm</code> 之前，gates 共 10 道；<code>sa-analyst</code>、<code>spec-verifier</code> 的 <code>roleNotes</code> 已補。注意：這道檢查目前只是描述，由 SA 與規格驗證師依描述執行，程式<b>不會自動</b>檢查 <code>sa-images/</code> 檔案是否存在或被引用（現有內容關卡本來就沒有這種機制）。</li>
   <li><span class="tag done">完成</span> 階段 2（<code>workItemId</code> 雙收、階段順序註冊表、<code>workflow_id</code>）。</li>
   <li><span class="tag todo">待你決定</span> 階段 3 是否開工（改 <code>next-action</code>、prompts 由 workflow 驅動，會影響現有 Asana 流程，風險最高，建議你在場時做）。</li>
   <li><span class="tag todo">待使用</span> 尚未用過本 MCP 的 2 個專案，第一次使用時登記 profile。</li>
