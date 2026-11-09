@@ -38,7 +38,13 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
     ],
     roles: [
       { id: "baseline-survey", promptRef: "baseline-survey", dependsOn: [], inputs: [], outputs: ["baseline", "impact"], optional: true, when: "baseline==brownfield" },
-      { id: "sa-analyst", promptRef: "sa-analyst", dependsOn: ["baseline-survey"], inputs: ["impact"], outputs: ["sa"] },
+      {
+        id: "sa-analyst",
+        promptRef: "sa-analyst",
+        dependsOn: ["baseline-survey"], inputs: ["impact"], outputs: ["sa"],
+        roleNotes:
+          "規格是給客戶看的，程式未開發前前端畫面只能靠 mockup 截圖：先畫能在瀏覽器開啟的 mockup（例如 HTML）再截圖，每個前端功能條目附對應截圖，圖檔放 sa-images/ 並在規格中引用；純後端條目不需截圖。定稿後圖片不換成實際系統畫面。",
+      },
       { id: "db-designer", promptRef: "db-designer", dependsOn: ["sa-analyst"], inputs: ["sa"], outputs: ["db"], optional: true },
       { id: "flow-analyst", promptRef: "flow-analyst", dependsOn: ["sa-analyst", "db-designer"], inputs: ["sa", "db"], outputs: ["flow"] },
       { id: "sd-analyst", promptRef: "sd-analyst", dependsOn: ["sa-analyst", "flow-analyst"], inputs: ["sa", "db", "flow"], outputs: ["sd"] },
@@ -48,7 +54,7 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
         dependsOn: ["sa-analyst", "db-designer", "flow-analyst", "sd-analyst"],
         inputs: ["sa", "db", "flow", "sd", "impact"],
         outputs: ["spec-check"],
-        roleNotes: "只看規格、不看程式碼：驗證 SA 與 SD 能串起來（雙向可追溯、欄位／型別／流程與 DB 一致、新增／修改／不動與影響分析一致）。",
+        roleNotes: "只看規格、不看程式碼：驗證 SA 與 SD 能串起來（雙向可追溯、欄位／型別／流程與 DB 一致、新增／修改／不動與影響分析一致）。另須檢查每個前端功能條目都有 mockup 截圖（sa-images/）且圖與功能對得上，純後端條目除外。",
       },
       { id: "frontend-engineer", promptRef: "frontend-engineer", dependsOn: ["spec-verifier"], parallelWith: ["backend-engineer"], inputs: ["sa", "spec-check"], outputs: ["impl-fe"], optional: true },
       { id: "backend-engineer", promptRef: "backend-engineer", dependsOn: ["spec-verifier"], parallelWith: ["frontend-engineer"], inputs: ["sd", "spec-check"], outputs: ["impl-be"], optional: true },
@@ -57,6 +63,18 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
     ],
     gates: [
       { id: "impact-content", after: "baseline-survey", type: "content", checks: [] },
+      {
+        id: "sa-content-check",
+        after: "sa-analyst",
+        type: "content",
+        checks: [
+          {
+            id: "sa-mockup-screenshot",
+            description:
+              "每個前端功能條目都附 mockup 截圖：圖檔存在於 sa-images/ 且被規格（01-sa.md）引用；純後端條目除外。",
+          },
+        ],
+      },
       { id: "sa-confirm", after: "sa-analyst", type: "confirmation", confirmMode: "inherit" },
       { id: "db-flow-confirm", after: ["db-designer", "flow-analyst"], type: "confirmation", confirmMode: "inherit" },
       { id: "sd-confirm", after: "sd-analyst", type: "confirmation", confirmMode: "inherit" },

@@ -58,3 +58,35 @@ test("optional 角色可略過：greenfield 不啟用盤點，略過後依賴仍
   const m = mergeProjectOverride(d, { schemaVersion: 1, roles: { "db-designer": { optional: true } } });
   assert.equal(m.ok, true);
 });
+
+test("sa 內容關卡：mockup 截圖檢查存在，排在 sa 確認之前，且 sa 確認與 inherit 保留", () => {
+  const d = buildSpecFirstWorkflow();
+  assert.deepEqual(validateWorkflow(d), []);
+  const gi = (id) => d.gates.findIndex((g) => g.id === id);
+  const content = d.gates[gi("sa-content-check")];
+  assert.deepEqual([content.type, content.after], ["content", "sa-analyst"]);
+  assert.equal(content.checks.length, 1);
+  assert.match(content.checks[0].description, /mockup/);
+  assert.match(content.checks[0].description, /sa-images\//);
+  assert.ok(gi("sa-content-check") < gi("sa-confirm"));
+  const confirm = d.gates[gi("sa-confirm")];
+  assert.deepEqual([confirm.type, confirm.confirmMode, confirm.after], ["confirmation", "inherit", "sa-analyst"]);
+  assert.equal(d.gates.length, 10);
+  assert.ok(d.artifacts.find((a) => a.id === "sa").attachments.includes("sa-images/"));
+});
+
+test("sa-analyst 與 spec-verifier 的 roleNotes 提到 mockup 截圖", () => {
+  const d = buildSpecFirstWorkflow();
+  const notes = (id) => d.roles.find((r) => r.id === id).roleNotes;
+  assert.match(notes("sa-analyst"), /mockup[\s\S]*sa-images\//);
+  assert.match(notes("sa-analyst"), /不換成實際系統畫面/);
+  assert.match(notes("spec-verifier"), /mockup 截圖/);
+  assert.match(notes("spec-verifier"), /純後端/);
+});
+
+test("resolve 後 sa-content-check 仍在，stage 順序不受內容關卡影響", () => {
+  const d = buildSpecFirstWorkflow();
+  const r = resolveWorkflow(d, { baseline: "brownfield" });
+  assert.ok(r.gates.some((g) => g.id === "sa-content-check"));
+  assert.equal(ids(r.roles).length, 10);
+});
