@@ -4,6 +4,7 @@ import type { WorkflowDefinition } from "../workflow/schema.js";
 import { checkMermaidFile } from "../workflow/mermaid-check.js";
 import { checkImpactReuseList, checkReuseRecord, checkSdReuseDesign } from "../workflow/reuse-record-check.js";
 import { checkSaImages, SA_FILE_NAME } from "../workflow/sa-image-check.js";
+import { checkSaNoCode } from "../workflow/sa-no-code-check.js";
 import { checkBaselineTechStack, checkTechStack, TECH_STACK_FILE, BASELINE_FILE } from "../workflow/tech-stack-check.js";
 import { checkTestEvidence, TEST_FILE_NAME } from "../workflow/test-evidence-check.js";
 
@@ -55,12 +56,20 @@ async function checkVerdictFile(file: string, routeOnFail: Record<string, string
 
 async function checkSa(dir: string): Promise<string[]> {
   if ((await sizeOf(path.join(dir, SA_FILE_NAME))) === null) return [`缺少 ${SA_FILE_NAME}，無法檢查 SA 截圖`];
+  const problems: string[] = [];
   try {
     const r = checkSaImages(dir);
-    return r.ok ? [] : r.violations.map((v) => `SA 截圖檢查未通過：${v.heading ? `「${v.heading}」` : ""}${v.line ? `（第 ${v.line} 行）` : ""}${v.reason}`);
+    if (!r.ok) problems.push(...r.violations.map((v) => `SA 截圖檢查未通過：${v.heading ? `「${v.heading}」` : ""}${v.line ? `（第 ${v.line} 行）` : ""}${v.reason}`));
   } catch (e) {
-    return [`SA 截圖檢查失敗：${e instanceof Error ? e.message : String(e)}`];
+    problems.push(`SA 截圖檢查失敗：${e instanceof Error ? e.message : String(e)}`);
   }
+  try {
+    const n = checkSaNoCode(dir);
+    if (!n.ok) problems.push(...n.violations.map((v) => `SA 不寫程式檢查未通過：${v.line ? `（第 ${v.line} 行）` : ""}${v.reason}${v.snippet ? `：${v.snippet}` : ""}`));
+  } catch (e) {
+    problems.push(`SA 不寫程式檢查失敗：${e instanceof Error ? e.message : String(e)}`);
+  }
+  return problems;
 }
 
 async function checkTest(dir: string): Promise<string[]> {

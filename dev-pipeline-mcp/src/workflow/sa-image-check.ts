@@ -73,15 +73,23 @@ export interface Section {
   refs: { ref: string; line: number }[];
 }
 
-/** 逐行走訪 markdown，略過程式碼區塊（含圍欄行本身）。 */
-function eachLine(text: string, visit: (line: string, lineNo: number) => void): void {
+/** 圍欄行事件：opening 為開啟或關閉、info 為開啟圍欄後的語言標記文字。 */
+export type FenceEvent = (info: string, lineNo: number, opening: boolean) => void;
+
+/** 逐行走訪 markdown，略過程式碼區塊（含圍欄行本身）；可選的 onFence 會收到每個圍欄行（供需要偵測程式碼區塊的檢查使用）。 */
+export function eachLine(text: string, visit: (line: string, lineNo: number) => void, onFence?: FenceEvent): void {
   let fence: string | null = null;
   text.split(/\r\n|\r|\n/).forEach((line, idx) => {
-    const fenceMatch = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
+    const fenceMatch = /^\s{0,3}(`{3,}|~{3,})(.*)$/.exec(line);
     if (fenceMatch) {
       const mark = fenceMatch[1][0];
-      if (fence === null) fence = mark;
-      else if (fence === mark) fence = null;
+      if (fence === null) {
+        fence = mark;
+        onFence?.(fenceMatch[2].trim(), idx + 1, true);
+      } else if (fence === mark) {
+        fence = null;
+        onFence?.("", idx + 1, false);
+      }
       return;
     }
     if (fence === null) visit(line, idx + 1);
