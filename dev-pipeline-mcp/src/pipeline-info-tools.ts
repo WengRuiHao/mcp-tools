@@ -8,7 +8,7 @@ import { textResult } from "./shared.js";
 import { withOptionalTaskGid } from "./work-item.js";
 import { resolveSasdConfig, resolveTestCapability, resolveUniformTestCapabilityMode } from "./project-registry.js";
 import { getAssignedDir, peekStatus } from "./pipeline-store.js";
-import { computeNextAction } from "./next-action.js";
+import { computeNextActionForWorkflow } from "./workflow/next-action-dispatch.js";
 import { buildSubagentBrief } from "./subagent-brief.js";
 import { loadFlowRoleNotes } from "./workflow/role-notes.js";
 import path from "node:path";
@@ -36,7 +36,7 @@ async function buildBriefForTicket(
   }
   const status = await peekStatus(taskGid);
   const sasd = status.project_gid ? await resolveSasdConfig(status.project_gid) : null;
-  const next = computeNextAction(status, { sasd: sasd ? { sdMode: sasd.sdMode, specOrder: sasd.specOrder ?? null } : null });
+  const next = computeNextActionForWorkflow(status, { sasd: sasd ? { sdMode: sasd.sdMode, specOrder: sasd.specOrder ?? null } : null }, status.workflow_id);
   return buildSubagentBrief({
     role,
     taskGid,

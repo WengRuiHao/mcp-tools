@@ -29,7 +29,8 @@ import { workItemIdParams, withTaskGid } from "./work-item.js";
 import { getServerInfo } from "./build-info.js";
 import { checkTestEvidenceForTested, findStaleEvidenceBackups, summarizeTestEvidence } from "./test-evidence-store.js";
 import { filterAndLimitTickets, localDateString, detectTicketNumber, DUE_ON_DATE_PATTERN } from "./ticket-list-filter.js";
-import { computeNextAction } from "./next-action.js";
+import { computeNextActionForWorkflow } from "./workflow/next-action-dispatch.js";
+import { rejectIfNonAsana } from "./workflow/non-asana-guard.js";
 import { sasdForStatus, statusResponse, verboseParam } from "./stage-response.js";
 import { createBoardFetcher } from "./board-cache.js";
 import { buildReportOnlyBody } from "./report-only.js";
@@ -321,7 +322,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         sync_flags: syncFlags,
         needs_human_review: needsHumanReview(status),
         external_changes: externalChanges,
-        nextAction: computeNextAction(status, { syncFlags, externalChanges, sasd }),
+        nextAction: computeNextActionForWorkflow(status, { syncFlags, externalChanges, sasd }, status.workflow_id),
       });
     })
   );
@@ -540,6 +541,9 @@ export function registerTicketLifecycleTools(server: McpServer): void {
           true
         );
       }
+
+      const nonAsana = rejectIfNonAsana(await peekStatus(taskGid), "advance_ticket_stage");
+      if (nonAsana) return nonAsana;
 
       // 防止跳過某個角色就直接宣告推進到後面的階段（例如只做完工程師改動就想直接標成 verified）：
       // 每個階段要求對應的產出文件已經透過 write_ticket_artifact 寫入非空內容，不能只改 stage 欄位就過關。

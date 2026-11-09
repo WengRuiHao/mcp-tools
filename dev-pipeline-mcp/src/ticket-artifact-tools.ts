@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
   readStatus,
+  peekStatus,
   writeArtifact,
   readArtifact,
   readArtifactResult,
@@ -17,6 +18,7 @@ import {
 import { checkAnalysisGates, checkImplementationGates } from "./project-gates.js";
 import { syncPendingActionsReport } from "./pending-actions-sync.js";
 import { textResult } from "./shared.js";
+import { rejectIfNonAsana } from "./workflow/non-asana-guard.js";
 import { workItemIdParams, withTaskGid } from "./work-item.js";
 import {
   TEST_LEVELS,
@@ -142,6 +144,8 @@ export function registerTicketArtifactTools(server: McpServer): void {
           true
         );
       }
+      const nonAsana = rejectIfNonAsana(await peekStatus(taskGid), "write_ticket_artifact");
+      if (nonAsana) return nonAsana;
       const composed = await composeContent(taskGid, filename, writeMode, rawContent, oldString, newString);
       if (!composed.ok) return textResult(composed.body, true);
       const content = composed.content;

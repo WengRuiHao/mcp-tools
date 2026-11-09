@@ -31,7 +31,7 @@ export async function buildCompactStatus(taskGid: string, status: TicketStatus):
     ...(status.verifier_root_cause ? { verifier_root_cause: status.verifier_root_cause } : {}),
     ...(status.confirmation ? { confirmation: { confirmed: status.confirmation.confirmed } } : {}),
     ...(status.spec_confirmation ? { spec_confirmation: { confirmed: status.spec_confirmation.confirmed, ...(status.spec_confirmation.sdNotRequired ? { sdNotRequired: true, sdSkipNotice: describeSdSkip(status.spec_confirmation) } : {}) } } : {}),
-    nextAction: computeNextActionForWorkflow(status, { syncFlags, externalChanges, sasd }),
+    nextAction: computeNextActionForWorkflow(status, { syncFlags, externalChanges, sasd }, status.workflow_id),
   };
 }
 
