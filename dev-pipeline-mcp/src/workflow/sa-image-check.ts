@@ -32,12 +32,12 @@ export interface SaImageCheckResult {
   functionCount: number;
 }
 
-const HEADING_RE = /^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$/;
-const IMAGE_RE = /!\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g;
+export const HEADING_RE = /^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$/;
+export const IMAGE_RE = /!\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g;
 const SCHEME_RE = /^[a-z][a-z0-9+.-]*:/i;
 
-/** 回傳違規原因；合法則回 null（含檔案存在、副檔名、非空檢查）。 */
-function validateImageRef(rawRef: string, imagesRoot: string): string | null {
+/** 回傳違規原因；合法則回 null（含檔案存在、副檔名、非空檢查）。dirName 預設為 SA 圖目錄，測試證據檢查傳 evidence。 */
+export function validateImageRef(rawRef: string, imagesRoot: string, dirName: string = SA_IMAGES_DIR): string | null {
   let ref = rawRef;
   try {
     ref = decodeURIComponent(rawRef);
@@ -50,8 +50,8 @@ function validateImageRef(rawRef: string, imagesRoot: string): string | null {
   if (ref.includes("\\")) return bad("不可含反斜線");
   const segments = ref.split("/");
   if (segments.includes("..")) return bad("不可含 ..");
-  if (segments[0] !== SA_IMAGES_DIR || segments.length < 2 || segments.some((s) => s === "")) {
-    return bad(`只認 ${SA_IMAGES_DIR}/ 相對路徑`);
+  if (segments[0] !== dirName || segments.length < 2 || segments.some((s) => s === "")) {
+    return bad(`只認 ${dirName}/ 相對路徑`);
   }
   const full = path.resolve(imagesRoot, ...segments.slice(1));
   const rel = path.relative(imagesRoot, full);
@@ -67,19 +67,16 @@ function validateImageRef(rawRef: string, imagesRoot: string): string | null {
   return null;
 }
 
-interface Section {
+export interface Section {
   heading: string;
   line: number;
   refs: { ref: string; line: number }[];
 }
 
-/** 掃描 01-sa.md，切出每個功能標題的範圍並收集範圍內的圖片引用（略過程式碼區塊）。 */
-function collectSections(text: string): Section[] {
-  const sections: Section[] = [];
-  let current: { level: number; section: Section } | null = null;
+/** 逐行走訪 markdown，略過程式碼區塊（含圍欄行本身）。 */
+function eachLine(text: string, visit: (line: string, lineNo: number) => void): void {
   let fence: string | null = null;
   text.split(/\r\n|\r|\n/).forEach((line, idx) => {
-    const lineNo = idx + 1;
     const fenceMatch = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
     if (fenceMatch) {
       const mark = fenceMatch[1][0];
@@ -87,13 +84,31 @@ function collectSections(text: string): Section[] {
       else if (fence === mark) fence = null;
       return;
     }
-    if (fence !== null) return;
+    if (fence === null) visit(line, idx + 1);
+  });
+}
+
+/** 列出所有標題（略過程式碼區塊）。 */
+export function listHeadings(text: string): { level: number; title: string; line: number }[] {
+  const out: { level: number; title: string; line: number }[] = [];
+  eachLine(text, (line, lineNo) => {
+    const h = HEADING_RE.exec(line);
+    if (h) out.push({ level: h[1].length, title: h[2].trim(), line: lineNo });
+  });
+  return out;
+}
+
+/** 掃描 markdown，切出每個「以 prefix 開頭、層級在 levels 內」的標題範圍並收集範圍內的圖片引用（略過程式碼區塊）。 */
+export function collectSections(text: string, prefix: string = FUNCTION_HEADING_PREFIX, levels: readonly number[] = FUNCTION_HEADING_LEVELS): Section[] {
+  const sections: Section[] = [];
+  let current: { level: number; section: Section } | null = null;
+  eachLine(text, (line, lineNo) => {
     const h = HEADING_RE.exec(line);
     if (h) {
       const level = h[1].length;
       const title = h[2].trim();
       if (current && level <= current.level) current = null;
-      if (FUNCTION_HEADING_LEVELS.includes(level) && title.startsWith(FUNCTION_HEADING_PREFIX)) {
+      if (levels.includes(level) && title.startsWith(prefix)) {
         const section: Section = { heading: title, line: lineNo, refs: [] };
         sections.push(section);
         current = { level, section };

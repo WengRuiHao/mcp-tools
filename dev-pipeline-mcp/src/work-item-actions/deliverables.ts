@@ -1,7 +1,9 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { WorkflowDefinition } from "../workflow/schema.js";
+import { checkMermaidFile } from "../workflow/mermaid-check.js";
 import { checkSaImages, SA_FILE_NAME } from "../workflow/sa-image-check.js";
+import { checkTestEvidence, TEST_FILE_NAME } from "../workflow/test-evidence-check.js";
 
 /** done 的交件檢查：回傳問題清單（空陣列＝合格）。檔名全部來自流程定義，不接受使用者輸入。 */
 
@@ -59,6 +61,15 @@ async function checkSa(dir: string): Promise<string[]> {
   }
 }
 
+async function checkTest(dir: string): Promise<string[]> {
+  if ((await sizeOf(path.join(dir, TEST_FILE_NAME))) === null) return [`缺少 ${TEST_FILE_NAME}，無法檢查測試證據`];
+  try {
+    return checkTestEvidence(dir).violations.map((v) => `測試證據檢查未通過：${v}`);
+  } catch (e) {
+    return [`測試證據檢查失敗：${e instanceof Error ? e.message : String(e)}`];
+  }
+}
+
 export async function checkDeliverables(dir: string, roleId: string, def: WorkflowDefinition): Promise<string[]> {
   const role = def.roles.find((r) => r.id === roleId);
   if (!role) return [`找不到角色：${roleId}`];
@@ -78,5 +89,7 @@ export async function checkDeliverables(dir: string, roleId: string, def: Workfl
     if (art.render && !((await sizeOf(path.join(dir, art.render))) ?? 0)) problems.push(`缺少圖片 ${art.render}（必須存在且非空；用 attach 或 render 產生）`);
   }
   if (roleId === "sa-analyst") problems.push(...(await checkSa(dir)));
+  if (roleId === "flow-analyst") problems.push(...checkMermaidFile(dir).map((v) => `流程圖（flow.mmd）格式檢查未通過：${v}`));
+  if (roleId === "tester") problems.push(...(await checkTest(dir)));
   return problems;
 }

@@ -50,7 +50,10 @@ export async function fulfil(dir, roleId, opts = {}) {
     "frontend-engineer": () => w("impl-fe.md", "FE"),
     "backend-engineer": () => w("impl-be.md", "BE"),
     verifier: () => w("verify.md", opts.verdictText ?? "PASS\n"),
-    tester: () => w("test.md", "測試"),
+    tester: async () => {
+      await w("test.md", "## 白箱\n白箱結果\n## 黑箱\n黑箱結果\n## 測試：登入\n![畫面](evidence/a.png)\n");
+      await w("evidence/a.png", PNG);
+    },
   };
   await files[roleId]();
 }
