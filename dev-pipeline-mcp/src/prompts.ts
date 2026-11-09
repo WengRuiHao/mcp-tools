@@ -358,10 +358,17 @@ export interface RolePromptOptions {
   sdMode?: SdMode | null;
   /** 只在 sdMode 為 self-generated 時有意義；null／未帶就兩種順序都輸出。 */
   specOrder?: SpecOrder | null;
+  /** 專案 flow.json 對這個角色的補充說明；有非空內容才附加在通用說明之後，沒有就輸出不變。 */
+  flowRoleNotes?: string | readonly string[] | null;
+}
+
+function buildFlowRoleNotesSection(notes: RolePromptOptions["flowRoleNotes"]): string {
+  const list = (typeof notes === "string" ? [notes] : [...(notes ?? [])]).map((n) => n.trim()).filter((n) => n.length > 0);
+  return list.length === 0 ? "" : `\n## 專案 flow 補充說明\n${list.join("\n\n")}\n`;
 }
 
 export function getRolePrompt(role: RoleName, options: RolePromptOptions = {}): string {
-  return `${getRoleBody(role, options)}\n${buildToolLoadSection(role)}`;
+  return `${getRoleBody(role, options)}\n${buildToolLoadSection(role)}${buildFlowRoleNotesSection(options.flowRoleNotes)}`;
 }
 
 function getRoleBody(role: RoleName, options: RolePromptOptions): string {

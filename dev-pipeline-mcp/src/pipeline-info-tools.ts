@@ -10,6 +10,7 @@ import { resolveSasdConfig, resolveTestCapability, resolveUniformTestCapabilityM
 import { getAssignedDir, peekStatus } from "./pipeline-store.js";
 import { computeNextAction } from "./next-action.js";
 import { buildSubagentBrief } from "./subagent-brief.js";
+import { loadFlowRoleNotes } from "./workflow/role-notes.js";
 import path from "node:path";
 
 const ALL_ROLES = ["analyst", "spec-writer", "engineer", "verifier", "tester"] as const;
@@ -81,7 +82,7 @@ export function registerPipelineInfoTools(server: McpServer): void {
         .optional()
         .describe(
           "**一律帶上這個 Asana 專案的 projectDir**（或改帶 taskGid 讓工具自己反查）：如果 <projectDir>/.pipeline/roles/all.md（所有角色共通）或 <role>.md（這個角色專屬）存在（舊位置 .claude/pipeline-roles/ 也讀得到），" +
-            "內容會附加在通用角色說明後面，是這個專案自己的規則（專案專屬的開發步驟、要先讀的規範檔、路徑慣例、驗證方式），衝突時以專案規則為準。沒有這些檔案就只回傳通用說明。"
+            "內容會附加在通用角色說明後面，是這個專案自己的規則（專案專屬的開發步驟、要先讀的規範檔、路徑慣例、驗證方式），衝突時以專案規則為準。沒有這些檔案就只回傳通用說明。另外，專案 flow.json 覆寫裡該角色的 roleNotes 會附在通用說明之後。"
         ),
       taskGid: z
         .string()
@@ -113,7 +114,8 @@ export function registerPipelineInfoTools(server: McpServer): void {
             : dir
               ? await resolveUniformTestCapabilityMode(dir)
               : null;
-      const base = getRolePrompt(role, { testCapabilityMode, sdMode: sasd?.sdMode ?? null, specOrder: sasd?.specOrder ?? null });
+      const flowRoleNotes = dir ? await loadFlowRoleNotes(dir, role) : [];
+      const base = getRolePrompt(role, { testCapabilityMode, sdMode: sasd?.sdMode ?? null, specOrder: sasd?.specOrder ?? null, flowRoleNotes });
       const note = bridgeDisabledNote();
       const sections = brief ? [brief, base] : [base];
       if (dir) {
