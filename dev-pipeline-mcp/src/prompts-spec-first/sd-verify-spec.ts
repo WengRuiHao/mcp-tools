@@ -29,6 +29,7 @@ export const SPEC_VERIFIER: RoleSections = {
     "核對欄位名稱、型別、流程與 DB 設計、flow.mmd 一致；新增、修改、不動與 impact.md 一致。",
     "檢查每個前端功能條目都有 mockup 截圖（sa-images/），圖存在且與功能對得上，純後端條目除外。",
     "檢查 SD 有「重用與共用設計」一節，每個新功能都交代是重用、新建共用或新建專用（含理由），沒有同一段邏輯在兩個功能各自新建；SA 標註的共用畫面元件要與 SD、可重用清單一致。不符就判 FAIL，rootCause 填 sd（畫面元件的問題填 sa）。",
+    "檢查 SA 正文沒有程式碼、SQL、類別與方法名稱、API 路徑、資料表與欄位名稱（「## 依據附錄」內的檔案位置與行號除外）；發現就判 FAIL，rootCause 填 sa。",
     "第一行寫 PASS 或 FAIL；FAIL 要在 rootCause 寫出錯在 sa、db、flow、sd 哪一個，並說明具體問題。",
   ],
   forbidden: ["不可閱讀或引用程式碼，只看規格。", "不可自己修改規格，只能判定。", "不可在有疑點時寫 PASS。"],

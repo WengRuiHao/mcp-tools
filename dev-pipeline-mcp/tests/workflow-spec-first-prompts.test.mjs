@@ -75,6 +75,13 @@ test("sa-analyst：功能標題格式、純後端、sa-images/、定稿不換圖
   assert.ok(t.includes("不可把圖片換成實際系統畫面") && t.includes("客戶看得懂"));
 });
 
+test("S14 sa-analyst：SA 不寫程式（允許與禁止清單、依據附錄）；spec-verifier 檢查並判 FAIL rootCause sa", () => {
+  const t = getSpecFirstRolePrompt("sa-analyst");
+  for (const k of ["業務語言", "業務公式", "畫面欄位名稱", "沿用現有的某共用元件", "程式碼片段", "SQL 語句", "類別與方法名稱", "API 路徑", "資料表與資料庫欄位名稱", "mermaid", "## 依據附錄", "檔案位置與行號", "翻新案"]) assert.ok(t.includes(k), k);
+  const v = getSpecFirstRolePrompt("spec-verifier");
+  for (const k of ["SA 正文沒有程式碼", "SQL", "類別與方法名稱", "API 路徑", "資料表與欄位名稱", "## 依據附錄", "rootCause 填 sa"]) assert.ok(v.includes(k), k);
+});
+
 test("db-designer：破壞性語句與回滾", () => {
   const t = getSpecFirstRolePrompt("db-designer");
   for (const k of ["02-db.sql", "02-db.md", "DROP", "TRUNCATE", "WHERE", "ALTER", "回滾", "強制人工確認"]) assert.ok(t.includes(k), k);
