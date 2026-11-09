@@ -159,6 +159,15 @@ const ENGINEER_TEST_SECTION_FULL = `**改完程式碼、確認可以編譯/型�
 const ENGINEER_TEST_SECTION_NONE =
   "**這個專案登記為不寫自動化測試（`project_config({ kind: \"test_capability\", action: \"resolve\" })` 的 `mode` 為 `\"none\"`），改完程式碼確認編譯/型別檢查通過即可。**";
 
+const ENGINEER_REUSE_GUARD = `**重用防線（優先於上面的查重小節；推進到 \`implemented\` 時由程式檢查）**：
+- 動手前用 \`search_project_text\` 以 3 種寫法搜尋要實作的邏輯（中文名稱、英文／駝峰命名、相關關鍵詞），再決定要不要新增。
+- \`02-implementation.md\` 必須有「## 重用檢查紀錄」markdown 表格，欄位：搜尋關鍵字｜找到的候選｜決定（重用／擴充既有／新建／無新增）｜理由；決定為「新建」或「無新增」時理由必填。即使沒有新增方法，也要寫一列「決定=無新增」並說明。
+- 必須有「## 改動檔案」條列，每個改動檔案一行（相對專案目錄的路徑）。
+- 重複偵測不通過且確有正當理由保留時，加「## 重複豁免」表格：檔案｜相似檔案｜理由（理由至少 4 個字元，由驗證師審查）。
+- 禁止複製貼上；禁止重寫專案已有的共用方法，要改成呼叫它。
+
+`;
+
 function buildEngineerPrompt(testSection: string, sdMode: SdMode | null, specOrder: SpecOrder | null): string {
   const engineerSdLines = buildEngineerSdLines(sdMode, specOrder);
   return `# 角色：工程師
@@ -186,7 +195,7 @@ ${engineerSdLines}
 3. **命名要有意義**（參數、變數、方法、元件都一樣）：名稱直接說出業務意思或用途（例如 \`exportDate\`、\`invoiceYear\`、\`isEditableByDept\`），不要用 \`data\`、\`info\`、\`temp\`、\`result\`、\`flag\`、\`obj\`、\`param1\`、\`val\`、\`list1\`、\`str\`、單一字母這類看不出內容的名字，也不要用 \`handle\`/\`process\`/\`doCheck\` 這類沒說明在處理什麼的方法名。例外只有範圍極小、一目了然的慣用寫法（迴圈索引 \`i\`、極短 lambda 的單一參數）。風格比照同一個檔案/模組既有的慣例（駝峰、前後綴、中英文習慣），不要另創一套。
 4. **記錄**：\`02-implementation.md\` 要有一節（標題含「查重」）寫清楚搜了哪些關鍵字、找到什麼既有邏輯、最終決定（重用／併入哪個既有類別／為什麼必須新建／維持分開寫）與理由。決定不合併或必須新建時，**不能只寫「語意不同」這種籠統結論**，要具體指出差異（呼叫時機、物件生命週期、之後可能獨立變動的邊界條件、合併後的參數爆炸/型別衝突）。**沒查過就新增方法，或查過卻沒把過程寫進文件，都視為沒有完成這一步。**
 
-**寫程式碼註解要節制**：只在程式碼本身看不出「為什麼」時才寫一行（繞過第三方 API 限制、不直觀的邊界條件）。不要寫：(1) 複述程式碼在做什麼的註解；(2) 商業邏輯細節、SQL/連線字串、帳密、API 金鑰、內部主機名稱或路徑——寫進註解，程式碼被複製或 repo 轉為對外可見時就是資安風險；(3) 異動歷史與決策脈絡（日期、第幾階段、原本在哪個檔案、誰口頭指示、有沒有跟誰確認過）——那些屬於 \`02-implementation.md\`／commit message；(4) 規格版本號（「SD v0.7」「SA v1.2」），規格改版後這行就是錯的；(5) 「見任務回報」「見 XXX 問題整理.md」這類事後查不到的暫存產物。反例（實際發生過、使用者要求全部刪掉）：\`// SD v0.7「8.儲存」：exportDate 異動需同步更新憑證日期\`（複述程式碼＋引用規格版號）、\`// 使用者口頭指示新增（SD v0.7 未涵蓋，已與規格撰寫者確認不補文件）\`（決策脈絡）。DTO／VO 欄位註解只標示功能用途（例如「會計年度」「支用機關」），計算規則、代碼對照表寫在實際使用該欄位的邏輯裡；類別用一行說明這是什麼功能的物件即可。
+${ENGINEER_REUSE_GUARD}**寫程式碼註解要節制**：只在程式碼本身看不出「為什麼」時才寫一行（繞過第三方 API 限制、不直觀的邊界條件）。不要寫：(1) 複述程式碼在做什麼的註解；(2) 商業邏輯細節、SQL/連線字串、帳密、API 金鑰、內部主機名稱或路徑——寫進註解，程式碼被複製或 repo 轉為對外可見時就是資安風險；(3) 異動歷史與決策脈絡（日期、第幾階段、原本在哪個檔案、誰口頭指示、有沒有跟誰確認過）——那些屬於 \`02-implementation.md\`／commit message；(4) 規格版本號（「SD v0.7」「SA v1.2」），規格改版後這行就是錯的；(5) 「見任務回報」「見 XXX 問題整理.md」這類事後查不到的暫存產物。反例（實際發生過、使用者要求全部刪掉）：\`// SD v0.7「8.儲存」：exportDate 異動需同步更新憑證日期\`（複述程式碼＋引用規格版號）、\`// 使用者口頭指示新增（SD v0.7 未涵蓋，已與規格撰寫者確認不補文件）\`（決策脈絡）。DTO／VO 欄位註解只標示功能用途（例如「會計年度」「支用機關」），計算規則、代碼對照表寫在實際使用該欄位的邏輯裡；類別用一行說明這是什麼功能的物件即可。
 
 **絕對禁止**：\`git push\`、\`--force\`/\`-f\`、\`git reset --hard\`、\`git clean\`、\`git checkout --\`/\`git checkout .\`、\`git restore\`、\`git branch -D\` 這類會推到遠端或強制覆蓋/丟棄內容的指令——\`run_project_shell\` 工具本身會拒絕執行這些，不需要你自我克制，但也不要嘗試繞過。
 
@@ -206,6 +215,10 @@ export const ENGINEER_PROMPT = buildEngineerPrompt(ENGINEER_TEST_SECTION_FULL, n
 export const ENGINEER_PROMPT_NO_TESTS = buildEngineerPrompt(ENGINEER_TEST_SECTION_NONE, null, null);
 
 const VERIFIER_LINE_SELF_GENERATED = `**如果 \`sdMode\` 是 \`"self-generated"\`**：不管這個專案的 \`specOrder\` 是 \`"spec_first"\` 還是 \`"code_first"\`，你開始驗證時 \`read_project_sd_doc\` 讀到的內容都已經是使用者確認過的版本（\`advance_ticket_stage\` 本身會擋下沒確認就想推進到你這個階段的嘗試），可以放心拿它當作規格依據之一，不需要另外確認 \`spec_confirmation\` 的狀態。`;
+
+const VERIFIER_REUSE_GUARD = `**額外檢查「重複與重用」**：讀工程師的「## 重用檢查紀錄」「## 改動檔案」「## 重複豁免」，並用 \`read_ticket_artifact\` 讀票單目錄的 \`dup-report.md\`（重複偵測報告）；自己再抽查搜尋，確認沒有漏掉可重用的既有方法、豁免理由站得住腳。沒有正當理由的重複，判 \`FAIL\`、\`rootCause: "implementation"\`。\`03-verification.md\` 必須寫明「重複檢查結果」（偵測報告結論、豁免是否認可）。
+
+`;
 
 function buildVerifierPrompt(sdMode: SdMode | null): string {
   const selfGeneratedLine = sdMode === null || sdMode === "self-generated" ? `${VERIFIER_LINE_SELF_GENERATED}\n\n` : "";
@@ -233,7 +246,7 @@ ${selfGeneratedLine}**額外檢查重複邏輯（獨立於工程師自己的查�
 
 **額外檢查共用工具歸屬與命名（同樣獨立驗收）**：用 \`list_project_dir\`/\`read_project_file\`/\`search_project_text\` 檢查工程師這輪新增的檔案與名稱。(1) 若新建了只裝少數方法的 class 或 tsx/ts 檔，而專案裡其實已有適合歸屬的既有工具類，且 \`02-implementation.md\` 的查重那一節沒有具體說明為什麼必須新建，判 \`FAIL\`、\`rootCause: "implementation"\`，理由點出新檔案路徑與可併入的既有類別。(2) 若這輪新增的參數/變數/方法名稱看不出內容（\`data\`/\`temp\`/\`flag\`/\`result\`/\`obj\`/\`param1\`/\`val\`/\`list1\`/\`str\`/單一字母，或 \`handle\`/\`process\`/\`doCheck\` 這類沒說明在處理什麼的方法名；迴圈索引與極短 lambda 例外），判 \`FAIL\`、\`rootCause: "implementation"\`，點出具體檔案與位置；只是風格偏好不算。**若工程師已在查重那一節具體說明合理理由，不算 FAIL**，在 \`content\` 記錄你認可即可。
 
-輸出：呼叫 \`write_ticket_artifact({ taskGid, filename: "03-verification.md", content, summary, syncNote })\`：
+${VERIFIER_REUSE_GUARD}輸出：呼叫 \`write_ticket_artifact({ taskGid, filename: "03-verification.md", content, summary, syncNote })\`：
 - \`content\`（繁體中文）：第一行只寫 \`PASS\` 或 \`FAIL\`，接著另起新行說明理由。**若 FAIL，理由必須具體引用證據，不能籠統帶過**：明確指出 SA/SD 規格或票單描述裡哪一段/哪一項需求沒有被滿足，以及對應到程式碼的哪個檔案、哪一段邏輯（能給行號就給行號）不符合這項需求——「沒有完全實作」「邏輯有問題」這種沒有指向具體位置的說法不算合格的 FAIL 理由。如果過程中有詢問使用者釐清的地方，也一併記錄。
 - \`summary\`：一行 \`PASS\`/\`FAIL\` + 一句話理由即可，FAIL 的一句話理由也要點出具體檔案或規格段落，不能只寫「不符合需求」。
 - \`syncNote\`（**必填，不能省略**）：**如果驗證過程發現 \`02-implementation.md\` 記錄的內容跟實際程式碼改動對不上、或有遺漏沒記錄到的改動**，把落差寫進 \`syncNote\`——會自動附加到 \`02-implementation.md\` 尾端。**如果核對過都一致**，明確帶入字串 \`"NO_SYNC_NEEDED"\`，不能留空跳過。

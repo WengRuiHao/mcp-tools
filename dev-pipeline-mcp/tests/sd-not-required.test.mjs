@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 
 const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sd-not-required-"));
 process.env.ASANA_PIPELINE_DATA_DIR = path.join(tmpRoot, "data");
@@ -15,6 +16,8 @@ process.env.ASANA_MCP_PATH = path.join(tmpRoot, "no-such-asana-mcp.js");
 process.env.PIPELINE_ASANA_USER_GID = "gid-test-user";
 const projectDir = path.join(tmpRoot, "proj");
 await fs.mkdir(projectDir, { recursive: true });
+// 專案目錄設成 git 工作樹，重複偵測取改動檔案時不必等 svn 逾時。
+execFileSync("git", ["init", "-q"], { cwd: projectDir });
 
 const store = await import("../dist/pipeline-store.js");
 const registry = await import("../dist/project-registry.js");
@@ -51,13 +54,23 @@ async function call(name, args) {
   return { isError: !!r.isError, json: JSON.parse(text) };
 }
 
+// 02 要符合 S12b 重用防線（重用檢查紀錄與改動檔案）才能推進到 implemented。
+const IMPL_CONTENT = `## 重用檢查紀錄
+| 搜尋關鍵字 | 找到的候選 | 決定 | 理由 |
+|---|---|---|---|
+| x | 無 | 無新增 | 本票未新增方法 |
+
+## 改動檔案
+- notes.txt
+`;
 // 建一張票並寫好 01/02/03 產出，讓 advance 的證據檢查不擋。
 async function ticketAt(gid, projectGid, stage) {
   await store.assignTicketDir(projectDir, gid, "Proj", gid, null, "t");
   await store.recordProjectContext(gid, projectDir, "Proj", "t", null, false, projectGid);
   for (const f of ["01-analysis.md", "02-implementation.md", "03-verification.md"]) {
-    await store.writeArtifact(gid, f, "content");
-    await store.recordArtifactHash(gid, f, "content");
+    const text = f === "02-implementation.md" ? IMPL_CONTENT : "content";
+    await store.writeArtifact(gid, f, text);
+    await store.recordArtifactHash(gid, f, text);
   }
   await store.advanceStage(gid, stage);
 }

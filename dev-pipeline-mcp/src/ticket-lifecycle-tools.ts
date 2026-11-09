@@ -18,6 +18,7 @@ import {
   requestReanalysis,
   writePendingActionsReport,
   readArtifact,
+  writeArtifact,
   resolveTicketDir,
   type TicketStatus,
   type ExternalChangeFlags,
@@ -35,6 +36,7 @@ import { sasdForStatus, statusResponse, verboseParam } from "./stage-response.js
 import { createBoardFetcher } from "./board-cache.js";
 import { buildReportOnlyBody } from "./report-only.js";
 import { confirmProjectDirStage } from "./project-dir-confirm.js";
+import { checkAsanaReuseGuard, DUP_REPORT_FILE } from "./workflow/asana-reuse-guard.js";
 
 const fetchBoard = createBoardFetcher({ call: callAsanaTool, now: Date.now });
 
@@ -629,6 +631,18 @@ export function registerTicketLifecycleTools(server: McpServer): void {
               true
             );
           }
+        }
+      }
+
+      // S12b：推進到 implemented 時套用重用防線（重用檢查紀錄、改動檔案、重複程式碼偵測）；其他階段不受影響。
+      if (stage === "implemented") {
+        const guardStatus = await readStatus(taskGid);
+        const guard = await checkAsanaReuseGuard((await readArtifact(taskGid, "02-implementation.md")) ?? "", project_dir ?? guardStatus.project_dir ?? null);
+        if (guard.ok) {
+          await writeArtifact(taskGid, DUP_REPORT_FILE, guard.reportMarkdown);
+        } else {
+          if (guard.reportMarkdown) await writeArtifact(taskGid, DUP_REPORT_FILE, guard.reportMarkdown);
+          return textResult({ success: false, message: guard.message }, true);
         }
       }
 

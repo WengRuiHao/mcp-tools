@@ -2,8 +2,10 @@ import { updateStatus, type TicketStatus } from "../pipeline-store.js";
 import type { GateDecisionValue } from "../workflow/work-item-progress.js";
 import { resolveConfirmMode } from "../workflow/resolve.js";
 import { applyGateDecision, isProgramCheckGate } from "../workflow/spec-first-engine.js";
-import { WorkItemActionError, need, okReply, type ToolReply } from "./common.js";
+import type { WorkflowDefinition } from "../workflow/schema.js";
+import { WorkItemActionError, errorMessage, need, okReply, type ToolReply } from "./common.js";
 import { loadEffectiveDef, loadWorkItem } from "./context.js";
+import { FINAL_ACCEPTANCE_GATE, writeFinalSummary } from "./final-summary-io.js";
 import { authorizeDecision, requireHumanQuote, withReviewNote } from "./gate-guard.js";
 import type { WorkItemArgs } from "./schema.js";
 import { nextBlock, viewFor } from "./view.js";
@@ -14,6 +16,15 @@ export const doneRoleIds = (s: TicketStatus): string[] => Object.entries(s.work_
 function mapDecision(gateType: string, decision: "confirmed" | "rejected"): GateDecisionValue {
   if (gateType === "confirmation") return decision;
   return decision === "confirmed" ? "passed" : "failed";
+}
+
+/** 最終驗收確認後寫整理報告；寫檔失敗不影響確認，改附 warning。 */
+async function trySummary(dir: string, status: TicketStatus, def: WorkflowDefinition, id: string): Promise<Record<string, unknown>> {
+  try {
+    return await writeFinalSummary(dir, status, def, id);
+  } catch (e) {
+    return { warning: `最終驗收已確認，但整理報告 final-summary.md 寫入失敗：${errorMessage(e)}` };
+  }
 }
 
 export async function handleConfirm(a: WorkItemArgs): Promise<ToolReply> {
@@ -38,5 +49,6 @@ export async function handleConfirm(a: WorkItemArgs): Promise<ToolReply> {
     rewound = doneRoleIds(s).filter((id) => !after.has(id));
     return r.status;
   });
-  return okReply({ workItemId: ctx.id, gateId, decision: value, by, rewoundRoles: rewound, ...nextBlock(viewFor(updated, def, overrideApplied)) });
+  const summary = gateId === FINAL_ACCEPTANCE_GATE && value === "confirmed" ? await trySummary(ctx.dir, updated, def, ctx.id) : {};
+  return okReply({ workItemId: ctx.id, gateId, decision: value, by, rewoundRoles: rewound, ...summary, ...nextBlock(viewFor(updated, def, overrideApplied)) });
 }
