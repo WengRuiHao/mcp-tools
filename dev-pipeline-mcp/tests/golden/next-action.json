@@ -1,0 +1,3487 @@
+{
+ "analyzed|sasd:external|spec:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：工程師：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。"
+ },
+ "analyzed|sasd:external|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：使用者已指示本票不需 SD（spec_confirmation.sdNotRequired）：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。"
+ },
+ "analyzed|sasd:none|spec:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage",
+   "project_config"
+  ],
+  "summary": "目前 stage=analyzed。下一步：工程師：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。若專案 sdMode 為 self-generated，要依 specOrder 先走 sd_drafted（用 project_config(kind='sasd_config', action='resolve') 查）。"
+ },
+ "analyzed|sasd:none|spec:null|g:combo": {
+  "blockedBy": [
+   "01/03 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 6 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。另有 1 項手動待辦等使用者處理（resolve_manual_action）。有 1 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "analyzed|sasd:none|spec:null|g:ext-all": {
+  "blockedBy": [
+   "01/02/03/04 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage",
+   "project_config"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：工程師：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。若專案 sdMode 為 self-generated，要依 specOrder 先走 sd_drafted（用 project_config(kind='sasd_config', action='resolve') 查）。"
+ },
+ "analyzed|sasd:none|spec:null|g:ext-none": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage",
+   "project_config"
+  ],
+  "summary": "目前 stage=analyzed。下一步：工程師：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。若專案 sdMode 為 self-generated，要依 specOrder 先走 sd_drafted（用 project_config(kind='sasd_config', action='resolve') 查）。"
+ },
+ "analyzed|sasd:none|spec:null|g:ext01": {
+  "blockedBy": [
+   "01 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage",
+   "project_config"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：工程師：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。若專案 sdMode 為 self-generated，要依 specOrder 先走 sd_drafted（用 project_config(kind='sasd_config', action='resolve') 查）。"
+ },
+ "analyzed|sasd:none|spec:null|g:fail3": {
+  "blockedBy": [
+   "連續 FAIL 3 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "analyzed|sasd:none|spec:null|g:fail5+reanalysis": {
+  "blockedBy": [
+   "連續 FAIL 5 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "analyzed|sasd:none|spec:null|g:human-reanalysis": {
+  "blockedBy": [
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage",
+   "project_config"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：工程師：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。若專案 sdMode 為 self-generated，要依 specOrder 先走 sd_drafted（用 project_config(kind='sasd_config', action='resolve') 查）。"
+ },
+ "analyzed|sasd:none|spec:null|g:manual": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage",
+   "project_config"
+  ],
+  "summary": "目前 stage=analyzed。下一步：工程師：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。若專案 sdMode 為 self-generated，要依 specOrder 先走 sd_drafted（用 project_config(kind='sasd_config', action='resolve') 查）。另有 4 項手動待辦等使用者處理（resolve_manual_action）。"
+ },
+ "analyzed|sasd:none|spec:null|g:needs-reanalysis": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "analyzed|sasd:none|spec:null|g:needs-reanalysis+checked": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "analyzed|sasd:none|spec:null|g:shots": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage",
+   "project_config"
+  ],
+  "summary": "目前 stage=analyzed。下一步：工程師：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。若專案 sdMode 為 self-generated，要依 specOrder 先走 sd_drafted（用 project_config(kind='sasd_config', action='resolve') 查）。有 2 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "analyzed|sasd:none|spec:null|g:sync-all": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：02 在上次寫 03 之後又被改過，03 尚未對照最新 02（對照後重寫 03）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage",
+   "project_config"
+  ],
+  "summary": "有 3 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：工程師：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。若專案 sdMode 為 self-generated，要依 specOrder 先走 sd_drafted（用 project_config(kind='sasd_config', action='resolve') 查）。"
+ },
+ "analyzed|sasd:none|spec:null|g:sync-analysis": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage",
+   "project_config"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：工程師：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。若專案 sdMode 為 self-generated，要依 specOrder 先走 sd_drafted（用 project_config(kind='sasd_config', action='resolve') 查）。"
+ },
+ "analyzed|sasd:none|spec:null|g:sync-from-status": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage",
+   "project_config"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：工程師：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。若專案 sdMode 為 self-generated，要依 specOrder 先走 sd_drafted（用 project_config(kind='sasd_config', action='resolve') 查）。"
+ },
+ "analyzed|sasd:none|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：使用者已指示本票不需 SD（spec_confirmation.sdNotRequired）：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。"
+ },
+ "analyzed|sasd:null|spec:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage",
+   "project_config"
+  ],
+  "summary": "目前 stage=analyzed。下一步：工程師：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。若專案 sdMode 為 self-generated，要依 specOrder 先走 sd_drafted（用 project_config(kind='sasd_config', action='resolve') 查）。"
+ },
+ "analyzed|sasd:null|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：使用者已指示本票不需 SD（spec_confirmation.sdNotRequired）：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。"
+ },
+ "analyzed|sasd:self|spec:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：工程師：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。"
+ },
+ "analyzed|sasd:self|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：使用者已指示本票不需 SD（spec_confirmation.sdNotRequired）：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。"
+ },
+ "analyzed|sasd:sg-code_first|spec:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：工程師：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。"
+ },
+ "analyzed|sasd:sg-code_first|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：使用者已指示本票不需 SD（spec_confirmation.sdNotRequired）：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。"
+ },
+ "analyzed|sasd:sg-no_order|spec:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：工程師：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。"
+ },
+ "analyzed|sasd:sg-no_order|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：使用者已指示本票不需 SD（spec_confirmation.sdNotRequired）：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。"
+ },
+ "analyzed|sasd:sg-spec_first|spec:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：規格撰寫者：先產 SD 草稿並 advance_ticket_stage sd_drafted，等使用者 record_spec_confirmation 後才能進工程師階段（不可自行提議或決定略過 SD；只有使用者明確表示本票不需 SD，才可 record_spec_confirmation({sdNotRequired:true,userInstruction:<使用者原話>})，不確定先問）。"
+ },
+ "analyzed|sasd:sg-spec_first|spec:null|g:combo": {
+  "blockedBy": [
+   "01/03 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 6 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。另有 1 項手動待辦等使用者處理（resolve_manual_action）。有 1 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "analyzed|sasd:sg-spec_first|spec:null|g:ext-all": {
+  "blockedBy": [
+   "01/02/03/04 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：規格撰寫者：先產 SD 草稿並 advance_ticket_stage sd_drafted，等使用者 record_spec_confirmation 後才能進工程師階段（不可自行提議或決定略過 SD；只有使用者明確表示本票不需 SD，才可 record_spec_confirmation({sdNotRequired:true,userInstruction:<使用者原話>})，不確定先問）。"
+ },
+ "analyzed|sasd:sg-spec_first|spec:null|g:ext-none": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：規格撰寫者：先產 SD 草稿並 advance_ticket_stage sd_drafted，等使用者 record_spec_confirmation 後才能進工程師階段（不可自行提議或決定略過 SD；只有使用者明確表示本票不需 SD，才可 record_spec_confirmation({sdNotRequired:true,userInstruction:<使用者原話>})，不確定先問）。"
+ },
+ "analyzed|sasd:sg-spec_first|spec:null|g:ext01": {
+  "blockedBy": [
+   "01 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：規格撰寫者：先產 SD 草稿並 advance_ticket_stage sd_drafted，等使用者 record_spec_confirmation 後才能進工程師階段（不可自行提議或決定略過 SD；只有使用者明確表示本票不需 SD，才可 record_spec_confirmation({sdNotRequired:true,userInstruction:<使用者原話>})，不確定先問）。"
+ },
+ "analyzed|sasd:sg-spec_first|spec:null|g:fail3": {
+  "blockedBy": [
+   "連續 FAIL 3 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "analyzed|sasd:sg-spec_first|spec:null|g:fail5+reanalysis": {
+  "blockedBy": [
+   "連續 FAIL 5 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "analyzed|sasd:sg-spec_first|spec:null|g:human-reanalysis": {
+  "blockedBy": [
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：規格撰寫者：先產 SD 草稿並 advance_ticket_stage sd_drafted，等使用者 record_spec_confirmation 後才能進工程師階段（不可自行提議或決定略過 SD；只有使用者明確表示本票不需 SD，才可 record_spec_confirmation({sdNotRequired:true,userInstruction:<使用者原話>})，不確定先問）。"
+ },
+ "analyzed|sasd:sg-spec_first|spec:null|g:manual": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：規格撰寫者：先產 SD 草稿並 advance_ticket_stage sd_drafted，等使用者 record_spec_confirmation 後才能進工程師階段（不可自行提議或決定略過 SD；只有使用者明確表示本票不需 SD，才可 record_spec_confirmation({sdNotRequired:true,userInstruction:<使用者原話>})，不確定先問）。另有 4 項手動待辦等使用者處理（resolve_manual_action）。"
+ },
+ "analyzed|sasd:sg-spec_first|spec:null|g:needs-reanalysis": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "analyzed|sasd:sg-spec_first|spec:null|g:needs-reanalysis+checked": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "analyzed|sasd:sg-spec_first|spec:null|g:shots": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：規格撰寫者：先產 SD 草稿並 advance_ticket_stage sd_drafted，等使用者 record_spec_confirmation 後才能進工程師階段（不可自行提議或決定略過 SD；只有使用者明確表示本票不需 SD，才可 record_spec_confirmation({sdNotRequired:true,userInstruction:<使用者原話>})，不確定先問）。有 2 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "analyzed|sasd:sg-spec_first|spec:null|g:sync-all": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：02 在上次寫 03 之後又被改過，03 尚未對照最新 02（對照後重寫 03）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 3 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：規格撰寫者：先產 SD 草稿並 advance_ticket_stage sd_drafted，等使用者 record_spec_confirmation 後才能進工程師階段（不可自行提議或決定略過 SD；只有使用者明確表示本票不需 SD，才可 record_spec_confirmation({sdNotRequired:true,userInstruction:<使用者原話>})，不確定先問）。"
+ },
+ "analyzed|sasd:sg-spec_first|spec:null|g:sync-analysis": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：規格撰寫者：先產 SD 草稿並 advance_ticket_stage sd_drafted，等使用者 record_spec_confirmation 後才能進工程師階段（不可自行提議或決定略過 SD；只有使用者明確表示本票不需 SD，才可 record_spec_confirmation({sdNotRequired:true,userInstruction:<使用者原話>})，不確定先問）。"
+ },
+ "analyzed|sasd:sg-spec_first|spec:null|g:sync-from-status": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=analyzed。下一步：規格撰寫者：先產 SD 草稿並 advance_ticket_stage sd_drafted，等使用者 record_spec_confirmation 後才能進工程師階段（不可自行提議或決定略過 SD；只有使用者明確表示本票不需 SD，才可 record_spec_confirmation({sdNotRequired:true,userInstruction:<使用者原話>})，不確定先問）。"
+ },
+ "analyzed|sasd:sg-spec_first|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：使用者已指示本票不需 SD（spec_confirmation.sdNotRequired）：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。"
+ },
+ "analyzed|sasd:unregistered|spec:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：工程師：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。"
+ },
+ "analyzed|sasd:unregistered|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=analyzed。下一步：使用者已指示本票不需 SD（spec_confirmation.sdNotRequired）：寫 02-implementation.md（必填 syncNote 與 manualActions）後 advance_ticket_stage implemented。"
+ },
+ "implemented|sasd:external|spec:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:external|spec:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:external|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:none|spec:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:none|spec:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:none|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:none|spec:ok|g:combo": {
+  "blockedBy": [
+   "01/03 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 6 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。另有 1 項手動待辦等使用者處理（resolve_manual_action）。有 1 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "implemented|sasd:none|spec:ok|g:ext-all": {
+  "blockedBy": [
+   "01/02/03/04 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:none|spec:ok|g:ext-none": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:none|spec:ok|g:ext01": {
+  "blockedBy": [
+   "01 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:none|spec:ok|g:fail3": {
+  "blockedBy": [
+   "連續 FAIL 3 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "implemented|sasd:none|spec:ok|g:fail5+reanalysis": {
+  "blockedBy": [
+   "連續 FAIL 5 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "implemented|sasd:none|spec:ok|g:human-reanalysis": {
+  "blockedBy": [
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:none|spec:ok|g:manual": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。另有 4 項手動待辦等使用者處理（resolve_manual_action）。"
+ },
+ "implemented|sasd:none|spec:ok|g:needs-reanalysis": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "implemented|sasd:none|spec:ok|g:needs-reanalysis+checked": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "implemented|sasd:none|spec:ok|g:shots": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。有 2 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "implemented|sasd:none|spec:ok|g:sync-all": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：02 在上次寫 03 之後又被改過，03 尚未對照最新 02（對照後重寫 03）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 3 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:none|spec:ok|g:sync-analysis": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:none|spec:ok|g:sync-from-status": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:null|spec:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:null|spec:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:null|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:self|spec:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:self|spec:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:self|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:sg-code_first|spec:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：規格撰寫者：依工程師實際改動反推 SD 草稿並 advance_ticket_stage sd_drafted，等使用者 record_spec_confirmation 後才能推進到 verified。"
+ },
+ "implemented|sasd:sg-code_first|spec:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：規格撰寫者：依工程師實際改動反推 SD 草稿並 advance_ticket_stage sd_drafted，等使用者 record_spec_confirmation 後才能推進到 verified。"
+ },
+ "implemented|sasd:sg-code_first|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:sg-no_order|spec:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:sg-no_order|spec:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:sg-no_order|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:sg-spec_first|spec:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:sg-spec_first|spec:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:sg-spec_first|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:sg-spec_first|spec:ok|g:combo": {
+  "blockedBy": [
+   "01/03 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 6 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。另有 1 項手動待辦等使用者處理（resolve_manual_action）。有 1 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "implemented|sasd:sg-spec_first|spec:ok|g:ext-all": {
+  "blockedBy": [
+   "01/02/03/04 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:sg-spec_first|spec:ok|g:ext-none": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:sg-spec_first|spec:ok|g:ext01": {
+  "blockedBy": [
+   "01 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:sg-spec_first|spec:ok|g:fail3": {
+  "blockedBy": [
+   "連續 FAIL 3 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "implemented|sasd:sg-spec_first|spec:ok|g:fail5+reanalysis": {
+  "blockedBy": [
+   "連續 FAIL 5 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "implemented|sasd:sg-spec_first|spec:ok|g:human-reanalysis": {
+  "blockedBy": [
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:sg-spec_first|spec:ok|g:manual": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。另有 4 項手動待辦等使用者處理（resolve_manual_action）。"
+ },
+ "implemented|sasd:sg-spec_first|spec:ok|g:needs-reanalysis": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "implemented|sasd:sg-spec_first|spec:ok|g:needs-reanalysis+checked": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "implemented|sasd:sg-spec_first|spec:ok|g:shots": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。有 2 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "implemented|sasd:sg-spec_first|spec:ok|g:sync-all": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：02 在上次寫 03 之後又被改過，03 尚未對照最新 02（對照後重寫 03）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 3 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:sg-spec_first|spec:ok|g:sync-analysis": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:sg-spec_first|spec:ok|g:sync-from-status": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:unregistered|spec:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:unregistered|spec:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "implemented|sasd:unregistered|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"verifier\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=implemented。下一步：驗證師：比對規格與程式碼，寫 03-verification.md（必填 syncNote 與 manualActions）後 advance_ticket_stage verified 並帶 verdict；FAIL 必帶 rootCause（analysis|implementation）。"
+ },
+ "new|sasd:none|base": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。"
+ },
+ "new|sasd:none|base|g:combo": {
+  "blockedBy": [
+   "01/03 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 6 項需先處理（見 blockedBy）。目前 stage=new。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。另有 1 項手動待辦等使用者處理（resolve_manual_action）。有 1 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "new|sasd:none|base|g:ext-all": {
+  "blockedBy": [
+   "01/02/03/04 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。"
+ },
+ "new|sasd:none|base|g:ext-none": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。"
+ },
+ "new|sasd:none|base|g:ext01": {
+  "blockedBy": [
+   "01 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。"
+ },
+ "new|sasd:none|base|g:fail3": {
+  "blockedBy": [
+   "連續 FAIL 3 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=new。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "new|sasd:none|base|g:fail5+reanalysis": {
+  "blockedBy": [
+   "連續 FAIL 5 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=new。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "new|sasd:none|base|g:human-reanalysis": {
+  "blockedBy": [
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。"
+ },
+ "new|sasd:none|base|g:manual": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。另有 4 項手動待辦等使用者處理（resolve_manual_action）。"
+ },
+ "new|sasd:none|base|g:needs-reanalysis": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=new。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "new|sasd:none|base|g:needs-reanalysis+checked": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=new。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "new|sasd:none|base|g:shots": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。有 2 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "new|sasd:none|base|g:sync-all": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：02 在上次寫 03 之後又被改過，03 尚未對照最新 02（對照後重寫 03）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "有 3 項需先處理（見 blockedBy）。目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。"
+ },
+ "new|sasd:none|base|g:sync-analysis": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。"
+ },
+ "new|sasd:none|base|g:sync-from-status": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。"
+ },
+ "new|sasd:sg-code_first|base": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。"
+ },
+ "new|sasd:sg-spec_first|base|g:combo": {
+  "blockedBy": [
+   "01/03 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 6 項需先處理（見 blockedBy）。目前 stage=new。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。另有 1 項手動待辦等使用者處理（resolve_manual_action）。有 1 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "new|sasd:sg-spec_first|base|g:ext-all": {
+  "blockedBy": [
+   "01/02/03/04 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。"
+ },
+ "new|sasd:sg-spec_first|base|g:ext-none": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。"
+ },
+ "new|sasd:sg-spec_first|base|g:ext01": {
+  "blockedBy": [
+   "01 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。"
+ },
+ "new|sasd:sg-spec_first|base|g:fail3": {
+  "blockedBy": [
+   "連續 FAIL 3 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=new。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "new|sasd:sg-spec_first|base|g:fail5+reanalysis": {
+  "blockedBy": [
+   "連續 FAIL 5 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=new。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "new|sasd:sg-spec_first|base|g:human-reanalysis": {
+  "blockedBy": [
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。"
+ },
+ "new|sasd:sg-spec_first|base|g:manual": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。另有 4 項手動待辦等使用者處理（resolve_manual_action）。"
+ },
+ "new|sasd:sg-spec_first|base|g:needs-reanalysis": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=new。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "new|sasd:sg-spec_first|base|g:needs-reanalysis+checked": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=new。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "new|sasd:sg-spec_first|base|g:shots": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。有 2 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "new|sasd:sg-spec_first|base|g:sync-all": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：02 在上次寫 03 之後又被改過，03 尚未對照最新 02（對照後重寫 03）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "有 3 項需先處理（見 blockedBy）。目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。"
+ },
+ "new|sasd:sg-spec_first|base|g:sync-analysis": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。"
+ },
+ "new|sasd:sg-spec_first|base|g:sync-from-status": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=new。下一步：呼叫 get_ticket_snapshot 抓票單原文並建立追蹤。"
+ },
+ "project_dir_confirmed|sasd:none|sasd:checked": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:none|sasd:unchecked": {
+  "blockedBy": [
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:none|sasd:unchecked|g:combo": {
+  "blockedBy": [
+   "01/03 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 6 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。另有 1 項手動待辦等使用者處理（resolve_manual_action）。有 1 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "project_dir_confirmed|sasd:none|sasd:unchecked|g:ext-all": {
+  "blockedBy": [
+   "01/02/03/04 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:none|sasd:unchecked|g:ext-none": {
+  "blockedBy": [
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:none|sasd:unchecked|g:ext01": {
+  "blockedBy": [
+   "01 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:none|sasd:unchecked|g:fail3": {
+  "blockedBy": [
+   "連續 FAIL 3 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "project_dir_confirmed|sasd:none|sasd:unchecked|g:fail5+reanalysis": {
+  "blockedBy": [
+   "連續 FAIL 5 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "project_dir_confirmed|sasd:none|sasd:unchecked|g:human-reanalysis": {
+  "blockedBy": [
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:none|sasd:unchecked|g:manual": {
+  "blockedBy": [
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。另有 4 項手動待辦等使用者處理（resolve_manual_action）。"
+ },
+ "project_dir_confirmed|sasd:none|sasd:unchecked|g:needs-reanalysis": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "project_dir_confirmed|sasd:none|sasd:unchecked|g:needs-reanalysis+checked": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "project_dir_confirmed|sasd:none|sasd:unchecked|g:shots": {
+  "blockedBy": [
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。有 2 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "project_dir_confirmed|sasd:none|sasd:unchecked|g:sync-all": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：02 在上次寫 03 之後又被改過，03 尚未對照最新 02（對照後重寫 03）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 4 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:none|sasd:unchecked|g:sync-analysis": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:none|sasd:unchecked|g:sync-from-status": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 3 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:sg-code_first|sasd:checked": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:sg-code_first|sasd:unchecked": {
+  "blockedBy": [
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:sg-spec_first|sasd:unchecked|g:combo": {
+  "blockedBy": [
+   "01/03 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 6 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。另有 1 項手動待辦等使用者處理（resolve_manual_action）。有 1 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "project_dir_confirmed|sasd:sg-spec_first|sasd:unchecked|g:ext-all": {
+  "blockedBy": [
+   "01/02/03/04 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:sg-spec_first|sasd:unchecked|g:ext-none": {
+  "blockedBy": [
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:sg-spec_first|sasd:unchecked|g:ext01": {
+  "blockedBy": [
+   "01 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:sg-spec_first|sasd:unchecked|g:fail3": {
+  "blockedBy": [
+   "連續 FAIL 3 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "project_dir_confirmed|sasd:sg-spec_first|sasd:unchecked|g:fail5+reanalysis": {
+  "blockedBy": [
+   "連續 FAIL 5 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "project_dir_confirmed|sasd:sg-spec_first|sasd:unchecked|g:human-reanalysis": {
+  "blockedBy": [
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:sg-spec_first|sasd:unchecked|g:manual": {
+  "blockedBy": [
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。另有 4 項手動待辦等使用者處理（resolve_manual_action）。"
+ },
+ "project_dir_confirmed|sasd:sg-spec_first|sasd:unchecked|g:needs-reanalysis": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "project_dir_confirmed|sasd:sg-spec_first|sasd:unchecked|g:needs-reanalysis+checked": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "project_dir_confirmed|sasd:sg-spec_first|sasd:unchecked|g:shots": {
+  "blockedBy": [
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。有 2 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "project_dir_confirmed|sasd:sg-spec_first|sasd:unchecked|g:sync-all": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：02 在上次寫 03 之後又被改過，03 尚未對照最新 02（對照後重寫 03）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 4 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:sg-spec_first|sasd:unchecked|g:sync-analysis": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "project_dir_confirmed|sasd:sg-spec_first|sasd:unchecked|g:sync-from-status": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 3 項需先處理（見 blockedBy）。目前 stage=project_dir_confirmed。下一步：分析師：寫 01-analysis.md（帶 summary；專案 gates.json 的分析關卡未過會被拒）後 advance_ticket_stage analyzed。"
+ },
+ "sd_drafted|sasd:external|spec:null": {
+  "blockedBy": [
+   "spec_confirmation 為 null：advance_ticket_stage 推進到 implemented／verified 會被擋，要等使用者 record_spec_confirmation"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿等使用者確認，不要自行推進。"
+ },
+ "sd_drafted|sasd:external|spec:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格已確認：specOrder 為 spec_first 時工程師寫 02-implementation.md 後 advance_ticket_stage implemented；code_first 時驗證師寫 03-verification.md 後 advance_ticket_stage verified。"
+ },
+ "sd_drafted|sasd:external|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格已確認（本票依使用者指示不產 SD）：specOrder 為 spec_first 時工程師寫 02-implementation.md 後 advance_ticket_stage implemented；code_first 時驗證師寫 03-verification.md 後 advance_ticket_stage verified。"
+ },
+ "sd_drafted|sasd:external|spec:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:none|spec:null": {
+  "blockedBy": [
+   "spec_confirmation 為 null：advance_ticket_stage 推進到 implemented／verified 會被擋，要等使用者 record_spec_confirmation"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿等使用者確認，不要自行推進。"
+ },
+ "sd_drafted|sasd:none|spec:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格已確認：specOrder 為 spec_first 時工程師寫 02-implementation.md 後 advance_ticket_stage implemented；code_first 時驗證師寫 03-verification.md 後 advance_ticket_stage verified。"
+ },
+ "sd_drafted|sasd:none|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格已確認（本票依使用者指示不產 SD）：specOrder 為 spec_first 時工程師寫 02-implementation.md 後 advance_ticket_stage implemented；code_first 時驗證師寫 03-verification.md 後 advance_ticket_stage verified。"
+ },
+ "sd_drafted|sasd:none|spec:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:none|spec:rejected|g:combo": {
+  "blockedBy": [
+   "01/03 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 6 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。另有 1 項手動待辦等使用者處理（resolve_manual_action）。有 1 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "sd_drafted|sasd:none|spec:rejected|g:ext-all": {
+  "blockedBy": [
+   "01/02/03/04 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:none|spec:rejected|g:ext-none": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:none|spec:rejected|g:ext01": {
+  "blockedBy": [
+   "01 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:none|spec:rejected|g:fail3": {
+  "blockedBy": [
+   "連續 FAIL 3 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "sd_drafted|sasd:none|spec:rejected|g:fail5+reanalysis": {
+  "blockedBy": [
+   "連續 FAIL 5 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "sd_drafted|sasd:none|spec:rejected|g:human-reanalysis": {
+  "blockedBy": [
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:none|spec:rejected|g:manual": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。另有 4 項手動待辦等使用者處理（resolve_manual_action）。"
+ },
+ "sd_drafted|sasd:none|spec:rejected|g:needs-reanalysis": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "sd_drafted|sasd:none|spec:rejected|g:needs-reanalysis+checked": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "sd_drafted|sasd:none|spec:rejected|g:shots": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。有 2 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "sd_drafted|sasd:none|spec:rejected|g:sync-all": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：02 在上次寫 03 之後又被改過，03 尚未對照最新 02（對照後重寫 03）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 3 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:none|spec:rejected|g:sync-analysis": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:none|spec:rejected|g:sync-from-status": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:null|spec:null": {
+  "blockedBy": [
+   "spec_confirmation 為 null：advance_ticket_stage 推進到 implemented／verified 會被擋，要等使用者 record_spec_confirmation"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿等使用者確認，不要自行推進。"
+ },
+ "sd_drafted|sasd:null|spec:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格已確認：specOrder 為 spec_first 時工程師寫 02-implementation.md 後 advance_ticket_stage implemented；code_first 時驗證師寫 03-verification.md 後 advance_ticket_stage verified。"
+ },
+ "sd_drafted|sasd:null|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格已確認（本票依使用者指示不產 SD）：specOrder 為 spec_first 時工程師寫 02-implementation.md 後 advance_ticket_stage implemented；code_first 時驗證師寫 03-verification.md 後 advance_ticket_stage verified。"
+ },
+ "sd_drafted|sasd:null|spec:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:self|spec:null": {
+  "blockedBy": [
+   "spec_confirmation 為 null：advance_ticket_stage 推進到 implemented／verified 會被擋，要等使用者 record_spec_confirmation"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿等使用者確認，不要自行推進。"
+ },
+ "sd_drafted|sasd:self|spec:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格已確認：specOrder 為 spec_first 時工程師寫 02-implementation.md 後 advance_ticket_stage implemented；code_first 時驗證師寫 03-verification.md 後 advance_ticket_stage verified。"
+ },
+ "sd_drafted|sasd:self|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格已確認（本票依使用者指示不產 SD）：specOrder 為 spec_first 時工程師寫 02-implementation.md 後 advance_ticket_stage implemented；code_first 時驗證師寫 03-verification.md 後 advance_ticket_stage verified。"
+ },
+ "sd_drafted|sasd:self|spec:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:sg-code_first|spec:null": {
+  "blockedBy": [
+   "spec_confirmation 為 null：advance_ticket_stage 推進到 verified 會被擋，要等使用者 record_spec_confirmation"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿等使用者確認，不要自行推進。"
+ },
+ "sd_drafted|sasd:sg-code_first|spec:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格已確認：驗證師寫 03-verification.md 後 advance_ticket_stage verified。"
+ },
+ "sd_drafted|sasd:sg-code_first|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格已確認（本票依使用者指示不產 SD）：驗證師寫 03-verification.md 後 advance_ticket_stage verified。"
+ },
+ "sd_drafted|sasd:sg-code_first|spec:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:sg-no_order|spec:null": {
+  "blockedBy": [
+   "spec_confirmation 為 null：advance_ticket_stage 推進到 implemented／verified 會被擋，要等使用者 record_spec_confirmation"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿等使用者確認，不要自行推進。"
+ },
+ "sd_drafted|sasd:sg-no_order|spec:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格已確認：specOrder 為 spec_first 時工程師寫 02-implementation.md 後 advance_ticket_stage implemented；code_first 時驗證師寫 03-verification.md 後 advance_ticket_stage verified。"
+ },
+ "sd_drafted|sasd:sg-no_order|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格已確認（本票依使用者指示不產 SD）：specOrder 為 spec_first 時工程師寫 02-implementation.md 後 advance_ticket_stage implemented；code_first 時驗證師寫 03-verification.md 後 advance_ticket_stage verified。"
+ },
+ "sd_drafted|sasd:sg-no_order|spec:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:null": {
+  "blockedBy": [
+   "spec_confirmation 為 null：advance_ticket_stage 推進到 implemented 會被擋，要等使用者 record_spec_confirmation"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿等使用者確認，不要自行推進。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格已確認：工程師寫 02-implementation.md 後 advance_ticket_stage implemented。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格已確認（本票依使用者指示不產 SD）：工程師寫 02-implementation.md 後 advance_ticket_stage implemented。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:rejected|g:combo": {
+  "blockedBy": [
+   "01/03 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 6 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。另有 1 項手動待辦等使用者處理（resolve_manual_action）。有 1 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:rejected|g:ext-all": {
+  "blockedBy": [
+   "01/02/03/04 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:rejected|g:ext-none": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:rejected|g:ext01": {
+  "blockedBy": [
+   "01 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:rejected|g:fail3": {
+  "blockedBy": [
+   "連續 FAIL 3 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:rejected|g:fail5+reanalysis": {
+  "blockedBy": [
+   "連續 FAIL 5 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:rejected|g:human-reanalysis": {
+  "blockedBy": [
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:rejected|g:manual": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。另有 4 項手動待辦等使用者處理（resolve_manual_action）。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:rejected|g:needs-reanalysis": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:rejected|g:needs-reanalysis+checked": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:rejected|g:shots": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。有 2 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:rejected|g:sync-all": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：02 在上次寫 03 之後又被改過，03 尚未對照最新 02（對照後重寫 03）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 3 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:rejected|g:sync-analysis": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:sg-spec_first|spec:rejected|g:sync-from-status": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "sd_drafted|sasd:unregistered|spec:null": {
+  "blockedBy": [
+   "spec_confirmation 為 null：advance_ticket_stage 推進到 implemented／verified 會被擋，要等使用者 record_spec_confirmation"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=sd_drafted。下一步：規格草稿等使用者確認，不要自行推進。"
+ },
+ "sd_drafted|sasd:unregistered|spec:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格已確認：specOrder 為 spec_first 時工程師寫 02-implementation.md 後 advance_ticket_stage implemented；code_first 時驗證師寫 03-verification.md 後 advance_ticket_stage verified。"
+ },
+ "sd_drafted|sasd:unregistered|spec:ok+skip": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格已確認（本票依使用者指示不產 SD）：specOrder 為 spec_first 時工程師寫 02-implementation.md 後 advance_ticket_stage implemented；code_first 時驗證師寫 03-verification.md 後 advance_ticket_stage verified。"
+ },
+ "sd_drafted|sasd:unregistered|spec:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"spec-writer\"})",
+   "write_project_sd_doc",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=sd_drafted。下一步：規格草稿被打回：依 spec_confirmation.note 修改草稿，重新 advance_ticket_stage sd_drafted 送出（會清空這筆確認）。"
+ },
+ "snapshot|sasd:none|dir:null": {
+  "blockedBy": [
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:none|dir:null|g:combo": {
+  "blockedBy": [
+   "01/03 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 6 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。另有 1 項手動待辦等使用者處理（resolve_manual_action）。有 1 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "snapshot|sasd:none|dir:null|g:ext-all": {
+  "blockedBy": [
+   "01/02/03/04 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:none|dir:null|g:ext-none": {
+  "blockedBy": [
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:none|dir:null|g:ext01": {
+  "blockedBy": [
+   "01 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:none|dir:null|g:fail3": {
+  "blockedBy": [
+   "連續 FAIL 3 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "snapshot|sasd:none|dir:null|g:fail5+reanalysis": {
+  "blockedBy": [
+   "連續 FAIL 5 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "snapshot|sasd:none|dir:null|g:human-reanalysis": {
+  "blockedBy": [
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:none|dir:null|g:manual": {
+  "blockedBy": [
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。另有 4 項手動待辦等使用者處理（resolve_manual_action）。"
+ },
+ "snapshot|sasd:none|dir:null|g:needs-reanalysis": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "snapshot|sasd:none|dir:null|g:needs-reanalysis+checked": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "snapshot|sasd:none|dir:null|g:shots": {
+  "blockedBy": [
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。有 2 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "snapshot|sasd:none|dir:null|g:sync-all": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：02 在上次寫 03 之後又被改過，03 尚未對照最新 02（對照後重寫 03）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 4 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:none|dir:null|g:sync-analysis": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:none|dir:null|g:sync-from-status": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 3 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:none|dir:set": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=snapshot。下一步：advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:sg-code_first|dir:null": {
+  "blockedBy": [
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:sg-code_first|dir:set": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=snapshot。下一步：advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:sg-spec_first|dir:null|g:combo": {
+  "blockedBy": [
+   "01/03 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 6 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。另有 1 項手動待辦等使用者處理（resolve_manual_action）。有 1 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "snapshot|sasd:sg-spec_first|dir:null|g:ext-all": {
+  "blockedBy": [
+   "01/02/03/04 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:sg-spec_first|dir:null|g:ext-none": {
+  "blockedBy": [
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:sg-spec_first|dir:null|g:ext01": {
+  "blockedBy": [
+   "01 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:sg-spec_first|dir:null|g:fail3": {
+  "blockedBy": [
+   "連續 FAIL 3 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "snapshot|sasd:sg-spec_first|dir:null|g:fail5+reanalysis": {
+  "blockedBy": [
+   "連續 FAIL 5 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "snapshot|sasd:sg-spec_first|dir:null|g:human-reanalysis": {
+  "blockedBy": [
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:sg-spec_first|dir:null|g:manual": {
+  "blockedBy": [
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。另有 4 項手動待辦等使用者處理（resolve_manual_action）。"
+ },
+ "snapshot|sasd:sg-spec_first|dir:null|g:needs-reanalysis": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "snapshot|sasd:sg-spec_first|dir:null|g:needs-reanalysis+checked": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "snapshot|sasd:sg-spec_first|dir:null|g:shots": {
+  "blockedBy": [
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。有 2 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "snapshot|sasd:sg-spec_first|dir:null|g:sync-all": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：02 在上次寫 03 之後又被改過，03 尚未對照最新 02（對照後重寫 03）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 4 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:sg-spec_first|dir:null|g:sync-analysis": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。"
+ },
+ "snapshot|sasd:sg-spec_first|dir:null|g:sync-from-status": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "project_dir 為空：推進到 project_dir_confirmed 會被拒"
+  ],
+  "suggestedTools": [
+   "project_config",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 3 項需先處理（見 blockedBy）。目前 stage=snapshot。下一步：先確定 project_dir 再 advance_ticket_stage project_dir_confirmed。"
+ },
+ "tested|sasd:none|verdict:FAIL/rc:analysis/conf:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL、根因在分析：回分析師重寫 01-analysis.md，之後重走 analyzed → implemented → verified → tested。"
+ },
+ "tested|sasd:none|verdict:FAIL/rc:analysis/conf:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL、根因在分析：回分析師重寫 01-analysis.md，之後重走 analyzed → implemented → verified → tested。"
+ },
+ "tested|sasd:none|verdict:FAIL/rc:analysis/conf:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL、根因在分析：回分析師重寫 01-analysis.md，之後重走 analyzed → implemented → verified → tested。"
+ },
+ "tested|sasd:none|verdict:FAIL/rc:implementation/conf:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL、根因在實作：回工程師修正並重寫 02-implementation.md，advance_ticket_stage implemented，之後重走 verified → tested。"
+ },
+ "tested|sasd:none|verdict:FAIL/rc:implementation/conf:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL、根因在實作：回工程師修正並重寫 02-implementation.md，advance_ticket_stage implemented，之後重走 verified → tested。"
+ },
+ "tested|sasd:none|verdict:FAIL/rc:implementation/conf:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL、根因在實作：回工程師修正並重寫 02-implementation.md，advance_ticket_stage implemented，之後重走 verified → tested。"
+ },
+ "tested|sasd:none|verdict:FAIL/rc:null/conf:null": {
+  "blockedBy": [],
+  "suggestedTools": [],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL 但沒有 verifier_root_cause：先向使用者確認根因（分析或實作）再決定回哪個角色。"
+ },
+ "tested|sasd:none|verdict:FAIL/rc:null/conf:ok": {
+  "blockedBy": [],
+  "suggestedTools": [],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL 但沒有 verifier_root_cause：先向使用者確認根因（分析或實作）再決定回哪個角色。"
+ },
+ "tested|sasd:none|verdict:FAIL/rc:null/conf:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL 但沒有 verifier_root_cause：先向使用者確認根因（分析或實作）再決定回哪個角色。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:null": {
+  "blockedBy": [
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:null|g:combo": {
+  "blockedBy": [
+   "01/03 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 6 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。另有 1 項手動待辦等使用者處理（resolve_manual_action）。有 1 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:null|g:ext-all": {
+  "blockedBy": [
+   "01/02/03/04 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:null|g:ext-none": {
+  "blockedBy": [
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:null|g:ext01": {
+  "blockedBy": [
+   "01 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:null|g:fail3": {
+  "blockedBy": [
+   "連續 FAIL 3 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:null|g:fail5+reanalysis": {
+  "blockedBy": [
+   "連續 FAIL 5 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:null|g:human-reanalysis": {
+  "blockedBy": [
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:null|g:manual": {
+  "blockedBy": [
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。另有 4 項手動待辦等使用者處理（resolve_manual_action）。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:null|g:needs-reanalysis": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:null|g:needs-reanalysis+checked": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:null|g:shots": {
+  "blockedBy": [
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。有 2 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:null|g:sync-all": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：02 在上次寫 03 之後又被改過，03 尚未對照最新 02（對照後重寫 03）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 4 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:null|g:sync-analysis": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:null|g:sync-from-status": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 3 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:ok": {
+  "blockedBy": [],
+  "suggestedTools": [],
+  "summary": "目前 stage=tested、verdict=PASS。下一步：使用者已確認，這張票已結案，無需動作。"
+ },
+ "tested|sasd:none|verdict:PASS/conf:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested、verdict=PASS。下一步：使用者實測打回（見 confirmation.note）：比照 FAIL 分流，先判斷根因，在分析回分析師重寫 01-analysis.md，在實作回工程師修正並重寫 02-implementation.md，之後重走驗證師 → 測試工程師。"
+ },
+ "tested|sasd:none|verdict:null/conf:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested。下一步：尚未有 verdict：advance_ticket_stage tested 並帶 verdict。"
+ },
+ "tested|sasd:none|verdict:null/conf:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested。下一步：尚未有 verdict：advance_ticket_stage tested 並帶 verdict。"
+ },
+ "tested|sasd:none|verdict:null/conf:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested。下一步：使用者實測打回（見 confirmation.note）：比照 FAIL 分流，先判斷根因，在分析回分析師重寫 01-analysis.md，在實作回工程師修正並重寫 02-implementation.md，之後重走驗證師 → 測試工程師。"
+ },
+ "tested|sasd:sg-code_first|verdict:FAIL/rc:analysis/conf:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL、根因在分析：回分析師重寫 01-analysis.md，之後重走 analyzed → implemented → verified → tested。"
+ },
+ "tested|sasd:sg-code_first|verdict:FAIL/rc:analysis/conf:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL、根因在分析：回分析師重寫 01-analysis.md，之後重走 analyzed → implemented → verified → tested。"
+ },
+ "tested|sasd:sg-code_first|verdict:FAIL/rc:analysis/conf:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL、根因在分析：回分析師重寫 01-analysis.md，之後重走 analyzed → implemented → verified → tested。"
+ },
+ "tested|sasd:sg-code_first|verdict:FAIL/rc:implementation/conf:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL、根因在實作：回工程師修正並重寫 02-implementation.md，advance_ticket_stage implemented，之後重走 verified → tested。"
+ },
+ "tested|sasd:sg-code_first|verdict:FAIL/rc:implementation/conf:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL、根因在實作：回工程師修正並重寫 02-implementation.md，advance_ticket_stage implemented，之後重走 verified → tested。"
+ },
+ "tested|sasd:sg-code_first|verdict:FAIL/rc:implementation/conf:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL、根因在實作：回工程師修正並重寫 02-implementation.md，advance_ticket_stage implemented，之後重走 verified → tested。"
+ },
+ "tested|sasd:sg-code_first|verdict:FAIL/rc:null/conf:null": {
+  "blockedBy": [],
+  "suggestedTools": [],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL 但沒有 verifier_root_cause：先向使用者確認根因（分析或實作）再決定回哪個角色。"
+ },
+ "tested|sasd:sg-code_first|verdict:FAIL/rc:null/conf:ok": {
+  "blockedBy": [],
+  "suggestedTools": [],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL 但沒有 verifier_root_cause：先向使用者確認根因（分析或實作）再決定回哪個角色。"
+ },
+ "tested|sasd:sg-code_first|verdict:FAIL/rc:null/conf:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [],
+  "summary": "目前 stage=tested、verdict=FAIL。下一步：verdict FAIL 但沒有 verifier_root_cause：先向使用者確認根因（分析或實作）再決定回哪個角色。"
+ },
+ "tested|sasd:sg-code_first|verdict:PASS/conf:null": {
+  "blockedBy": [
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。"
+ },
+ "tested|sasd:sg-code_first|verdict:PASS/conf:ok": {
+  "blockedBy": [],
+  "suggestedTools": [],
+  "summary": "目前 stage=tested、verdict=PASS。下一步：使用者已確認，這張票已結案，無需動作。"
+ },
+ "tested|sasd:sg-code_first|verdict:PASS/conf:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested、verdict=PASS。下一步：使用者實測打回（見 confirmation.note）：比照 FAIL 分流，先判斷根因，在分析回分析師重寫 01-analysis.md，在實作回工程師修正並重寫 02-implementation.md，之後重走驗證師 → 測試工程師。"
+ },
+ "tested|sasd:sg-code_first|verdict:null/conf:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested。下一步：尚未有 verdict：advance_ticket_stage tested 並帶 verdict。"
+ },
+ "tested|sasd:sg-code_first|verdict:null/conf:ok": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested。下一步：尚未有 verdict：advance_ticket_stage tested 並帶 verdict。"
+ },
+ "tested|sasd:sg-code_first|verdict:null/conf:rejected": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=tested。下一步：使用者實測打回（見 confirmation.note）：比照 FAIL 分流，先判斷根因，在分析回分析師重寫 01-analysis.md，在實作回工程師修正並重寫 02-implementation.md，之後重走驗證師 → 測試工程師。"
+ },
+ "tested|sasd:sg-spec_first|verdict:PASS/conf:null|g:combo": {
+  "blockedBy": [
+   "01/03 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 6 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。另有 1 項手動待辦等使用者處理（resolve_manual_action）。有 1 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "tested|sasd:sg-spec_first|verdict:PASS/conf:null|g:ext-all": {
+  "blockedBy": [
+   "01/02/03/04 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。"
+ },
+ "tested|sasd:sg-spec_first|verdict:PASS/conf:null|g:ext-none": {
+  "blockedBy": [
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。"
+ },
+ "tested|sasd:sg-spec_first|verdict:PASS/conf:null|g:ext01": {
+  "blockedBy": [
+   "01 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。"
+ },
+ "tested|sasd:sg-spec_first|verdict:PASS/conf:null|g:fail3": {
+  "blockedBy": [
+   "連續 FAIL 3 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "tested|sasd:sg-spec_first|verdict:PASS/conf:null|g:fail5+reanalysis": {
+  "blockedBy": [
+   "連續 FAIL 5 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "tested|sasd:sg-spec_first|verdict:PASS/conf:null|g:human-reanalysis": {
+  "blockedBy": [
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。"
+ },
+ "tested|sasd:sg-spec_first|verdict:PASS/conf:null|g:manual": {
+  "blockedBy": [
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。另有 4 項手動待辦等使用者處理（resolve_manual_action）。"
+ },
+ "tested|sasd:sg-spec_first|verdict:PASS/conf:null|g:needs-reanalysis": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "tested|sasd:sg-spec_first|verdict:PASS/conf:null|g:needs-reanalysis+checked": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "tested|sasd:sg-spec_first|verdict:PASS/conf:null|g:shots": {
+  "blockedBy": [
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。有 2 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "tested|sasd:sg-spec_first|verdict:PASS/conf:null|g:sync-all": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：02 在上次寫 03 之後又被改過，03 尚未對照最新 02（對照後重寫 03）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 4 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。"
+ },
+ "tested|sasd:sg-spec_first|verdict:PASS/conf:null|g:sync-analysis": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。"
+ },
+ "tested|sasd:sg-spec_first|verdict:PASS/conf:null|g:sync-from-status": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "confirmation 為 null：要等使用者呼叫 record_confirmation({confirmed:true}) 才算結案"
+  ],
+  "suggestedTools": [],
+  "summary": "有 3 項需先處理（見 blockedBy）。目前 stage=tested、verdict=PASS。下一步：AI 這邊已全部通過，等使用者實測確認；AI 不可代為確認。"
+ },
+ "verified|sasd:none|verdict:FAIL/rc:analysis": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=verified、verdict=FAIL。下一步：verdict FAIL、根因在分析：回分析師重寫 01-analysis.md，之後重走 analyzed → implemented → verified → tested。"
+ },
+ "verified|sasd:none|verdict:FAIL/rc:implementation": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=verified、verdict=FAIL。下一步：verdict FAIL、根因在實作：回工程師修正並重寫 02-implementation.md，advance_ticket_stage implemented，之後重走 verified → tested。"
+ },
+ "verified|sasd:none|verdict:FAIL/rc:null": {
+  "blockedBy": [],
+  "suggestedTools": [],
+  "summary": "目前 stage=verified、verdict=FAIL。下一步：verdict FAIL 但沒有 verifier_root_cause：先向使用者確認根因（分析或實作）再決定回哪個角色。"
+ },
+ "verified|sasd:none|verdict:PASS": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。"
+ },
+ "verified|sasd:none|verdict:PASS|g:combo": {
+  "blockedBy": [
+   "01/03 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 6 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。另有 1 項手動待辦等使用者處理（resolve_manual_action）。有 1 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "verified|sasd:none|verdict:PASS|g:ext-all": {
+  "blockedBy": [
+   "01/02/03/04 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。"
+ },
+ "verified|sasd:none|verdict:PASS|g:ext-none": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。"
+ },
+ "verified|sasd:none|verdict:PASS|g:ext01": {
+  "blockedBy": [
+   "01 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。"
+ },
+ "verified|sasd:none|verdict:PASS|g:fail3": {
+  "blockedBy": [
+   "連續 FAIL 3 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "verified|sasd:none|verdict:PASS|g:fail5+reanalysis": {
+  "blockedBy": [
+   "連續 FAIL 5 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "verified|sasd:none|verdict:PASS|g:human-reanalysis": {
+  "blockedBy": [
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。"
+ },
+ "verified|sasd:none|verdict:PASS|g:manual": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。另有 4 項手動待辦等使用者處理（resolve_manual_action）。"
+ },
+ "verified|sasd:none|verdict:PASS|g:needs-reanalysis": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "verified|sasd:none|verdict:PASS|g:needs-reanalysis+checked": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "verified|sasd:none|verdict:PASS|g:shots": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。有 2 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "verified|sasd:none|verdict:PASS|g:sync-all": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：02 在上次寫 03 之後又被改過，03 尚未對照最新 02（對照後重寫 03）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 3 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。"
+ },
+ "verified|sasd:none|verdict:PASS|g:sync-analysis": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。"
+ },
+ "verified|sasd:none|verdict:PASS|g:sync-from-status": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。"
+ },
+ "verified|sasd:none|verdict:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=verified。下一步：03 已寫入但尚未判定：advance_ticket_stage verified 並帶 verdict。"
+ },
+ "verified|sasd:sg-code_first|verdict:FAIL/rc:analysis": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=verified、verdict=FAIL。下一步：verdict FAIL、根因在分析：回分析師重寫 01-analysis.md，之後重走 analyzed → implemented → verified → tested。"
+ },
+ "verified|sasd:sg-code_first|verdict:FAIL/rc:implementation": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"engineer\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=verified、verdict=FAIL。下一步：verdict FAIL、根因在實作：回工程師修正並重寫 02-implementation.md，advance_ticket_stage implemented，之後重走 verified → tested。"
+ },
+ "verified|sasd:sg-code_first|verdict:FAIL/rc:null": {
+  "blockedBy": [],
+  "suggestedTools": [],
+  "summary": "目前 stage=verified、verdict=FAIL。下一步：verdict FAIL 但沒有 verifier_root_cause：先向使用者確認根因（分析或實作）再決定回哪個角色。"
+ },
+ "verified|sasd:sg-code_first|verdict:PASS": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。"
+ },
+ "verified|sasd:sg-code_first|verdict:null": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=verified。下一步：03 已寫入但尚未判定：advance_ticket_stage verified 並帶 verdict。"
+ },
+ "verified|sasd:sg-spec_first|verdict:PASS|g:combo": {
+  "blockedBy": [
+   "01/03 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact",
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）",
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot",
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 6 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。另有 1 項手動待辦等使用者處理（resolve_manual_action）。有 1 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "verified|sasd:sg-spec_first|verdict:PASS|g:ext-all": {
+  "blockedBy": [
+   "01/02/03/04 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。"
+ },
+ "verified|sasd:sg-spec_first|verdict:PASS|g:ext-none": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。"
+ },
+ "verified|sasd:sg-spec_first|verdict:PASS|g:ext01": {
+  "blockedBy": [
+   "01 被外部改過，summaries 與 sync_flags 可能過期：先 read_ticket_artifact 讀全文，確認後 resync_ticket_artifact"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。"
+ },
+ "verified|sasd:sg-spec_first|verdict:PASS|g:fail3": {
+  "blockedBy": [
+   "連續 FAIL 3 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "verified|sasd:sg-spec_first|verdict:PASS|g:fail5+reanalysis": {
+  "blockedBy": [
+   "連續 FAIL 5 次（needs_human_review）：停下來問使用者，不要自動重跑"
+  ],
+  "suggestedTools": [],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：停下來向使用者說明連續 FAIL 的狀況並等指示，不要自動重跑。"
+ },
+ "verified|sasd:sg-spec_first|verdict:PASS|g:human-reanalysis": {
+  "blockedBy": [
+   "使用者要求優先重新確認：先對這張票呼叫 get_ticket_snapshot"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。"
+ },
+ "verified|sasd:sg-spec_first|verdict:PASS|g:manual": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。另有 4 項手動待辦等使用者處理（resolve_manual_action）。"
+ },
+ "verified|sasd:sg-spec_first|verdict:PASS|g:needs-reanalysis": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來",
+   "尚未 record_sasd_check：write_ticket_artifact 會拒絕寫入 01-analysis.md"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "record_sasd_check",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "verified|sasd:sg-spec_first|verdict:PASS|g:needs-reanalysis+checked": {
+  "blockedBy": [
+   "Asana 內容已變（needs_reanalysis）：要從分析師重來"
+  ],
+  "suggestedTools": [
+   "get_ticket_snapshot",
+   "get_role_prompt({role:\"analyst\"})",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：從分析師重來：重寫 01-analysis.md（會清掉 needs_reanalysis），再依序重走後續階段。"
+ },
+ "verified|sasd:sg-spec_first|verdict:PASS|g:shots": {
+  "blockedBy": [],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。有 2 筆 Excel 測試證據待使用者截圖（放進 test-evidence 資料夾後用 record_test_evidence 補登）。"
+ },
+ "verified|sasd:sg-spec_first|verdict:PASS|g:sync-all": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：02 在上次寫 03 之後又被改過，03 尚未對照最新 02（對照後重寫 03）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 3 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。"
+ },
+ "verified|sasd:sg-spec_first|verdict:PASS|g:sync-analysis": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 1 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。"
+ },
+ "verified|sasd:sg-spec_first|verdict:PASS|g:sync-from-status": {
+  "blockedBy": [
+   "sync 債：01 在上次寫 02 之後又被改過，02 尚未對照最新 01（對照後重寫 02）",
+   "sync 債：03 在上次寫 04 之後又被改過，04 尚未對照最新 03（對照後重寫 04）"
+  ],
+  "suggestedTools": [
+   "get_role_prompt({role:\"tester\"})",
+   "get_test_engineer_guide",
+   "record_test_evidence",
+   "write_ticket_artifact",
+   "advance_ticket_stage"
+  ],
+  "summary": "有 2 項需先處理（見 blockedBy）。目前 stage=verified、verdict=PASS。下一步：測試工程師：先 record_test_evidence 記錄測試證據（每張票至少 1 筆，含 testLevel），再寫 04-test.md（必填 syncNote、manualActions、producesOfficeFiles、testLevel；內文要有「測試證據」一節）後 advance_ticket_stage tested 並帶 verdict（只有 AI 有把握的 verified_fail 才算 FAIL）。"
+ }
+}
