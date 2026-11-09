@@ -60,7 +60,7 @@ ul{margin:6px 0;padding-left:22px}
 <nav>
   <a href="#story">一、完成後你能做什麼</a><a href="#scope">二、範圍</a><a href="#steps">三、步驟</a>
   <a href="#gaps">四、前面遺留的缺口</a><a href="#manual">五、手動來源怎麼運作</a>
-  <a href="#decide">六、需要你決定</a><a href="#risk">七、風險與順序</a>
+  <a href="#decide">六、需要你決定</a><a href="#risk">七、風險與順序</a><a href="#reuse">八、重複程式碼防線</a>
 </nav>
 
 <div class="card">
@@ -110,7 +110,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>長期維護的現況基線文件、自動跑資料庫差異比對</td><td><span class="tag todo">暫緩</span> 先手動盤點，用過之後再決定怎麼自動化最有用。</td></tr>
 </table>
 
-<h2 id="steps">三、切成 12 個步驟（每步獨立一個 commit，出問題就退回那一個）</h2>
+<h2 id="steps">三、切成 15 個步驟（每步獨立一個 commit，出問題就退回那一個）</h2>
 <p>每一步都用同一套方法證明 Asana 沒變：黃金快照逐字相同、整套測試通過、新增的「工具介面快照」不變。</p>
 <table>
 <tr><th>步驟</th><th>白話目的</th><th>主要改動</th><th>風險</th></tr>
@@ -126,6 +126,9 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>S8b</td><td>選用的內建產圖功能：把 mockup 的 HTML 和 Mermaid 流程圖自動轉成 PNG，不依賴任何 AI 的瀏覽器工具；沒裝 Playwright 就退回「由 AI 自己拍再附上」</td><td>新增獨立模組與設定（選用相依套件，不影響沒裝的人）</td><td><span class="tag wip">中</span></td></tr>
 <tr><td>S8c</td><td>最終驗收整理報告：最終驗收確認時，一併彙整整條流程的關卡、確認者（你或 AI 審查）、硬停點、產出物與截圖，存成一份報告</td><td>新增整理模組，接在 <code>work_item</code> 的最終驗收確認動作</td><td><span class="tag done">低</span>～<span class="tag wip">中</span></td></tr>
 <tr><td>S9</td><td>更新文件，並拿暫存專案從頭走到尾實際跑一次</td><td>進度頁、<code>TOOLS.md</code></td><td>建議你在場</td></tr>
+<tr><td>S10</td><td>重用防線（提示詞與文件）：現況盤點寫「可重用清單」、SD 寫「重用與共用設計」、工程師動手前先搜尋並寫「重用檢查紀錄」、驗證師檢查重複</td><td>新增／調整角色說明；實作內容關卡加「必須有重用檢查紀錄」檢查</td><td><span class="tag wip">中</span></td></tr>
+<tr><td>S11</td><td>自動重複程式碼偵測（必做）：掃描這次改動的檔案，找出與專案現有程式或本次改動之間大段相似的區塊，超過門檻就擋下交件</td><td>新增內建偵測模組（不需另外安裝套件）</td><td><span class="tag stop">中高</span> 建議你在場</td></tr>
+<tr><td>S12</td><td>現有 Asana 流程同步加上重用防線（工程師、驗證師提示詞與偵測關卡）</td><td>調整 Asana 流程的角色說明與推進檢查；黃金快照只允許這兩個角色的提示詞變動</td><td><span class="tag stop">中高</span> 建議你在場</td></tr>
 </table>
 <p class="note">平行規則：S0 一定最先；S1、S2、S3 改不同檔案可以分頭寫；S4 等 S2、S3；S5 等 S1、S4；S6、S7 可以平行；S8、S9 最後。但「建置與跑測試」一律輪流做，因為共用同一個輸出資料夾，同時做會互相干擾（前面已經遇過）。</p>
 
@@ -152,7 +155,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>和 Asana 的關係</td><td>與 <code>.asana-pipeline/</code> 分開放，Asana 的搬移、列表、報告功能碰不到它。索引檔共用，所以現有的查狀態、讀產出物、記錄測試證據等工具，只要帶 <code>workItemId</code> 就能直接用。</td></tr>
 </table>
 
-<h2 id="decide">六、你已做的 11 項決定</h2>
+<h2 id="decide">六、你已做的 14 項決定</h2>
 <table>
 <tr><th>#</th><th>問題</th><th>planner 推薦</th></tr>
 <tr><td>1</td><td>工具形式：新增一個 <code>work_item</code> 工具（工具數變 43，Asana 工具完全不動），還是改現有工具？</td><td><span class="tag done">已決定</span> 新增 <code>work_item</code> 工具</td></tr>
@@ -163,10 +166,36 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>6</td><td>mockup 和測試截圖用哪個瀏覽器工具拍？</td><td><span class="tag done">已決定</span> 不綁死任何 AI 的工具：基本是「AI 自己截圖再交給 MCP」，另做選用的內建產圖功能（Playwright），讓這個 MCP 能套到其他 AI</td></tr>
 <tr><td>7</td><td>三道確認關卡（SA、DB 與流程圖、SD）預設要不要等你？</td><td><span class="tag done">你已決定</span> SA 預設等你確認；DB 與流程圖、SD 預設由 AI 派獨立審查員審查、程式裁決；硬停點與最終驗收永遠停下等你</td></tr>
 <tr><td>10</td><td>規格驗證師與驗證師的判定關卡預設要不要等你？</td><td><span class="tag done">你已決定</span> 兩道都預設改為 AI 審查（auto），程式裁決，硬停點仍強制停下等你</td></tr>
+<tr><td>12</td><td>重用防線要不要也加到現有 Asana 流程？</td><td><span class="tag done">你已決定</span> 兩邊都加（見第八節、步驟 S12）</td></tr>
+<tr><td>13</td><td>沒有「重用檢查紀錄」要擋下還是只警告？</td><td><span class="tag done">你已決定</span> 擋下，不能交件</td></tr>
+<tr><td>14</td><td>要不要做自動重複程式碼偵測？</td><td><span class="tag done">你已決定</span> 必須做（步驟 S11），不是選用</td></tr>
 <tr><td>11</td><td>SA 確認關卡預設要不要等你？</td><td><span class="tag done">你已決定</span> 改為預設 AI 審查（取代原本「SA 等你」）；只有 mockup 確認與最終驗收等你，硬停點仍強制停下</td></tr>
 <tr><td>8</td><td>SA 要不要拆成「mockup 設計師」與「SA 分析師」，並加 mockup 確認關卡？</td><td><span class="tag done">你已決定</span> 要拆；mockup 確認預設等你確認；SA 確認關卡保留</td></tr>
 <tr><td>9</td><td>四個延後項目怎麼處理？</td><td><span class="tag done">已決定</span> 模組／系統層級展開延續成階段 5；待處理報告改成最終驗收時整理一次；自訂整套流程與長期基線文件暫緩</td></tr>
 </table>
+
+<h2 id="reuse">八、程式碼重複與共用防線（新增，你已決定要做）</h2>
+<p>問題：AI 工程師看到需求就直接寫，常常重複寫出類似的程式，而不是做成共用方法或模組。原因是 AI 預設只看手上這個任務，不會主動去翻整個專案；規格階段也沒有人談「哪裡可以共用」；驗證師只檢查「符不符合規格」，沒人檢查「有沒有重複造輪子」。</p>
+<p>你已決定：<b>新流程與現有 Asana 流程兩邊都加</b>；沒有重用檢查紀錄<b>直接擋下</b>；<b>自動偵測必須做</b>。</p>
+<table>
+<tr><th>防線</th><th>負責角色</th><th>做什麼</th></tr>
+<tr><td>1. 先找出現有的可重用資產</td><td>現況盤點（既有系統）</td><td>影響分析報告多一節「可重用清單」：與這次需求相關的現有共用方法、模組、元件，附檔案位置與用法</td></tr>
+<tr><td>2. 規格就決定誰重用、誰新建</td><td>SD 分析師（畫面部分由 SA 標註）</td><td>多一節「重用與共用設計」：每個新功能要呼叫哪些現有共用方法；兩處以上會用到的新邏輯，必須做成共用方法或模組並指定放在哪裡</td></tr>
+<tr><td>3. 動手前必須先搜尋</td><td>前端、後端工程師</td><td>寫新程式前先搜尋類似功能；實作文件必須有「重用檢查紀錄」：搜了什麼、找到哪些候選、決定重用／擴充／新建，新建要寫理由</td></tr>
+<tr><td>4. 專門檢查重複</td><td>驗證師</td><td>對照實際改動：有沒有複製貼上的類似區塊、有沒有該用共用方法卻自己重寫；有就退回工程師</td></tr>
+<tr><td>5. 程式自動偵測（必做）</td><td>程式把關，不靠 AI 自覺</td><td>交件時自動掃描這次改動的檔案，與專案現有程式、以及本次改動之間比對相似區塊；超過門檻就擋下交件</td></tr>
+</table>
+<h3>自動偵測的設計重點</h3>
+<ul>
+  <li><b>內建，不需另外安裝套件</b>：把程式碼去掉空白與註解後，以固定行數的滑動視窗做雜湊比對，找出大段相似區塊。任何 AI 與任何專案都能用。</li>
+  <li><b>要減少誤判</b>：預設排除 import／宣告行、純 getter／setter 或樣板、自動產生的檔案、測試檔（門檻放寬）；門檻（最少相似行數）可以由專案的設定檔調整。</li>
+  <li><b>擋下之後工程師只有兩條路</b>：改成重用或抽成共用方法；或對該筆在「重用檢查紀錄」寫明理由，再由驗證師審查放行。</li>
+  <li><b>也可以之後接外部工具</b>（例如 jscpd）作為更精確的選用來源，但內建版是基本要求。</li>
+</ul>
+<h3>專案自己的規則</h3>
+<p>每個專案的「共用程式碼放哪裡、命名慣例」不同，寫在專案設定檔的角色補充說明（或專案自己的規則檔），工程師每次都會讀到。這是最有效的一招，因為通用提示詞無法寫死每個專案的共用位置。</p>
+<h3>對現有 Asana 流程的影響</h3>
+<p>會調整 Asana 流程工程師與驗證師的提示詞，以及交件時的檢查。黃金快照只允許這兩個角色的提示詞出現預期內的變動，其餘必須逐字不變。</p>
 
 <h2 id="risk">七、風險與建議的推進順序</h2>
 <h3>建議順序</h3>
