@@ -1,6 +1,7 @@
 // work_item 工具測試的共用環境：隔離資料目錄、in-memory MCP client、依角色補齊交件檔、依序推進流程。
 // content／evidence 關卡（impact-content、sa-content-check、implementation-content、test-evidence）由程式檢查自動通過，不在 STEPS 內。
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { BASELINE_TECH_OK, techStackFor } from "./tech-fixtures.mjs";
 import os from "node:os";
 import path from "node:path";
 
@@ -45,7 +46,8 @@ export async function setupEnv(prefix, { renderer } = {}) {
 export async function fulfil(dir, roleId, opts = {}) {
   const w = (rel, text) => mkdir(path.dirname(path.join(dir, rel)), { recursive: true }).then(() => writeFile(path.join(dir, rel), text));
   const files = {
-    "baseline-survey": async () => { await w("baseline.md", "基線"); await w("impact.md", REUSABLE_LIST_OK); },
+    "baseline-survey": async () => { await w("baseline.md", BASELINE_TECH_OK); await w("impact.md", REUSABLE_LIST_OK); },
+    "tech-selector": async () => w("tech-stack.md", techStackFor(JSON.parse(await readFile(path.join(dir, "status.json"), "utf-8")).tech_source)),
     "mockup-designer": () => w("sa-mockup/index.html", "<html></html>"),
     "sa-analyst": async () => { await w("01-sa.md", "## 功能：登入\n![畫面](sa-images/a.png)\n"); await writeFile(path.join(dir, "sa-images", "a.png"), PNG); },
     "db-designer": () => w("02-db.sql", opts.sql ?? "CREATE TABLE t (id INT);"),
@@ -64,7 +66,7 @@ export async function fulfil(dir, roleId, opts = {}) {
 }
 
 const STEPS = [
-  ["mockup-designer"], ["mockup-confirm", "human"], ["sa-analyst"], ["sa-confirm", "agent"], ["db-designer"], ["flow-analyst"],
+  ["tech-selector"], ["tech-confirm", "human"], ["mockup-designer"], ["mockup-confirm", "human"], ["sa-analyst"], ["sa-confirm", "agent"], ["db-designer"], ["flow-analyst"],
   ["db-flow-confirm", "agent"], ["sd-analyst"], ["sd-confirm", "agent"], ["spec-verifier"], ["spec-check-verdict", "verdict"],
   ["frontend-engineer"], ["backend-engineer"], ["verifier"], ["verdict", "verdict"], ["tester"],
 ];
@@ -76,6 +78,10 @@ export async function runUntil(env, id, dir, stopBefore) {
     const [label, kind] = STEPS[i];
     if (label === stopBefore) return;
     let r;
+    if (label === "tech-confirm" && JSON.parse(await readFile(path.join(dir, "status.json"), "utf-8")).tech_source === "existing") {
+      env.cursor.set(id, i + 1); // 沿用現有：技術確認由程式自動記錄
+      continue;
+    }
     if (!kind) {
       await fulfil(dir, label);
       r = await env.call({ action: "done", workItemId: id, roleId: label });

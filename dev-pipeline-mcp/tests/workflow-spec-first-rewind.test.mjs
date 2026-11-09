@@ -117,8 +117,8 @@ test("isSaConfirmed：逐關卡紀錄優先，缺紀錄維持近似判斷", () =
 
 test("dispatch：spec-first 回引擎結果；Asana／缺省與舊結果逐字相同", () => {
   const r = computeNextActionForWorkflow(mk({ scope: "backend" }), {}, "spec-first");
-  assert.match(r.summary, /sa-analyst/);
-  assert.match(r.summary, /01-sa\.md/);
+  assert.match(r.summary, /tech-selector/);
+  assert.match(r.summary, /tech-stack/);
   assert.deepEqual(r.suggestedTools, []);
   const waiting = must(applyRoleDone(mk({ scope: "backend" }), "sa-analyst"));
   assert.match(computeNextActionForWorkflow(waiting, {}, "spec-first").summary, /審查員/);

@@ -27,6 +27,8 @@ test("both + hasDb + brownfield：角色依序推進，關卡未過前擋住後�
   assert.deepEqual(avail(s), []);
   assert.equal(next(s).pendingGates[0].gateId, "impact-content");
   s = ok(s, "impact-content", "passed", "agent");
+  assert.deepEqual(avail(s), ["tech-selector"]);
+  s = ok(done(s, "tech-selector"), "tech-confirm");
   assert.deepEqual(avail(s), ["mockup-designer"]);
   s = done(s, "mockup-designer");
   assert.equal(next(s).pendingGates[0].mode, "manual");
@@ -42,8 +44,10 @@ test("both + hasDb + brownfield：角色依序推進，關卡未過前擋住後�
 
 test("greenfield 略過 baseline-survey；backend 略過 mockup 與前端；無 DB 略過 db-designer", () => {
   let s = mk({ baseline: "greenfield", scope: "backend", has_db: false });
+  assert.deepEqual(avail(s), ["tech-selector"]);
+  s = ok(done(s, "tech-selector"), "tech-confirm");
   assert.deepEqual(avail(s), ["sa-analyst"]);
-  assert.deepEqual(ids({ baseline: "greenfield", scope: "backend", has_db: false }), ["sa-analyst", "flow-analyst", "sd-analyst", "spec-verifier", "backend-engineer", "verifier", "tester"]);
+  assert.deepEqual(ids({ baseline: "greenfield", scope: "backend", has_db: false }), ["tech-selector", "sa-analyst", "flow-analyst", "sd-analyst", "spec-verifier", "backend-engineer", "verifier", "tester"]);
   s = ok(ok(done(s, "sa-analyst"), "sa-content-check", "passed", "agent"), "sa-confirm", "confirmed", "agent");
   assert.deepEqual(avail(s), ["flow-analyst"]);
 });
@@ -60,6 +64,7 @@ test("各 scope 與 hasDb 的角色集合", () => {
 
 test("前後端平行；兩者都完成才輪到 verifier", () => {
   let s = mk({ baseline: "greenfield", scope: "both" });
+  s = ok(done(s, "tech-selector"), "tech-confirm");
   s = ok(done(s, "mockup-designer"), "mockup-confirm");
   s = ok(ok(done(s, "sa-analyst"), "sa-content-check", "passed", "agent"), "sa-confirm", "confirmed", "agent");
   s = ok(done(s, "db-designer", "flow-analyst"), "db-flow-confirm", "confirmed", "agent");
@@ -82,6 +87,7 @@ test("optional 略過：單邊 scope 時 verifier 只依賴存在的那一邊", 
 
 test("全部完成後停在 locked 的 final-acceptance，只能 human", () => {
   let s = mk({ scope: "backend", has_db: false, baseline: "greenfield" });
+  s = ok(done(s, "tech-selector"), "tech-confirm");
   s = ok(ok(done(s, "sa-analyst"), "sa-content-check", "passed", "agent"), "sa-confirm", "confirmed", "agent");
   s = ok(done(s, "flow-analyst"), "db-flow-confirm", "confirmed", "agent");
   s = ok(done(s, "sd-analyst"), "sd-confirm", "confirmed", "agent");
@@ -124,4 +130,42 @@ test("applyRoleDone／applyGateDecision 的錯誤與不可變", () => {
   assert.match(applyGateDecision(reached, "sa-confirm", { decision: "passed", by: "human" }).error, /不接受/);
   must(applyRoleDone(s, "baseline-survey"));
   assert.equal(JSON.stringify(s), snap);
+});
+
+test("tech-selector：greenfield（略過現況盤點）也能啟動；mockup 與 sa 都依賴它，技術確認通過前被擋住", () => {
+  let s = mk({ baseline: "greenfield", scope: "both" });
+  assert.deepEqual(avail(s), ["tech-selector"]);
+  assert.deepEqual(resolveWorkflow(def, buildWhenContext(s)).roles.find((r) => r.id === "tech-selector").dependsOn, []);
+  s = done(s, "tech-selector");
+  assert.deepEqual(avail(s), []);
+  assert.equal(next(s).pendingGates[0].gateId, "tech-confirm");
+  s = ok(s, "tech-confirm");
+  assert.deepEqual(avail(s), ["mockup-designer"]);
+  const back = mk({ baseline: "greenfield", scope: "backend" });
+  assert.deepEqual(resolveWorkflow(def, buildWhenContext(back)).roles.find((r) => r.id === "sa-analyst").dependsOn, ["tech-selector"]);
+});
+
+test("tech-confirm：沿用現有＝程式檢查（waitingFor program-check），其他來源＝等使用者，且不受 confirmMode 覆寫為 auto 影響", () => {
+  const gateOf = (source) => next(done(mk({ baseline: "greenfield", tech_source: source }), "tech-selector")).pendingGates.find((g) => g.gateId === "tech-confirm");
+  const existing = gateOf("existing");
+  assert.equal(existing.waitingFor, "program-check");
+  for (const src of ["change", "new-guided", "new-select"]) {
+    const g = gateOf(src);
+    assert.equal(g.mode, "manual", src);
+    assert.equal(g.waitingFor, undefined, src);
+  }
+  const auto = { ...def, gates: def.gates.map((g) => (g.id === "tech-confirm" ? { ...g, confirmMode: "auto" } : g)) };
+  const s = done(mk({ baseline: "greenfield", tech_source: "new-select" }), "tech-selector");
+  const g = computeSpecFirstNext(s, resolveWorkflow(auto, buildWhenContext(s)), auto.artifacts).pendingGates.find((x) => x.gateId === "tech-confirm");
+  assert.equal(g.mode, "manual");
+});
+
+test("tech-confirm 打回會倒回 tech-selector 與全部下游", () => {
+  let s = mk({ baseline: "greenfield", scope: "backend", has_db: false, tech_source: "new-select" });
+  s = ok(done(s, "tech-selector"), "tech-confirm");
+  s = done(s, "sa-analyst");
+  const r = applyGateDecision(s, "tech-confirm", { decision: "rejected", by: "human", reason: "換方案" });
+  const rewound = must(r);
+  assert.deepEqual(avail(rewound), ["tech-selector"]);
+  assert.equal(rewound.work_item_progress.roles["sa-analyst"], undefined);
 });

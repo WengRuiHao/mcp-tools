@@ -1,4 +1,4 @@
-// 規格先行流程的 11 個角色說明：可取得、含正確產出檔名與已定案規則、長度合理、不含客戶代號。
+// 規格先行流程的 12 個角色說明：可取得、含正確產出檔名與已定案規則、長度合理、不含客戶代號。
 import test from "node:test";
 import assert from "node:assert/strict";
 import { getSpecFirstRolePrompt, SPEC_FIRST_ROLE_IDS } from "../dist/prompts-spec-first.js";
@@ -9,8 +9,8 @@ const fileOf = (id) => wf.artifacts.find((a) => a.id === id).file;
 const j = (...parts) => parts.join("");
 const FORBIDDEN = [j("UEC", "-F"), j("電子", "發票"), j("ofe", "invoice"), j("SC", "SB"), j("上海", "商銀"), j("Alv", "en"), j("高", "銀"), j("sow", "ffd"), j("社家", "署"), j("boke", "ps"), j("KS", "BS")];
 
-test("11 個角色都能取得，且與 builtin 角色 id 完全一致", () => {
-  assert.equal(SPEC_FIRST_ROLE_IDS.length, 11);
+test("12 個角色都能取得，且與 builtin 角色 id 完全一致", () => {
+  assert.equal(SPEC_FIRST_ROLE_IDS.length, 12);
   assert.deepEqual([...SPEC_FIRST_ROLE_IDS].sort(), wf.roles.map((r) => r.id).sort());
   for (const id of SPEC_FIRST_ROLE_IDS) assert.ok(getSpecFirstRolePrompt(id).length > 0, id);
 });
@@ -39,6 +39,13 @@ test("說明含各章節與工作項目工具提示", () => {
     for (const h of ["## 目標", "## 要讀的輸入", "## 要交的產出檔案", "## 做法", "## 不可以做的事", "## 交件之後", "## 可用工具"]) assert.ok(text.includes(h), `${id} 缺 ${h}`);
     assert.ok(text.includes("work_item"), id);
   }
+});
+
+test("tech-selector：四種技術來源的做法、tech-stack.md、確認後鎖定、AI 不可代確認", () => {
+  const t = getSpecFirstRolePrompt("tech-selector");
+  for (const k of ["tech-stack.md", "## 技術來源", "## 技術棧", "## 選擇理由", "## 候選方案", "## 目標技術", "existing", "change", "new-guided", "new-select", "沿用現有", "換技術", "全新有規範", "全新待選"]) assert.ok(t.includes(k), k);
+  for (const k of ["2～3 組", "優缺點", "學習與維運成本", "與現有專案相容性", "技術確認", "鎖定", "AI 不可代確認", "不可自行換語言"]) assert.ok(t.includes(k), k);
+  assert.ok(t.includes("不可修改任何程式碼"));
 });
 
 test("mockup-designer：只畫 mockup、放 sa-mockup/、不寫規格、等使用者確認", () => {

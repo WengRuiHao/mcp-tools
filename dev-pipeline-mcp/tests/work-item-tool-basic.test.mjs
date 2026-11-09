@@ -36,6 +36,9 @@ test("create：缺欄位列出全部缺項；projectDir 不存在回 isError", a
 
 test("get：白話摘要說明下一步與卡住的關卡（等使用者／AI 審查）", async () => {
   const { id, dir } = await env.create();
+  const g0 = await env.call({ action: "get", workItemId: id });
+  assert.equal(g0.json.nextRoles[0].roleId, "tech-selector");
+  await runUntil(env, id, dir, "mockup-designer");
   const g1 = await env.call({ action: "get", workItemId: id });
   assert.equal(g1.json.nextRoles[0].roleId, "mockup-designer");
   assert.deepEqual(g1.json.nextRoles[0].files, ["sa-mockup/"]);

@@ -60,7 +60,9 @@ test("optional 角色可略過：greenfield 不啟用盤點，略過後依賴仍
   }
   const green = resolveWorkflow(d, { baseline: "greenfield" });
   assert.ok(!ids(green.roles).includes("baseline-survey"));
-  assert.deepEqual(green.roles.find((r) => r.id === "sa-analyst").dependsOn, []);
+  assert.deepEqual(green.roles.find((r) => r.id === "sa-analyst").dependsOn, ["tech-selector"]);
+  assert.deepEqual(green.roles.find((r) => r.id === "tech-selector").dependsOn, [], "baseline-survey 被略過時 tech-selector 仍能啟動");
+  assert.notEqual(d.roles.find((r) => r.id === "tech-selector").optional, true, "tech-selector 不是 optional");
   const m = mergeProjectOverride(d, { schemaVersion: 1, roles: { "db-designer": { optional: true } } });
   assert.equal(m.ok, true);
 });
@@ -77,7 +79,7 @@ test("sa 內容關卡：mockup 截圖檢查存在，排在 sa 確認之前，且
   assert.ok(gi("sa-content-check") < gi("sa-confirm"));
   const confirm = d.gates[gi("sa-confirm")];
   assert.deepEqual([confirm.type, confirm.confirmMode, confirm.after], ["confirmation", "auto", "sa-analyst"]);
-  assert.equal(d.gates.length, 11);
+  assert.equal(d.gates.length, 12);
   assert.ok(d.artifacts.find((a) => a.id === "sa").attachments.includes("sa-images/"));
 });
 
@@ -94,7 +96,7 @@ test("resolve 後 sa-content-check 仍在，stage 順序不受內容關卡影響
   const d = buildSpecFirstWorkflow();
   const r = resolveWorkflow(d, ALL_SCOPE);
   assert.ok(r.gates.some((g) => g.id === "sa-content-check"));
-  assert.equal(ids(r.roles).length, 11);
+  assert.equal(ids(r.roles).length, 12);
 });
 
 test("sa-content-check 描述：每個功能標題引用 sa-images/、純後端除外、取自已確認 mockup，check id 不變", () => {
@@ -108,7 +110,7 @@ test("sa-content-check 描述：每個功能標題引用 sa-images/、純後端�
 test("mockup-designer：optional、hasFrontend==true、位於 baseline-survey 之後 sa-analyst 之前，產出 mockup", () => {
   const d = buildSpecFirstWorkflow();
   const m = d.roles.find((r) => r.id === "mockup-designer");
-  assert.deepEqual([m.optional, m.when, m.dependsOn, m.outputs], [true, "hasFrontend==true", ["baseline-survey"], ["mockup"]]);
+  assert.deepEqual([m.optional, m.when, m.dependsOn, m.outputs], [true, "hasFrontend==true", ["baseline-survey", "tech-selector"], ["mockup"]]);
   assert.ok(d.roles.find((r) => r.id === "sa-analyst").dependsOn.includes("mockup-designer"));
   assert.deepEqual(d.artifacts.find((a) => a.id === "mockup"), { id: "mockup", file: "sa-mockup/", kind: "html" });
   const order = ids(resolveWorkflow(d, ALL_SCOPE).roles);
@@ -132,7 +134,7 @@ test("範圍條件：hasFrontend／hasBackend／hasDb 決定角色是否出現�
   const pureBackend = resolveWorkflow(d, { baseline: "greenfield", hasFrontend: "false", hasBackend: "true", hasDb: "false" });
   const got = ids(pureBackend.roles);
   for (const gone of ["mockup-designer", "frontend-engineer", "db-designer", "baseline-survey"]) assert.ok(!got.includes(gone), gone);
-  assert.deepEqual(pureBackend.roles.find((r) => r.id === "sa-analyst").dependsOn, []);
+  assert.deepEqual(pureBackend.roles.find((r) => r.id === "sa-analyst").dependsOn, ["tech-selector"]);
   assert.deepEqual(pureBackend.roles.find((r) => r.id === "flow-analyst").dependsOn, ["sa-analyst"]);
   assert.deepEqual(pureBackend.roles.find((r) => r.id === "verifier").dependsOn, ["backend-engineer"]);
   assert.ok(!pureBackend.gates.some((g) => g.id === "mockup-confirm"));
@@ -199,4 +201,20 @@ test("asana-ticket builtin 不受影響（無 mockup、when key 不含範圍衍�
   assert.ok(!a.roles.some((r) => r.id === "mockup-designer"));
   assert.ok(!a.roles.some((r) => /^has/.test(r.when ?? "")));
   assert.ok(!a.artifacts.some((x) => x.id === "mockup"));
+});
+
+test("tech-selector／tech-stack／tech-confirm：定義、依賴、關卡型別", () => {
+  const d = buildSpecFirstWorkflow();
+  assert.deepEqual(validateWorkflow(d), []);
+  const t = d.roles.find((r) => r.id === "tech-selector");
+  assert.deepEqual([t.dependsOn, t.outputs, t.when], [["baseline-survey"], ["tech-stack"], undefined]);
+  for (const id of ["mockup-designer", "sa-analyst"]) assert.ok(d.roles.find((r) => r.id === id).dependsOn.includes("tech-selector"), id);
+  for (const id of ["mockup-designer", "sa-analyst", "db-designer", "sd-analyst", "spec-verifier", "frontend-engineer", "backend-engineer", "verifier", "tester"]) {
+    assert.ok(d.roles.find((r) => r.id === id).inputs.includes("tech-stack"), `${id} 輸入含 tech-stack`);
+  }
+  assert.deepEqual(d.artifacts.find((a) => a.id === "tech-stack"), { id: "tech-stack", file: "tech-stack.md", kind: "markdown" });
+  const g = d.gates.find((x) => x.id === "tech-confirm");
+  assert.deepEqual([g.type, g.after, g.confirmMode, Boolean(g.locked)], ["confirmation", "tech-selector", "manual", false]);
+  const order = ids(resolveWorkflow(d, ALL_SCOPE).roles);
+  assert.ok(order.indexOf("baseline-survey") < order.indexOf("tech-selector") && order.indexOf("tech-selector") < order.indexOf("mockup-designer"));
 });

@@ -1,11 +1,12 @@
 import { renderRolePrompt, type RoleSections, type SpecFirstPromptOptions } from "./prompts-spec-first/common.js";
 import { BASELINE_SURVEY, MOCKUP_DESIGNER } from "./prompts-spec-first/survey-design.js";
+import { TECH_SELECTOR } from "./prompts-spec-first/tech-select.js";
 import { DB_DESIGNER, FLOW_ANALYST, SA_ANALYST } from "./prompts-spec-first/sa-db-flow.js";
 import { SD_ANALYST, SPEC_VERIFIER } from "./prompts-spec-first/sd-verify-spec.js";
 import { BACKEND_ENGINEER, FRONTEND_ENGINEER, TESTER, VERIFIER } from "./prompts-spec-first/implement-test.js";
 
 /**
- * 規格先行（spec-first）內建流程 11 個角色的說明。
+ * 規格先行（spec-first）內建流程 12 個角色的說明。
  * 與 prompts.ts（Asana 流程的 5 個角色）完全分開；get_role_prompt 不經過這裡，由 work_item 工具接上。
  */
 
@@ -13,6 +14,7 @@ export type { SpecFirstPromptOptions };
 
 const ROLE_SECTIONS: Readonly<Record<string, RoleSections>> = {
   "baseline-survey": BASELINE_SURVEY,
+  "tech-selector": TECH_SELECTOR,
   "mockup-designer": MOCKUP_DESIGNER,
   "sa-analyst": SA_ANALYST,
   "db-designer": DB_DESIGNER,

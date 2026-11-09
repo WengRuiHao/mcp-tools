@@ -31,7 +31,8 @@ test("spec-first 順序：new 開頭、spec-verifier 在 sd-analyst 後且在前
   assert.equal(o[o.length - 1], "tester");
   assert.ok(i("baseline-survey") > 0, "optional 角色保留");
   assert.ok(i("baseline-survey") < i("mockup-designer") && i("mockup-designer") < i("sa-analyst"), "mockup-designer 在 baseline-survey 之後、sa-analyst 之前");
-  assert.equal(o.length, 12);
+  assert.ok(i("baseline-survey") < i("tech-selector") && i("tech-selector") < i("mockup-designer"), "tech-selector 在 baseline-survey 之後、mockup-designer 之前");
+  assert.equal(o.length, 13);
 });
 
 test("不含重複", () => {

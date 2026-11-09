@@ -37,6 +37,7 @@ export interface FinalSummaryInput {
 
 const GATE_LABELS: Readonly<Record<string, string>> = {
   "impact-content": "影響分析內容檢查",
+  "tech-confirm": "技術確認",
   "mockup-confirm": "mockup 確認",
   "sa-content-check": "SA 內容檢查",
   "sa-confirm": "SA 確認",

@@ -27,6 +27,7 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
     artifacts: [
       { id: "baseline", file: "baseline.md", kind: "markdown" },
       { id: "impact", file: "impact.md", kind: "markdown" },
+      { id: "tech-stack", file: "tech-stack.md", kind: "markdown" },
       { id: "mockup", file: "sa-mockup/", kind: "html" },
       { id: "sa", file: "01-sa.md", kind: "markdown", attachments: ["sa-images/"] },
       { id: "db", file: "02-db.sql", kind: "sql", attachments: ["02-db.md"] },
@@ -41,9 +42,15 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
     roles: [
       { id: "baseline-survey", promptRef: "baseline-survey", dependsOn: [], inputs: [], outputs: ["baseline", "impact"], optional: true, when: "baseline==brownfield" },
       {
+        id: "tech-selector",
+        promptRef: "tech-selector",
+        dependsOn: ["baseline-survey"], inputs: ["baseline", "impact"], outputs: ["tech-stack"],
+        roleNotes: "依「技術來源」決定技術棧並寫 tech-stack.md：沿用現有只記錄現況盤點查到的技術棧（程式自動記錄確認）；換技術、全新有規範、全新待選都要等使用者確認技術棧，確認後鎖定，後面角色不可自行換語言或框架。",
+      },
+      {
         id: "mockup-designer",
         promptRef: "mockup-designer",
-        dependsOn: ["baseline-survey"], inputs: ["impact"], outputs: ["mockup"],
+        dependsOn: ["baseline-survey", "tech-selector"], inputs: ["impact", "tech-stack"], outputs: ["mockup"],
         optional: true,
         when: "hasFrontend==true",
         roleNotes: "只負責畫 mockup：產出能在瀏覽器開啟的檔案（例如 HTML），放 sa-mockup/。既有系統以現有畫面為底，標出新增／修改的部分。畫完先等使用者確認畫面方向，確認後才進 SA 分析師。",
@@ -51,28 +58,29 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
       {
         id: "sa-analyst",
         promptRef: "sa-analyst",
-        dependsOn: ["baseline-survey", "mockup-designer"], inputs: ["impact", "mockup"], outputs: ["sa"],
+        dependsOn: ["baseline-survey", "tech-selector", "mockup-designer"], inputs: ["impact", "tech-stack", "mockup"], outputs: ["sa"],
         roleNotes:
           "規格是給客戶看的，程式未開發前前端畫面只能靠 mockup 截圖：依已確認的 mockup（sa-mockup/）分析需求，從 mockup 截圖，每個前端功能條目附對應截圖，圖檔放 sa-images/ 並在規格中引用；純後端條目不需截圖。定稿後圖片不換成實際系統畫面。",
       },
-      { id: "db-designer", promptRef: "db-designer", dependsOn: ["sa-analyst"], inputs: ["sa"], outputs: ["db"], optional: true, when: "hasDb==true" },
+      { id: "db-designer", promptRef: "db-designer", dependsOn: ["sa-analyst"], inputs: ["sa", "tech-stack"], outputs: ["db"], optional: true, when: "hasDb==true" },
       { id: "flow-analyst", promptRef: "flow-analyst", dependsOn: ["sa-analyst", "db-designer"], inputs: ["sa", "db"], outputs: ["flow"] },
-      { id: "sd-analyst", promptRef: "sd-analyst", dependsOn: ["sa-analyst", "flow-analyst"], inputs: ["sa", "db", "flow"], outputs: ["sd"] },
+      { id: "sd-analyst", promptRef: "sd-analyst", dependsOn: ["sa-analyst", "flow-analyst"], inputs: ["sa", "db", "flow", "tech-stack"], outputs: ["sd"] },
       {
         id: "spec-verifier",
         promptRef: "spec-verifier",
         dependsOn: ["sa-analyst", "db-designer", "flow-analyst", "sd-analyst"],
-        inputs: ["sa", "db", "flow", "sd", "impact"],
+        inputs: ["sa", "db", "flow", "sd", "impact", "tech-stack"],
         outputs: ["spec-check"],
         roleNotes: "只看規格、不看程式碼：驗證 SA 與 SD 能串起來（雙向可追溯、欄位／型別／流程與 DB 一致、新增／修改／不動與影響分析一致）。另須檢查每個前端功能條目都有 mockup 截圖（sa-images/）且圖與功能對得上，純後端條目除外。",
       },
-      { id: "frontend-engineer", promptRef: "frontend-engineer", dependsOn: ["spec-verifier"], parallelWith: ["backend-engineer"], inputs: ["sa", "spec-check"], outputs: ["impl-fe"], optional: true, when: "hasFrontend==true" },
-      { id: "backend-engineer", promptRef: "backend-engineer", dependsOn: ["spec-verifier"], parallelWith: ["frontend-engineer"], inputs: ["sd", "spec-check"], outputs: ["impl-be"], optional: true, when: "hasBackend==true" },
-      { id: "verifier", promptRef: "verifier", dependsOn: ["frontend-engineer", "backend-engineer"], inputs: ["sa", "sd", "impl-fe", "impl-be"], outputs: ["verify"] },
-      { id: "tester", promptRef: "tester", dependsOn: ["verifier"], inputs: ["impl-fe", "impl-be", "verify"], outputs: ["test"] },
+      { id: "frontend-engineer", promptRef: "frontend-engineer", dependsOn: ["spec-verifier"], parallelWith: ["backend-engineer"], inputs: ["sa", "spec-check", "tech-stack"], outputs: ["impl-fe"], optional: true, when: "hasFrontend==true" },
+      { id: "backend-engineer", promptRef: "backend-engineer", dependsOn: ["spec-verifier"], parallelWith: ["frontend-engineer"], inputs: ["sd", "spec-check", "tech-stack"], outputs: ["impl-be"], optional: true, when: "hasBackend==true" },
+      { id: "verifier", promptRef: "verifier", dependsOn: ["frontend-engineer", "backend-engineer"], inputs: ["sa", "sd", "impl-fe", "impl-be", "tech-stack"], outputs: ["verify"] },
+      { id: "tester", promptRef: "tester", dependsOn: ["verifier"], inputs: ["impl-fe", "impl-be", "verify", "tech-stack"], outputs: ["test"] },
     ],
     gates: [
       { id: "impact-content", after: "baseline-survey", type: "content", confirmMode: "auto", checks: [] },
+      { id: "tech-confirm", after: "tech-selector", type: "confirmation", confirmMode: "manual" },
       { id: "mockup-confirm", after: "mockup-designer", type: "confirmation", confirmMode: "manual" },
       {
         id: "sa-content-check",

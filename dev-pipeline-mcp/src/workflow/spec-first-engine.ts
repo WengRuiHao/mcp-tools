@@ -1,4 +1,5 @@
 import type { TicketStatus } from "../pipeline-store.js";
+import { TECH_CONFIRM_GATE } from "../work-item-sources.js";
 import { CONSECUTIVE_FAIL_LIMIT } from "./enforce.js";
 import type { ResolvedWorkflow } from "./resolve.js";
 import type { ArtifactDef, GateDef, HardStopId } from "./schema.js";
@@ -60,11 +61,15 @@ function isAvailable(role: ResolvedWorkflow["roles"][number], resolved: Resolved
 /** content／evidence 關卡除非被專案 flow.json 覆寫成 manual（解析結果為 auto 才算），一律由程式檢查。 */
 export const isProgramCheckGate = (type: GateDef["type"], mode: "manual" | "auto"): boolean => (type === "content" || type === "evidence") && mode === "auto";
 
+/** 技術確認：技術來源為沿用現有時由程式自動記錄（不需確認）；其他來源一律等使用者，不受專案 confirmMode 覆寫影響。 */
+export const isTechConfirmAuto = (gateId: string, status: Pick<TicketStatus, "tech_source">): boolean => gateId === TECH_CONFIRM_GATE && status.tech_source === "existing";
+
 function describeGate(g: ResolvedWorkflow["gates"][number], status: TicketStatus): PendingGate {
   const failCount = status.consecutive_fail_count;
-  const programCheck = !g.locked && isProgramCheckGate(g.type, g.effectiveConfirm.mode);
+  const techGate = g.id === TECH_CONFIRM_GATE;
+  const programCheck = !g.locked && (techGate ? isTechConfirmAuto(g.id, status) : isProgramCheckGate(g.type, g.effectiveConfirm.mode));
   const hardStopHit = !g.locked && !programCheck && !(failCount < CONSECUTIVE_FAIL_LIMIT);
-  const base = hardStopHit ? { mode: "manual" as const, reason: "hard-stop", hardStop: "consecutive-fail-3" as const } : { mode: g.effectiveConfirm.mode, reason: g.effectiveConfirm.reason };
+  const base = techGate && !programCheck ? { mode: "manual" as const, reason: "tech-source" } : hardStopHit ? { mode: "manual" as const, reason: "hard-stop", hardStop: "consecutive-fail-3" as const } : { mode: g.effectiveConfirm.mode, reason: g.effectiveConfirm.reason };
   const last = status.work_item_progress?.gates[g.id];
   const rejected = last && (last.decision === "rejected" || last.decision === "failed");
   return {

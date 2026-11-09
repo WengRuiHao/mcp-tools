@@ -11,10 +11,11 @@ const done = (id, roleId) => env.call({ action: "done", workItemId: id, roleId }
 
 test("done：缺產出檔不標記完成、補齊後成功並回傳下一步", async () => {
   const { id, dir } = await env.create();
+  await runUntil(env, id, dir, "mockup-designer");
   const bad = await done(id, "mockup-designer");
   assert.equal(bad.isError, true);
   assert.match(bad.json.message, /sa-mockup\//);
-  assert.deepEqual((await env.call({ action: "get", workItemId: id })).json.doneRoles, []);
+  assert.deepEqual((await env.call({ action: "get", workItemId: id })).json.doneRoles, ["tech-selector"]);
   await fulfil(dir, "mockup-designer");
   const ok = await done(id, "mockup-designer");
   assert.equal(ok.isError, false);

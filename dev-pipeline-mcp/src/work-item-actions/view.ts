@@ -9,6 +9,7 @@ import { loadEffectiveDef, type WorkItemContext } from "./context.js";
 
 const ROLE_LABELS: Readonly<Record<string, string>> = {
   "baseline-survey": "現況盤點／影響分析師",
+  "tech-selector": "技術選型師",
   "mockup-designer": "mockup 設計師",
   "sa-analyst": "SA 分析師",
   "db-designer": "DB 設計師",

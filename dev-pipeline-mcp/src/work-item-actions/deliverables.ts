@@ -4,6 +4,7 @@ import type { WorkflowDefinition } from "../workflow/schema.js";
 import { checkMermaidFile } from "../workflow/mermaid-check.js";
 import { checkImpactReuseList, checkReuseRecord, checkSdReuseDesign } from "../workflow/reuse-record-check.js";
 import { checkSaImages, SA_FILE_NAME } from "../workflow/sa-image-check.js";
+import { checkBaselineTechStack, checkTechStack, TECH_STACK_FILE, BASELINE_FILE } from "../workflow/tech-stack-check.js";
 import { checkTestEvidence, TEST_FILE_NAME } from "../workflow/test-evidence-check.js";
 
 /** done 的交件檢查：回傳問題清單（空陣列＝合格）。檔名全部來自流程定義，不接受使用者輸入。 */
@@ -90,7 +91,29 @@ async function checkReuse(dir: string, roleId: string, def: WorkflowDefinition):
   }
 }
 
-export async function checkDeliverables(dir: string, roleId: string, def: WorkflowDefinition): Promise<string[]> {
+async function readOptional(file: string): Promise<string | undefined> {
+  try {
+    return await readFile(file, "utf-8");
+  } catch {
+    return undefined;
+  }
+}
+
+/** 現況盤點：baseline.md 必須有「## 現有技術棧」；技術選型：tech-stack.md 的結構與內容檢查（缺檔由一般交件檢查回報）。 */
+async function checkTech(dir: string, roleId: string, techSource: string | undefined): Promise<string[]> {
+  if (roleId === "baseline-survey") {
+    const text = await readOptional(path.join(dir, BASELINE_FILE));
+    return text === undefined ? [] : checkBaselineTechStack(text, BASELINE_FILE);
+  }
+  const text = await readOptional(path.join(dir, TECH_STACK_FILE));
+  return text === undefined ? [] : checkTechStack(text, { techSource, baselineText: await readOptional(path.join(dir, BASELINE_FILE)) });
+}
+
+export interface DeliverableContext {
+  techSource?: string | undefined;
+}
+
+export async function checkDeliverables(dir: string, roleId: string, def: WorkflowDefinition, ctx: DeliverableContext = {}): Promise<string[]> {
   const role = def.roles.find((r) => r.id === roleId);
   if (!role) return [`找不到角色：${roleId}`];
   const problems: string[] = [];
@@ -112,5 +135,6 @@ export async function checkDeliverables(dir: string, roleId: string, def: Workfl
   if (roleId === "flow-analyst") problems.push(...checkMermaidFile(dir).map((v) => `流程圖（flow.mmd）格式檢查未通過：${v}`));
   if (roleId === "tester") problems.push(...(await checkTest(dir)));
   problems.push(...(await checkReuse(dir, roleId, def)));
+  if (roleId === "baseline-survey" || roleId === "tech-selector") problems.push(...(await checkTech(dir, roleId, ctx.techSource)));
   return problems;
 }
