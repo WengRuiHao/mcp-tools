@@ -97,19 +97,20 @@ ul{margin:6px 0;padding-left:22px}
   <li>新角色的說明（prompt）：現況盤點、mockup 設計師、SA、DB 設計師、流程分析師、SD 分析師、規格驗證師、前端、後端，加上這個流程版本的驗證師與測試工程師。</li>
   <li>SA 截圖的自動檢查（現在只是文字描述，程式不會查）。</li>
   <li>流程圖要附 PNG 圖片（你已決定強制），加上測試截圖證據；圖片由 AI 自己拍再交給 MCP（基本），或由 MCP 內建產圖功能自動產生（選用，需要多裝一個叫 Playwright 的套件）。</li>
+  <li>最終驗收時產生一次「整理」：這個工作項目走過哪些關卡、各關卡是你確認還是 AI 審查、遇過哪些硬停點、有哪些產出物與截圖，彙整成一份報告，取代即時的待處理報告。</li>
   <li>建立工作項目時填「範圍」（前端、後端或兩者、要不要 DB），程式依範圍略過不需要的角色；SA 確認前可以改，確認後鎖定。</li>
   <li>補上前面階段遺留的 9 個缺口（見第四節）。</li>
 </ul>
-<h3>建議延後或砍掉</h3>
+<h3>延後的項目與你的決定</h3>
 <table>
-<tr><th>項目</th><th>理由</th></tr>
-<tr><td>模組、系統層級與子項目展開</td><td>需求量大，先把「單一功能」這一層跑通。</td></tr>
-<tr><td>手動項目出現在待處理事項的網頁報告</td><td>那份報告綁 Asana。沒有 Asana 專案名稱時程式會直接略過，不會壞。</td></tr>
-<tr><td>讓你自訂整套新流程</td><td>目前設定檔本來就只能「覆寫設定」，不能定義新流程。</td></tr>
-<tr><td>長期維護的現況基線文件、自動跑資料庫差異比對</td><td>先手動，需要時再做。</td></tr>
+<tr><th>項目</th><th>你的決定</th></tr>
+<tr><td>模組、系統層級與子項目展開</td><td><span class="tag done">已決定</span> 階段 4 做完後，延續成<b>階段 5</b> 接著做。階段 4 先把「單一功能」這一層跑通。</td></tr>
+<tr><td>手動項目出現在待處理事項的網頁報告</td><td><span class="tag done">已決定</span> 不做即時報告；改成在<b>最終驗收時做一次整理</b>（見步驟 S8c）。</td></tr>
+<tr><td>讓你自訂整套新流程</td><td><span class="tag todo">暫緩</span> 目前設定檔只能「覆寫設定」，不能定義新流程；需要不同流程時，請我新增一套內建流程。</td></tr>
+<tr><td>長期維護的現況基線文件、自動跑資料庫差異比對</td><td><span class="tag todo">暫緩</span> 先手動盤點，用過之後再決定怎麼自動化最有用。</td></tr>
 </table>
 
-<h2 id="steps">三、切成 11 個步驟（每步獨立一個 commit，出問題就退回那一個）</h2>
+<h2 id="steps">三、切成 12 個步驟（每步獨立一個 commit，出問題就退回那一個）</h2>
 <p>每一步都用同一套方法證明 Asana 沒變：黃金快照逐字相同、整套測試通過、新增的「工具介面快照」不變。</p>
 <table>
 <tr><th>步驟</th><th>白話目的</th><th>主要改動</th><th>風險</th></tr>
@@ -123,6 +124,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>S7</td><td>新角色說明（prompt），含 mockup 設計師與縮小範圍後的 SA 分析師</td><td>新增 <code>prompts-spec-first.ts</code></td><td><span class="tag done">低</span>，但內容要你讀過</td></tr>
 <tr><td>S8</td><td>流程圖文字檔的基本格式檢查，並且<b>必須附上對應的 PNG 圖片</b>；測試截圖放 <code>evidence/</code> 且要在 <code>test.md</code> 被引用</td><td>S5、S6 的延伸（不改現有測試證據工具的參數）</td><td><span class="tag wip">中</span></td></tr>
 <tr><td>S8b</td><td>選用的內建產圖功能：把 mockup 的 HTML 和 Mermaid 流程圖自動轉成 PNG，不依賴任何 AI 的瀏覽器工具；沒裝 Playwright 就退回「由 AI 自己拍再附上」</td><td>新增獨立模組與設定（選用相依套件，不影響沒裝的人）</td><td><span class="tag wip">中</span></td></tr>
+<tr><td>S8c</td><td>最終驗收整理報告：最終驗收確認時，一併彙整整條流程的關卡、確認者（你或 AI 審查）、硬停點、產出物與截圖，存成一份報告</td><td>新增整理模組，接在 <code>work_item</code> 的最終驗收確認動作</td><td><span class="tag done">低</span>～<span class="tag wip">中</span></td></tr>
 <tr><td>S9</td><td>更新文件，並拿暫存專案從頭走到尾實際跑一次</td><td>進度頁、<code>TOOLS.md</code></td><td>建議你在場</td></tr>
 </table>
 <p class="note">平行規則：S0 一定最先；S1、S2、S3 改不同檔案可以分頭寫；S4 等 S2、S3；S5 等 S1、S4；S6、S7 可以平行；S8、S9 最後。但「建置與跑測試」一律輪流做，因為共用同一個輸出資料夾，同時做會互相干擾（前面已經遇過）。</p>
@@ -150,7 +152,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>和 Asana 的關係</td><td>與 <code>.asana-pipeline/</code> 分開放，Asana 的搬移、列表、報告功能碰不到它。索引檔共用，所以現有的查狀態、讀產出物、記錄測試證據等工具，只要帶 <code>workItemId</code> 就能直接用。</td></tr>
 </table>
 
-<h2 id="decide">六、你已做的 8 項決定</h2>
+<h2 id="decide">六、你已做的 9 項決定</h2>
 <table>
 <tr><th>#</th><th>問題</th><th>planner 推薦</th></tr>
 <tr><td>1</td><td>工具形式：新增一個 <code>work_item</code> 工具（工具數變 43，Asana 工具完全不動），還是改現有工具？</td><td><span class="tag done">已決定</span> 新增 <code>work_item</code> 工具</td></tr>
@@ -161,6 +163,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>6</td><td>mockup 和測試截圖用哪個瀏覽器工具拍？</td><td><span class="tag done">已決定</span> 不綁死任何 AI 的工具：基本是「AI 自己截圖再交給 MCP」，另做選用的內建產圖功能（Playwright），讓這個 MCP 能套到其他 AI</td></tr>
 <tr><td>7</td><td>三道確認關卡（SA、DB 與流程圖、SD）預設要不要等你？</td><td><span class="tag done">你已決定</span> SA 預設等你確認；DB 與流程圖、SD 預設由 AI 派獨立審查員審查、程式裁決；硬停點與最終驗收永遠停下等你</td></tr>
 <tr><td>8</td><td>SA 要不要拆成「mockup 設計師」與「SA 分析師」，並加 mockup 確認關卡？</td><td><span class="tag done">你已決定</span> 要拆；mockup 確認預設等你確認；SA 確認關卡保留</td></tr>
+<tr><td>9</td><td>四個延後項目怎麼處理？</td><td><span class="tag done">已決定</span> 模組／系統層級展開延續成階段 5；待處理報告改成最終驗收時整理一次；自訂整套流程與長期基線文件暫緩</td></tr>
 </table>
 
 <h2 id="risk">七、風險與建議的推進順序</h2>
