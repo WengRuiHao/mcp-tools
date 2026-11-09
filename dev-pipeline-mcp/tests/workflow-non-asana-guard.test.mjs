@@ -114,11 +114,24 @@ test("缺省與 asana-ticket 的票：寫入類工具結果逐字相同（守門
   });
 });
 
-test("next-action 三處：非 Asana 回「尚未支援」；Asana／缺省與 computeNextAction 逐字相同", async () => {
-  const nonAsana = await newTicket("spec-first");
+// S4 更新：spec-first 已有推進引擎實作，不再是「尚未支援」，改斷言回引擎結果；
+// 「尚未支援」改由非 Asana 且非 spec-first 的 "other-flow" 驗證。Asana／缺省的逐字相同斷言不變。
+test("next-action 三處：spec-first 回引擎結果、其他非 Asana 回「尚未支援」；Asana／缺省與 computeNextAction 逐字相同", async () => {
+  const specFirst = await newTicket("spec-first");
+  const nonAsana = await newTicket("other-flow");
   const legacy = await newTicket(undefined);
   const asana = await newTicket("asana-ticket");
   await withClient(async (client) => {
+    // 0) spec-first：缺 baseline／scope 時視為既有系統、前後端皆做，第一步是 baseline-survey
+    const sSpec = await callTool(client, "get_ticket_status", { taskGid: specFirst.gid });
+    assert.match(sSpec.json.nextAction.summary, /下一步由 baseline-survey/);
+    assert.doesNotMatch(sSpec.json.nextAction.summary, /尚未支援/);
+    const cSpec = await callTool(client, "record_sasd_check", { taskGid: specFirst.gid, hasSasd: false });
+    assert.match(cSpec.json.nextAction.summary, /下一步由 baseline-survey/);
+    const bSpec = await callTool(client, "get_role_prompt", { role: "analyst", taskGid: specFirst.gid, forSubagent: true });
+    assert.match(bSpec.text, /下一步由 baseline-survey/);
+    assert.doesNotMatch(bSpec.text, /尚未支援/);
+
     // 1) get_ticket_status（ticket-lifecycle-tools）
     const sNon = await callTool(client, "get_ticket_status", { taskGid: nonAsana.gid });
     assert.match(sNon.json.nextAction.summary, /尚未支援/);

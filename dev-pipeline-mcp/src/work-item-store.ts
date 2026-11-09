@@ -124,8 +124,10 @@ export async function createWorkItem(input: CreateWorkItemInput): Promise<Create
   return created;
 }
 
-/** SA 是否已確認：規格確認紀錄為 confirmed，或階段已走過 SA 分析師之後。 */
+/** SA 是否已確認：優先看逐關卡紀錄 sa-confirm；沒有紀錄時沿用近似判斷（規格確認紀錄為 confirmed，或階段已走過 SA 分析師之後）。 */
 export function isSaConfirmed(status: TicketStatus): boolean {
+  const gate = status.work_item_progress?.gates["sa-confirm"];
+  if (gate && (gate.decision === "confirmed" || gate.decision === "passed")) return true;
   if (status.spec_confirmation?.confirmed === true) return true;
   const order = getStageOrder(status.workflow_id, undefined, status.workflow_snapshot);
   const saAt = order.indexOf(SA_ROLE_ID);

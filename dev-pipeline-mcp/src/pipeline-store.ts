@@ -10,6 +10,7 @@ import { CREDENTIAL_PATTERN } from "./sensitive-patterns.js";
 import { getSvnReportData, type SvnReportData, type SvnWorkCopySummary, type WcEntry } from "./svn-workcopy-bridge.js";
 import { resolveSasdConfig } from "./project-registry.js";
 import { getStageOrder, type WorkflowSnapshot } from "./workflow/stage-order.js";
+import type { WorkItemProgress } from "./workflow/work-item-progress.js";
 import { buildSvnEditLink, renderSvnEditSection, type SvnEditLink } from "./svn-edit-link.js";
 
 export interface TicketSummaries {
@@ -88,6 +89,8 @@ export interface TicketStatus {
   has_db?: boolean;
   /** 建立時存下的 workflow 階段順序與角色清單快照，日後內建定義改了不影響進行中的項目。 */
   workflow_snapshot?: WorkflowSnapshot;
+  /** 手動來源逐角色／逐關卡進度（選填，不放進 NEW_STATUS，Asana 票單的 status.json 不會多出這個 key）。 */
+  work_item_progress?: WorkItemProgress;
   stage: "new" | "snapshot" | "project_dir_confirmed" | "analyzed" | "sd_drafted" | "implemented" | "verified" | "tested";
   project_dir: string | null;
   /** 這張票所屬的 Asana 專案「全名稱」（未消毒過的原始字串）。get_ticket_snapshot 時自動記錄，供任何單張票的狀態異動事後局部重建 PENDING_HUMAN_ACTIONS.html 用（見 syncPendingActionsReport/listTicketsUnderProject），不需要呼叫端每次額外傳遞或記得重新呼叫 list_pending_tickets。 */
