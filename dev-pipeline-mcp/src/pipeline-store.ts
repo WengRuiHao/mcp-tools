@@ -87,6 +87,10 @@ export interface TicketStatus {
   scope?: "frontend" | "backend" | "both";
   /** 是否需要 DB 設計；鎖定規則同 scope。 */
   has_db?: boolean;
+  /** 畫面風格來源（mockup 確認前可改）。沿用現有／換新／全新有規範／全新待選；同樣刻意不放進 NEW_STATUS。 */
+  style_source?: "existing" | "redesign" | "new-guided" | "new-select";
+  /** 技術來源（技術確認前可改）。沿用現有／換技術／全新有規範／全新待選；同樣刻意不放進 NEW_STATUS。 */
+  tech_source?: "existing" | "change" | "new-guided" | "new-select";
   /** 建立時存下的 workflow 階段順序與角色清單快照，日後內建定義改了不影響進行中的項目。 */
   workflow_snapshot?: WorkflowSnapshot;
   /** 手動來源逐角色／逐關卡進度（選填，不放進 NEW_STATUS，Asana 票單的 status.json 不會多出這個 key）。 */

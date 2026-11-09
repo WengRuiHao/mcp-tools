@@ -58,3 +58,14 @@ test("專案覆寫：locked、hardStops、dependsOn 等越權欄位被 schema �
     assert.equal(parseProjectFlowOverride(o).ok, false, JSON.stringify(o));
   }
 });
+
+test("專案覆寫：styleGuide／techGuide 合法、過長、空字串被拒、未知欄位仍被拒", () => {
+  assert.equal(parseProjectFlowOverride({ schemaVersion: 1, styleGuide: "主色藍、圓角按鈕", techGuide: "後端 Java 17、前端 Vue 3" }).ok, true);
+  assert.equal(parseProjectFlowOverride({ schemaVersion: 1, styleGuide: "x".repeat(4000) }).ok, true);
+  assert.equal(parseProjectFlowOverride({ schemaVersion: 1, styleGuide: "x".repeat(4001) }).ok, false);
+  assert.equal(parseProjectFlowOverride({ schemaVersion: 1, techGuide: "y".repeat(4001) }).ok, false);
+  assert.equal(parseProjectFlowOverride({ schemaVersion: 1, styleGuide: "" }).ok, false);
+  assert.equal(parseProjectFlowOverride({ schemaVersion: 1, techGuide: "   " }).ok, false);
+  assert.equal(parseProjectFlowOverride({ schemaVersion: 1, styleGuide: 123 }).ok, false);
+  assert.equal(parseProjectFlowOverride({ schemaVersion: 1, styleGuides: "x" }).ok, false);
+});

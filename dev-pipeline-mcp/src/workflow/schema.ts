@@ -103,7 +103,7 @@ export const DupSettingsSchema = z
   .strict();
 
 /**
- * 專案 flow.json 覆寫：只允許 confirmMode、optional、內容類 checks、roleNotes，以及重複偵測設定 dup。
+ * 專案 flow.json 覆寫：只允許 confirmMode、optional、內容類 checks、roleNotes，以及重複偵測設定 dup、畫面風格規範 styleGuide、技術規範 techGuide。
  * strict：其他欄位（locked、hardStops、dependsOn…）一律被 zod 拒絕。
  */
 export const ProjectFlowOverrideSchema = z
@@ -120,6 +120,9 @@ export const ProjectFlowOverrideSchema = z
       .record(z.string(), z.object({ optional: z.boolean().optional(), roleNotes: z.string().optional() }).strict())
       .optional(),
     dup: DupSettingsSchema.optional(),
+    /** 專案自己的畫面風格規範／技術規範（有值才算「有規範」，建立工作項目時全新系統的預設來源依此決定）。 */
+    styleGuide: z.string().trim().min(1).max(4000).optional(),
+    techGuide: z.string().trim().min(1).max(4000).optional(),
   })
   .strict();
 export type ProjectFlowOverride = z.infer<typeof ProjectFlowOverrideSchema>;

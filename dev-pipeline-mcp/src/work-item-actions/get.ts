@@ -1,4 +1,5 @@
 import { isSaConfirmed } from "../work-item-store.js";
+import { isStyleSourceLocked, isTechSourceLocked } from "../work-item-sources.js";
 import { need, okReply, type ToolReply } from "./common.js";
 import { loadWorkItem } from "./context.js";
 import { existingSummaryFile } from "./final-summary-io.js";
@@ -18,6 +19,10 @@ export async function handleGet(a: WorkItemArgs): Promise<ToolReply> {
     baseline: s.baseline,
     scope: s.scope,
     hasDb: s.has_db,
+    styleSource: s.style_source ?? null,
+    styleSourceLocked: isStyleSourceLocked(s),
+    techSource: s.tech_source ?? null,
+    techSourceLocked: isTechSourceLocked(s),
     saConfirmed: isSaConfirmed(s),
     flowOverrideApplied: v.overrideApplied,
     doneRoles: v.next.doneRoles,

@@ -17,6 +17,8 @@ export interface SpecFirstPromptOptions {
   readonly workItemDir?: string;
   /** 專案自訂的角色補充說明（flow.json 的 roleNotes），附在最後。 */
   readonly roleNotes?: string;
+  /** 專案的規範文字（flow.json 的 styleGuide／techGuide），附在專案補充說明之前並加標題。 */
+  readonly projectGuide?: { readonly title: string; readonly text: string };
 }
 
 const SAFETY_BASELINE =
@@ -47,6 +49,8 @@ export function renderRolePrompt(sections: RoleSections, options: SpecFirstPromp
     `## 可用工具\n${bulletList(sections.tools)}`,
   ];
   if (options.workItemDir) parts.push(`## 工作項目目錄\n${options.workItemDir}（所有輸入與產出檔案都在這個目錄底下）`);
+  if (options.projectGuide) parts.push(`## ${options.projectGuide.title}
+${options.projectGuide.text}`);
   if (options.roleNotes) parts.push(`## 專案補充說明\n${options.roleNotes}`);
   return parts.join("\n\n") + "\n";
 }

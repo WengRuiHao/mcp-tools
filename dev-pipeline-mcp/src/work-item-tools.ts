@@ -15,10 +15,10 @@ import { handleWrite } from "./work-item-actions/write.js";
 
 const WORK_ITEM_DESCRIPTION =
   "非 Asana 的「規格先行」工作項目（不靠 Asana，自己建立工作項目並走完 mockup→SA→DB／流程→SD→規格驗證→前後端→驗證→測試→最終驗收）。用 action 分派：\n" +
-  "- create：建立（projectDir、title、requirement、baseline、scope、hasDb），回傳 workItemId 與第一步。\n" +
+  "- create：建立（projectDir、title、requirement、baseline、scope、hasDb；選填 styleSource、techSource、renewal），回傳 workItemId 與第一步。畫面風格來源與技術來源沒給時：既有系統非翻新＝沿用現有；翻新案必須明確給；全新系統有專案規範＝全新有規範、沒有＝全新待選。\n" +
   "- get：下一步誰做、要交哪些檔、卡在哪道關卡（等使用者或 AI 審查）。\n" +
   "- role_prompt：取該角色說明（roleId，附專案 flow.json 的 roleNotes）。\n" +
-  "- set_scope：改 scope／hasDb（SA 確認後鎖定）。\n" +
+  "- set_scope：改 scope／hasDb（SA 確認後鎖定）、styleSource（mockup 確認後鎖定）、techSource（技術確認後鎖定）。\n" +
   "- write：寫入產出檔（filename 限流程定義的產出檔，content 上限 512KB；不會自動完成）。\n" +
   "- attach：把截圖或 mockup 檔存進工作項目（srcPath 絕對路徑、destDir：sa-mockup｜sa-images｜evidence｜flow）。AI 用自己的瀏覽器工具截好圖後用它存放。\n" +
   "- render：選用的內建產圖（kind=html｜mermaid，src、out）；不可用會回 ok:false 與 hint，改走 attach。\n" +

@@ -5,6 +5,7 @@ import { updateJsonFile, writeJsonFileAtomic } from "./atomic-store.js";
 import { createInitialStatus, updateStatus, type TicketStatus } from "./pipeline-store.js";
 import { buildWorkflowSnapshot, getBuiltinWorkflow, getStageOrder } from "./workflow/stage-order.js";
 import type { WhenContext } from "./workflow/validate.js";
+import { applySourcePatch, resolveSources, type SourcePatch } from "./work-item-sources.js";
 
 /** 手動來源（work item）的資料層：編號、目錄、狀態檔與範圍鎖定。不含任何 MCP 工具。 */
 
@@ -19,11 +20,21 @@ export interface CreateWorkItemInput {
   scope: WorkItemScope;
   hasDb: boolean;
   workflow: "spec-first";
+  /** 畫面風格來源與技術來源（選填）；沒給時依 resolveSources 的預設值規則決定。 */
+  styleSource?: string;
+  techSource?: string;
+  /** 是否翻新案（預設 false）；只對既有系統有意義。 */
+  renewal?: boolean;
+  /** 專案設定檔（flow.json）有 styleGuide／techGuide，由呼叫端查好傳入（全新系統的預設值依此決定）。 */
+  hasStyleGuide?: boolean;
+  hasTechGuide?: boolean;
 }
 
 export interface CreatedWorkItem {
   id: string;
   dir: string;
+  styleSource: string;
+  techSource: string;
 }
 
 const BASELINES: readonly string[] = ["greenfield", "brownfield"];
@@ -92,6 +103,7 @@ export async function createWorkItem(input: CreateWorkItemInput): Promise<Create
   validateInput(input);
   const projectDir = path.resolve(input.projectDir);
   await assertDirectoryExists(projectDir);
+  const sources = resolveSources(input);
   const definition = getBuiltinWorkflow(input.workflow);
   if (!definition) throw new Error(`找不到 workflow「${input.workflow}」的內建定義`);
   const snapshot = buildWorkflowSnapshot(definition);
@@ -113,10 +125,12 @@ export async function createWorkItem(input: CreateWorkItemInput): Promise<Create
       baseline: input.baseline,
       scope: input.scope,
       has_db: input.hasDb,
+      style_source: sources.styleSource,
+      tech_source: sources.techSource,
       workflow_snapshot: snapshot,
     });
     await writeJsonFileAtomic(path.join(dir, "status.json"), status);
-    created = { id, dir };
+    created = { id, dir, styleSource: sources.styleSource, techSource: sources.techSource };
     return { ...index, [id]: dir };
   });
 
@@ -134,16 +148,20 @@ export function isSaConfirmed(status: TicketStatus): boolean {
   return saAt >= 0 && order.indexOf(status.stage) > saAt;
 }
 
-/** 修改範圍與 DB 設定；SA 確認後一律拒絕（鎖定）。回傳更新後的狀態。 */
-export async function updateWorkItemScope(id: string, patch: { scope?: WorkItemScope; hasDb?: boolean }): Promise<TicketStatus> {
-  if (patch.scope === undefined && patch.hasDb === undefined) throw new Error("scope 與 hasDb 至少要給一個");
+/** 修改範圍、DB 設定與兩個來源。scope／hasDb 在 SA 確認後鎖定；styleSource 在 mockup 確認後鎖定；techSource 在技術確認後鎖定。任一欄位被拒絕就全部不寫入。 */
+export async function updateWorkItemScope(id: string, patch: { scope?: WorkItemScope; hasDb?: boolean } & SourcePatch): Promise<TicketStatus> {
+  if (patch.scope === undefined && patch.hasDb === undefined && patch.styleSource === undefined && patch.techSource === undefined) {
+    throw new Error("scope、hasDb、styleSource、techSource 至少要給一個");
+  }
   if (patch.scope !== undefined && !SCOPES.includes(patch.scope)) throw new Error(`scope 只接受 frontend／backend／both：${patch.scope}`);
   if (patch.hasDb !== undefined && typeof patch.hasDb !== "boolean") throw new Error("hasDb 必須是布林值");
   return updateStatus(id, (status) => {
     if (!status.workflow_snapshot) throw new Error(`${id} 不是手動來源工作項目，不能修改範圍`);
-    if (isSaConfirmed(status)) throw new Error(SA_CONFIRM_LOCKED_MESSAGE);
+    if ((patch.scope !== undefined || patch.hasDb !== undefined) && isSaConfirmed(status)) throw new Error(SA_CONFIRM_LOCKED_MESSAGE);
+    const sources = applySourcePatch(status, patch);
     return {
       ...status,
+      ...sources,
       ...(patch.scope !== undefined ? { scope: patch.scope } : {}),
       ...(patch.hasDb !== undefined ? { has_db: patch.hasDb } : {}),
     };

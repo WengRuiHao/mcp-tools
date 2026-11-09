@@ -1,5 +1,6 @@
 import { createWorkItem } from "../work-item-store.js";
 import { WorkItemActionError, errorMessage, need, okReply, type ToolReply } from "./common.js";
+import { loadProjectFlowOverride } from "../workflow/load.js";
 import { loadWorkItem } from "./context.js";
 import type { WorkItemArgs } from "./schema.js";
 import { buildView, nextBlock } from "./view.js";
@@ -8,11 +9,22 @@ export async function handleCreate(a: WorkItemArgs): Promise<ToolReply> {
   const f = need("create", a, ["projectDir", "title", "requirement", "baseline", "scope", "hasDb"]);
   let created;
   try {
-    created = await createWorkItem({ ...f, workflow: "spec-first" });
+    const guides = await loadProjectFlowOverride(f.projectDir).catch((e) => {
+      throw new Error(`專案 flow.json 無法使用：${errorMessage(e)}`);
+    });
+    created = await createWorkItem({
+      ...f,
+      workflow: "spec-first",
+      ...(a.styleSource !== undefined ? { styleSource: a.styleSource } : {}),
+      ...(a.techSource !== undefined ? { techSource: a.techSource } : {}),
+      ...(a.renewal !== undefined ? { renewal: a.renewal } : {}),
+      hasStyleGuide: guides?.styleGuide !== undefined,
+      hasTechGuide: guides?.techGuide !== undefined,
+    });
   } catch (e) {
     throw new WorkItemActionError(`建立工作項目失敗：${errorMessage(e)}`);
   }
-  const base = { workItemId: created.id, dir: created.dir, baseline: f.baseline, scope: f.scope, hasDb: f.hasDb };
+  const base = { workItemId: created.id, dir: created.dir, baseline: f.baseline, scope: f.scope, hasDb: f.hasDb, styleSource: created.styleSource, techSource: created.techSource };
   try {
     const v = await buildView(await loadWorkItem(created.id));
     return okReply({ ...base, ...nextBlock(v) });

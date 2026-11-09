@@ -1727,8 +1727,8 @@
  },
  "toolCount": 43,
  "work_item": {
-  "descriptionLength": 893,
-  "descriptionSha256": "0cb168b5a818d05edbd56a734a5f14024c7d72b893cfdc60af9aeb7f72023460",
+  "descriptionLength": 1034,
+  "descriptionSha256": "c957d23c54d4daecbb7c62a5b415485a25676855a88649a5dad61bf0b0ad9568",
   "inputSchema": {
    "$schema": "http://json-schema.org/draft-07/schema#",
    "additionalProperties": false,
@@ -1837,6 +1837,11 @@
      "descriptionSha256": "a6800a13b355876057a0eb25035880738e772785bfe67cbb356ceb75f768b7c2",
      "type": "string"
     },
+    "renewal": {
+     "descriptionLength": 69,
+     "descriptionSha256": "b2c2eb061c384203ae9a6f70072d59ff7f47a48e7f4ae2349744ae10b00eb204",
+     "type": "boolean"
+    },
     "requirement": {
      "descriptionLength": 11,
      "descriptionSha256": "9a0d3cc44fd21858afcbb80d47e902ef7c27c656bc46083de11c06269d3f578f",
@@ -1904,6 +1909,28 @@
      "descriptionSha256": "88e73c9b93f3711646b1f4143013f2317ffbfd30e16a644771520bf1930b3834",
      "type": "string"
     },
+    "styleSource": {
+     "descriptionLength": 131,
+     "descriptionSha256": "be3fbd320edd3e88dac8f72ebce1a6ec3cf3a2167a2cadc6327550747bc57516",
+     "enum": [
+      "existing",
+      "redesign",
+      "new-guided",
+      "new-select"
+     ],
+     "type": "string"
+    },
+    "techSource": {
+     "descriptionLength": 104,
+     "descriptionSha256": "f50ad05e45878a7741a9c2daf9bd96f77d9e307fd826ca76af88b779b6e45007",
+     "enum": [
+      "existing",
+      "change",
+      "new-guided",
+      "new-select"
+     ],
+     "type": "string"
+    },
     "title": {
      "descriptionLength": 9,
      "descriptionSha256": "b743241ce84381809033659d1dd61328c72244746214ea1ae34567b188fadd1d",
@@ -1920,7 +1947,7 @@
    ],
    "type": "object"
   },
-  "paramCount": 24
+  "paramCount": 27
  },
  "write_project_file": {
   "descriptionLength": 352,
