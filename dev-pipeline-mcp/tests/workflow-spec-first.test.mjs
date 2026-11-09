@@ -31,10 +31,10 @@ test("spec-verifier 在 SD 之後、前後端之前，前後端依賴它", () =>
   assert.ok(d.roles.find((r) => r.id === "spec-verifier").dependsOn.includes("sd-analyst"));
 });
 
-test("規格驗證關卡：非 locked、inherit，FAIL 的 rootCause 目標都是存在的角色", () => {
+test("規格驗證關卡：非 locked、預設 auto，FAIL 的 rootCause 目標都是存在的角色", () => {
   const d = buildSpecFirstWorkflow();
   const g = d.gates.find((x) => x.after === "spec-verifier");
-  assert.deepEqual([g.type, g.confirmMode, Boolean(g.locked)], ["verdict", "inherit", false]);
+  assert.deepEqual([g.type, g.confirmMode, Boolean(g.locked)], ["verdict", "auto", false]);
   assert.deepEqual(Object.keys(g.routeOnFail).sort(), ["db", "flow", "sa", "sd"]);
   assert.equal(g.routeOnFail.flow, "flow-analyst");
   const roleIds = new Set(ids(d.roles));
@@ -65,7 +65,7 @@ test("optional 角色可略過：greenfield 不啟用盤點，略過後依賴仍
   assert.equal(m.ok, true);
 });
 
-test("sa 內容關卡：mockup 截圖檢查存在，排在 sa 確認之前，且 sa 確認與 inherit 保留", () => {
+test("sa 內容關卡：mockup 截圖檢查存在，排在 sa 確認之前，且 sa 確認保留（預設 auto）", () => {
   const d = buildSpecFirstWorkflow();
   assert.deepEqual(validateWorkflow(d), []);
   const gi = (id) => d.gates.findIndex((g) => g.id === id);
@@ -76,7 +76,7 @@ test("sa 內容關卡：mockup 截圖檢查存在，排在 sa 確認之前，且
   assert.match(content.checks[0].description, /sa-images\//);
   assert.ok(gi("sa-content-check") < gi("sa-confirm"));
   const confirm = d.gates[gi("sa-confirm")];
-  assert.deepEqual([confirm.type, confirm.confirmMode, confirm.after], ["confirmation", "manual", "sa-analyst"]);
+  assert.deepEqual([confirm.type, confirm.confirmMode, confirm.after], ["confirmation", "auto", "sa-analyst"]);
   assert.equal(d.gates.length, 11);
   assert.ok(d.artifacts.find((a) => a.id === "sa").attachments.includes("sa-images/"));
 });
@@ -150,20 +150,21 @@ test("各關卡預設確認模式解析結果（resolveConfirmMode 與 decideGat
   const d = buildSpecFirstWorkflow();
   const expected = {
     "mockup-confirm": "manual",
-    "sa-confirm": "manual",
+    "sa-confirm": "auto",
     "db-flow-confirm": "auto",
     "sd-confirm": "auto",
     "final-acceptance": "manual",
-    "spec-check-verdict": "manual",
+    "spec-check-verdict": "auto",
+    verdict: "auto",
   };
   for (const [id, mode] of Object.entries(expected)) assert.equal(resolveConfirmMode(d, id).mode, mode, id);
-  assert.equal(resolveConfirmMode(d, "sa-confirm").reason, "gate");
+  assert.equal(resolveConfirmMode(d, "mockup-confirm").reason, "gate");
   assert.equal(resolveConfirmMode(d, "final-acceptance").reason, "locked");
   for (const id of ["mockup-confirm", "sa-confirm", "db-flow-confirm", "sd-confirm"]) {
     assert.notEqual(d.gates.find((g) => g.id === id).confirmMode, "inherit", id);
   }
-  for (const id of ["db-flow-confirm", "sd-confirm"]) assert.equal(decideGate(d, id, null, CLEAN).mode, "auto", id);
-  for (const id of ["mockup-confirm", "sa-confirm"]) assert.equal(decideGate(d, id, null, CLEAN).mode, "manual", id);
+  for (const id of ["sa-confirm", "db-flow-confirm", "sd-confirm", "spec-check-verdict", "verdict"]) assert.equal(decideGate(d, id, null, CLEAN).mode, "auto", id);
+  for (const id of ["mockup-confirm", "final-acceptance"]) assert.equal(decideGate(d, id, null, CLEAN).mode, "manual", id);
 });
 
 test("auto 關卡遇硬停點、申報不完整仍 fail-closed 為 manual", () => {
