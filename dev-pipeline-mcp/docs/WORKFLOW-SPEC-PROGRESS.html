@@ -158,7 +158,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>after <code>sa</code></td><td>內容關卡＋確認（<code>sa-content-check</code>、<code>sa-confirm</code> 兩道）</td><td>先過內容檢查：每個前端功能條目都有 mockup 截圖（圖檔存在於 <code>sa-images/</code> 且被規格引用，純後端條目除外）；再由使用者確認 SA 規格</td><td><code>manual</code>（階段 4 起預設，規格給客戶看，需使用者確認）</td></tr>
 <tr><td>after <code>db</code>＋<code>flow</code></td><td>確認（合併）</td><td>DB 與流程圖要一起看才判斷得了接不接得上</td><td><code>auto</code>（階段 4 起預設：AI 派獨立審查員審查、程式裁決；硬停點如刪表／刪資料仍強制 manual）</td></tr>
 <tr><td>after <code>sd</code></td><td>確認</td><td>使用者確認後端規格</td><td><code>auto</code>（階段 4 起預設：AI 審查、程式裁決，硬停點仍強制 manual）</td></tr>
-<tr><td>after <code>spec-verifier</code></td><td>判定關卡</td><td>PASS 才能開工前後端；FAIL 依 <code>rootCause</code> 退回 SA、SD 或 DB 設計師修正，修完重新驗證。沒有 <code>locked</code>，確認模式 <code>inherit</code></td><td><code>inherit</code></td></tr>
+<tr><td>after <code>spec-verifier</code></td><td>判定關卡</td><td>PASS 才能開工前後端；FAIL 依 <code>rootCause</code> 退回 SA、SD 或 DB 設計師修正，修完重新驗證。沒有 <code>locked</code></td><td><code>auto</code>（階段 4 起預設：AI 審查、程式裁決；硬停點仍強制 manual）</td></tr>
 <tr><td>after 前端／後端</td><td>內容關卡</td><td>實作文件必須有專案自訂章節（如「查重」）；對應 SA／SD 條目逐項標註；程式碼異動與文件一致（即現有 <code>gates.json</code> 的 <code>implementationSections</code>）</td><td>—</td></tr>
 <tr><td>after <code>verifier</code></td><td>判定關卡</td><td>PASS／FAIL；FAIL 依 <code>rootCause</code> 回到對應角色（分析、設計或實作）</td><td>—</td></tr>
 <tr><td>after <code>tester</code></td><td>證據關卡</td><td>每個測試項目要有截圖；<code>testLevel</code> 與證據一致；白箱完成才能做黑箱</td><td>—</td></tr>

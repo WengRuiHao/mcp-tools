@@ -65,7 +65,7 @@ ul{margin:6px 0;padding-left:22px}
 
 <div class="card">
   <b>確認關卡的預設（已由你決定）</b>：整條流程預設只有三個地方停下來等你——<b>mockup 確認</b>（畫面是客戶最先看到的，方向要先對）、<b>SA 確認</b>（規格是給客戶看的，要你看過）和<b>最終驗收</b>（鎖死，永遠是你）。
-  「DB 與流程圖」和「SD」兩道，預設由 AI 派獨立審查員審查、程式裁決，不等你；碰到硬停點（刪表或刪資料的 SQL、會破壞既有功能、連續失敗 3 次、碰到敏感資料、審查者不確定、需求要拆分）仍會強制停下。每個專案都可以在自己的設定檔把任何一道改回等你確認。
+  「DB 與流程圖」、「SD」和「規格驗證師的判定」三道，預設由 AI 派獨立審查員審查、程式裁決，不等你；碰到硬停點（刪表或刪資料的 SQL、會破壞既有功能、連續失敗 3 次、碰到敏感資料、審查者不確定、需求要拆分）仍會強制停下。每個專案都可以在自己的設定檔把任何一道改回等你確認。
 </div>
 
 <div class="card">
@@ -152,7 +152,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>和 Asana 的關係</td><td>與 <code>.asana-pipeline/</code> 分開放，Asana 的搬移、列表、報告功能碰不到它。索引檔共用，所以現有的查狀態、讀產出物、記錄測試證據等工具，只要帶 <code>workItemId</code> 就能直接用。</td></tr>
 </table>
 
-<h2 id="decide">六、你已做的 9 項決定</h2>
+<h2 id="decide">六、你已做的 10 項決定</h2>
 <table>
 <tr><th>#</th><th>問題</th><th>planner 推薦</th></tr>
 <tr><td>1</td><td>工具形式：新增一個 <code>work_item</code> 工具（工具數變 43，Asana 工具完全不動），還是改現有工具？</td><td><span class="tag done">已決定</span> 新增 <code>work_item</code> 工具</td></tr>
@@ -162,6 +162,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>5</td><td>SA 截圖怎麼檢查？</td><td><span class="tag done">已決定</span> 每個功能標題底下都要引用 <code>sa-images/</code> 的圖，標「（純後端）」的除外</td></tr>
 <tr><td>6</td><td>mockup 和測試截圖用哪個瀏覽器工具拍？</td><td><span class="tag done">已決定</span> 不綁死任何 AI 的工具：基本是「AI 自己截圖再交給 MCP」，另做選用的內建產圖功能（Playwright），讓這個 MCP 能套到其他 AI</td></tr>
 <tr><td>7</td><td>三道確認關卡（SA、DB 與流程圖、SD）預設要不要等你？</td><td><span class="tag done">你已決定</span> SA 預設等你確認；DB 與流程圖、SD 預設由 AI 派獨立審查員審查、程式裁決；硬停點與最終驗收永遠停下等你</td></tr>
+<tr><td>10</td><td>規格驗證師的判定關卡預設要不要等你？</td><td><span class="tag done">你已決定</span> 預設改為 AI 審查（auto），程式裁決，硬停點仍強制停下等你</td></tr>
 <tr><td>8</td><td>SA 要不要拆成「mockup 設計師」與「SA 分析師」，並加 mockup 確認關卡？</td><td><span class="tag done">你已決定</span> 要拆；mockup 確認預設等你確認；SA 確認關卡保留</td></tr>
 <tr><td>9</td><td>四個延後項目怎麼處理？</td><td><span class="tag done">已決定</span> 模組／系統層級展開延續成階段 5；待處理報告改成最終驗收時整理一次；自訂整套流程與長期基線文件暫緩</td></tr>
 </table>
