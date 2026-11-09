@@ -1,5 +1,7 @@
 import { updateStatus, type TicketStatus } from "../pipeline-store.js";
-import { applyGateDecision, applyRoleDone } from "../workflow/spec-first-engine.js";
+import { buildWhenContext } from "../work-item-store.js";
+import { resolveWorkflow } from "../workflow/resolve.js";
+import { applyGateDecision, applyRoleDone, isProgramCheckGate } from "../workflow/spec-first-engine.js";
 import type { WorkflowDefinition } from "../workflow/schema.js";
 import { WorkItemActionError, need, okReply, type ToolReply } from "./common.js";
 import { loadEffectiveDef, loadWorkItem } from "./context.js";
@@ -7,8 +9,22 @@ import { checkDeliverables } from "./deliverables.js";
 import type { WorkItemArgs } from "./schema.js";
 import { nextBlock, viewFor } from "./view.js";
 
-/** SA 交件通過 checkSaImages 後，程式直接通過的內容關卡。 */
-const SA_CONTENT_GATE = "sa-content-check";
+/** 程式檢查關卡通過時寫進紀錄的檢查名稱（對應 deliverables.ts 的檢查）。 */
+const CHECK_NAMES: Readonly<Record<string, string>> = {
+  "sa-content-check": "checkSaImages",
+  "impact-content": "checkImpactReuseList",
+  "implementation-content": "checkReuseRecord",
+  "test-evidence": "checkTestEvidence",
+};
+
+/** 角色 done（交件檢查已全部通過）後，把掛在它後面、由程式檢查的 content／evidence 關卡記為 passed（by:"agent"）。尚未到達的多角色關卡留待最後一個角色。 */
+function passProgramGates(status: TicketStatus, def: WorkflowDefinition, roleId: string): TicketStatus {
+  const gates = resolveWorkflow(def, buildWhenContext(status)).gates.filter((g) => (Array.isArray(g.after) ? g.after : [g.after]).includes(roleId) && isProgramCheckGate(g.type, g.effectiveConfirm.mode));
+  return gates.reduce((s, g) => {
+    const r = applyGateDecision(s, g.id, { decision: "passed", by: "agent", reason: `程式檢查（${CHECK_NAMES[g.id] ?? "交件檢查"}）通過` }, { def });
+    return r.ok ? r.status : s;
+  }, status);
+}
 
 function assertAvailable(status: TicketStatus, def: WorkflowDefinition, overrideApplied: boolean, roleId: string): void {
   if (!def.roles.some((r) => r.id === roleId)) throw new WorkItemActionError(`找不到角色：${roleId}`);
@@ -31,9 +47,7 @@ export async function handleDone(a: WorkItemArgs): Promise<ToolReply> {
     assertAvailable(s, def, overrideApplied, roleId);
     const r = applyRoleDone(s, roleId, { def });
     if (!r.ok) throw new WorkItemActionError(r.error);
-    if (roleId !== "sa-analyst" || !def.gates.some((g) => g.id === SA_CONTENT_GATE)) return r.status;
-    const g = applyGateDecision(r.status, SA_CONTENT_GATE, { decision: "passed", by: "agent", reason: "程式檢查（checkSaImages）通過" }, { def });
-    return g.ok ? g.status : r.status;
+    return passProgramGates(r.status, def, roleId);
   });
   return okReply({ workItemId: ctx.id, roleId, done: true, ...nextBlock(viewFor(updated, def, overrideApplied)) });
 }

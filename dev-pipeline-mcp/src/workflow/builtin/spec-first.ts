@@ -72,12 +72,13 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
       { id: "tester", promptRef: "tester", dependsOn: ["verifier"], inputs: ["impl-fe", "impl-be", "verify"], outputs: ["test"] },
     ],
     gates: [
-      { id: "impact-content", after: "baseline-survey", type: "content", checks: [] },
+      { id: "impact-content", after: "baseline-survey", type: "content", confirmMode: "auto", checks: [] },
       { id: "mockup-confirm", after: "mockup-designer", type: "confirmation", confirmMode: "manual" },
       {
         id: "sa-content-check",
         after: "sa-analyst",
         type: "content",
+        confirmMode: "auto",
         checks: [
           {
             id: "sa-mockup-screenshot",
@@ -90,9 +91,9 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
       { id: "db-flow-confirm", after: ["db-designer", "flow-analyst"], type: "confirmation", confirmMode: "auto" },
       { id: "sd-confirm", after: "sd-analyst", type: "confirmation", confirmMode: "auto" },
       { id: "spec-check-verdict", after: "spec-verifier", type: "verdict", confirmMode: "auto", routeOnFail: { ...SPEC_CHECK_ROUTES } },
-      { id: "implementation-content", after: ["frontend-engineer", "backend-engineer"], type: "content", checks: [] },
+      { id: "implementation-content", after: ["frontend-engineer", "backend-engineer"], type: "content", confirmMode: "auto", checks: [] },
       { id: "verdict", after: "verifier", type: "verdict", confirmMode: "auto", routeOnFail: { sa: "sa-analyst", db: "db-designer", flow: "flow-analyst", sd: "sd-analyst", fe: "frontend-engineer", be: "backend-engineer" } },
-      { id: "test-evidence", after: "tester", type: "evidence" },
+      { id: "test-evidence", after: "tester", type: "evidence", confirmMode: "auto" },
       { id: "final-acceptance", after: "tester", type: "confirmation", confirmMode: "manual", locked: true },
     ],
   };

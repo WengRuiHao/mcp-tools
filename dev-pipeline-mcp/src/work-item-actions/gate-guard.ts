@@ -4,6 +4,7 @@ import { scanLineForSecrets } from "../sensitive-patterns.js";
 import type { TicketStatus } from "../pipeline-store.js";
 import { evaluateAgentConfirmation } from "../workflow/agent-confirm.js";
 import { decideGate, type GateSignals } from "../workflow/enforce.js";
+import { resolveConfirmMode } from "../workflow/resolve.js";
 import type { WorkflowDefinition } from "../workflow/schema.js";
 import { SPEC_FIRST_ID } from "./context.js";
 import { WorkItemActionError } from "./common.js";
@@ -64,6 +65,16 @@ export async function authorizeDecision(
       ...(d.hardStop ? { hardStop: d.hardStop } : {}),
     });
   }
+}
+
+/** 人工確認附的使用者原話：去除空白後至少幾個字元。 */
+export const MIN_HUMAN_QUOTE_CHARS = 4;
+
+/** by:"human" 且該關卡解析結果為 manual（含 locked、被專案設成 manual）時，reason 必須是使用者原話。AI 審查（auto）路徑不受影響。 */
+export function requireHumanQuote(def: WorkflowDefinition, gateId: string, by: "human" | "agent", reason: string | undefined): void {
+  if (by !== "human" || resolveConfirmMode(def, gateId).mode !== "manual") return;
+  if ((reason ?? "").replace(/\s/g, "").length >= MIN_HUMAN_QUOTE_CHARS) return;
+  throw new WorkItemActionError(`關卡「${gateId}」是人工確認關卡：reason 必填，且必須附上使用者這次確認的原話（去除空白後至少 ${MIN_HUMAN_QUOTE_CHARS} 個字元），不可自行編寫。`);
 }
 
 /** 把審查員申報寫進理由，留下可稽核的紀錄。 */

@@ -1,4 +1,5 @@
 // work_item 工具測試的共用環境：隔離資料目錄、in-memory MCP client、依角色補齊交件檔、依序推進流程。
+// content／evidence 關卡（impact-content、sa-content-check、implementation-content、test-evidence）由程式檢查自動通過，不在 STEPS 內。
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -57,7 +58,7 @@ export async function fulfil(dir, roleId, opts = {}) {
 const STEPS = [
   ["mockup-designer"], ["mockup-confirm", "human"], ["sa-analyst"], ["sa-confirm", "agent"], ["db-designer"], ["flow-analyst"],
   ["db-flow-confirm", "agent"], ["sd-analyst"], ["sd-confirm", "agent"], ["spec-verifier"], ["spec-check-verdict", "verdict"],
-  ["frontend-engineer"], ["backend-engineer"], ["implementation-content", "human"], ["verifier"], ["verdict", "verdict"], ["tester"], ["test-evidence", "human"],
+  ["frontend-engineer"], ["backend-engineer"], ["verifier"], ["verdict", "verdict"], ["tester"],
 ];
 
 /** 依序推進直到「下一步」是 stopBefore（角色 id 或關卡 id）；全部做完則推進到最終驗收之前。 */
@@ -73,7 +74,7 @@ export async function runUntil(env, id, dir, stopBefore) {
     } else if (kind === "verdict") {
       r = await env.call({ action: "verdict", workItemId: id, gateId: label, result: "pass", by: "agent", review: CLEAN_REVIEW });
     } else {
-      r = await env.call({ action: "confirm", workItemId: id, gateId: label, decision: "confirmed", by: kind, ...(kind === "agent" ? { review: CLEAN_REVIEW } : {}) });
+      r = await env.call({ action: "confirm", workItemId: id, gateId: label, decision: "confirmed", by: kind, ...(kind === "agent" ? { review: CLEAN_REVIEW } : { reason: "使用者說確認" }) });
     }
     if (r.isError) throw new Error(`推進到 ${label} 失敗：${r.text}`);
     env.cursor.set(id, i + 1);

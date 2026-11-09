@@ -119,7 +119,7 @@ test("verdict：連續失敗 3 次後 agent 不可再判，只能 human；不接
   assert.equal((await verdict(id, "sd-confirm", { result: "pass", by: "human" })).isError, true);
 });
 
-test("confirm：判定關卡要改用 verdict；rejected 倒回角色；content 關卡 confirmed 對應 passed", async () => {
+test("confirm：判定關卡要改用 verdict；rejected 倒回角色；content 關卡由程式檢查、confirm 直接拒絕", async () => {
   const { id, dir } = await env.create();
   await runUntil(env, id, dir, "spec-check-verdict");
   assert.match((await confirm(id, "spec-check-verdict", "human")).json.message, /verdict/);
@@ -129,8 +129,10 @@ test("confirm：判定關卡要改用 verdict；rejected 倒回角色；content 
   assert.ok(rej.json.rewoundRoles.includes("sa-analyst") && rej.json.rewoundRoles.includes("sd-analyst"));
   const { id: id2, dir: dir2 } = await env.create();
   await runUntil(env, id2, dir2, "implementation-content");
-  const c = await confirm(id2, "implementation-content", "human");
-  assert.equal(c.json.decision, "passed");
+  const c = await confirm(id2, "implementation-content", "human", { reason: "使用者說確認" });
+  assert.equal(c.isError, true);
+  assert.match(c.json.message, /由程式檢查，不需確認/);
+  assert.equal((await gateDecision(id2, "implementation-content")).by, "agent");
   const r2 = await env.call({ action: "confirm", workItemId: id2, gateId: "nope", decision: "confirmed", by: "human" });
   assert.equal(r2.isError, true);
 });

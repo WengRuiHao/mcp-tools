@@ -23,6 +23,8 @@ export interface PendingGate {
   mode: "manual" | "auto";
   reason: string;
   hardStop?: HardStopId;
+  /** program-check＝content／evidence 關卡由程式檢查：所屬角色 done 且交件檢查通過時自動記為 passed，不等人、也不等 AI 審查。 */
+  waitingFor?: "program-check";
   /** 上次被退回（rejected／failed）的留痕，供提示用。 */
   lastRejection?: { decision: string; rootCause?: string; reason?: string };
 }
@@ -55,9 +57,13 @@ function isAvailable(role: ResolvedWorkflow["roles"][number], resolved: Resolved
   return !resolved.gates.some((g) => !isGatePassed(p, g.id) && !afterIds(g).includes(role.id) && afterIds(g).some((a) => role.dependsOn.includes(a)));
 }
 
+/** content／evidence 關卡除非被專案 flow.json 覆寫成 manual（解析結果為 auto 才算），一律由程式檢查。 */
+export const isProgramCheckGate = (type: GateDef["type"], mode: "manual" | "auto"): boolean => (type === "content" || type === "evidence") && mode === "auto";
+
 function describeGate(g: ResolvedWorkflow["gates"][number], status: TicketStatus): PendingGate {
   const failCount = status.consecutive_fail_count;
-  const hardStopHit = !g.locked && !(failCount < CONSECUTIVE_FAIL_LIMIT);
+  const programCheck = !g.locked && isProgramCheckGate(g.type, g.effectiveConfirm.mode);
+  const hardStopHit = !g.locked && !programCheck && !(failCount < CONSECUTIVE_FAIL_LIMIT);
   const base = hardStopHit ? { mode: "manual" as const, reason: "hard-stop", hardStop: "consecutive-fail-3" as const } : { mode: g.effectiveConfirm.mode, reason: g.effectiveConfirm.reason };
   const last = status.work_item_progress?.gates[g.id];
   const rejected = last && (last.decision === "rejected" || last.decision === "failed");
@@ -66,6 +72,7 @@ function describeGate(g: ResolvedWorkflow["gates"][number], status: TicketStatus
     type: g.type,
     locked: g.locked === true,
     ...base,
+    ...(programCheck ? { waitingFor: "program-check" as const } : {}),
     ...(rejected ? { lastRejection: { decision: last.decision, ...(last.rootCause ? { rootCause: last.rootCause } : {}), ...(last.reason ? { reason: last.reason } : {}) } } : {}),
   };
 }

@@ -7,7 +7,7 @@ import { WorkItemActionError, need, okReply, type ToolReply } from "./common.js"
 import { doneRoleIds } from "./confirm.js";
 import { loadEffectiveDef, loadWorkItem } from "./context.js";
 import { parseVerdictFile } from "./deliverables.js";
-import { authorizeDecision, withReviewNote } from "./gate-guard.js";
+import { authorizeDecision, requireHumanQuote, withReviewNote } from "./gate-guard.js";
 import type { WorkItemArgs } from "./schema.js";
 import { nextBlock, viewFor } from "./view.js";
 
@@ -37,6 +37,7 @@ export async function handleVerdict(a: WorkItemArgs): Promise<ToolReply> {
   const ctx = await loadWorkItem(workItemId);
   const { def, overrideApplied } = await loadEffectiveDef(ctx.status);
   if (def.gates.find((g) => g.id === gateId)?.type !== "verdict") throw new WorkItemActionError(`關卡「${gateId}」不是判定關卡。`);
+  requireHumanQuote(def, gateId, by, a.reason);
   const reason = withReviewNote(a.reason, by, a.review);
   let failInfo: Record<string, unknown> = {};
   let rewound: string[] = [];
