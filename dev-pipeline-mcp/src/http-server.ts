@@ -111,6 +111,10 @@ async function handleResolveManualAction(req: IncomingMessage, res: ServerRespon
 async function handleRecordConfirmation(req: IncomingMessage, res: ServerResponse) {
   const body = await readJsonBody(req);
   const taskGid = requireWorkItemId(body);
+  if (body?.confirmedBy !== undefined && body.confirmedBy !== "human") {
+    sendJson(res, 400, { success: false, message: "這個 HTTP 橋接只接受使用者本人的確認，不支援 confirmedBy 為 agent。" });
+    return;
+  }
   if (typeof body?.confirmed !== "boolean") {
     sendJson(res, 400, { success: false, message: "缺少或格式錯誤的 confirmed（必須是布林值）" });
     return;
@@ -134,6 +138,10 @@ async function handleRecordConfirmation(req: IncomingMessage, res: ServerRespons
 async function handleRecordSpecConfirmation(req: IncomingMessage, res: ServerResponse) {
   const body = await readJsonBody(req);
   const taskGid = requireWorkItemId(body);
+  if (body?.confirmedBy !== undefined && body.confirmedBy !== "human") {
+    sendJson(res, 400, { success: false, message: "這個 HTTP 橋接只接受使用者本人的確認，不支援 confirmedBy 為 agent。" });
+    return;
+  }
   if (typeof body?.confirmed !== "boolean") {
     sendJson(res, 400, { success: false, message: "缺少或格式錯誤的 confirmed（必須是布林值）" });
     return;

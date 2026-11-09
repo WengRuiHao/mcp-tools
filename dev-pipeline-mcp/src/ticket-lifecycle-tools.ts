@@ -3,6 +3,7 @@ import { z } from "zod";
 import { callAsanaTool } from "./mcp-clients.js";
 import { resolveProjectDir } from "./project-registry.js";
 import { readProjectSettings } from "./project-rule-files.js";
+import { evaluateAgentConfirmation, SPEC_CONFIRM_GATE_ID } from "./workflow/agent-confirm.js";
 import {
   readStatus,
   peekStatus,
@@ -365,10 +366,19 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       note: z.string().nullable().optional().describe("備註；confirmed=false 時具體說明哪裡要改"),
       sdNotRequired: z.boolean().nullable().optional().describe("true=使用者明確表示本票不需要 SD。必須同時帶 userInstruction；絕不可由 AI 自行決定。"),
       userInstruction: z.string().nullable().optional().describe("sdNotRequired=true 時必填：使用者表示不需要 SD 的原話或原意，原文記錄供稽核"),
+      confirmedBy: z.enum(["human", "agent"]).nullable().optional().describe("預設 human；agent 僅非 Asana workflow 且判斷為 auto 時放行，Asana 票單一律拒絕"),
+      review: z.record(z.string(), z.unknown()).nullable().optional().describe("confirmedBy=agent 時的審查者申報 { breaksExisting, reviewerUncertain, scopeSplit }（皆布林）"),
       verbose: verboseParam,
     },
-    withTaskGid(async ({ taskGid, confirmed, note, sdNotRequired, userInstruction, verbose }) => {
+    withTaskGid(async ({ taskGid, confirmed, note, sdNotRequired, userInstruction, confirmedBy, review, verbose }) => {
       const current = await readStatus(taskGid);
+      if (confirmedBy === "agent") {
+        if (sdNotRequired === true) {
+          return textResult({ success: false, message: "sdNotRequired 只能由使用者決定，不可搭配 confirmedBy: agent。" }, true);
+        }
+        const verdict = await evaluateAgentConfirmation(current, SPEC_CONFIRM_GATE_ID, review);
+        if (!verdict.ok) return textResult({ success: false, message: verdict.message, reason: verdict.reason, hardStop: verdict.hardStop }, true);
+      }
       if (sdNotRequired === true) {
         const instruction = (userInstruction ?? "").trim();
         if (!instruction) {
@@ -412,7 +422,7 @@ export function registerTicketLifecycleTools(server: McpServer): void {
           true
         );
       }
-      const status = await recordSpecConfirmation(taskGid, confirmed, note ?? null);
+      const status = await recordSpecConfirmation(taskGid, confirmed, note ?? null, undefined, confirmedBy ?? undefined);
       await syncPendingActionsReport(taskGid);
       return statusResponse(taskGid, status, verbose);
     })

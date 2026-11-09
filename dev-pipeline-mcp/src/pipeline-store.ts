@@ -31,6 +31,8 @@ export interface ConfirmationRecord {
   note: string | null;
   /** 僅 spec_confirmation 使用：true=使用者明確表示本票不需要 SD，note 為使用者原話；見 recordSpecConfirmation。 */
   sdNotRequired?: boolean;
+  /** 僅非 asana-ticket workflow 的 spec_confirmation 才會寫入；Asana 票單永遠不出現此 key。 */
+  confirmedBy?: "human" | "agent";
 }
 
 export interface TicketSyncState {
@@ -970,7 +972,8 @@ export async function recordSpecConfirmation(
   ticketGid: string,
   confirmed: boolean,
   note?: string | null,
-  sdNotRequired?: boolean
+  sdNotRequired?: boolean,
+  confirmedBy?: "human" | "agent"
 ): Promise<TicketStatus> {
   return updateStatus(ticketGid, (status) => ({
     ...status,
@@ -979,6 +982,8 @@ export async function recordSpecConfirmation(
       confirmedAt: nowIso(),
       note: note ?? null,
       ...(sdNotRequired ? { sdNotRequired: true } : {}),
+      // 只有非 asana-ticket 的票單才記錄 confirmedBy；Asana 票單的紀錄不得多出新 key。
+      ...(confirmedBy && status.workflow_id && status.workflow_id !== "asana-ticket" ? { confirmedBy } : {}),
     },
   }));
 }
