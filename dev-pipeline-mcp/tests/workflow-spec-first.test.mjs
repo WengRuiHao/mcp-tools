@@ -4,9 +4,14 @@ import assert from "node:assert/strict";
 import { buildSpecFirstWorkflow, SPEC_CHECK_ROUTES } from "../dist/workflow/builtin/spec-first.js";
 import { parseWorkflowDefinition } from "../dist/workflow/schema.js";
 import { validateWorkflow } from "../dist/workflow/validate.js";
-import { resolveWorkflow, mergeProjectOverride } from "../dist/workflow/resolve.js";
+import { resolveWorkflow, mergeProjectOverride, resolveConfirmMode } from "../dist/workflow/resolve.js";
+import { decideGate } from "../dist/workflow/enforce.js";
+import { KNOWN_WHEN_KEYS } from "../dist/workflow/validate.js";
+import { buildAsanaTicketWorkflow } from "../dist/workflow/builtin/asana-ticket.js";
 
 const ids = (rs) => rs.map((r) => r.id);
+const ALL_SCOPE = { baseline: "brownfield", hasFrontend: "true", hasBackend: "true", hasDb: "true" };
+const CLEAN = { consecutiveFailCount: 0, reviewerDeclaration: { breaksExisting: false, reviewerUncertain: false, scopeSplit: false } };
 
 test("通過 schema 與語意驗證", () => {
   const d = buildSpecFirstWorkflow();
@@ -16,7 +21,7 @@ test("通過 schema 與語意驗證", () => {
 
 test("spec-verifier 在 SD 之後、前後端之前，前後端依賴它", () => {
   const d = buildSpecFirstWorkflow();
-  const order = ids(resolveWorkflow(d, { baseline: "brownfield" }).roles);
+  const order = ids(resolveWorkflow(d, ALL_SCOPE).roles);
   const at = (id) => order.indexOf(id);
   assert.ok(at("sd-analyst") < at("spec-verifier"));
   for (const e of ["frontend-engineer", "backend-engineer"]) {
@@ -30,7 +35,8 @@ test("規格驗證關卡：非 locked、inherit，FAIL 的 rootCause 目標都�
   const d = buildSpecFirstWorkflow();
   const g = d.gates.find((x) => x.after === "spec-verifier");
   assert.deepEqual([g.type, g.confirmMode, Boolean(g.locked)], ["verdict", "inherit", false]);
-  assert.deepEqual(Object.keys(g.routeOnFail).sort(), ["db", "sa", "sd"]);
+  assert.deepEqual(Object.keys(g.routeOnFail).sort(), ["db", "flow", "sa", "sd"]);
+  assert.equal(g.routeOnFail.flow, "flow-analyst");
   const roleIds = new Set(ids(d.roles));
   for (const t of Object.values(g.routeOnFail)) assert.ok(roleIds.has(t), t);
   assert.deepEqual(g.routeOnFail, SPEC_CHECK_ROUTES);
@@ -49,7 +55,7 @@ test("locked 最終驗收不可被覆寫為 auto", () => {
 
 test("optional 角色可略過：greenfield 不啟用盤點，略過後依賴仍可排序", () => {
   const d = buildSpecFirstWorkflow();
-  for (const id of ["baseline-survey", "db-designer", "frontend-engineer", "backend-engineer"]) {
+  for (const id of ["baseline-survey", "mockup-designer", "db-designer", "frontend-engineer", "backend-engineer"]) {
     assert.equal(d.roles.find((r) => r.id === id).optional, true, id);
   }
   const green = resolveWorkflow(d, { baseline: "greenfield" });
@@ -70,8 +76,8 @@ test("sa 內容關卡：mockup 截圖檢查存在，排在 sa 確認之前，且
   assert.match(content.checks[0].description, /sa-images\//);
   assert.ok(gi("sa-content-check") < gi("sa-confirm"));
   const confirm = d.gates[gi("sa-confirm")];
-  assert.deepEqual([confirm.type, confirm.confirmMode, confirm.after], ["confirmation", "inherit", "sa-analyst"]);
-  assert.equal(d.gates.length, 10);
+  assert.deepEqual([confirm.type, confirm.confirmMode, confirm.after], ["confirmation", "manual", "sa-analyst"]);
+  assert.equal(d.gates.length, 11);
   assert.ok(d.artifacts.find((a) => a.id === "sa").attachments.includes("sa-images/"));
 });
 
@@ -86,7 +92,110 @@ test("sa-analyst 與 spec-verifier 的 roleNotes 提到 mockup 截圖", () => {
 
 test("resolve 後 sa-content-check 仍在，stage 順序不受內容關卡影響", () => {
   const d = buildSpecFirstWorkflow();
-  const r = resolveWorkflow(d, { baseline: "brownfield" });
+  const r = resolveWorkflow(d, ALL_SCOPE);
   assert.ok(r.gates.some((g) => g.id === "sa-content-check"));
-  assert.equal(ids(r.roles).length, 10);
+  assert.equal(ids(r.roles).length, 11);
+});
+
+test("sa-content-check 描述：每個功能標題引用 sa-images/、純後端除外、取自已確認 mockup，check id 不變", () => {
+  const c = buildSpecFirstWorkflow().gates.find((g) => g.id === "sa-content-check").checks[0];
+  assert.equal(c.id, "sa-mockup-screenshot");
+  assert.match(c.description, /每個功能標題底下都要引用 sa-images\//);
+  assert.match(c.description, /（純後端）/);
+  assert.match(c.description, /已確認的 mockup/);
+});
+
+test("mockup-designer：optional、hasFrontend==true、位於 baseline-survey 之後 sa-analyst 之前，產出 mockup", () => {
+  const d = buildSpecFirstWorkflow();
+  const m = d.roles.find((r) => r.id === "mockup-designer");
+  assert.deepEqual([m.optional, m.when, m.dependsOn, m.outputs], [true, "hasFrontend==true", ["baseline-survey"], ["mockup"]]);
+  assert.ok(d.roles.find((r) => r.id === "sa-analyst").dependsOn.includes("mockup-designer"));
+  assert.deepEqual(d.artifacts.find((a) => a.id === "mockup"), { id: "mockup", file: "sa-mockup/", kind: "html" });
+  const order = ids(resolveWorkflow(d, ALL_SCOPE).roles);
+  assert.ok(order.indexOf("baseline-survey") < order.indexOf("mockup-designer"));
+  assert.ok(order.indexOf("mockup-designer") < order.indexOf("sa-analyst"));
+});
+
+test("mockup-confirm：confirmation、manual、after mockup-designer，排在 sa-content-check 之前", () => {
+  const d = buildSpecFirstWorkflow();
+  const g = d.gates.find((x) => x.id === "mockup-confirm");
+  assert.deepEqual([g.type, g.after, g.confirmMode, Boolean(g.locked)], ["confirmation", "mockup-designer", "manual", false]);
+  assert.ok(d.gates.indexOf(g) < d.gates.findIndex((x) => x.id === "sa-content-check"));
+});
+
+test("範圍條件：hasFrontend／hasBackend／hasDb 決定角色是否出現，被略過者依賴自動移除", () => {
+  const d = buildSpecFirstWorkflow();
+  const when = (id) => d.roles.find((r) => r.id === id).when;
+  assert.equal(when("frontend-engineer"), "hasFrontend==true");
+  assert.equal(when("backend-engineer"), "hasBackend==true");
+  assert.equal(when("db-designer"), "hasDb==true");
+  const pureBackend = resolveWorkflow(d, { baseline: "greenfield", hasFrontend: "false", hasBackend: "true", hasDb: "false" });
+  const got = ids(pureBackend.roles);
+  for (const gone of ["mockup-designer", "frontend-engineer", "db-designer", "baseline-survey"]) assert.ok(!got.includes(gone), gone);
+  assert.deepEqual(pureBackend.roles.find((r) => r.id === "sa-analyst").dependsOn, []);
+  assert.deepEqual(pureBackend.roles.find((r) => r.id === "flow-analyst").dependsOn, ["sa-analyst"]);
+  assert.deepEqual(pureBackend.roles.find((r) => r.id === "verifier").dependsOn, ["backend-engineer"]);
+  assert.ok(!pureBackend.gates.some((g) => g.id === "mockup-confirm"));
+  const pureFrontend = ids(resolveWorkflow(d, { baseline: "greenfield", hasFrontend: "true", hasBackend: "false", hasDb: "false" }).roles);
+  assert.ok(pureFrontend.includes("mockup-designer") && pureFrontend.includes("frontend-engineer") && !pureFrontend.includes("backend-engineer"));
+  assert.equal(ids(resolveWorkflow(d, { baseline: "greenfield" }).roles).includes("frontend-engineer"), false);
+});
+
+test("when 使用的 key 都在白名單，新增 hasFrontend／hasBackend／hasDb", () => {
+  for (const k of ["hasFrontend", "hasBackend", "hasDb"]) assert.ok(KNOWN_WHEN_KEYS.includes(k), k);
+  assert.deepEqual(validateWorkflow(buildSpecFirstWorkflow(), KNOWN_WHEN_KEYS), []);
+});
+
+test("各關卡預設確認模式解析結果（resolveConfirmMode 與 decideGate）", () => {
+  const d = buildSpecFirstWorkflow();
+  const expected = {
+    "mockup-confirm": "manual",
+    "sa-confirm": "manual",
+    "db-flow-confirm": "auto",
+    "sd-confirm": "auto",
+    "final-acceptance": "manual",
+    "spec-check-verdict": "manual",
+  };
+  for (const [id, mode] of Object.entries(expected)) assert.equal(resolveConfirmMode(d, id).mode, mode, id);
+  assert.equal(resolveConfirmMode(d, "sa-confirm").reason, "gate");
+  assert.equal(resolveConfirmMode(d, "final-acceptance").reason, "locked");
+  for (const id of ["mockup-confirm", "sa-confirm", "db-flow-confirm", "sd-confirm"]) {
+    assert.notEqual(d.gates.find((g) => g.id === id).confirmMode, "inherit", id);
+  }
+  for (const id of ["db-flow-confirm", "sd-confirm"]) assert.equal(decideGate(d, id, null, CLEAN).mode, "auto", id);
+  for (const id of ["mockup-confirm", "sa-confirm"]) assert.equal(decideGate(d, id, null, CLEAN).mode, "manual", id);
+});
+
+test("auto 關卡遇硬停點、申報不完整仍 fail-closed 為 manual", () => {
+  const d = buildSpecFirstWorkflow();
+  for (const id of ["db-flow-confirm", "sd-confirm"]) {
+    assert.equal(resolveConfirmMode(d, id, ["destructive-db"]).mode, "manual", id);
+    assert.equal(decideGate(d, id, null, { ...CLEAN, sqlArtifactText: "DROP TABLE a;" }).mode, "manual", id);
+    assert.equal(decideGate(d, id, null, { ...CLEAN, consecutiveFailCount: 3 }).mode, "manual", id);
+    assert.equal(decideGate(d, id, null, { consecutiveFailCount: 0 }).reason, "declaration-incomplete", id);
+  }
+});
+
+test("final-acceptance（locked）在任何 signals 與 auto 預設下都不可能 auto", () => {
+  const d = buildSpecFirstWorkflow();
+  const forcedAuto = { ...d, confirmDefault: "auto" };
+  const signalSets = [CLEAN, { consecutiveFailCount: 0 }, { consecutiveFailCount: Number.NaN }, { ...CLEAN, sensitiveDataHit: true }];
+  for (const wf of [d, forcedAuto]) {
+    for (const sig of signalSets) assert.equal(decideGate(wf, "final-acceptance", null, sig).mode, "manual");
+  }
+});
+
+test("verdict 關卡退回目標：flow→flow-analyst 且所有目標角色存在", () => {
+  const d = buildSpecFirstWorkflow();
+  const roleIds = new Set(ids(d.roles));
+  const verdict = d.gates.find((g) => g.id === "verdict");
+  assert.deepEqual(verdict.routeOnFail, { sa: "sa-analyst", db: "db-designer", flow: "flow-analyst", sd: "sd-analyst", fe: "frontend-engineer", be: "backend-engineer" });
+  for (const g of d.gates) for (const t of Object.values(g.routeOnFail ?? {})) assert.ok(roleIds.has(t), `${g.id}:${t}`);
+});
+
+test("asana-ticket builtin 不受影響（無 mockup、when key 不含範圍衍生 key）", () => {
+  const a = buildAsanaTicketWorkflow();
+  assert.ok(!a.roles.some((r) => r.id === "mockup-designer"));
+  assert.ok(!a.roles.some((r) => /^has/.test(r.when ?? "")));
+  assert.ok(!a.artifacts.some((x) => x.id === "mockup"));
 });

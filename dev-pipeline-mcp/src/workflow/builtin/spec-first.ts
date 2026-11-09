@@ -11,6 +11,7 @@ export const SPEC_FIRST_WORKFLOW_ID = "spec-first";
 export const SPEC_CHECK_ROUTES: Readonly<Record<string, string>> = {
   sa: "sa-analyst",
   db: "db-designer",
+  flow: "flow-analyst",
   sd: "sd-analyst",
 };
 
@@ -26,6 +27,7 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
     artifacts: [
       { id: "baseline", file: "baseline.md", kind: "markdown" },
       { id: "impact", file: "impact.md", kind: "markdown" },
+      { id: "mockup", file: "sa-mockup/", kind: "html" },
       { id: "sa", file: "01-sa.md", kind: "markdown", attachments: ["sa-images/"] },
       { id: "db", file: "02-db.sql", kind: "sql", attachments: ["02-db.md"] },
       { id: "flow", file: "flow.mmd", kind: "mermaid", render: "flow.png" },
@@ -39,13 +41,21 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
     roles: [
       { id: "baseline-survey", promptRef: "baseline-survey", dependsOn: [], inputs: [], outputs: ["baseline", "impact"], optional: true, when: "baseline==brownfield" },
       {
+        id: "mockup-designer",
+        promptRef: "mockup-designer",
+        dependsOn: ["baseline-survey"], inputs: ["impact"], outputs: ["mockup"],
+        optional: true,
+        when: "hasFrontend==true",
+        roleNotes: "只負責畫 mockup：產出能在瀏覽器開啟的檔案（例如 HTML），放 sa-mockup/。既有系統以現有畫面為底，標出新增／修改的部分。畫完先等使用者確認畫面方向，確認後才進 SA 分析師。",
+      },
+      {
         id: "sa-analyst",
         promptRef: "sa-analyst",
-        dependsOn: ["baseline-survey"], inputs: ["impact"], outputs: ["sa"],
+        dependsOn: ["baseline-survey", "mockup-designer"], inputs: ["impact", "mockup"], outputs: ["sa"],
         roleNotes:
-          "規格是給客戶看的，程式未開發前前端畫面只能靠 mockup 截圖：先畫能在瀏覽器開啟的 mockup（例如 HTML）再截圖，每個前端功能條目附對應截圖，圖檔放 sa-images/ 並在規格中引用；純後端條目不需截圖。定稿後圖片不換成實際系統畫面。",
+          "規格是給客戶看的，程式未開發前前端畫面只能靠 mockup 截圖：依已確認的 mockup（sa-mockup/）分析需求，從 mockup 截圖，每個前端功能條目附對應截圖，圖檔放 sa-images/ 並在規格中引用；純後端條目不需截圖。定稿後圖片不換成實際系統畫面。",
       },
-      { id: "db-designer", promptRef: "db-designer", dependsOn: ["sa-analyst"], inputs: ["sa"], outputs: ["db"], optional: true },
+      { id: "db-designer", promptRef: "db-designer", dependsOn: ["sa-analyst"], inputs: ["sa"], outputs: ["db"], optional: true, when: "hasDb==true" },
       { id: "flow-analyst", promptRef: "flow-analyst", dependsOn: ["sa-analyst", "db-designer"], inputs: ["sa", "db"], outputs: ["flow"] },
       { id: "sd-analyst", promptRef: "sd-analyst", dependsOn: ["sa-analyst", "flow-analyst"], inputs: ["sa", "db", "flow"], outputs: ["sd"] },
       {
@@ -56,13 +66,14 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
         outputs: ["spec-check"],
         roleNotes: "只看規格、不看程式碼：驗證 SA 與 SD 能串起來（雙向可追溯、欄位／型別／流程與 DB 一致、新增／修改／不動與影響分析一致）。另須檢查每個前端功能條目都有 mockup 截圖（sa-images/）且圖與功能對得上，純後端條目除外。",
       },
-      { id: "frontend-engineer", promptRef: "frontend-engineer", dependsOn: ["spec-verifier"], parallelWith: ["backend-engineer"], inputs: ["sa", "spec-check"], outputs: ["impl-fe"], optional: true },
-      { id: "backend-engineer", promptRef: "backend-engineer", dependsOn: ["spec-verifier"], parallelWith: ["frontend-engineer"], inputs: ["sd", "spec-check"], outputs: ["impl-be"], optional: true },
+      { id: "frontend-engineer", promptRef: "frontend-engineer", dependsOn: ["spec-verifier"], parallelWith: ["backend-engineer"], inputs: ["sa", "spec-check"], outputs: ["impl-fe"], optional: true, when: "hasFrontend==true" },
+      { id: "backend-engineer", promptRef: "backend-engineer", dependsOn: ["spec-verifier"], parallelWith: ["frontend-engineer"], inputs: ["sd", "spec-check"], outputs: ["impl-be"], optional: true, when: "hasBackend==true" },
       { id: "verifier", promptRef: "verifier", dependsOn: ["frontend-engineer", "backend-engineer"], inputs: ["sa", "sd", "impl-fe", "impl-be"], outputs: ["verify"] },
       { id: "tester", promptRef: "tester", dependsOn: ["verifier"], inputs: ["impl-fe", "impl-be", "verify"], outputs: ["test"] },
     ],
     gates: [
       { id: "impact-content", after: "baseline-survey", type: "content", checks: [] },
+      { id: "mockup-confirm", after: "mockup-designer", type: "confirmation", confirmMode: "manual" },
       {
         id: "sa-content-check",
         after: "sa-analyst",
@@ -71,16 +82,16 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
           {
             id: "sa-mockup-screenshot",
             description:
-              "每個前端功能條目都附 mockup 截圖：圖檔存在於 sa-images/ 且被規格（01-sa.md）引用；純後端條目除外。",
+              "每個功能標題底下都要引用 sa-images/ 的圖（圖檔存在且被規格 01-sa.md 引用），標「（純後端）」的除外；截圖取自已確認的 mockup。",
           },
         ],
       },
-      { id: "sa-confirm", after: "sa-analyst", type: "confirmation", confirmMode: "inherit" },
-      { id: "db-flow-confirm", after: ["db-designer", "flow-analyst"], type: "confirmation", confirmMode: "inherit" },
-      { id: "sd-confirm", after: "sd-analyst", type: "confirmation", confirmMode: "inherit" },
+      { id: "sa-confirm", after: "sa-analyst", type: "confirmation", confirmMode: "manual" },
+      { id: "db-flow-confirm", after: ["db-designer", "flow-analyst"], type: "confirmation", confirmMode: "auto" },
+      { id: "sd-confirm", after: "sd-analyst", type: "confirmation", confirmMode: "auto" },
       { id: "spec-check-verdict", after: "spec-verifier", type: "verdict", confirmMode: "inherit", routeOnFail: { ...SPEC_CHECK_ROUTES } },
       { id: "implementation-content", after: ["frontend-engineer", "backend-engineer"], type: "content", checks: [] },
-      { id: "verdict", after: "verifier", type: "verdict", routeOnFail: { sa: "sa-analyst", db: "db-designer", sd: "sd-analyst", fe: "frontend-engineer", be: "backend-engineer" } },
+      { id: "verdict", after: "verifier", type: "verdict", routeOnFail: { sa: "sa-analyst", db: "db-designer", flow: "flow-analyst", sd: "sd-analyst", fe: "frontend-engineer", be: "backend-engineer" } },
       { id: "test-evidence", after: "tester", type: "evidence" },
       { id: "final-acceptance", after: "tester", type: "confirmation", confirmMode: "manual", locked: true },
     ],

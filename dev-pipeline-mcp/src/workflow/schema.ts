@@ -21,7 +21,7 @@ export const ArtifactDefSchema = z
   .object({
     id: idField,
     file: z.string().min(1),
-    kind: z.enum(["markdown", "mermaid", "sql", "report", "code-change"]),
+    kind: z.enum(["markdown", "mermaid", "sql", "report", "code-change", "html"]),
     attachments: z.array(z.string()).optional(),
     render: z.string().optional(),
     evidence: z.array(z.enum(["screenshot"])).optional(),

@@ -84,7 +84,7 @@ test("L2：所有內建 workflow 的 when key 都在白名單", () => {
     assert.deepEqual(validateWorkflow(d, KNOWN_WHEN_KEYS), [], d.id);
     for (const r of d.roles) for (const [k] of parseWhen(r.when ?? "") ?? []) used.add(k);
   }
-  assert.deepEqual([...used].sort(), ["baseline", "sdMode", "specOrder"]);
+  assert.deepEqual([...used].sort(), ["baseline", "hasBackend", "hasDb", "hasFrontend", "sdMode", "specOrder"]);
   for (const k of used) assert.ok(KNOWN_WHEN_KEYS.includes(k), k);
 });
 

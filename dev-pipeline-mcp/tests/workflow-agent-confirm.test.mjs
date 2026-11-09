@@ -27,7 +27,10 @@ const [a, b] = InMemoryTransport.createLinkedPair();
 const client = new Client({ name: "c", version: "0" });
 await Promise.all([server.connect(a), client.connect(b)]);
 
-// 專案 flow.json 把 sd-confirm 設為 auto，才有 auto 路徑可測（內建 spec-first 預設 manual）。
+// 內建 spec-first 的 sd-confirm 預設 auto；autoDir 明確設 auto（與預設一致），manualDir 把它改回 manual 以測人工路徑。
+const manualDir = makeTmpDir("dpm-agentconf-manual-");
+fs.mkdirSync(path.join(manualDir, ".pipeline"), { recursive: true });
+fs.writeFileSync(path.join(manualDir, ".pipeline", "flow.json"), JSON.stringify({ schemaVersion: 1, gates: { "sd-confirm": { confirmMode: "manual" } } }));
 const autoDir = makeTmpDir("dpm-agentconf-auto-");
 fs.mkdirSync(path.join(autoDir, ".pipeline"), { recursive: true });
 fs.writeFileSync(path.join(autoDir, ".pipeline", "flow.json"), JSON.stringify({ schemaVersion: 1, gates: { "sd-confirm": { confirmMode: "auto" } } }));
@@ -118,13 +121,13 @@ test("spec-first：auto 且申報完整 → 放行並寫入 confirmedBy:agent", 
   assert.equal(JSON.parse(fs.readFileSync(file, "utf-8")).spec_confirmation.confirmedBy, "agent");
 });
 
-test("spec-first：硬停點、申報缺漏、預設 manual 皆被拒且不寫入", async () => {
+test("spec-first：硬停點、申報缺漏、專案改回 manual 皆被拒且不寫入", async () => {
   const cases = [
     [autoDir, 0, { ...OK_REVIEW, breaksExisting: true }, "hard-stop", "breaks-existing"],
     [autoDir, 3, OK_REVIEW, "hard-stop", "consecutive-fail-3"],
     [autoDir, 0, undefined, "declaration-incomplete", undefined],
     [autoDir, 0, { breaksExisting: false }, "declaration-incomplete", undefined],
-    [projectDir, 0, OK_REVIEW, "inherit-default", undefined],
+    [manualDir, 0, OK_REVIEW, "gate", undefined],
   ];
   for (const [dir, fails, review, reason, hardStop] of cases) {
     const { gid } = await ticket({ stage: "sd_drafted", workflow_id: "spec-first", consecutive_fail_count: fails }, dir);

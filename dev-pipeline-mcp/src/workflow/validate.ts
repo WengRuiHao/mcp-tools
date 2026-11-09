@@ -52,8 +52,20 @@ function findCycle(roles: WorkflowDefinition["roles"]): string[] | null {
 
 const CHILD_OF: Readonly<Record<string, string | undefined>> = { system: "module", module: "feature" };
 
-/** fromLegacy 實際提供給 when 的 key（含內建 workflow 用到的 baseline）。 */
-export const KNOWN_WHEN_KEYS: readonly string[] = ["sdMode", "specOrder", "baseline", "testCapabilityMode", "legacyTestProfile"];
+/**
+ * fromLegacy 實際提供給 when 的 key（含內建 workflow 用到的 baseline）。
+ * hasFrontend／hasBackend／hasDb 是由「範圍」衍生的布林 key（值為字串 "true"／"false"），因 when 不支援 OR 而分開提供。
+ */
+export const KNOWN_WHEN_KEYS: readonly string[] = [
+  "sdMode",
+  "specOrder",
+  "baseline",
+  "testCapabilityMode",
+  "legacyTestProfile",
+  "hasFrontend",
+  "hasBackend",
+  "hasDb",
+];
 
 /** 回傳所有語意錯誤；空陣列代表合法。knownWhenKeys 有給時，when 用到清單外的 key 也算錯。 */
 export function validateWorkflow(def: WorkflowDefinition, knownWhenKeys?: readonly string[]): string[] {
