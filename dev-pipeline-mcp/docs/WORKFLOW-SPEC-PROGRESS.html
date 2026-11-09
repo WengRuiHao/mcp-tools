@@ -100,6 +100,8 @@ ul{margin:6px 0;padding-left:22px}
 <h3>主線（依賴順序）</h3>
 <div class="flow">
   <span class="node opt">現況盤點／影響分析（僅 brownfield）</span><span class="arrow">→</span>
+  <span class="node opt">mockup 設計師（有前端畫面才需要）</span><span class="arrow">→</span>
+  <span class="node gate">mockup 確認（預設等使用者）</span><span class="arrow">→</span>
   <span class="node">SA 分析師</span><span class="arrow">→</span>
   <span class="node opt">DB 設計師</span><span class="arrow">→</span>
   <span class="node">流程分析師</span><span class="arrow">→</span>
@@ -120,7 +122,8 @@ ul{margin:6px 0;padding-left:22px}
 <table>
 <tr><th>角色</th><th>職責</th><th>brownfield 多做的事</th></tr>
 <tr><td>現況盤點／影響分析師</td><td>盤點程式碼結構、DB 現況（<code>db_schema</code>／<code>db_search_tables</code>）、既有 SA／SD／流程圖、既有畫面（截圖當現況 mockup）；產出基線＋影響分析報告；維護 living 基線文件。</td><td>（本身只在 brownfield 啟用）</td></tr>
-<tr><td>SA 分析師</td><td>先畫出能在瀏覽器開啟的 mockup（例如 HTML，才能截圖），再分析需求、寫規格。規格是給客戶看的，程式還沒開發，前端畫面只能從 mockup 截圖，所以<b>每個前端功能條目都必須附上對應的 mockup 截圖</b>（圖檔放 <code>sa-images/</code>，規格條目引用該圖）；純後端、沒有畫面的需求可例外。規格定稿後圖片不換成實際系統畫面（那是客戶確認時的版本），實際畫面由測試工程師的截圖證據負責。</td><td>規格標明「新增／修改／不動」並引用影響分析。</td></tr>
+<tr><td>mockup 設計師（<code>mockup-designer</code>）</td><td>只負責畫 mockup：產出能在瀏覽器開啟的檔案（例如 HTML，才能截圖），放在 <code>sa-mockup/</code>。純後端、沒有畫面的需求略過此角色（<code>optional</code>）。畫完要先給使用者確認方向，確認後才進 SA 分析師。</td><td>以現有畫面為底（現況截圖當 mockup 基底），標出新增／修改的部分。</td></tr>
+<tr><td>SA 分析師</td><td>依<b>已確認的 mockup</b> 分析需求、寫規格，並從 mockup 截圖放進規格。規格是給客戶看的，程式還沒開發，前端畫面只能從 mockup 截圖，所以<b>每個前端功能條目都必須附上對應的 mockup 截圖</b>（圖檔放 <code>sa-images/</code>，規格條目引用該圖）；純後端、沒有畫面的需求可例外。規格定稿後圖片不換成實際系統畫面（那是客戶確認時的版本），實際畫面由測試工程師的截圖證據負責。</td><td>規格標明「新增／修改／不動」並引用影響分析。</td></tr>
 <tr><td>DB 設計師</td><td>依 SA 設計 table、view、index。</td><td>用 <code>db_diff_schema</code> 比對異動，評估對既有資料的影響與回滾。</td></tr>
 <tr><td>流程分析師</td><td>把 SA 與 DB 串起來，畫 Mermaid 流程圖（authoritative，附 PNG），比對兩邊能否接上。</td><td>另比對「新流程 ↔ 既有流程圖」。</td></tr>
 <tr><td>SD 分析師</td><td>產出後端規格。</td><td>—</td></tr>
@@ -135,7 +138,8 @@ ul{margin:6px 0;padding-left:22px}
 <tr><th>id</th><th>檔案</th><th>類型</th><th>說明</th></tr>
 <tr><td><code>baseline</code></td><td>baseline.md</td><td>markdown</td><td>現況基線（brownfield 才有）</td></tr>
 <tr><td><code>impact</code></td><td>impact.md</td><td>markdown</td><td>影響分析報告（brownfield 才有）</td></tr>
-<tr><td><code>sa</code></td><td>01-sa.md＋<code>sa-images/</code></td><td>markdown＋附圖</td><td>SA 規格；附圖為 mockup 的功能畫面截圖（必要），每個前端功能條目引用對應的圖；mockup 本身也要保存成可開啟的檔案</td></tr>
+<tr><td><code>sa</code></td><td>01-sa.md＋<code>sa-images/</code></td><td>markdown＋附圖</td><td>SA 規格；附圖為已確認 mockup 的功能畫面截圖（必要），每個前端功能條目引用對應的圖</td></tr>
+<tr><td><code>mockup</code></td><td><code>sa-mockup/</code>（可開啟的 HTML 等）</td><td>html</td><td>mockup 本身，由 mockup 設計師產出、使用者確認；SA 的截圖都取自這裡</td></tr>
 <tr><td><code>db</code></td><td>02-db.sql／02-db.md</td><td>sql＋markdown</td><td>table、view、index 設計與異動</td></tr>
 <tr><td><code>flow</code></td><td>flow.mmd＋flow.png</td><td>mermaid</td><td>流程圖與 SA↔DB 比對結果</td></tr>
 <tr><td><code>sd</code></td><td>03-sd.md</td><td>markdown</td><td>後端規格</td></tr>
@@ -150,6 +154,7 @@ ul{margin:6px 0;padding-left:22px}
 <table>
 <tr><th>位置</th><th>類型</th><th>內容</th><th>預設</th></tr>
 <tr><td>after 現況盤點</td><td>內容關卡</td><td>影響分析必須列出受影響的表、API、畫面</td><td>—</td></tr>
+<tr><td>after <code>mockup-designer</code></td><td>確認</td><td>使用者確認 mockup 的畫面方向，確認後才寫規格（畫面方向錯了只需重畫 mockup，不用重寫規格）</td><td><code>manual</code>（預設，客戶會看到的畫面，需使用者確認）</td></tr>
 <tr><td>after <code>sa</code></td><td>內容關卡＋確認（<code>sa-content-check</code>、<code>sa-confirm</code> 兩道）</td><td>先過內容檢查：每個前端功能條目都有 mockup 截圖（圖檔存在於 <code>sa-images/</code> 且被規格引用，純後端條目除外）；再由使用者確認 SA 規格</td><td><code>manual</code>（階段 4 起預設，規格給客戶看，需使用者確認）</td></tr>
 <tr><td>after <code>db</code>＋<code>flow</code></td><td>確認（合併）</td><td>DB 與流程圖要一起看才判斷得了接不接得上</td><td><code>auto</code>（階段 4 起預設：AI 派獨立審查員審查、程式裁決；硬停點如刪表／刪資料仍強制 manual）</td></tr>
 <tr><td>after <code>sd</code></td><td>確認</td><td>使用者確認後端規格</td><td><code>auto</code>（階段 4 起預設：AI 審查、程式裁決，硬停點仍強制 manual）</td></tr>
@@ -241,6 +246,7 @@ interface GateDef { id; after: string|string[]; type: "confirmation"|"content"|"
   <li><span class="tag done">完成</span> 階段 1（workflow schema、驗證、唯讀解析）。</li>
   <li><span class="tag done">完成</span> <code>builtin/spec-first.ts</code> 同步「SA 附 mockup 截圖」（<code>3bb0da4</code>）：新增內容關卡 <code>sa-content-check</code>（檢查 id <code>sa-mockup-screenshot</code>）排在 <code>sa-confirm</code> 之前，gates 共 10 道；<code>sa-analyst</code>、<code>spec-verifier</code> 的 <code>roleNotes</code> 已補。注意：這道檢查目前只是描述，由 SA 與規格驗證師依描述執行，程式<b>不會自動</b>檢查 <code>sa-images/</code> 檔案是否存在或被引用（現有內容關卡本來就沒有這種機制）。</li>
   <li><span class="tag done">完成</span> 階段 2（<code>workItemId</code> 雙收、階段順序註冊表、<code>workflow_id</code>）。</li>
+  <li><span class="tag todo">待做（階段 4 的 S3、S7）</span> 規格已定「mockup 設計師」與「SA 分析師」拆分、並新增 mockup 確認關卡（預設等使用者）；<code>builtin/spec-first.ts</code> 目前仍是單一 <code>sa-analyst</code>，程式要在階段 4 同步。</li>
   <li><span class="tag done">完成</span> 階段 3（<code>next-action</code> 分流、<code>auto</code> 與硬停點判斷、<code>confirmedBy</code>、角色補充說明）。</li>
   <li><span class="tag todo">待你確認</span> 階段 4 規劃（手動來源、新角色提示詞、Mermaid 與截圖證據）；規劃書另見 <code>docs/WORKFLOW-PHASE4-PLAN.html</code>。階段 3 遺留要在階段 4 處理的缺口：<code>pipeline-info-tools.ts</code>、<code>ticket-lifecycle-tools.ts</code> 仍直接呼叫舊 <code>computeNextAction</code>；<code>advance_ticket_stage</code> 的階段 enum 與「<code>sd_drafted</code> 才能確認 SD」檢查不適用非 Asana 流程；agent 代確認寫死 <code>sd-confirm</code> 關卡 id；新角色尚無提示詞。</li>
   <li><span class="tag todo">待使用</span> 尚未用過本 MCP 的 2 個專案，第一次使用時登記 profile。</li>
