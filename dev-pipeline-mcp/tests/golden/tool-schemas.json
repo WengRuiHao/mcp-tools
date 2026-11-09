@@ -1,0 +1,1954 @@
+{
+ "abandon_ticket_round": {
+  "descriptionLength": 105,
+  "descriptionSha256": "1d5c2c9d03a5e1c73a73bcc7fd2a42c1f13048736ed8bc3f122ae1f293fb2852",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "note": {
+     "descriptionLength": 21,
+     "descriptionSha256": "b3c15908ebb2520c2fed2d95cdacfeda01a9b2bd6a520407b235e767a83c202f",
+     "type": "string"
+    },
+    "taskGid": {
+     "descriptionLength": 74,
+     "descriptionSha256": "005c0d61a060aae08afde7914d7aa95242a59c072aabfbf3465035f2759ef952",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "workItemId": {
+     "descriptionLength": 52,
+     "descriptionSha256": "d393b039c2733700c5f15b0df6c34c9ece9f8366ad44c6770cc56e3b821f0b49",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "worktreeId": {
+     "descriptionLength": 27,
+     "descriptionSha256": "0b5a38fc71b7f03a4801b063dbb42fc87502d3fa748e4dd035f4f049384b9ac0",
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "required": [
+    "note"
+   ],
+   "type": "object"
+  },
+  "paramCount": 4
+ },
+ "advance_ticket_stage": {
+  "descriptionLength": 570,
+  "descriptionSha256": "14a0426e817c23ed01129d7a199278f7568202352a00d12476dde26b74ac1f67",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "project_dir": {
+     "descriptionLength": 16,
+     "descriptionSha256": "c28b27c16cc06a7de473e2f039b4ef02a443b9fab2a73c284de15c760e7aa660",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "rootCause": {
+     "anyOf": [
+      {
+       "enum": [
+        "analysis",
+        "implementation"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "descriptionLength": 40,
+     "descriptionSha256": "4acf46ce55b9ea647126a49eb20d081957f092467ac93cc972ecfde6792ccd83"
+    },
+    "stage": {
+     "descriptionLength": 133,
+     "descriptionSha256": "4691006b333428d07213c710655141d278bafc212aa3add4d1601968f5404d5b",
+     "enum": [
+      "new",
+      "snapshot",
+      "project_dir_confirmed",
+      "analyzed",
+      "sd_drafted",
+      "implemented",
+      "verified",
+      "tested"
+     ],
+     "type": "string"
+    },
+    "taskGid": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    },
+    "verbose": {
+     "descriptionLength": 15,
+     "descriptionSha256": "d62c7dcb1f9f513788f52f42ca0d1630912c1fda48dd4db3b70531dda32c63f6",
+     "type": [
+      "boolean",
+      "null"
+     ]
+    },
+    "verdict": {
+     "anyOf": [
+      {
+       "enum": [
+        "PASS",
+        "FAIL"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "descriptionLength": 35,
+     "descriptionSha256": "0ddefc486a6408c89853375c0c256b1ef0ac4c78878d869884977af978e46b06"
+    },
+    "workItemId": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    }
+   },
+   "required": [
+    "stage"
+   ],
+   "type": "object"
+  },
+  "paramCount": 7
+ },
+ "create_ticket_worktree": {
+  "descriptionLength": 277,
+  "descriptionSha256": "c752c7df714c945a7d4f621767edbff6fa60e7a455520bb239b38a8eff7278d7",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "gitRootLabel": {
+     "descriptionLength": 50,
+     "descriptionSha256": "bc5fe36a970c6ffbea29dadae8b8cd710556ea82238641f0d689929480840aff",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "taskGid": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    },
+    "workItemId": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    }
+   },
+   "type": "object"
+  },
+  "paramCount": 3
+ },
+ "download_ticket_attachment": {
+  "descriptionLength": 147,
+  "descriptionSha256": "8948b78cd4c3c1d2c656632f4a9fe9ffc9d086be1902619552139a5b4ca21e17",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "attachmentGid": {
+     "descriptionLength": 6,
+     "descriptionSha256": "8ff94d104d75cb5f5f232ebb7ace53e28ee5e7f167fdd2bd07d8a052fa59e6b6",
+     "type": "string"
+    }
+   },
+   "required": [
+    "attachmentGid"
+   ],
+   "type": "object"
+  },
+  "paramCount": 1
+ },
+ "finalize_ticket_worktree": {
+  "descriptionLength": 136,
+  "descriptionSha256": "aa3d80ea6ef863a64b48b216d082c994d520f930ea77a2b35d3d7b8204f6fae5",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "dryRun": {
+     "descriptionLength": 29,
+     "descriptionSha256": "eb40df79aa1d59197c7420e0f6a724745d0e67782c0b4cb6478acc65f1f68c07",
+     "type": "boolean"
+    },
+    "worktreeId": {
+     "descriptionLength": 16,
+     "descriptionSha256": "c19fadeccf910a23cd5a5d0b454e3f10270974ffe97b3f0412a38fec966bd47f",
+     "type": "string"
+    }
+   },
+   "required": [
+    "worktreeId"
+   ],
+   "type": "object"
+  },
+  "paramCount": 2
+ },
+ "get_pipeline_overview": {
+  "descriptionLength": 123,
+  "descriptionSha256": "520f5f5b1fde6d7df23a0643d4ad932be20c682fb67bcb9ba4c28985eb6a51a4",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "section": {
+     "descriptionLength": 41,
+     "descriptionSha256": "21014d8bbe34ed85381ecc83e39d9851084d1ebb5e8de0e7cdc4fa4127954719",
+     "enum": [
+      "core",
+      "setup",
+      "appendix-a",
+      "appendix-b",
+      "appendix-c",
+      "all"
+     ],
+     "type": "string"
+    }
+   },
+   "type": "object"
+  },
+  "paramCount": 1
+ },
+ "get_project_rules": {
+  "descriptionLength": 189,
+  "descriptionSha256": "c32dd8c0bac4aab320521e7c22864e47626fa6c428e25dd32dd78a408b2557ae",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "projectDir": {
+     "descriptionLength": 9,
+     "descriptionSha256": "1c08119c96dedf55f557d9d2b1c7e463d81753c50dd8a2ac93c5cb267663760f",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "taskGid": {
+     "descriptionLength": 80,
+     "descriptionSha256": "ec5bdd2196305097e212f28d8aee5e23292ab7e48edb8be0b4ec44713b2382c0",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "workItemId": {
+     "descriptionLength": 52,
+     "descriptionSha256": "d393b039c2733700c5f15b0df6c34c9ece9f8366ad44c6770cc56e3b821f0b49",
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "type": "object"
+  },
+  "paramCount": 3
+ },
+ "get_recent_commits": {
+  "descriptionLength": 33,
+  "descriptionSha256": "670d475b1a231bc6657e93c2bc3ab1547c6474de65201969f18ac583912fba21",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "gitDir": {
+     "descriptionLength": 8,
+     "descriptionSha256": "d469b667c4b33017c06436e18307ffbd23cf9442686168da87e5e95d09830ad1",
+     "type": "string"
+    },
+    "limit": {
+     "default": 10,
+     "descriptionLength": 15,
+     "descriptionSha256": "b3d4b7ac4a06f12a247c980575f5317efe640f744fd541c4ad9eb9bd0a00ffad",
+     "exclusiveMinimum": 0,
+     "maximum": 100,
+     "type": "integer"
+    }
+   },
+   "required": [
+    "gitDir"
+   ],
+   "type": "object"
+  },
+  "paramCount": 2
+ },
+ "get_role_prompt": {
+  "descriptionLength": 256,
+  "descriptionSha256": "e50ab0b400a4ec6638e349dcc96b279203283f001212cd330ad1de5eb0d5d04d",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "forSubagent": {
+     "descriptionLength": 65,
+     "descriptionSha256": "cd4fc7d9e738d1ff06f59f3e196014437f86f08328a262be3a478a463b29f94a",
+     "type": "boolean"
+    },
+    "projectDir": {
+     "descriptionLength": 280,
+     "descriptionSha256": "aba206bafc96d4bcccaba1b47cb1517e30bb12868ff2a67688d25dfc14f7b03d",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "role": {
+     "descriptionLength": 8,
+     "descriptionSha256": "0e3b1252851502217b5b8217ca5120d5a1fbd0fa7b2585901dca8f04bb5135d4",
+     "enum": [
+      "analyst",
+      "spec-writer",
+      "engineer",
+      "verifier",
+      "tester"
+     ],
+     "type": "string"
+    },
+    "taskGid": {
+     "descriptionLength": 123,
+     "descriptionSha256": "55fcb52d29e44cb0fa82aaa4c822da08cba7b9fba3a82e51064cd3a3bc75087a",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "workItemId": {
+     "descriptionLength": 52,
+     "descriptionSha256": "d393b039c2733700c5f15b0df6c34c9ece9f8366ad44c6770cc56e3b821f0b49",
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "required": [
+    "role"
+   ],
+   "type": "object"
+  },
+  "paramCount": 5
+ },
+ "get_sd_spec_template": {
+  "descriptionLength": 315,
+  "descriptionSha256": "71a061d0a94e960241b86a7897b8fd6f447cd17812be70bd4ffe9b852147f972",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "projectDir": {
+     "descriptionLength": 75,
+     "descriptionSha256": "844695508365fd8002f074fdc5e39a4f93e967bdeec4841c875cbce30adc48e5",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "taskGid": {
+     "descriptionLength": 38,
+     "descriptionSha256": "5ac4e9b74e48b63ae106c0cd3dd788670e1d06ad1ff3500907b490210669af5f",
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "type": "object"
+  },
+  "paramCount": 2
+ },
+ "get_sd_spec_versioning_rules": {
+  "descriptionLength": 263,
+  "descriptionSha256": "d205c2d0787bbb74883d56b58f234b7921858948466848a080e409f3548f510a",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "projectDir": {
+     "descriptionLength": 75,
+     "descriptionSha256": "844695508365fd8002f074fdc5e39a4f93e967bdeec4841c875cbce30adc48e5",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "taskGid": {
+     "descriptionLength": 38,
+     "descriptionSha256": "5ac4e9b74e48b63ae106c0cd3dd788670e1d06ad1ff3500907b490210669af5f",
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "type": "object"
+  },
+  "paramCount": 2
+ },
+ "get_test_engineer_guide": {
+  "descriptionLength": 396,
+  "descriptionSha256": "d9f8264fbd5bf7c44e417f2788cefc332bda2f3039f5434d057a923ef8ab708d",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "properties": {},
+   "type": "object"
+  },
+  "paramCount": 0
+ },
+ "get_ticket_activity": {
+  "descriptionLength": 397,
+  "descriptionSha256": "cdeebe7917ff3626f66dc3a1c3c24baa3594e858df273448a566d8c058ffe87b",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "taskGid": {
+     "descriptionLength": 6,
+     "descriptionSha256": "21141b2a7d1ead01372d332ff13af8ca8bb27541f864735f80e53c63f561b590",
+     "type": "string"
+    }
+   },
+   "required": [
+    "taskGid"
+   ],
+   "type": "object"
+  },
+  "paramCount": 1
+ },
+ "get_ticket_snapshot": {
+  "descriptionLength": 503,
+  "descriptionSha256": "775a57029977e04b184cc25613c3038704b2c29b09874431ae4b45044aafe3d5",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "confirmProjectDir": {
+     "descriptionLength": 98,
+     "descriptionSha256": "7308afa5753d254c498c2644b8f37eb0258f93ab054894a76700fefaa5a4f28a",
+     "type": [
+      "boolean",
+      "null"
+     ]
+    },
+    "projectDir": {
+     "descriptionLength": 62,
+     "descriptionSha256": "ea9e001053247d88c3344530bda80b6dad9ef061c2289457a4328c7b2a034ad1",
+     "type": "string"
+    },
+    "projectGid": {
+     "descriptionLength": 60,
+     "descriptionSha256": "6fdb280ffc5653e77fa0643399ec6a5f81eb619a3dbb04884b2b306a38878922",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "projectName": {
+     "descriptionLength": 33,
+     "descriptionSha256": "b6795f63d68c15e0c499fcc9a88152ea1d83afccfa07deecf621001e0eb7ac6e",
+     "type": "string"
+    },
+    "taskGid": {
+     "descriptionLength": 6,
+     "descriptionSha256": "21141b2a7d1ead01372d332ff13af8ca8bb27541f864735f80e53c63f561b590",
+     "type": "string"
+    },
+    "ticketNumber": {
+     "descriptionLength": 44,
+     "descriptionSha256": "00b1a52c7bda147b647f4eab79570209f16bb4d52a07ac24eff9102886c67a04",
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "required": [
+    "taskGid",
+    "projectDir",
+    "projectName"
+   ],
+   "type": "object"
+  },
+  "paramCount": 6
+ },
+ "get_ticket_status": {
+  "descriptionLength": 658,
+  "descriptionSha256": "65353a4ca85caedd1eccdb09de82d66828e4ef11e52a7225b869bf507e235038",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "taskGid": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    },
+    "verbose": {
+     "descriptionLength": 31,
+     "descriptionSha256": "33012eb71b50f9fbb525077f9046442bb327c4cbda8f027837279c245e334a7e",
+     "type": [
+      "boolean",
+      "null"
+     ]
+    },
+    "workItemId": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    }
+   },
+   "type": "object"
+  },
+  "paramCount": 3
+ },
+ "get_worktree_status": {
+  "descriptionLength": 133,
+  "descriptionSha256": "c6c33dee2c22aae8b41dc7985c3d555d9468c279b724f1c1aff13a6007e1b3af",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "taskGid": {
+     "descriptionLength": 74,
+     "descriptionSha256": "005c0d61a060aae08afde7914d7aa95242a59c072aabfbf3465035f2759ef952",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "workItemId": {
+     "descriptionLength": 52,
+     "descriptionSha256": "d393b039c2733700c5f15b0df6c34c9ece9f8366ad44c6770cc56e3b821f0b49",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "worktreeId": {
+     "descriptionLength": 27,
+     "descriptionSha256": "0b5a38fc71b7f03a4801b063dbb42fc87502d3fa748e4dd035f4f049384b9ac0",
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "type": "object"
+  },
+  "paramCount": 3
+ },
+ "install_git_hooks": {
+  "descriptionLength": 255,
+  "descriptionSha256": "832df02ec17affa7c6f6dbb453037e3caa216b4f42f74c625324d9d6dccf5e27",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "projectDir": {
+     "descriptionLength": 30,
+     "descriptionSha256": "0e73b47804ffb4a8f390ca2fbde26366de092459cf2b61a6b5c99d24a64e7a7b",
+     "type": "string"
+    }
+   },
+   "required": [
+    "projectDir"
+   ],
+   "type": "object"
+  },
+  "paramCount": 1
+ },
+ "join_ticket_worktree": {
+  "descriptionLength": 77,
+  "descriptionSha256": "75d6f5eab1cdad19ab5bada3943778d6839184717aea28c933bc1f5e6b1b1f95",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "taskGid": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    },
+    "workItemId": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    },
+    "worktreeId": {
+     "descriptionLength": 54,
+     "descriptionSha256": "375a09f1798c62f98ccec862b47b6758cdb3d6eaffb71932310ca485ce97bec1",
+     "type": "string"
+    }
+   },
+   "required": [
+    "worktreeId"
+   ],
+   "type": "object"
+  },
+  "paramCount": 3
+ },
+ "list_pending_tickets": {
+  "descriptionLength": 873,
+  "descriptionSha256": "f11b4be73e36e04615415298c8ed78fc40a2d5bc296a6ac3a3c4cfe9709a7411",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "dueOn": {
+     "anyOf": [
+      {
+       "anyOf": [
+        {
+         "enum": [
+          "today",
+          "overdue",
+          "today_or_overdue"
+         ],
+         "type": "string"
+        },
+        {
+         "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+         "type": "string"
+        }
+       ]
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "descriptionLength": 63,
+     "descriptionSha256": "b9557319ae895bf68f5b83670d67fde5ab6236067c1f25f479323924cc9a2cd4"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "exclusiveMinimum": 0,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "descriptionLength": 52,
+     "descriptionSha256": "b130c20f875b85b438dca9590d6fdeaffcff577a536763af938306803e99c3b0"
+    },
+    "onlyAssignedToMe": {
+     "descriptionLength": 73,
+     "descriptionSha256": "20baa478127cfc26a51903d4fffa99da2b74f8af44fd845e289d6c9630753323",
+     "type": [
+      "boolean",
+      "null"
+     ]
+    },
+    "projectGid": {
+     "descriptionLength": 12,
+     "descriptionSha256": "987fac2f0b56da351e2390dbf015692178856e520b847775b22902055d36087c",
+     "type": "string"
+    },
+    "projectName": {
+     "descriptionLength": 21,
+     "descriptionSha256": "86588497e5d429d53f531b12aebaf5f93cd846682b3162f3ec7e2bd0e52d9b76",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "refresh": {
+     "descriptionLength": 15,
+     "descriptionSha256": "3408af44f28a50d6f3a086709faa6116d4a07c88bdabd4b670aaf73588da5626",
+     "type": [
+      "boolean",
+      "null"
+     ]
+    },
+    "reportOnly": {
+     "descriptionLength": 54,
+     "descriptionSha256": "3f9f85b9fb45aefe8b82708aac38fc5cba863de8ce6e5e753b04f62daa1300c1",
+     "type": [
+      "boolean",
+      "null"
+     ]
+    },
+    "search": {
+     "descriptionLength": 88,
+     "descriptionSha256": "8a424be1343cec9e1fdab8bcc172233650044a59f0738e524674bdc09e764d51",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "sectionFilter": {
+     "descriptionLength": 22,
+     "descriptionSha256": "c2dfb1a6db8e5ee8a4ffe510411582bf327d5f4377ec9647d5bcd46aeb701880",
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "required": [
+    "projectGid"
+   ],
+   "type": "object"
+  },
+  "paramCount": 9
+ },
+ "list_project_dir": {
+  "descriptionLength": 139,
+  "descriptionSha256": "0caa986a7d6ae5499bc27c4b82462b027635834f909de25a9b0bd78b67c5d93e",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "path": {
+     "default": ".",
+     "descriptionLength": 20,
+     "descriptionSha256": "e4481920eee2c82ae9dad1a4ab5188914b2262ae8c4187aa7b6a60a659cc1d77",
+     "type": "string"
+    },
+    "projectDir": {
+     "descriptionLength": 8,
+     "descriptionSha256": "319974a109185604d59c7f2071626c4df59cd7e3cc91bbdb14cbce062d141ea5",
+     "type": "string"
+    }
+   },
+   "required": [
+    "projectDir"
+   ],
+   "type": "object"
+  },
+  "paramCount": 2
+ },
+ "list_rule_history": {
+  "descriptionLength": 123,
+  "descriptionSha256": "b11524c650e47c91c62c125df812ffb9a142f062c3a799c2e65844ec131e592d",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "file": {
+     "descriptionLength": 38,
+     "descriptionSha256": "9ab71b0713d841a0bac0d35bd0ab793da28caaa41f1e44bed75326ac1c335445",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "projectDir": {
+     "descriptionLength": 8,
+     "descriptionSha256": "319974a109185604d59c7f2071626c4df59cd7e3cc91bbdb14cbce062d141ea5",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "taskGid": {
+     "descriptionLength": 36,
+     "descriptionSha256": "7966de7b9c52cdfaca331e52918c8425535fa1231e9f7ebad9efb60c600fb6ca",
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "type": "object"
+  },
+  "paramCount": 3
+ },
+ "list_worktrees": {
+  "descriptionLength": 108,
+  "descriptionSha256": "50294b2c4a2e6d3a519afcc9db85c6f05f790e6bcef3bfc72b2fae0ec4693ae5",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "properties": {},
+   "type": "object"
+  },
+  "paramCount": 0
+ },
+ "merge_ticket_worktree": {
+  "descriptionLength": 268,
+  "descriptionSha256": "4e576a392f91fc625095edf53e34fe6a39a7f4500debfdc21085fc92d66ce7ce",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "mergeMessage": {
+     "descriptionLength": 28,
+     "descriptionSha256": "c22d9a98decac0f72657982af0aa031425800703164f4250ed213775b33471ba",
+     "type": "string"
+    },
+    "taskGid": {
+     "descriptionLength": 74,
+     "descriptionSha256": "005c0d61a060aae08afde7914d7aa95242a59c072aabfbf3465035f2759ef952",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "workItemId": {
+     "descriptionLength": 52,
+     "descriptionSha256": "d393b039c2733700c5f15b0df6c34c9ece9f8366ad44c6770cc56e3b821f0b49",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "worktreeId": {
+     "descriptionLength": 27,
+     "descriptionSha256": "0b5a38fc71b7f03a4801b063dbb42fc87502d3fa748e4dd035f4f049384b9ac0",
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "required": [
+    "mergeMessage"
+   ],
+   "type": "object"
+  },
+  "paramCount": 4
+ },
+ "prepare_project": {
+  "descriptionLength": 137,
+  "descriptionSha256": "68ffefb6cb73fa4b4e50d13f4c22e93d1382184b18d77dec1c93b98e91a56618",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "cwd": {
+     "descriptionLength": 38,
+     "descriptionSha256": "65cbf31ebaf45a67a9fa82c73f5edd2c7c98f4186490c9ddb4c4b65a3b58f987",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "projectGid": {
+     "descriptionLength": 27,
+     "descriptionSha256": "2dfd98e4f797e8c74dc91c1fecb3f305afacc5597a37c3034f99a7b7fd210c14",
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "type": "object"
+  },
+  "paramCount": 2
+ },
+ "project_config": {
+  "descriptionLength": 869,
+  "descriptionSha256": "6af5f5f735c835bae7db7702c2e68927eaa2f378caf60112396778dc49e47598",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "action": {
+     "descriptionLength": 22,
+     "descriptionSha256": "a0aea13cb2e29cc9154dc54f6bea3ef1a04fe75941e118bf8ea2f0266795d062",
+     "enum": [
+      "resolve",
+      "register"
+     ],
+     "type": "string"
+    },
+    "cwd": {
+     "descriptionLength": 29,
+     "descriptionSha256": "d1e15855ea9d1353d693077f4ddbe539907cecd8a1c78c43a5ee778140a65633",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "gitRoots": {
+     "descriptionLength": 39,
+     "descriptionSha256": "eb80612a22a38f9255c567b0460aa5e4c8e2cbd597a3ae65c4221748c1f318fd",
+     "items": {
+      "additionalProperties": false,
+      "properties": {
+       "label": {
+        "type": "string"
+       },
+       "path": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "label",
+       "path"
+      ],
+      "type": "object"
+     },
+     "type": "array"
+    },
+    "kind": {
+     "descriptionLength": 4,
+     "descriptionSha256": "147f3bf969815e75ddcd6a11cbb6638143ddedf9234313589d65603ed33d8380",
+     "enum": [
+      "default_project",
+      "project_dir",
+      "sasd_config",
+      "legacy_test_profile",
+      "test_capability",
+      "git_roots",
+      "svn_workcopies",
+      "flow"
+     ],
+     "type": "string"
+    },
+    "legacyTestProfile": {
+     "descriptionLength": 31,
+     "descriptionSha256": "659da387f28cf68f242cf2f8ef5509fa2f5a88e8f89ba9d1756190031a464dfe",
+     "type": "boolean"
+    },
+    "mode": {
+     "descriptionLength": 53,
+     "descriptionSha256": "74a7dc97b136805f451ed3db11cce6eeaa8d5501a8de8f7d719898225014f6c9",
+     "enum": [
+      "modern",
+      "legacy_junit4",
+      "none"
+     ],
+     "type": "string"
+    },
+    "note": {
+     "descriptionLength": 43,
+     "descriptionSha256": "cbc28dd959b0ada236b2d35f6bab95c4c8e2807602bbd821926dbd61c3b6e9bd",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "projectDir": {
+     "descriptionLength": 55,
+     "descriptionSha256": "b2bfc93770468e8afa18bbfa9e476bdf74c94e60bdbaacf3d017ce27dd98e07f",
+     "type": "string"
+    },
+    "projectGid": {
+     "descriptionLength": 43,
+     "descriptionSha256": "11b3f33c11b1d4aa62ffc8261b6a76d21c989de125c339996376441ccd8c3ab7",
+     "type": "string"
+    },
+    "projectName": {
+     "descriptionLength": 32,
+     "descriptionSha256": "733e87d473a916acc3535ea9bcb57df67822d87630feaaa0d8d2dbf48e904fd7",
+     "type": "string"
+    },
+    "saRoot": {
+     "descriptionLength": 55,
+     "descriptionSha256": "6fad1e2be23182923b9f7b432e7b28377f6b9aa2ccce9df7116881ca2b1b5546",
+     "type": "string"
+    },
+    "sdMode": {
+     "descriptionLength": 29,
+     "descriptionSha256": "a49be96139c88809b00393af80e0cb617e401e4a8daa75548160cf68e0102a7a",
+     "enum": [
+      "external",
+      "self",
+      "self-generated",
+      "unregistered"
+     ],
+     "type": "string"
+    },
+    "sdOutputPath": {
+     "descriptionLength": 45,
+     "descriptionSha256": "8602be9dda38c58b56386877a522e4a06463aa69959df4e2a63ed547a369a582",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "sdRoot": {
+     "descriptionLength": 24,
+     "descriptionSha256": "d246e4c2981bfcd497a23cf410f3d74c7007ac001992813f3e690657af080d85",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "specOrder": {
+     "anyOf": [
+      {
+       "enum": [
+        "spec_first",
+        "code_first"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "descriptionLength": 39,
+     "descriptionSha256": "9441ddc078c65fb645c034ff1e7cad43c6c69d6e3ba251638f91bdc7f7949443"
+    },
+    "svnConnectionId": {
+     "descriptionLength": 25,
+     "descriptionSha256": "07da7caf5c97720dc8de4c4e356301e14e3230915401b062e6de0f0b45340bb1",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "workCopies": {
+     "descriptionLength": 66,
+     "descriptionSha256": "827f6a8dc3357065e3c7522c0c68e715f6f8842ba0f15012fc5140f0b6e03500",
+     "items": {
+      "additionalProperties": false,
+      "properties": {
+       "connectionId": {
+        "type": "string"
+       },
+       "label": {
+        "type": "string"
+       },
+       "workCopyPath": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "label",
+       "workCopyPath",
+       "connectionId"
+      ],
+      "type": "object"
+     },
+     "type": "array"
+    },
+    "workspaceGid": {
+     "descriptionLength": 35,
+     "descriptionSha256": "7c8ea7416e0aa5cea37a33f5fd38f12a368e0816ab52804eb14a6993c0202440",
+     "type": "string"
+    }
+   },
+   "required": [
+    "kind",
+    "action"
+   ],
+   "type": "object"
+  },
+  "paramCount": 18
+ },
+ "read_project_file": {
+  "descriptionLength": 297,
+  "descriptionSha256": "13ab715a37b6e384541443e666d02eaedd12657d5d9ee64dd800ab3eba18c2c8",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "endLine": {
+     "descriptionLength": 11,
+     "descriptionSha256": "696df6e663daf5b63f0b218c73605cfa28930b0a1a301486d52f7bb52e0d49ce",
+     "type": "number"
+    },
+    "path": {
+     "descriptionLength": 20,
+     "descriptionSha256": "d3bea7f0a653b302667a947d6efe1e218c4a72b0e551ed858cf67ed73510d2b3",
+     "type": "string"
+    },
+    "projectDir": {
+     "descriptionLength": 8,
+     "descriptionSha256": "319974a109185604d59c7f2071626c4df59cd7e3cc91bbdb14cbce062d141ea5",
+     "type": "string"
+    },
+    "startLine": {
+     "descriptionLength": 11,
+     "descriptionSha256": "9013f8f00e60faef8160d8ae295ee48475e548aec7be3d388faab9413880eff0",
+     "type": "number"
+    }
+   },
+   "required": [
+    "projectDir",
+    "path"
+   ],
+   "type": "object"
+  },
+  "paramCount": 4
+ },
+ "read_project_sd_doc": {
+  "descriptionLength": 196,
+  "descriptionSha256": "275d44013dd1e049bf577a00979524322c3547a625245b47c47511fcf2b73e2f",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "fileName": {
+     "descriptionLength": 114,
+     "descriptionSha256": "14410e982da3bee1bd1ba1b7ee980cd500c12aed82f6261f2224ef4facd8d7c3",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "projectDir": {
+     "descriptionLength": 25,
+     "descriptionSha256": "d2783562832e91482ee3c37ca6d924b0e005b1167668275dea87b5615f9291e5",
+     "type": "string"
+    },
+    "projectGid": {
+     "descriptionLength": 12,
+     "descriptionSha256": "987fac2f0b56da351e2390dbf015692178856e520b847775b22902055d36087c",
+     "type": "string"
+    }
+   },
+   "required": [
+    "projectGid",
+    "projectDir"
+   ],
+   "type": "object"
+  },
+  "paramCount": 3
+ },
+ "read_ticket_artifact": {
+  "descriptionLength": 45,
+  "descriptionSha256": "272fa91f92f80c70e4845127c0328dcfacaa307a25b3d2715a0fdb7f90feaabc",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "filename": {
+     "descriptionLength": 15,
+     "descriptionSha256": "cd1eeb3ae0b8683ed06a7117bbadea9e29e01e5d99ec145ebae8d7eeae6b2931",
+     "type": "string"
+    },
+    "taskGid": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    },
+    "workItemId": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    }
+   },
+   "required": [
+    "filename"
+   ],
+   "type": "object"
+  },
+  "paramCount": 3
+ },
+ "record_confirmation": {
+  "descriptionLength": 254,
+  "descriptionSha256": "c6e2448b5a69af3635ec84ae2e0e5a78287871c7d2ec922a640902583152a84b",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "confirmed": {
+     "descriptionLength": 33,
+     "descriptionSha256": "7006f496457d84a4724087a58056e06abe11f748cca6b0c7cac259a129b25c9a",
+     "type": "boolean"
+    },
+    "note": {
+     "descriptionLength": 37,
+     "descriptionSha256": "1164ea3930d46aa4fa8dfa2d22d514afabe35cf584088e69665ccd896ba4b07c",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "taskGid": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    },
+    "verbose": {
+     "descriptionLength": 15,
+     "descriptionSha256": "d62c7dcb1f9f513788f52f42ca0d1630912c1fda48dd4db3b70531dda32c63f6",
+     "type": [
+      "boolean",
+      "null"
+     ]
+    },
+    "workItemId": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    }
+   },
+   "required": [
+    "confirmed"
+   ],
+   "type": "object"
+  },
+  "paramCount": 5
+ },
+ "record_sasd_check": {
+  "descriptionLength": 102,
+  "descriptionSha256": "179b9d399a5bfe67a4aa7aa95693304265557ecdbab668d216fdc6cc0427b7e9",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "hasSasd": {
+     "descriptionLength": 20,
+     "descriptionSha256": "181d87ba7421a9f02c2a8e65524c1843a4546519308415759e40cbec493e840b",
+     "type": "boolean"
+    },
+    "sasdInfo": {
+     "descriptionLength": 16,
+     "descriptionSha256": "8096719177eabf4897d0ea0c578b59422981b93a025f2bc014f405bb155c9986",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "taskGid": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    },
+    "verbose": {
+     "descriptionLength": 15,
+     "descriptionSha256": "d62c7dcb1f9f513788f52f42ca0d1630912c1fda48dd4db3b70531dda32c63f6",
+     "type": [
+      "boolean",
+      "null"
+     ]
+    },
+    "workItemId": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    }
+   },
+   "required": [
+    "hasSasd"
+   ],
+   "type": "object"
+  },
+  "paramCount": 5
+ },
+ "record_spec_confirmation": {
+  "descriptionLength": 465,
+  "descriptionSha256": "f54d9a138037bb6f43fa122feb378971434bd1f9bf1507abb946cdb53182b961",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "confirmed": {
+     "descriptionLength": 62,
+     "descriptionSha256": "f481ed6a4364076b338edc89ba1f34be2ecf311ff7e3c1132bc2837e47a7caf5",
+     "type": "boolean"
+    },
+    "confirmedBy": {
+     "anyOf": [
+      {
+       "enum": [
+        "human",
+        "agent"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "descriptionLength": 59,
+     "descriptionSha256": "90062dcf18a1552ed0ca0eed88cb2b6470b87a50e6e7172f35be2b9786c124a1"
+    },
+    "note": {
+     "descriptionLength": 28,
+     "descriptionSha256": "9693801b22194da0795e10dcd8084c55644d97a6378cf8b39eeb3e5a8e205eea",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "review": {
+     "anyOf": [
+      {
+       "additionalProperties": {},
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "descriptionLength": 80,
+     "descriptionSha256": "6c7db8404359d78055018b0fec631802e73d83169c9b696b3729dfb0822ee0cf"
+    },
+    "sdNotRequired": {
+     "descriptionLength": 56,
+     "descriptionSha256": "49d85870f5d61d37e44a80496315b34cbcf872f60b091989749430cd6864497c",
+     "type": [
+      "boolean",
+      "null"
+     ]
+    },
+    "taskGid": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    },
+    "userInstruction": {
+     "descriptionLength": 49,
+     "descriptionSha256": "ec850aa62a3621f40cd79fc3c1b3f3657aa533dcf5249a36ca0cf5163385357f",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "verbose": {
+     "descriptionLength": 15,
+     "descriptionSha256": "d62c7dcb1f9f513788f52f42ca0d1630912c1fda48dd4db3b70531dda32c63f6",
+     "type": [
+      "boolean",
+      "null"
+     ]
+    },
+    "workItemId": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    }
+   },
+   "required": [
+    "confirmed"
+   ],
+   "type": "object"
+  },
+  "paramCount": 9
+ },
+ "record_test_evidence": {
+  "descriptionLength": 804,
+  "descriptionSha256": "500086cb54ddd9efa98d84424fb5d9b3170901591db744bb36bfdd2c78ff6ca3",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "fakeDataMarked": {
+     "descriptionLength": 38,
+     "descriptionSha256": "d892a4e5bf5189f654b26534c95fdc29c194c5a61f6ded0a6e2aad708dbc119e",
+     "type": [
+      "boolean",
+      "null"
+     ]
+    },
+    "featureName": {
+     "descriptionLength": 22,
+     "descriptionSha256": "2b3b80fc31c6dd8ca9922947e9a339b8bbb803f9a1a51bf24a4cfb830a769caa",
+     "minLength": 1,
+     "type": "string"
+    },
+    "fileKind": {
+     "descriptionLength": 4,
+     "descriptionSha256": "979fea70d6dbb6c3fa772a9995128c9d087f0a7371db22305d2b7c52562f5e01",
+     "enum": [
+      "excel",
+      "pdf",
+      "api-call",
+      "test-report",
+      "db-state"
+     ],
+     "type": "string"
+    },
+    "markedFile": {
+     "descriptionLength": 57,
+     "descriptionSha256": "84fe182ca3d6352954cdc34f2e689d1c482a5935f5b5643dddce7a01ce763ef4",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "note": {
+     "descriptionLength": 4,
+     "descriptionSha256": "48c79b71b67d0c002b72776b3501b371177602445c73c737510d3f6c34689e05",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "screenshotPaths": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "descriptionLength": 41,
+     "descriptionSha256": "18b858c6e6c4208cdcbea153d5459ab2f18b09bd375017eff715d9f35710e329"
+    },
+    "sourceFile": {
+     "descriptionLength": 24,
+     "descriptionSha256": "def7135dcd96c9560b4ab873add5cea4607598394c6e694c6534bbd0cc4b7421",
+     "type": "string"
+    },
+    "taskGid": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    },
+    "testLevel": {
+     "descriptionLength": 4,
+     "descriptionSha256": "ee49a62812d190036f3407828f5e6117f4a44964d41dc01783f1c95730c824ce",
+     "enum": [
+      "unit-mock",
+      "integration-db",
+      "live-api"
+     ],
+     "type": "string"
+    },
+    "testSource": {
+     "descriptionLength": 20,
+     "descriptionSha256": "0c011217b41e610362283d1155db39cf51e223b67778073f9e442393490f3e40",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "usesFakeData": {
+     "descriptionLength": 11,
+     "descriptionSha256": "54e0cf969474f07f114c7aae7d5dd68eaae21b1daf646da45d6b36afc9603409",
+     "type": "boolean"
+    },
+    "workItemId": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    }
+   },
+   "required": [
+    "featureName",
+    "fileKind",
+    "testLevel",
+    "sourceFile",
+    "usesFakeData"
+   ],
+   "type": "object"
+  },
+  "paramCount": 12
+ },
+ "relocate_ticket_project": {
+  "descriptionLength": 344,
+  "descriptionSha256": "351f9fd5a294539594b8523bdfbdc864c5ce1be682f38d8d82523c0e892d021f",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "newProjectName": {
+     "descriptionLength": 26,
+     "descriptionSha256": "d82ef137d380040858784a457c7f9cef25fcf6de26857b6949da90a58d61db5a",
+     "type": "string"
+    },
+    "taskGid": {
+     "descriptionLength": 18,
+     "descriptionSha256": "e8f47c77adbe387123ada6278680a3eb44100fe5dede03764c19e753eb98e858",
+     "type": "string"
+    }
+   },
+   "required": [
+    "taskGid",
+    "newProjectName"
+   ],
+   "type": "object"
+  },
+  "paramCount": 2
+ },
+ "request_reanalysis": {
+  "descriptionLength": 215,
+  "descriptionSha256": "15691a96cbafe0fb63195e5469456d998fcdd7f581fb9aa87d3fb22c9f6c0b34",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "taskGid": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    },
+    "verbose": {
+     "descriptionLength": 15,
+     "descriptionSha256": "d62c7dcb1f9f513788f52f42ca0d1630912c1fda48dd4db3b70531dda32c63f6",
+     "type": [
+      "boolean",
+      "null"
+     ]
+    },
+    "workItemId": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    }
+   },
+   "type": "object"
+  },
+  "paramCount": 3
+ },
+ "resolve_manual_action": {
+  "descriptionLength": 205,
+  "descriptionSha256": "038c5e3e82c18fe86774d48036de473c443920fedcc991787d9075de6fe74242",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "action": {
+     "descriptionLength": 30,
+     "descriptionSha256": "cddb82827ba442ce8bb493fa145ad2132f410f13c62a08ed2003a2dfe39c70ce",
+     "type": "string"
+    },
+    "filename": {
+     "descriptionLength": 34,
+     "descriptionSha256": "f3cc02a2f564faac70376e3ea07b6a5db638556f4fa4c2c0d29c958581d0495d",
+     "enum": [
+      "02-implementation.md",
+      "03-verification.md",
+      "04-test.md"
+     ],
+     "type": "string"
+    },
+    "taskGid": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    },
+    "workItemId": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    }
+   },
+   "required": [
+    "filename",
+    "action"
+   ],
+   "type": "object"
+  },
+  "paramCount": 4
+ },
+ "restore_rule_file": {
+  "descriptionLength": 67,
+  "descriptionSha256": "291fa4fc07151253446e7c4f34511e09e5e1faa62917036a8521a681aed7b17f",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "file": {
+     "descriptionLength": 38,
+     "descriptionSha256": "9ab71b0713d841a0bac0d35bd0ab793da28caaa41f1e44bed75326ac1c335445",
+     "type": "string"
+    },
+    "projectDir": {
+     "descriptionLength": 8,
+     "descriptionSha256": "319974a109185604d59c7f2071626c4df59cd7e3cc91bbdb14cbce062d141ea5",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "snapshot": {
+     "descriptionLength": 30,
+     "descriptionSha256": "bf392f2dc03069499074d7e0c463188f7ceb9555a12318f47786db86d5869d59",
+     "type": "string"
+    },
+    "taskGid": {
+     "descriptionLength": 36,
+     "descriptionSha256": "7966de7b9c52cdfaca331e52918c8425535fa1231e9f7ebad9efb60c600fb6ca",
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "required": [
+    "file",
+    "snapshot"
+   ],
+   "type": "object"
+  },
+  "paramCount": 4
+ },
+ "resync_ticket_artifact": {
+  "descriptionLength": 206,
+  "descriptionSha256": "4e3937a4a67b2cf9fe61fd9f34cd54a443020cfc2902df4616227a93b4419cc2",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "filename": {
+     "descriptionLength": 9,
+     "descriptionSha256": "e56c759bcd511501b355ca71c468cca5c7a48b1f670caf605e4c37702f534e4b",
+     "enum": [
+      "01-analysis.md",
+      "02-implementation.md",
+      "03-verification.md",
+      "04-test.md"
+     ],
+     "type": "string"
+    },
+    "manualActions": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "descriptionLength": 32,
+     "descriptionSha256": "fcac1ceba5bf4a6c6986f142afaf8b883b17bf9559c728cc549bf9dda9010ab6"
+    },
+    "summary": {
+     "descriptionLength": 20,
+     "descriptionSha256": "86f4990175901691202aa6e870244dae500ce9a14a78dcbd2f1db51b41f1a69a",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "taskGid": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    },
+    "workItemId": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    }
+   },
+   "required": [
+    "filename"
+   ],
+   "type": "object"
+  },
+  "paramCount": 5
+ },
+ "run_project_shell": {
+  "descriptionLength": 644,
+  "descriptionSha256": "6e528a8ac6e12cdb3b9a00b00b8323bbac02666e6ec4f74afe2f1d9374a8b7bd",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "command": {
+     "descriptionLength": 13,
+     "descriptionSha256": "7fe489303e4550d0641031972571f8f9f70295d216bf652f0f42d43d829f8a75",
+     "type": "string"
+    },
+    "projectDir": {
+     "descriptionLength": 8,
+     "descriptionSha256": "319974a109185604d59c7f2071626c4df59cd7e3cc91bbdb14cbce062d141ea5",
+     "type": "string"
+    },
+    "timeoutMs": {
+     "descriptionLength": 24,
+     "descriptionSha256": "f367cde14ee1da4e3e22c8ebd0a17a312c7df1427dd6cad2cd4d3c6110301d26",
+     "maximum": 600000,
+     "minimum": 1,
+     "type": "integer"
+    }
+   },
+   "required": [
+    "projectDir",
+    "command"
+   ],
+   "type": "object"
+  },
+  "paramCount": 3
+ },
+ "search_project_text": {
+  "descriptionLength": 460,
+  "descriptionSha256": "9ee314be45a2cf7ac773b6ddb20d0cab5f1908fa26f60b6a59927d6598acee24",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "fileExtensions": {
+     "descriptionLength": 36,
+     "descriptionSha256": "60bf203dff316fa243ca5668d25766c1570564566a4eb52909a3b213bc67b790",
+     "items": {
+      "type": "string"
+     },
+     "type": "array"
+    },
+    "path": {
+     "descriptionLength": 22,
+     "descriptionSha256": "95729cd00961d0a25f7176210828b0017a3dbf141a5d75b27cc920ca63f714c8",
+     "type": "string"
+    },
+    "pattern": {
+     "descriptionLength": 12,
+     "descriptionSha256": "07c55fae7ed1002c78de7915e668200df444ee5a0468c154f7f715953be8781e",
+     "type": "string"
+    },
+    "projectDir": {
+     "descriptionLength": 8,
+     "descriptionSha256": "319974a109185604d59c7f2071626c4df59cd7e3cc91bbdb14cbce062d141ea5",
+     "type": "string"
+    },
+    "useRegex": {
+     "default": false,
+     "descriptionLength": 19,
+     "descriptionSha256": "41968aadb81419574b6a6b27e3a014f9c17a7721aca447310cb1262925513111",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "projectDir",
+    "pattern"
+   ],
+   "type": "object"
+  },
+  "paramCount": 5
+ },
+ "toolCount": 42,
+ "write_project_file": {
+  "descriptionLength": 352,
+  "descriptionSha256": "e9c4dd3b200616f57a6f2d096e7774d4534ab7a1e15e9ee6d0fe359efbc6e1d5",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "acknowledgeExternalChange": {
+     "descriptionLength": 21,
+     "descriptionSha256": "f4831ebcef4af90b281acdcd46e97a940470c388e46be2a47c67b43985ac29a3",
+     "type": "boolean"
+    },
+    "content": {
+     "descriptionLength": 31,
+     "descriptionSha256": "af089743b0814ed515eb828d181a07824220943cedd82ec2656c1542e8c8e848",
+     "type": "string"
+    },
+    "mode": {
+     "descriptionLength": 56,
+     "descriptionSha256": "e1bb5a0fa5aeadb8fd725dfacaa069989560359a6ecff9894108dee6a61638b6",
+     "enum": [
+      "overwrite",
+      "replace"
+     ],
+     "type": "string"
+    },
+    "newString": {
+     "descriptionLength": 13,
+     "descriptionSha256": "cba0db0f088df559eb42321b9c8eb84539e8dc7d077019c93c7cc81b882c0d73",
+     "type": "string"
+    },
+    "oldString": {
+     "descriptionLength": 22,
+     "descriptionSha256": "d65f01db007361721b287a8ef9766938563562512628a087317983b5b19ace47",
+     "type": "string"
+    },
+    "path": {
+     "descriptionLength": 20,
+     "descriptionSha256": "d3bea7f0a653b302667a947d6efe1e218c4a72b0e551ed858cf67ed73510d2b3",
+     "type": "string"
+    },
+    "projectDir": {
+     "descriptionLength": 8,
+     "descriptionSha256": "319974a109185604d59c7f2071626c4df59cd7e3cc91bbdb14cbce062d141ea5",
+     "type": "string"
+    },
+    "taskGid": {
+     "descriptionLength": 27,
+     "descriptionSha256": "8f29756b74ceff84ea36f1dad9cf3d9f1bdab5b8343a092e19ad70a6c3496622",
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   },
+   "required": [
+    "projectDir",
+    "path"
+   ],
+   "type": "object"
+  },
+  "paramCount": 8
+ },
+ "write_project_sd_doc": {
+  "descriptionLength": 365,
+  "descriptionSha256": "c900fbcc53bfc1438d343e1ea306ba2e1aea61f946921e3d5d52acefb0f53c1b",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "acknowledgeExternalChange": {
+     "descriptionLength": 32,
+     "descriptionSha256": "4b420bc59f3ae3c7ea6f9992520a3b5844187c62cd3cad82fafbf4b2e5acc66f",
+     "type": "boolean"
+    },
+    "content": {
+     "descriptionLength": 13,
+     "descriptionSha256": "79a7ba7a4e3fa36ad0dc5fb1ed54917ff316f6eea8c23662387cc330c5c2fd1e",
+     "type": "string"
+    },
+    "fileName": {
+     "descriptionLength": 114,
+     "descriptionSha256": "14410e982da3bee1bd1ba1b7ee980cd500c12aed82f6261f2224ef4facd8d7c3",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "projectDir": {
+     "descriptionLength": 25,
+     "descriptionSha256": "d2783562832e91482ee3c37ca6d924b0e005b1167668275dea87b5615f9291e5",
+     "type": "string"
+    },
+    "projectGid": {
+     "descriptionLength": 12,
+     "descriptionSha256": "987fac2f0b56da351e2390dbf015692178856e520b847775b22902055d36087c",
+     "type": "string"
+    }
+   },
+   "required": [
+    "projectGid",
+    "projectDir",
+    "content"
+   ],
+   "type": "object"
+  },
+  "paramCount": 5
+ },
+ "write_ticket_artifact": {
+  "descriptionLength": 510,
+  "descriptionSha256": "4319c53bf25a116ac99e029093177dbf3498d49f9ea57320066ee0dfa0bb0bc8",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "content": {
+     "descriptionLength": 38,
+     "descriptionSha256": "54a005c45197bba40e16234c14b2167f4e4bcb8ffb2fd18ddec50544ce392443",
+     "type": "string"
+    },
+    "filename": {
+     "descriptionLength": 10,
+     "descriptionSha256": "81f9a0de25dbff864c39f98b5efa7e976aeb5dcb0ccc51a513371e865eee6d1a",
+     "enum": [
+      "01-analysis.md",
+      "02-implementation.md",
+      "03-verification.md",
+      "04-test.md"
+     ],
+     "type": "string"
+    },
+    "manualActions": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "descriptionLength": 117,
+     "descriptionSha256": "b97debd3a21dee4c62cfb186e6bda5b672e8c22982b28c11287dba1dd6497940"
+    },
+    "mode": {
+     "descriptionLength": 28,
+     "descriptionSha256": "bcfbf497c5e274ec82b1e4f9ead3b4f4cb5cc70cfa730390b939f70673aed16b",
+     "enum": [
+      "overwrite",
+      "append",
+      "replace"
+     ],
+     "type": "string"
+    },
+    "newString": {
+     "descriptionLength": 20,
+     "descriptionSha256": "292d04425416a7c89cfa5a2590cd1b333cc6db78ca09999aceb2bb3042a501e2",
+     "type": "string"
+    },
+    "oldString": {
+     "descriptionLength": 22,
+     "descriptionSha256": "e2ea95c17aa002c8020a109ba096738f01153fccaef78abdf2d1f21c60eee5b8",
+     "type": "string"
+    },
+    "producesOfficeFiles": {
+     "descriptionLength": 30,
+     "descriptionSha256": "de022612e4a867fc76abb4192641270b3aa374c603a57e70f8653d8a0ae2bc14",
+     "type": [
+      "boolean",
+      "null"
+     ]
+    },
+    "summary": {
+     "descriptionLength": 49,
+     "descriptionSha256": "a08edd8ac62b45b6467da685eb24703b4c0d1a816447289f12b8bdffbc18e874",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "syncNote": {
+     "descriptionLength": 54,
+     "descriptionSha256": "72e0459fb73d196b4c44a320838cd25a8dd2053ee3a7cfc4325a4d2d9e1560e5",
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "taskGid": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    },
+    "testLevel": {
+     "anyOf": [
+      {
+       "enum": [
+        "unit-mock",
+        "integration-db",
+        "live-api"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "descriptionLength": 55,
+     "descriptionSha256": "8f4d28714c575ad3e03731fed8a41b74b0538bc0534191679c77dcbfb5fbdb6a"
+    },
+    "workItemId": {
+     "descriptionLength": 41,
+     "descriptionSha256": "1bb50a4c2d498ae2934c94fe40b1c3f4449dc55cb02a2d70dbd2b8ee4c414fea",
+     "type": "string"
+    }
+   },
+   "required": [
+    "filename"
+   ],
+   "type": "object"
+  },
+  "paramCount": 12
+ }
+}
