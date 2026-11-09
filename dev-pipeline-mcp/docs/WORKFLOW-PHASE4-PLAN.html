@@ -56,12 +56,17 @@ ul{margin:6px 0;padding-left:22px}
 <div class="wrap">
 
 <h1>Workflow 引擎：階段 4 規劃書</h1>
-<p class="sub">dev-pipeline-mcp · 規劃日期 2026-11-09 · 由 planner 讀程式碼後規劃，尚未動工，等你看過並決定第六節的 6 件事。</p>
+<p class="sub">dev-pipeline-mcp · 規劃日期 2026-11-09 · 由 planner 讀程式碼後規劃，尚未動工，等你看過並決定第六節還沒決定的事。</p>
 <nav>
   <a href="#story">一、完成後你能做什麼</a><a href="#scope">二、範圍</a><a href="#steps">三、步驟</a>
   <a href="#gaps">四、前面遺留的缺口</a><a href="#manual">五、手動來源怎麼運作</a>
   <a href="#decide">六、需要你決定</a><a href="#risk">七、風險與順序</a>
 </nav>
+
+<div class="card">
+  <b>確認關卡的預設（已由你決定）</b>：整條流程預設只有兩個地方停下來等你——<b>SA 確認</b>（規格是給客戶看的，要你看過）和<b>最終驗收</b>（鎖死，永遠是你）。
+  「DB 與流程圖」和「SD」兩道，預設由 AI 派獨立審查員審查、程式裁決，不等你；碰到硬停點（刪表或刪資料的 SQL、會破壞既有功能、連續失敗 3 次、碰到敏感資料、審查者不確定、需求要拆分）仍會強制停下。每個專案都可以在自己的設定檔把任何一道改回等你確認。
+</div>
 
 <div class="card">
   <b>階段 4 一句話</b>：讓你不靠 Asana，也能直接開一個「工作項目」，從現況盤點一路走到最終驗收。
@@ -75,8 +80,8 @@ ul{margin:6px 0;padding-left:22px}
   <li><b>建立</b>：AI 呼叫新工具 <code>work_item</code>（create），拿到編號 <code>wi-20261110-001</code>，程式在專案底下建好資料夾。</li>
   <li><b>現況盤點</b>（既有系統才有這步）：產出 <code>baseline.md</code>、<code>impact.md</code>，記錄現況與這次會影響到哪些地方。</li>
   <li class="pause"><b>SA 分析師</b>：先畫一個瀏覽器打得開的假畫面（mockup），截圖存到 <code>sa-images/</code>，再寫 <code>01-sa.md</code>。程式會自動檢查每個畫面功能都有附圖。<span class="tag wip">停下等你確認 SA</span></li>
-  <li class="pause"><b>DB 設計師與流程分析師</b>：產出 <code>02-db.sql</code> 和 <code>flow.mmd</code>（Mermaid，用文字描述的流程圖）。兩者一起給你確認。SQL 如果有刪表、刪資料，一律強制停下。<span class="tag wip">停下等你確認</span></li>
-  <li class="pause"><b>SD 分析師</b>：寫 <code>03-sd.md</code>（後端規格）。<span class="tag wip">停下等你確認 SD</span></li>
+  <li><b>DB 設計師與流程分析師</b>：產出 <code>02-db.sql</code> 和 <code>flow.mmd</code>（Mermaid，用文字描述的流程圖）。<b>預設不停下</b>：由 AI 派獨立審查員審查，程式裁決能不能放行。但 SQL 如果有刪表、刪資料，或碰到其他硬停點，一律強制停下等你。<span class="tag done">預設 AI 審查</span></li>
+  <li><b>SD 分析師</b>：寫 <code>03-sd.md</code>（後端規格）。<b>預設不停下</b>：同樣由 AI 派審查員審查、程式裁決，碰到硬停點才停下等你。<span class="tag done">預設 AI 審查</span></li>
   <li><b>規格驗證師</b>：只看規格、不看程式，寫 <code>spec-check.md</code>。判不通過時，依原因自動退回 SA、DB 或 SD 重做。</li>
   <li><b>前端、後端工程師</b>：兩邊各自實作，產出 <code>impl-fe.md</code>、<code>impl-be.md</code>，兩邊都完成才往下。</li>
   <li><b>驗證師 → 測試工程師</b>：驗證師檢查程式是否符合規格；測試工程師實際操作並截圖，存到 <code>evidence/</code>。</li>
@@ -110,7 +115,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>S0</td><td>先建安全網：替現有 42 個工具的名稱、參數、說明拍快照，之後誰動到都會被發現</td><td>新增 <code>tests/golden-tool-schemas.test.mjs</code></td><td><span class="tag done">低</span></td></tr>
 <tr><td>S1</td><td>讓舊工具能分辨「這不是 Asana 項目」，遇到時回清楚訊息請改用 <code>work_item</code></td><td><code>pipeline-info-tools.ts</code>、<code>ticket-lifecycle-tools.ts</code>、<code>stage-response.ts</code> 改走分流接縫</td><td><span class="tag wip">中</span> 建議你在場</td></tr>
 <tr><td>S2</td><td>手動來源的資料層：編號、資料夾、狀態檔</td><td>新增 <code>work-item-store.ts</code>；狀態檔加幾個選填欄位（舊檔不會多出欄位）</td><td><span class="tag done">低</span>～<span class="tag wip">中</span></td></tr>
-<tr><td>S3</td><td>調整規格先行流程定義：前後端依範圍決定要不要出現、退回目標</td><td><code>spec-first.ts</code>、<code>validate.ts</code></td><td><span class="tag done">低</span></td></tr>
+<tr><td>S3</td><td>調整規格先行流程定義：前後端依範圍決定要不要出現、退回目標；並把確認關卡的預設改為 SA 等你、DB 與流程圖和 SD 由 AI 審查（見上方預設）</td><td><code>spec-first.ts</code>、<code>validate.ts</code></td><td><span class="tag done">低</span></td></tr>
 <tr><td>S4</td><td>推進引擎：算出下一個角色、前後端都完成才輪到驗證師、不通過時倒回並清掉下游已做過的確認</td><td>新增 <code>spec-first-engine.ts</code>，接上 <code>next-action-dispatch.ts</code></td><td><span class="tag wip">中</span></td></tr>
 <tr><td>S5</td><td>新工具 <code>work_item</code>：建立、推進、確認、寫入、附加檔案、取角色說明</td><td>新增 <code>work-item-tools.ts</code>；工具數 42 變 43，相關文件數字同步</td><td><span class="tag stop">中高</span> 建議你在場</td></tr>
 <tr><td>S6</td><td>SA 截圖自動檢查：每個功能標題底下要引用 <code>sa-images/</code> 的圖，標「（純後端）」的除外</td><td>新增 <code>sa-image-check.ts</code></td><td><span class="tag done">低</span>～<span class="tag wip">中</span></td></tr>
@@ -143,7 +148,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>和 Asana 的關係</td><td>與 <code>.asana-pipeline/</code> 分開放，Asana 的搬移、列表、報告功能碰不到它。索引檔共用，所以現有的查狀態、讀產出物、記錄測試證據等工具，只要帶 <code>workItemId</code> 就能直接用。</td></tr>
 </table>
 
-<h2 id="decide">六、需要你決定的 6 件事</h2>
+<h2 id="decide">六、需要你決定的事（1～6 待決，第 7 項已決定）</h2>
 <table>
 <tr><th>#</th><th>問題</th><th>planner 推薦</th></tr>
 <tr><td>1</td><td>工具形式：新增一個 <code>work_item</code> 工具（工具數變 43，Asana 工具完全不動），還是改現有工具？</td><td class="rec">新增 <code>work_item</code></td></tr>
@@ -152,6 +157,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>4</td><td>流程圖要不要強制附 PNG 圖片？</td><td class="rec">不強制，只有文字檔是正式版本（避免多裝很大的套件）</td></tr>
 <tr><td>5</td><td>SA 截圖怎麼檢查？</td><td class="rec">每個功能標題底下都要引用 <code>sa-images/</code> 的圖，標「（純後端）」的除外</td></tr>
 <tr><td>6</td><td>mockup 和測試截圖用哪個瀏覽器工具拍？</td><td>待確認你要用哪個；目前這個環境有「Claude in Chrome」瀏覽器自動化可用，我建議先用它</td></tr>
+<tr><td>7</td><td>三道確認關卡（SA、DB 與流程圖、SD）預設要不要等你？</td><td><span class="tag done">你已決定</span> SA 預設等你確認；DB 與流程圖、SD 預設由 AI 派獨立審查員審查、程式裁決；硬停點與最終驗收永遠停下等你</td></tr>
 </table>
 
 <h2 id="risk">七、風險與建議的推進順序</h2>
