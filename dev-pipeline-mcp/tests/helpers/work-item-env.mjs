@@ -7,6 +7,9 @@ import path from "node:path";
 export const CLEAN_REVIEW = { breaksExisting: false, reviewerUncertain: false, scopeSplit: false };
 export const REUSABLE_LIST_OK = "影響\n## 可重用清單\n- ExcelUtil：src/main/ExcelUtil.java\n- 已搜尋：日期轉換，未找到\n";
 export const REUSE_RECORD_OK = "## 重用檢查紀錄\n| 搜尋關鍵字 | 找到的候選 | 決定 | 理由 |\n| --- | --- | --- | --- |\n| exportExcel | ExcelUtil.write | 重用 | |\n";
+/** 專案目錄是暫存空目錄（非版本控制），所以實作說明要自己列出「## 改動檔案」；列的檔案不存在也算有清單。 */
+export const CHANGED_FILES_FE = "## 改動檔案\n- src/ui/login-page.js\n";
+export const CHANGED_FILES_BE = "## 改動檔案\n- src/api/login-service.js\n";
 const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
 
 export async function setupEnv(prefix, { renderer } = {}) {
@@ -49,8 +52,8 @@ export async function fulfil(dir, roleId, opts = {}) {
     "flow-analyst": async () => { await w("flow.mmd", "graph TD\nA-->B"); await writeFile(path.join(dir, "flow.png"), PNG); },
     "sd-analyst": () => w("03-sd.md", "SD\n## 重用與共用設計\n重用：呼叫 ExcelUtil\n"),
     "spec-verifier": () => w("spec-check.md", opts.verdictText ?? "PASS\n對照表"),
-    "frontend-engineer": () => w("impl-fe.md", `FE\n${REUSE_RECORD_OK}`),
-    "backend-engineer": () => w("impl-be.md", `BE\n${REUSE_RECORD_OK}`),
+    "frontend-engineer": () => w("impl-fe.md", `FE\n${REUSE_RECORD_OK}${CHANGED_FILES_FE}`),
+    "backend-engineer": () => w("impl-be.md", `BE\n${REUSE_RECORD_OK}${CHANGED_FILES_BE}`),
     verifier: () => w("verify.md", opts.verdictText ?? "PASS\n"),
     tester: async () => {
       await w("test.md", "## 白箱\n白箱結果\n## 黑箱\n黑箱結果\n## 測試：登入\n![畫面](evidence/a.png)\n");

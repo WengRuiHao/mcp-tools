@@ -3,7 +3,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
-import { setupEnv, fulfil, runUntil, REUSE_RECORD_OK } from "./helpers/work-item-env.mjs";
+import { setupEnv, fulfil, runUntil, REUSE_RECORD_OK, CHANGED_FILES_BE } from "./helpers/work-item-env.mjs";
 
 const env = await setupEnv("wi-checks-");
 after(() => env.cleanup());
@@ -53,7 +53,7 @@ test("done frontend-engineer／backend-engineer：缺重用檢查紀錄或決定
   assert.ok(bad.json.problems.some((p) => p.includes("理由必填")));
   await fulfil(dir, "frontend-engineer");
   assert.equal((await done(id, "frontend-engineer")).isError, false);
-  await writeFile(path.join(dir, "impl-be.md"), `BE\n${REUSE_RECORD_OK.replace("| exportExcel | ExcelUtil.write | 重用 | |", "| 匯出 | 無 | 無新增 | 只改設定 |")}`);
+  await writeFile(path.join(dir, "impl-be.md"), `BE\n${REUSE_RECORD_OK.replace("| exportExcel | ExcelUtil.write | 重用 | |", "| 匯出 | 無 | 無新增 | 只改設定 |")}${CHANGED_FILES_BE}`);
   assert.equal((await done(id, "backend-engineer")).isError, false);
   assert.equal((await env.store.readStatus(id)).work_item_progress.gates["implementation-content"].by, "agent");
 });

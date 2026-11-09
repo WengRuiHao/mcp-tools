@@ -92,8 +92,18 @@ export type CheckDef = z.infer<typeof CheckDefSchema>;
 export type GateDef = z.infer<typeof GateDefSchema>;
 export type WorkflowDefinition = z.infer<typeof WorkflowDefinitionSchema>;
 
+/** 自動重複偵測的專案設定（S12a）：只開放門檻與額外排除，皆有範圍限制。 */
+export const DupSettingsSchema = z
+  .object({
+    minRun: z.number().int().min(4).max(100).optional(),
+    testMinRun: z.number().int().min(4).max(200).optional(),
+    minChars: z.number().int().min(20).max(2000).optional(),
+    extraExcludes: z.array(z.string().trim().min(1).max(200)).max(50).optional(),
+  })
+  .strict();
+
 /**
- * 專案 flow.json 覆寫：只允許 confirmMode、optional、內容類 checks、roleNotes。
+ * 專案 flow.json 覆寫：只允許 confirmMode、optional、內容類 checks、roleNotes，以及重複偵測設定 dup。
  * strict：其他欄位（locked、hardStops、dependsOn…）一律被 zod 拒絕。
  */
 export const ProjectFlowOverrideSchema = z
@@ -109,6 +119,7 @@ export const ProjectFlowOverrideSchema = z
     roles: z
       .record(z.string(), z.object({ optional: z.boolean().optional(), roleNotes: z.string().optional() }).strict())
       .optional(),
+    dup: DupSettingsSchema.optional(),
   })
   .strict();
 export type ProjectFlowOverride = z.infer<typeof ProjectFlowOverrideSchema>;
