@@ -179,6 +179,7 @@ npm run build
   ```
 
   - `sasd`／`testCapability`／`legacyTestProfile` 的欄位與規則，跟 `project_config` 的 `sasd_config`／`test_capability`／`legacy_test_profile` 完全相同（SA 與 SD 可分開處理：SA 由別人產放在 SVN 唯讀、SD 由 AI 產，就是 `saRoot` 指向 SVN、`sdMode: "self-generated"`）。
+  - **同一個 Asana 專案依票名切換模式（選填 `match.ticketNamePattern`）**：同一個 `projectGid` 可寫多筆 profile，其中有 `ticketNamePattern`（正規表示式字串，寫法與大小寫行為同 `gates.json` 的 `ticketNamePattern`，即 `new RegExp(p).test(票名)`）且符合票名的優先，沒有 `ticketNamePattern` 的那一筆是預設。同一個 `projectGid` 最多一筆預設、pattern 不可重複、不是合法 regex 或多筆同時符合同一個票名都會直接報錯。每張票的 `stepPlan` 看 `get_ticket_status`；專案層級的 `prepare_project`／`project_config resolve` 沒有票名，回傳預設那筆並標示「預設值，依票名可能不同」與其他 profile 摘要。目前只能手動編輯 settings.json（`project_config register` 遇到同一專案有多筆時會拒絕）。範例：`{ "match": { "projectGid": "<gid>", "ticketNamePattern": "RPT|a_report_" }, "sasd": { …, "specOrder": "code_first" } }` 加一筆沒有 `ticketNamePattern` 的預設 profile。
   - **讀取優先序：專案目錄的 profile > 這個 MCP 自己的 `data/*.json`**（舊資料不用搬遷，沒有 profile 就照舊）。
   - **登記位置**：`project_config` 的 `register` 在專案目錄可用時會寫進這裡（回傳的 `savedTo: "project"`），否則退回寫 MCP 的 `data/`（`savedTo: "mcp-data"`）。
   - 設定壞掉（不是合法 JSON、欄位不合法、同一個 `projectGid` 重複）會直接報錯，**不會悄悄退回別的模式**；寫入前會先把舊內容存成快照（可用 `restore_rule_file` 還原）。

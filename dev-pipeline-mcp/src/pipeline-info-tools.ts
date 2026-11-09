@@ -35,7 +35,7 @@ async function buildBriefForTicket(
     return { success: false, message: `查不到 taskGid ${taskGid} 的票單追蹤紀錄；請先對這張票呼叫 get_ticket_snapshot，或確認 taskGid 正確。` };
   }
   const status = await peekStatus(taskGid);
-  const sasd = status.project_gid ? await resolveSasdConfig(status.project_gid) : null;
+  const sasd = status.project_gid ? await resolveSasdConfig(status.project_gid, status.name) : null;
   const next = computeNextActionForWorkflow(status, { sasd: sasd ? { sdMode: sasd.sdMode, specOrder: sasd.specOrder ?? null } : null }, status.workflow_id);
   return buildSubagentBrief({
     role,
@@ -104,13 +104,16 @@ export function registerPipelineInfoTools(server: McpServer): void {
       }
       const dir = await resolveProjectDir(projectDir, taskGid);
       // 票單有記錄 project_gid 時用它精準查專案設定；沒有就退回 projectDir 反查。查不到一律維持完整說明，不誤省略。
-      const projectGid = taskGid ? (await peekStatus(taskGid)).project_gid : null;
-      const sasd = projectGid ? await resolveSasdConfig(projectGid) : null;
+      // 同一個 Asana 專案可依票名切換 profile，所以一併取這張票的票名，依該票對應的那一筆決定 specOrder／測試能力。
+      const ticketStatus = taskGid ? await peekStatus(taskGid) : null;
+      const projectGid = ticketStatus?.project_gid ?? null;
+      const ticketName = ticketStatus?.name ?? null;
+      const sasd = projectGid ? await resolveSasdConfig(projectGid, ticketName) : null;
       const testCapabilityMode =
         role !== "engineer"
           ? null
           : projectGid
-            ? ((await resolveTestCapability(projectGid))?.mode ?? null)
+            ? ((await resolveTestCapability(projectGid, ticketName))?.mode ?? null)
             : dir
               ? await resolveUniformTestCapabilityMode(dir)
               : null;

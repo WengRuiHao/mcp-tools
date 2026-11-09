@@ -1,7 +1,7 @@
 import path from "node:path";
 import { getDataDir } from "./config-store.js";
 import { readJsonFile, updateJsonFile } from "./atomic-store.js";
-import { isUsableProjectDir, readFlowProfile, upsertFlowProfile } from "./project-flow-settings.js";
+import { isUsableProjectDir, readAllFlowProfiles, readFlowProfile, upsertFlowProfile } from "./project-flow-settings.js";
 
 /** 設定實際存在哪：專案目錄的 .pipeline/settings.json（flow.profiles），或這個 MCP 自己的 data/*.json（舊資料／專案目錄不可用時的 fallback）。 */
 export type ConfigStorage = "project" | "mcp-data";
@@ -40,9 +40,10 @@ function sasdConfigPath(): string {
   return path.join(getDataDir(), SASD_CONFIG_FILE);
 }
 
-export async function resolveSasdConfig(projectGid: string): Promise<SasdConfig | null> {
+/** ticketName 選填：同一個 projectGid 有多筆 profile（依 match.ticketNamePattern 切換）時，用它選該票對應的那一筆；沒帶回傳預設 profile。 */
+export async function resolveSasdConfig(projectGid: string, ticketName?: string | null): Promise<SasdConfig | null> {
   const dir = await usableProjectDirFor(projectGid);
-  const fromProject = dir ? (await readFlowProfile(dir, projectGid))?.sasd : undefined;
+  const fromProject = dir ? (await readFlowProfile(dir, projectGid, ticketName))?.sasd : undefined;
   if (fromProject) return fromProject;
   const map = await readJsonFile<Record<string, SasdConfig>>(sasdConfigPath(), {});
   return map[projectGid] ?? null;
@@ -85,9 +86,9 @@ function legacyTestProfilePath(): string {
  * 預設 false——不用每個專案都主動問這一題，只有使用者明確告知過（例如「這個專案是舊系統」）才登記為 true。
  * 跟 SasdConfig 分開存放，因為這個判斷跟 sdMode 無關（sdMode: "unregistered" 的專案一樣可能是老系統）。
  */
-export async function resolveLegacyTestProfile(projectGid: string): Promise<boolean> {
+export async function resolveLegacyTestProfile(projectGid: string, ticketName?: string | null): Promise<boolean> {
   const dir = await usableProjectDirFor(projectGid);
-  const fromProject = dir ? (await readFlowProfile(dir, projectGid))?.legacyTestProfile : undefined;
+  const fromProject = dir ? (await readFlowProfile(dir, projectGid, ticketName))?.legacyTestProfile : undefined;
   if (fromProject !== undefined) return fromProject;
   const map = await readJsonFile<Record<string, boolean>>(legacyTestProfilePath(), {});
   return map[projectGid] ?? false;
@@ -126,9 +127,9 @@ function testCapabilityConfigPath(): string {
   return path.join(getDataDir(), TEST_CAPABILITY_FILE);
 }
 
-export async function resolveTestCapability(projectGid: string): Promise<TestCapabilityConfig | null> {
+export async function resolveTestCapability(projectGid: string, ticketName?: string | null): Promise<TestCapabilityConfig | null> {
   const dir = await usableProjectDirFor(projectGid);
-  const fromProject = dir ? (await readFlowProfile(dir, projectGid))?.testCapability : undefined;
+  const fromProject = dir ? (await readFlowProfile(dir, projectGid, ticketName))?.testCapability : undefined;
   if (fromProject) return fromProject;
   const map = await readJsonFile<Record<string, TestCapabilityConfig>>(testCapabilityConfigPath(), {});
   return map[projectGid] ?? null;
@@ -162,9 +163,17 @@ export async function resolveUniformTestCapabilityMode(projectDir: string): Prom
     .map(([gid]) => gid);
   if (gids.length === 0) return null;
 
-  const modes = new Set(await Promise.all(gids.map(async (gid) => (await resolveTestCapability(gid))?.mode ?? null)));
+  const modes = new Set((await Promise.all(gids.map((gid) => modesOfProject(gid)))).flat());
   if (modes.size !== 1) return null;
   return [...modes][0];
+}
+
+/** 這個 Asana 專案「所有」profile 的 testCapability.mode（依票名切換時每一筆都算進去，才能判斷是否一致）。 */
+async function modesOfProject(projectGid: string): Promise<(TestCapabilityMode | null)[]> {
+  const dir = await usableProjectDirFor(projectGid);
+  const profiles = dir ? await readAllFlowProfiles(dir, projectGid) : [];
+  if (profiles.some((p) => p.match.ticketNamePattern !== undefined)) return profiles.map((p) => p.testCapability?.mode ?? null);
+  return [(await resolveTestCapability(projectGid))?.mode ?? null];
 }
 
 const DEFAULT_PROJECT_FILE = "default-project.json";

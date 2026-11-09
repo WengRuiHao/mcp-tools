@@ -5,6 +5,7 @@ import { stat } from "node:fs/promises";
 import { GATES_FILE_CANDIDATES } from "./project-rule-files.js";
 import { callSvnTool } from "./mcp-clients.js";
 import { buildStepPlan } from "./step-plan.js";
+import { describeTicketNameProfiles } from "./flow-variants.js";
 import { isNoSaPlaceholder, requiresSvnConnection, verifySvnRoots } from "./sasd-path-check.js";
 import { resolveGitRoots, registerGitRoots, type GitRootEntry } from "./git-roots-store.js";
 import { resolveSvnWorkCopies, registerSvnWorkCopies, type SvnWorkCopyEntry } from "./svn-workcopy-store.js";
@@ -137,7 +138,8 @@ async function resolveConfig<K extends ProjectConfigKind>(kind: K, a: z.infer<(t
     }
     case "sasd_config": {
       const config = await resolveSasdConfig(args.projectGid);
-      if (config) return textResult({ found: true, ...config });
+      const variants = await describeTicketNameProfiles(args.projectGid);
+      if (config) return textResult({ found: true, ...config, ...(variants ? { ticketNameProfiles: variants } : {}) });
       return textResult({ found: false, needsInput: true, instructions: SETUP_SASD_CONFIG });
     }
     case "default_project": {
@@ -145,12 +147,15 @@ async function resolveConfig<K extends ProjectConfigKind>(kind: K, a: z.infer<(t
       if (project) return textResult({ found: true, ...project });
       return textResult({ found: false, needsInput: true, instructions: SETUP_DEFAULT_PROJECT });
     }
-    case "legacy_test_profile":
-      return textResult({ legacyTestProfile: await resolveLegacyTestProfile(args.projectGid) });
+    case "legacy_test_profile": {
+      const variants = await describeTicketNameProfiles(args.projectGid);
+      return textResult({ legacyTestProfile: await resolveLegacyTestProfile(args.projectGid), ...(variants ? { ticketNameProfiles: variants } : {}) });
+    }
     case "test_capability": {
       const config = await resolveTestCapability(args.projectGid);
-      if (!config) return textResult({ found: false });
-      return textResult({ found: true, ...config });
+      const variants = await describeTicketNameProfiles(args.projectGid);
+      if (!config) return textResult({ found: false, ...(variants ? { ticketNameProfiles: variants } : {}) });
+      return textResult({ found: true, ...config, ...(variants ? { ticketNameProfiles: variants } : {}) });
     }
     case "git_roots": {
       const gitRoots = await resolveGitRoots(args.projectDir);
@@ -301,7 +306,13 @@ export async function handleProjectConfig(args: { kind: ProjectConfigKind; actio
   if (!parsed.success) {
     return textResult({ success: false, message: formatConfigError(kind, action, parsed.error) }, true);
   }
-  return action === "resolve" ? resolveConfig(kind, parsed.data as any) : registerConfig(kind as RegisterKind, parsed.data as any);
+  if (action !== "resolve") return registerConfig(kind as RegisterKind, parsed.data as any);
+  try {
+    return await resolveConfig(kind, parsed.data as any);
+  } catch (err: any) {
+    // 設定檔本身有問題（例如只有依票名生效、沒有預設的 profile）：明確回報，不退回別的設定
+    return textResult({ success: false, message: err?.message ?? String(err) }, true);
+  }
 }
 
 interface MissingConfig {
@@ -328,18 +339,25 @@ export async function handlePrepareProject(args: { cwd?: string | null; projectG
   let projectDir: string | null = null;
   let sasd: Record<string, unknown> | null = null;
   let gitRoots: GitRootEntry[] | null = null;
+  let ticketNameProfiles: Record<string, unknown> | null = null;
+  let configError: string | null = null;
   if (projectGid) {
     projectDir = (await resolveProjectDir(projectGid)) ?? null;
     if (!projectDir) missing.push({ kind: "project_dir", instructions: SETUP_PROJECT_DIR });
-    const sasdConfig = await resolveSasdConfig(projectGid);
-    if (sasdConfig) sasd = { ...sasdConfig };
-    else missing.push({ kind: "sasd_config", instructions: SETUP_SASD_CONFIG });
+    try {
+      const sasdConfig = await resolveSasdConfig(projectGid);
+      if (sasdConfig) sasd = { ...sasdConfig };
+      else missing.push({ kind: "sasd_config", instructions: SETUP_SASD_CONFIG });
+      ticketNameProfiles = await describeTicketNameProfiles(projectGid);
+    } catch (err: any) {
+      configError = err?.message ?? String(err);
+    }
   }
   if (projectDir) {
     gitRoots = (await resolveGitRoots(projectDir)) ?? null;
     if (!gitRoots) missing.push({ kind: "git_roots", instructions: SETUP_GIT_ROOTS });
   }
-  const ready = missing.length === 0;
+  const ready = missing.length === 0 && configError === null;
   return textResult({
     ready,
     projectGid,
@@ -348,10 +366,14 @@ export async function handlePrepareProject(args: { cwd?: string | null; projectG
     projectDir,
     sasd,
     stepPlan: buildStepPlan(sasd as { sdMode: SdMode; specOrder?: SpecOrder | null } | null),
+    ...(ticketNameProfiles ? { sasdAndStepPlanAreDefaults: true, ticketNameProfiles } : {}),
+    ...(configError ? { configError } : {}),
     gitRoots,
     missing,
     server: getServerInfo(),
-    nextStep: ready
+    nextStep: configError
+      ? `專案流程設定有誤，請使用者修正 .pipeline/settings.json 後再呼叫 prepare_project：${configError}`
+      : ready
       ? "設定齊全，直接呼叫 list_pending_tickets（帶 projectGid 與 projectName）。"
       : `缺 ${missing.map((m) => m.kind).join("、")}：照 missing 裡 instructions 問使用者並用 project_config register 登記（一次只處理一項，default_project 與 project_dir 要先），再重新呼叫 prepare_project。`,
   });

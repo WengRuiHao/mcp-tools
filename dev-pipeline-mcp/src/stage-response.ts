@@ -12,9 +12,9 @@ export const verboseParam = z
   .describe("true=回完整狀態；預設精簡");
 
 /** 預設回傳：只放呼叫端決策需要的欄位，完整狀態改由 get_ticket_status 或 verbose 取得。 */
-/** 有記錄 project_gid 才查得到專案的 SA/SD 設定；查不到時 nextAction 退回保守的通用建議。 */
+/** 有記錄 project_gid 才查得到專案的 SA/SD 設定；查不到時 nextAction 退回保守的通用建議。依票名選同一專案裡對應的 profile。 */
 export async function sasdForStatus(status: TicketStatus) {
-  return status.project_gid ? await resolveSasdConfig(status.project_gid) : null;
+  return status.project_gid ? await resolveSasdConfig(status.project_gid, status.name) : null;
 }
 
 export async function buildCompactStatus(taskGid: string, status: TicketStatus): Promise<Record<string, unknown>> {

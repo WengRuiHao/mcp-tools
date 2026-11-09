@@ -33,6 +33,7 @@ import { filterAndLimitTickets, localDateString, detectTicketNumber, DUE_ON_DATE
 import { computeNextActionForWorkflow } from "./workflow/next-action-dispatch.js";
 import { rejectIfNonAsana } from "./workflow/non-asana-guard.js";
 import { sasdForStatus, statusResponse, verboseParam } from "./stage-response.js";
+import { buildStepPlan } from "./step-plan.js";
 import { createBoardFetcher } from "./board-cache.js";
 import { buildReportOnlyBody } from "./report-only.js";
 import { confirmProjectDirStage } from "./project-dir-confirm.js";
@@ -311,7 +312,15 @@ export function registerTicketLifecycleTools(server: McpServer): void {
       const base = verbose ? status : slimStatus;
       const externalChanges = await detectExternalChanges(taskGid, status);
       const syncFlags = computeSyncFlags(status);
-      const sasd = await sasdForStatus(status);
+      // 同專案可依票名切換開發模式：這張票自己的 stepPlan 以這裡為準；設定有誤（例如多筆 profile 同時符合）時明確回報，不悄悄略過。
+      let sasd: Awaited<ReturnType<typeof sasdForStatus>> = null;
+      let flowProfileError: string | null = null;
+      try {
+        sasd = await sasdForStatus(status);
+      } catch (err: any) {
+        flowProfileError = err?.message ?? String(err);
+      }
+      const stepPlan = buildStepPlan(sasd);
       const evidenceSummary = summarizeTestEvidence(status);
       const stale = status.test_evidence.length > 0 ? await findStaleEvidenceBackups(status, await resolveTicketDir(taskGid)).catch(() => []) : [];
       const sdSkipNotice = describeSdSkip(status.spec_confirmation);
@@ -324,6 +333,8 @@ export function registerTicketLifecycleTools(server: McpServer): void {
         sync_flags: syncFlags,
         needs_human_review: needsHumanReview(status),
         external_changes: externalChanges,
+        ...(stepPlan ? { stepPlan } : {}),
+        ...(flowProfileError ? { flowProfileError } : {}),
         nextAction: computeNextActionForWorkflow(status, { syncFlags, externalChanges, sasd }, status.workflow_id),
       });
     })

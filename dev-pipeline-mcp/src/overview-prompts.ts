@@ -68,7 +68,7 @@ const OVERVIEW_CORE = `# Asana 票單自動處理 Pipeline — 整體流程說�
 若你能派生子任務/子代理人，步驟 3 之 3.3～3.8 建議改派子任務執行、你只做調度，見 \`get_pipeline_overview({ section: "appendix-a" })\`；沒有就自己照步驟做。
 
 ## 步驟 1：開工準備（一次查完設定）
-呼叫 \`prepare_project({ cwd: <目前工作目錄的絕對路徑> })\`，一次取得預設 Asana 專案（\`projectGid\`/\`projectName\`）、\`projectDir\`、SA/SD 設定（\`sasd\`）、這個專案每張票要走的步驟（\`stepPlan\`，步驟 3 依它取捨 3.4／3.6）、git 根目錄（\`gitRoots\`）。
+呼叫 \`prepare_project({ cwd: <目前工作目錄的絕對路徑> })\`，一次取得預設 Asana 專案（\`projectGid\`/\`projectName\`）、\`projectDir\`、SA/SD 設定（\`sasd\`）、預設的步驟（\`stepPlan\`，只是預設值，專案可依票名切換，步驟 3 以該票自己的為準）、git 根目錄（\`gitRoots\`）。
 - \`ready: true\` → 直接用這些值，整場不用再查設定。
 - \`ready: false\` → \`missing\` 列出缺哪幾項與要問使用者的 \`instructions\`；問完用 \`project_config\` 的 \`register\` 登記（\`default_project\`、\`project_dir\` 先），再重新呼叫 \`prepare_project\`（完整版見 \`section: "setup"\`）。
 
@@ -96,7 +96,7 @@ const OVERVIEW_CORE = `# Asana 票單自動處理 Pipeline — 整體流程說�
 
 3.3 分析師：\`get_role_prompt({ role: "analyst", projectDir })\`（可派子任務）。產出 \`01-analysis.md\`（\`write_ticket_artifact\`，含 \`summary\`），再推進到 \`analyzed\`；可先 \`get_recent_commits({ gitDir: projectDir })\` 拿異動脈絡。
 
-3.4 規格撰寫者（規格先定案）：**只有 \`prepare_project\` 回傳的 \`stepPlan.steps\` 含 3.4 才做**，做法見 \`stepPlan.specWriterStep\`；不含就直接跳到 3.5。
+3.4 規格撰寫者（規格先定案）：**每張票以 \`get_ticket_status\` 回傳的該票自己的 \`stepPlan\` 為準（沒有就用 \`prepare_project\` 的），\`stepPlan.steps\` 含 3.4 才做**，做法見 \`stepPlan.specWriterStep\`；不含就直接跳到 3.5。
 
 3.5 工程師：先 \`get_ticket_status\` 看 \`summaries.analysis\`（不夠才 \`read_ticket_artifact\` 讀全文），再 \`get_role_prompt({ role: "engineer", projectDir })\`（可派子任務）。改檔只用 \`write_project_file\`，檢查用 \`run_project_shell\`。產出 \`02-implementation.md\`（\`syncNote\`、\`manualActions\` 必填），推進到 \`implemented\`。\`stepPlan.steps\` 含 3.6 的專案，做完緊接 3.6，不要直接跳到 3.7。
 

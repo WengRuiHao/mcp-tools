@@ -1530,8 +1530,8 @@ function renderTemplate(template: string, tokens: Record<string, string | number
 async function resolveProjectSvnEditLink(projectDir: string, projectName: string): Promise<SvnEditLink | null> {
   try {
     for (const gid of await listTicketsUnderProject(projectDir, projectName)) {
-      const projectGid = (await peekStatus(gid)).project_gid;
-      if (projectGid) return buildSvnEditLink(await resolveSasdConfig(projectGid));
+      const ticket = await peekStatus(gid);
+      if (ticket.project_gid) return buildSvnEditLink(await resolveSasdConfig(ticket.project_gid, ticket.name));
     }
   } catch (err: any) {
     console.error(`[dev-pipeline-mcp] resolveProjectSvnEditLink failed: ${err?.message ?? err}`);
