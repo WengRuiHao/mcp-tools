@@ -5,6 +5,7 @@ import { OVERVIEW_SECTIONS, getOverview } from "./overview-prompts.js";
 import { COMMON_RULES_FILE_CANDIDATES, GATES_FILE_CANDIDATES, ROLE_FILE_CANDIDATES, readFirstExisting, resolveProjectDir } from "./project-rule-files.js";
 import { bridgeDisabledNote } from "./toolset-config.js";
 import { textResult } from "./shared.js";
+import { withOptionalTaskGid } from "./work-item.js";
 import { resolveSasdConfig, resolveTestCapability, resolveUniformTestCapabilityMode } from "./project-registry.js";
 import { getAssignedDir, peekStatus } from "./pipeline-store.js";
 import { computeNextAction } from "./next-action.js";
@@ -86,13 +87,14 @@ export function registerPipelineInfoTools(server: McpServer): void {
         .string()
         .nullable()
         .optional()
-        .describe("正在處理的票單 gid。沒帶 projectDir 時用這張票記錄的 project_dir 反查，避免漏帶 projectDir 導致專案補充規則被靜默略過。"),
+        .describe("正在處理的票單 gid（taskGid 與 workItemId 擇一，Asana 票單用 taskGid）。沒帶 projectDir 時用這張票記錄的 project_dir 反查，避免漏帶 projectDir 導致專案補充規則被靜默略過。"),
+      workItemId: z.string().nullable().optional().describe("同 taskGid（taskGid 與 workItemId 擇一，Asana 票單用 taskGid）"),
       forSubagent: z
         .boolean()
         .optional()
         .describe("true（需帶 taskGid）：在角色說明前附上派工簡報，內容由票單狀態自動帶入。查不到票單時回傳 success:false。"),
     },
-    async ({ role, projectDir, taskGid, forSubagent }) => {
+    withOptionalTaskGid(async ({ role, projectDir, taskGid, forSubagent }) => {
       let brief: string | null = null;
       if (forSubagent) {
         const built = await buildBriefForTicket(role, taskGid, projectDir);
@@ -122,7 +124,7 @@ export function registerPipelineInfoTools(server: McpServer): void {
       }
       if (note) sections.push(note);
       return textResult(sections.join("\n\n---\n\n"));
-    }
+    })
   );
 
   server.tool(
@@ -131,9 +133,10 @@ export function registerPipelineInfoTools(server: McpServer): void {
       "走票單流程時，這些規則已經由 get_role_prompt 自動附上，不用另外呼叫。projectDir 與 taskGid 擇一帶即可，沒有專案規則檔時會明確回報「沒有」。",
     {
       projectDir: z.string().nullable().optional().describe("專案目錄的絕對路徑"),
-      taskGid: z.string().nullable().optional().describe("沒帶 projectDir 時，用這張票記錄的 project_dir 反查"),
+      taskGid: z.string().nullable().optional().describe("沒帶 projectDir 時，用這張票記錄的 project_dir 反查；taskGid 與 workItemId 擇一，Asana 票單用 taskGid"),
+      workItemId: z.string().nullable().optional().describe("同 taskGid（taskGid 與 workItemId 擇一，Asana 票單用 taskGid）"),
     },
-    async ({ projectDir, taskGid }) => {
+    withOptionalTaskGid(async ({ projectDir, taskGid }) => {
       const dir = await resolveProjectDir(projectDir, taskGid);
       if (!dir) {
         return textResult({ success: false, message: "請帶 projectDir，或帶已經處理過（記錄過 project_dir）的 taskGid。" }, true);
@@ -153,6 +156,6 @@ export function registerPipelineInfoTools(server: McpServer): void {
         analysisGatesFile: gates?.relPath ?? null,
         note: common || roleFiles.length || gates ? undefined : "這個專案沒有定義任何專案規則檔，依通用慣例進行即可。",
       });
-    }
+    })
   );
 }

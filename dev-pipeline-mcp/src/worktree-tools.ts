@@ -3,6 +3,7 @@ import { access, readFile, writeFile } from "node:fs/promises";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { textResult } from "./shared.js";
+import { workItemIdParams, withTaskGid, withOptionalTaskGid } from "./work-item.js";
 import { resolveGitRoots } from "./git-roots-store.js";
 import { readStatus, getAssignedDir } from "./pipeline-store.js";
 import {
@@ -108,14 +109,14 @@ export function registerWorktreeTools(server: McpServer): void {
       "以已登記 git 根目錄目前 checkout 的分支為來源切出新分支＋worktree，建在 git 根目錄上一層 `.worktrees/<票號>/`。" +
       "**只建立追蹤資料，不複製程式碼**，後續編輯回傳的 worktreePath。已有 worktree 涵蓋此票時回傳既有資訊（冪等）。",
     {
-      taskGid: z.string().describe("任務 gid"),
+      ...workItemIdParams,
       gitRootLabel: z
         .string()
         .nullable()
         .optional()
         .describe("project_dir 登記多個 git 根目錄時指定用哪一個（git_roots 的 label）"),
     },
-    async ({ taskGid, gitRootLabel }) => {
+    withTaskGid(async ({ taskGid, gitRootLabel }) => {
       const existing = await findWorktreeByTicket(taskGid);
       if (existing) {
         return textResult({ success: true, alreadyExists: true, worktree: existing });
@@ -163,7 +164,7 @@ export function registerWorktreeTools(server: McpServer): void {
       });
 
       return textResult({ success: true, alreadyExists: false, worktree: entry, eclipseProject });
-    }
+    })
   );
 
   server.tool(
@@ -171,9 +172,9 @@ export function registerWorktreeTools(server: McpServer): void {
     "把另一張票併入既有 worktree 分組（同一次改動合併進同一個 commit）。之後該 worktree 的每輪合併、清除，都要等這些票全部確認結案。",
     {
       worktreeId: z.string().describe("既有 worktree id（create_ticket_worktree 回傳的 worktree.id）"),
-      taskGid: z.string().describe("要併入的 Asana 任務 gid"),
+      ...workItemIdParams,
     },
-    async ({ worktreeId, taskGid }) => {
+    withTaskGid(async ({ worktreeId, taskGid }) => {
       const already = await findWorktreeByTicket(taskGid);
       if (already && already.id !== worktreeId) {
         return textResult(
@@ -183,7 +184,7 @@ export function registerWorktreeTools(server: McpServer): void {
       }
       const entry = await addTicketToWorktree(worktreeId, taskGid);
       return textResult({ success: true, worktree: entry });
-    }
+    })
   );
 
   server.tool(
@@ -192,9 +193,10 @@ export function registerWorktreeTools(server: McpServer): void {
       "改動檔案清單是聯集：`git status --porcelain`（未 commit）＋與 `baseCommit` 的 diff（已 commit 未合併）。",
     {
       worktreeId: z.string().nullable().optional().describe("worktree id，與 taskGid 至少帶一個"),
-      taskGid: z.string().nullable().optional().describe("票所屬的 worktree，與 worktreeId 至少帶一個"),
+      taskGid: z.string().nullable().optional().describe("票所屬的 worktree，與 worktreeId 至少帶一個；taskGid 與 workItemId 擇一，Asana 票單用 taskGid"),
+      workItemId: z.string().nullable().optional().describe("同 taskGid（taskGid 與 workItemId 擇一，Asana 票單用 taskGid）"),
     },
-    async ({ worktreeId, taskGid }) => {
+    withOptionalTaskGid(async ({ worktreeId, taskGid }) => {
       const entry = await resolveEntryOrThrow(worktreeId, taskGid);
       const touchedFiles = await getPorcelainStatus(entry.worktreePath);
       const committedSinceBase = await getChangedFilesSince(entry.worktreePath, entry.baseCommit);
@@ -209,7 +211,7 @@ export function registerWorktreeTools(server: McpServer): void {
         diverged,
         needsRebase: diverged,
       });
-    }
+    })
   );
 
   server.tool(
@@ -219,10 +221,11 @@ export function registerWorktreeTools(server: McpServer): void {
       "呼叫前須先自行 commit worktree 內的異動。",
     {
       worktreeId: z.string().nullable().optional().describe("worktree id，與 taskGid 至少帶一個"),
-      taskGid: z.string().nullable().optional().describe("票所屬的 worktree，與 worktreeId 至少帶一個"),
+      taskGid: z.string().nullable().optional().describe("票所屬的 worktree，與 worktreeId 至少帶一個；taskGid 與 workItemId 擇一，Asana 票單用 taskGid"),
+      workItemId: z.string().nullable().optional().describe("同 taskGid（taskGid 與 workItemId 擇一，Asana 票單用 taskGid）"),
       mergeMessage: z.string().describe("合併 commit message，建議列出這輪所有票號"),
     },
-    async ({ worktreeId, taskGid, mergeMessage }) => {
+    withOptionalTaskGid(async ({ worktreeId, taskGid, mergeMessage }) => {
       const entry = await resolveEntryOrThrow(worktreeId, taskGid);
 
       const dirty = await getPorcelainStatus(entry.worktreePath);
@@ -267,7 +270,7 @@ export function registerWorktreeTools(server: McpServer): void {
       const newHead = await revParse(entry.gitRoot, entry.sourceBranch);
       const updated = await updateWorktreeEntry(entry.id, { baseCommit: newHead, lastMergeCommit: newHead });
       return textResult({ success: true, worktree: updated, mergeCommit: newHead });
-    }
+    })
   );
 
   server.tool(
@@ -275,10 +278,11 @@ export function registerWorktreeTools(server: McpServer): void {
     "中斷一輪還沒合併的 worktree 工作（如做到一半發現方向錯了）。先把目前異動安全 commit，分支留作備份，**不會刪除 worktree 或分支**，只標記 abandoned，之後不再用來續下一輪。",
     {
       worktreeId: z.string().nullable().optional().describe("worktree id，與 taskGid 至少帶一個"),
-      taskGid: z.string().nullable().optional().describe("票所屬的 worktree，與 worktreeId 至少帶一個"),
+      taskGid: z.string().nullable().optional().describe("票所屬的 worktree，與 worktreeId 至少帶一個；taskGid 與 workItemId 擇一，Asana 票單用 taskGid"),
+      workItemId: z.string().nullable().optional().describe("同 taskGid（taskGid 與 workItemId 擇一，Asana 票單用 taskGid）"),
       note: z.string().describe("中斷原因（用於安全 commit 的訊息）"),
     },
-    async ({ worktreeId, taskGid, note }) => {
+    withOptionalTaskGid(async ({ worktreeId, taskGid, note }) => {
       const entry = await resolveEntryOrThrow(worktreeId, taskGid);
       const dirty = await getPorcelainStatus(entry.worktreePath);
       if (dirty.length > 0) {
@@ -290,7 +294,7 @@ export function registerWorktreeTools(server: McpServer): void {
       }
       const updated = await updateWorktreeEntry(entry.id, { status: "abandoned" });
       return textResult({ success: true, worktree: updated, safetyCommitted: dirty.length > 0 });
-    }
+    })
   );
 
   server.tool(

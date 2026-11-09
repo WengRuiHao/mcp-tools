@@ -34,6 +34,7 @@ import { performSvnOperation, type SvnOperation } from "./svn-workcopy-bridge.js
 import { resolveHttpBridgeHost, resolveHttpBridgePort } from "./http-bridge-config.js";
 import { invalidateActiveWarningsCache } from "./active-warnings.js";
 import { appendGitHookLog } from "./git-hook-log.js";
+import { resolveWorkItemIdArg } from "./work-item.js";
 
 const MAX_BODY_BYTES = 256 * 1024; // 請求本體都是單一票單的一筆勾選/確認，不會太大
 
@@ -79,9 +80,15 @@ function requireString(body: any, field: string): string {
   return value;
 }
 
+/** body 兩種 key（taskGid／workItemId）都收；舊報告只會送 taskGid，必須永遠可用。 */
+function requireWorkItemId(body: any): string {
+  const pick = (k: string) => (typeof body?.[k] === "string" ? (body[k] as string) : undefined);
+  return resolveWorkItemIdArg({ taskGid: pick("taskGid"), workItemId: pick("workItemId") });
+}
+
 async function handleResolveManualAction(req: IncomingMessage, res: ServerResponse) {
   const body = await readJsonBody(req);
-  const taskGid = requireString(body, "taskGid");
+  const taskGid = requireWorkItemId(body);
   const filename = requireString(body, "filename");
   const action = requireString(body, "action");
   if (!["02-implementation.md", "03-verification.md", "04-test.md"].includes(filename)) {
@@ -98,12 +105,12 @@ async function handleResolveManualAction(req: IncomingMessage, res: ServerRespon
     return;
   }
   await syncPendingActionsReport(taskGid);
-  sendJson(res, 200, { success: true, taskGid, filename, remaining: result.remaining });
+  sendJson(res, 200, { success: true, taskGid, workItemId: taskGid, filename, remaining: result.remaining });
 }
 
 async function handleRecordConfirmation(req: IncomingMessage, res: ServerResponse) {
   const body = await readJsonBody(req);
-  const taskGid = requireString(body, "taskGid");
+  const taskGid = requireWorkItemId(body);
   if (typeof body?.confirmed !== "boolean") {
     sendJson(res, 400, { success: false, message: "缺少或格式錯誤的 confirmed（必須是布林值）" });
     return;
@@ -121,12 +128,12 @@ async function handleRecordConfirmation(req: IncomingMessage, res: ServerRespons
   }
   await recordConfirmation(taskGid, confirmed, note);
   await syncPendingActionsReport(taskGid);
-  sendJson(res, 200, { success: true, taskGid, confirmed });
+  sendJson(res, 200, { success: true, taskGid, workItemId: taskGid, confirmed });
 }
 
 async function handleRecordSpecConfirmation(req: IncomingMessage, res: ServerResponse) {
   const body = await readJsonBody(req);
-  const taskGid = requireString(body, "taskGid");
+  const taskGid = requireWorkItemId(body);
   if (typeof body?.confirmed !== "boolean") {
     sendJson(res, 400, { success: false, message: "缺少或格式錯誤的 confirmed（必須是布林值）" });
     return;
@@ -144,15 +151,15 @@ async function handleRecordSpecConfirmation(req: IncomingMessage, res: ServerRes
   }
   await recordSpecConfirmation(taskGid, confirmed, note);
   await syncPendingActionsReport(taskGid);
-  sendJson(res, 200, { success: true, taskGid, confirmed });
+  sendJson(res, 200, { success: true, taskGid, workItemId: taskGid, confirmed });
 }
 
 async function handleRequestReanalysis(req: IncomingMessage, res: ServerResponse) {
   const body = await readJsonBody(req);
-  const taskGid = requireString(body, "taskGid");
+  const taskGid = requireWorkItemId(body);
   await requestReanalysis(taskGid);
   await syncPendingActionsReport(taskGid);
-  sendJson(res, 200, { success: true, taskGid });
+  sendJson(res, 200, { success: true, taskGid, workItemId: taskGid });
 }
 
 /**

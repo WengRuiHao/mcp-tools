@@ -59,3 +59,27 @@ export function withTaskGid<A extends WorkItemArgs, R extends ToolResult>(
     return withWorkItemIdInOutput(result, taskGid);
   };
 }
+
+type OptionalWorkItemArgs = { taskGid?: string | null; workItemId?: string | null };
+
+/**
+ * 給「taskGid 本來就是選填」的工具（例如與 worktreeId／projectDir 擇一）：
+ * 有給就解析（衝突回 isError），都沒給則維持原行為（taskGid 為 undefined 交回原 handler）。
+ * 有解析出 id 時輸出多帶 workItemId。
+ */
+export function withOptionalTaskGid<A extends OptionalWorkItemArgs, R extends ToolResult>(
+  handler: (args: Omit<A, "workItemId">) => Promise<R>
+): (args: A) => Promise<R | ToolResult> {
+  return async (args) => {
+    const { workItemId, ...rest } = args;
+    const gid = args.taskGid?.trim() || undefined;
+    const wid = workItemId?.trim() || undefined;
+    if (gid && wid && gid !== wid) {
+      const message = `taskGid（${gid}）與 workItemId（${wid}）同時提供但值不同，請只給其中一個，或讓兩者相同`;
+      return { content: [{ type: "text", text: JSON.stringify({ success: false, message }) }], isError: true };
+    }
+    const id = gid ?? wid;
+    const result = await handler((id ? { ...rest, taskGid: id } : rest) as Omit<A, "workItemId">);
+    return id ? withWorkItemIdInOutput(result, id) : result;
+  };
+}
