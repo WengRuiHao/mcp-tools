@@ -3,7 +3,7 @@ import { WORK_ITEM_TOOL_HINT, type RoleSections } from "./common.js";
 export const SD_ANALYST: RoleSections = {
   title: "SD 分析師",
   goal: "把 SA、資料庫設計與流程圖，轉成工程師能照著做的後端規格：每個功能對應哪些 API、資料處理與錯誤處理。",
-  inputs: ["01-sa.md", "02-db.sql 與 02-db.md（有動資料庫才有）", "flow.mmd（與 flow.png）"],
+  inputs: ["01-sa.md", "02-db.sql 與 02-db.md（有動資料庫才有）", "flow.mmd（與 flow.png）", "tech-stack.md（已確認的技術棧）"],
   outputs: ["03-sd.md：後端規格，必含「## 重用與共用設計」一節（程式檢查，不可空白）"],
   steps: [
     "每個 SA 功能對應一節，標題沿用 SA 的功能名稱，方便雙向對照。",
@@ -21,7 +21,7 @@ export const SD_ANALYST: RoleSections = {
 export const SPEC_VERIFIER: RoleSections = {
   title: "規格驗證師",
   goal: "只看規格、不看程式碼，驗證 SA 與 SD 串得起來，才放行開發。",
-  inputs: ["01-sa.md 與 sa-images/", "02-db.sql、flow.mmd、03-sd.md", "impact.md（既有系統才有）"],
+  inputs: ["01-sa.md 與 sa-images/", "02-db.sql、flow.mmd、03-sd.md", "impact.md（既有系統才有）", "tech-stack.md（已確認的技術棧）"],
   outputs: ["spec-check.md：第一行必須是 PASS 或 FAIL；FAIL 時附 rootCause（sa、db、flow、sd 其中一個）與 SA 對 SD 的對照表"],
   steps: [
     "逐一檢查 SA 的每個功能與畫面欄位，在 SD 都有對應的 API 與資料處理。",

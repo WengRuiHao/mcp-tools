@@ -103,3 +103,15 @@ test("需求原文過長會截斷；簡短摘要計數正確", () => {
   assert.match(buildFinalSummary(i), /…（已截斷/);
   assert.equal(buildFinalSummaryBrief(i), "共 4 道關卡、4 道有紀錄；連續失敗 0 次；產出物 6 項中 6 項存在。");
 });
+
+test("基本資料多兩行：畫面風格來源與技術來源；沒有紀錄時顯示無紀錄，既有行不受影響", () => {
+  const t = buildFinalSummary({ ...base(), styleSource: "new-select", techSource: "existing" });
+  assert.match(t, /- 畫面風格來源：全新待選（new-select）/);
+  assert.match(t, /- 技術來源：沿用現有（existing）/);
+  const old = buildFinalSummary(base());
+  assert.match(old, /- 畫面風格來源：無紀錄/);
+  assert.match(old, /- 技術來源：無紀錄/);
+  assert.match(old, /是否動資料庫：是\n- 畫面風格來源/);
+  const tech = buildFinalSummary({ ...base(), gates: [...gates, { id: "tech-confirm", after: "tech-selector", type: "confirmation" }] });
+  assert.match(tech, /技術確認（tech-confirm）：無紀錄/);
+});

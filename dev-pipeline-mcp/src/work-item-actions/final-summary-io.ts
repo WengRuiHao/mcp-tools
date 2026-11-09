@@ -44,6 +44,8 @@ async function collectInput(dir: string, status: TicketStatus, def: WorkflowDefi
     baseline: status.baseline,
     scope: status.scope,
     hasDb: status.has_db,
+    styleSource: status.style_source,
+    techSource: status.tech_source,
     createdAt,
     gates: resolved.gates,
     artifacts,

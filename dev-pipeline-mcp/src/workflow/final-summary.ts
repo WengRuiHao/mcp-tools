@@ -1,3 +1,4 @@
+import { STYLE_SOURCE_LABELS, TECH_SOURCE_LABELS } from "../work-item-sources.js";
 import type { ArtifactDef, GateDef } from "./schema.js";
 import type { GateRecord, WorkItemProgress } from "./work-item-progress.js";
 
@@ -25,6 +26,9 @@ export interface FinalSummaryInput {
   baseline: string | undefined;
   scope: string | undefined;
   hasDb: boolean | undefined;
+  /** 畫面風格來源、技術來源（舊工作項目沒有就不給，顯示「無紀錄」）。 */
+  styleSource?: string | undefined;
+  techSource?: string | undefined;
   createdAt: string | undefined;
   /** 目前範圍下啟用的關卡與產出定義（依流程順序）。 */
   gates: readonly GateDef[];
@@ -77,6 +81,10 @@ function summarizeRequirement(text: string | undefined): string {
   return t.length > REQUIREMENT_LIMIT ? `${t.slice(0, REQUIREMENT_LIMIT)}…（已截斷，全文見 item.md）` : t;
 }
 
+function sourceText(value: string | undefined, labels: Readonly<Record<string, string>>): string {
+  return value && labels[value] ? `${labels[value]}（${value}）` : NO_RECORD;
+}
+
 function basicSection(i: FinalSummaryInput, completedAt: string | undefined): string[] {
   const yesNo = i.hasDb === undefined ? NO_RECORD : i.hasDb ? "是" : "否";
   return [
@@ -88,6 +96,8 @@ function basicSection(i: FinalSummaryInput, completedAt: string | undefined): st
     `- 既有或全新：${(i.baseline && BASELINE_TEXT[i.baseline]) || NO_RECORD}`,
     `- 範圍：${(i.scope && SCOPE_TEXT[i.scope]) || NO_RECORD}`,
     `- 是否動資料庫：${yesNo}`,
+    `- 畫面風格來源：${sourceText(i.styleSource, STYLE_SOURCE_LABELS)}`,
+    `- 技術來源：${sourceText(i.techSource, TECH_SOURCE_LABELS)}`,
     `- 建立時間：${formatTime(i.createdAt)}`,
     `- 完成時間（最終驗收確認）：${formatTime(completedAt)}`,
     "",

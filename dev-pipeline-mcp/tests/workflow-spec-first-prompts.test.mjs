@@ -48,6 +48,22 @@ test("tech-selector：四種技術來源的做法、tech-stack.md、確認後鎖
   assert.ok(t.includes("不可修改任何程式碼"));
 });
 
+test("其餘角色的輸入加上 tech-stack.md；前後端與 mockup 不可自行更換已確認的技術", () => {
+  for (const id of ["mockup-designer", "sa-analyst", "db-designer", "sd-analyst", "spec-verifier", "frontend-engineer", "backend-engineer", "verifier", "tester"]) {
+    assert.ok(getSpecFirstRolePrompt(id).includes("tech-stack.md"), `${id} 輸入含 tech-stack.md`);
+  }
+  for (const id of ["mockup-designer", "frontend-engineer", "backend-engineer"]) {
+    assert.ok(getSpecFirstRolePrompt(id).includes("不可自行更換 tech-stack.md 已確認的語言、框架、元件庫"), id);
+  }
+});
+
+test("baseline-survey：盤點「## 現有技術棧」；mockup-designer 的風格來源四個值與欄位名稱一致", () => {
+  const b = getSpecFirstRolePrompt("baseline-survey");
+  assert.ok(b.includes("## 現有技術棧") && b.includes("技術選型師"));
+  const m = getSpecFirstRolePrompt("mockup-designer");
+  for (const k of ["沿用現有", "換新", "全新有規範", "全新待選", "畫面風格來源"]) assert.ok(m.includes(k), k);
+});
+
 test("mockup-designer：只畫 mockup、放 sa-mockup/、不寫規格、等使用者確認", () => {
   const t = getSpecFirstRolePrompt("mockup-designer");
   assert.ok(t.includes("sa-mockup/") && t.includes("不寫規格") && t.includes("人工確認") && t.includes("瀏覽器"));

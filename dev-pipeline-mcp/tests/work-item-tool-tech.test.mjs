@@ -77,7 +77,8 @@ test("greenfield 全新待選：tech-selector 先做、檢查不合格不標記�
   assert.equal(ok.isError, false);
   assert.equal(ok.json.waitingGates[0].gateId, "tech-confirm");
   assert.equal(ok.json.waitingGates[0].waitingFor, "user");
-  assert.match(ok.json.summary, /等使用者確認/);
+  assert.match(ok.json.summary, /等使用者確認技術棧，AI 不可代確認/);
+  assert.match(ok.json.waitingGates[0].howTo, /by="human".*AI 不可代為確認/);
   assert.deepEqual(ok.json.nextRoles, []);
 });
 
@@ -171,4 +172,19 @@ test("舊快照相容：快照沒有 tech-selector 的進行中項目不受影�
   assert.equal((await done(id, "tech-selector")).isError, true);
   await fulfil(dir, "sa-analyst");
   assert.equal((await done(id, "sa-analyst")).isError, false);
+});
+
+test("role_prompt：tech-selector 附專案技術規範（有標題）；沒有規範時不附", async () => {
+  const { id } = await env.create();
+  const flow = path.join(env.projectDir, ".pipeline", "flow.json");
+  await mkdir(path.dirname(flow), { recursive: true });
+  await writeFile(flow, JSON.stringify({ schemaVersion: 1, techGuide: "後端一律 Java 17、前端 Vue 3" }));
+  const r = await env.call({ action: "role_prompt", workItemId: id, roleId: "tech-selector" });
+  assert.match(r.json.prompt, /## 專案技術規範（techGuide）\n後端一律 Java 17、前端 Vue 3/);
+  assert.equal(r.json.hasProjectGuide, true);
+  const other = await env.call({ action: "role_prompt", workItemId: id, roleId: "mockup-designer" });
+  assert.doesNotMatch(other.json.prompt, /後端一律 Java 17/);
+  const { rm } = await import("node:fs/promises");
+  await rm(flow, { force: true });
+  assert.equal((await env.call({ action: "role_prompt", workItemId: id, roleId: "tech-selector" })).json.hasProjectGuide, false);
 });

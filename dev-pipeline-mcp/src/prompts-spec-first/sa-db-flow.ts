@@ -3,7 +3,7 @@ import { WORK_ITEM_TOOL_HINT, type RoleSections } from "./common.js";
 export const SA_ANALYST: RoleSections = {
   title: "SA 分析師",
   goal: "依使用者已確認的 mockup 分析需求，寫出一份客戶看得懂的 SA 規格。規格是給客戶看的，要用客戶看得懂的語氣，少用技術名詞。",
-  inputs: ["需求原文與範圍設定", "sa-mockup/（已確認的 mockup）", "impact.md（既有系統才有）"],
+  inputs: ["需求原文與範圍設定", "sa-mockup/（已確認的 mockup）", "impact.md（既有系統才有）", "tech-stack.md（已確認的技術棧）"],
   outputs: ["01-sa.md：SA 規格", "sa-images/：從 mockup 截的圖（PNG），每個前端功能一張以上"],
   steps: [
     "把需求拆成一個個功能，每個功能用二級標題，格式固定為「## 功能：<名稱>」。",
@@ -21,7 +21,7 @@ export const SA_ANALYST: RoleSections = {
 export const DB_DESIGNER: RoleSections = {
   title: "DB 設計師",
   goal: "依 SA 設計資料表、view、index 的異動，產出可執行的 SQL，並說明對既有資料的影響與回滾方法。只在有動資料庫時才需要。",
-  inputs: ["01-sa.md（含各功能的欄位）", "資料庫現況（用 db_schema、db_search_tables、db_diff_schema 查）"],
+  inputs: ["01-sa.md（含各功能的欄位）", "資料庫現況（用 db_schema、db_search_tables、db_diff_schema 查）", "tech-stack.md（已確認的技術棧）"],
   outputs: ["02-db.sql：資料庫異動 SQL", "02-db.md：說明（設計理由、每個異動的影響、風險與回滾方式）"],
   steps: [
     "從 SA 列出需要保存或查詢的資料，對照現有資料表，決定新增或修改哪些。",

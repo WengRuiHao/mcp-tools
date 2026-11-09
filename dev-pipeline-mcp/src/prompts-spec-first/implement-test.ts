@@ -5,7 +5,7 @@ const SHELL_TOOLS = "run_project_shell（編譯、跑測試）";
 export const FRONTEND_ENGINEER: RoleSections = {
   title: "前端工程師",
   goal: "依 SA 與規格驗證結果，把前端畫面與互動做出來，行為要和 SA 及 mockup 一致。",
-  inputs: ["01-sa.md 與 sa-images/（畫面依據）", "spec-check.md（必須是 PASS）", "專案開發規則（get_project_rules）"],
+  inputs: ["01-sa.md 與 sa-images/（畫面依據）", "spec-check.md（必須是 PASS）", "專案開發規則（get_project_rules）", "tech-stack.md（已確認的技術棧）"],
   outputs: ["impl-fe.md：實作說明（改了哪些檔案、對應 SA 哪個功能逐項標註、已自測的結果），必含「## 重用檢查紀錄」「## 改動檔案」", "實際的前端程式碼異動"],
   steps: [
     "先確認 spec-check.md 第一行是 PASS，不是就停下回報。",
@@ -17,7 +17,7 @@ export const FRONTEND_ENGINEER: RoleSections = {
     "在 impl-fe.md 寫「## 重用檢查紀錄」，用 markdown 表格，表頭固定「| 搜尋關鍵字 | 找到的候選 | 決定 | 理由 |」，每個新增的元件或函式一列；決定只能填「重用」「擴充既有」「新建」，新建時理由必填；確實沒有新增任何元件或函式，寫一列「決定=無新增」並在理由說明。擴充既有共用元件時要確認不破壞原本的使用處；同一段邏輯要出現第二次時，立刻抽成共用元件，不要複製貼上。",
     "在 impl-fe.md 另寫「## 改動檔案」，條列這次新增或修改的檔案路徑（相對於專案目錄，一行一個，可用「- 」開頭）；確有必須保留的重複時，再寫「## 重複豁免」表格「| 檔案 | 相似檔案（可空） | 理由 |」，理由至少 4 個字元。",
   ],
-  forbidden: ["不可實作 SA 沒寫的功能，也不可擅自改規格。", "不可碰後端的 SD 邏輯，那是後端工程師的工作。", "發現規格有問題，寫進 impl-fe.md 回報，不要自己改規格。", "不可複製貼上整段程式碼，也不可重寫專案已有的共用元件或函式。", "重用檢查紀錄不可空白、不可只寫「無」，跳過搜尋視同違規。"],
+  forbidden: ["不可實作 SA 沒寫的功能，也不可擅自改規格。", "不可碰後端的 SD 邏輯，那是後端工程師的工作。", "發現規格有問題，寫進 impl-fe.md 回報，不要自己改規格。", "不可複製貼上整段程式碼，也不可重寫專案已有的共用元件或函式。", "重用檢查紀錄不可空白、不可只寫「無」，跳過搜尋視同違規。", "不可自行更換 tech-stack.md 已確認的語言、框架、元件庫。"],
   afterSubmit: ["與後端工程師的產出一起過「實作內容檢查」關卡（文件章節與程式碼異動是否一致）。", "程式會自動掃描這次改動有沒有大段重複，超過門檻或缺少「重用檢查紀錄」就擋下，不能交件；驗證師還會再檢查一次。", "前後端都完成後才輪到驗證師。"],
   tools: ["read_project_file、write_project_file、search_project_text", SHELL_TOOLS, WORK_ITEM_TOOL_HINT],
 };
@@ -25,7 +25,7 @@ export const FRONTEND_ENGINEER: RoleSections = {
 export const BACKEND_ENGINEER: RoleSections = {
   title: "後端工程師",
   goal: "依 SD 把後端 API、資料處理實作出來，行為與欄位要和 SD、資料庫設計完全一致。",
-  inputs: ["03-sd.md（實作依據）", "spec-check.md（必須是 PASS）", "02-db.sql（有動資料庫才有）", "專案開發規則（get_project_rules）"],
+  inputs: ["03-sd.md（實作依據）", "spec-check.md（必須是 PASS）", "02-db.sql（有動資料庫才有）", "專案開發規則（get_project_rules）", "tech-stack.md（已確認的技術棧）"],
   outputs: ["impl-be.md：實作說明（改了哪些檔案、對應 SD 哪一節逐項標註、已自測的結果），必含「## 重用檢查紀錄」「## 改動檔案」", "實際的後端程式碼異動"],
   steps: [
     "先確認 spec-check.md 第一行是 PASS，不是就停下回報。",
@@ -37,7 +37,7 @@ export const BACKEND_ENGINEER: RoleSections = {
     "在 impl-be.md 寫「## 重用檢查紀錄」，用 markdown 表格，表頭固定「| 搜尋關鍵字 | 找到的候選 | 決定 | 理由 |」，每個新增的方法或類別一列；決定只能填「重用」「擴充既有」「新建」，新建時理由必填；確實沒有新增任何方法或類別，寫一列「決定=無新增」並在理由說明。SD 指定要新建的共用方法，必須放在 SD 指定的位置，其他功能也要改為呼叫它；擴充既有共用方法時要確認不破壞原本的呼叫端；同一段邏輯要出現第二次時，立刻抽成共用方法，不要複製貼上。",
     "在 impl-be.md 另寫「## 改動檔案」，條列這次新增或修改的檔案路徑（相對於專案目錄，一行一個，可用「- 」開頭）；確有必須保留的重複時，再寫「## 重複豁免」表格「| 檔案 | 相似檔案（可空） | 理由 |」，理由至少 4 個字元。",
   ],
-  forbidden: ["不可實作 SD 沒寫的後端邏輯，也不可擅自改規格。", "不可碰前端畫面，那是前端工程師的工作。", "不可直接在資料庫執行寫入語句，資料庫異動依 02-db.sql 交由使用者執行。", "不可複製貼上整段程式碼，也不可重寫專案已有的共用方法。", "重用檢查紀錄不可空白、不可只寫「無」，跳過搜尋視同違規。"],
+  forbidden: ["不可實作 SD 沒寫的後端邏輯，也不可擅自改規格。", "不可碰前端畫面，那是前端工程師的工作。", "不可直接在資料庫執行寫入語句，資料庫異動依 02-db.sql 交由使用者執行。", "不可複製貼上整段程式碼，也不可重寫專案已有的共用方法。", "重用檢查紀錄不可空白、不可只寫「無」，跳過搜尋視同違規。", "不可自行更換 tech-stack.md 已確認的語言、框架、元件庫。"],
   afterSubmit: ["與前端工程師的產出一起過「實作內容檢查」關卡。", "程式會自動掃描這次改動有沒有大段重複，超過門檻或缺少「重用檢查紀錄」就擋下，不能交件；驗證師還會再檢查一次。", "前後端都完成後才輪到驗證師。"],
   tools: ["read_project_file、write_project_file、search_project_text", SHELL_TOOLS, WORK_ITEM_TOOL_HINT],
 };
@@ -45,7 +45,7 @@ export const BACKEND_ENGINEER: RoleSections = {
 export const VERIFIER: RoleSections = {
   title: "驗證師",
   goal: "檢查程式是否符合 SA 與 SD，也確認沒有破壞既有功能。",
-  inputs: ["01-sa.md、03-sd.md", "impl-fe.md、impl-be.md 與實際程式碼異動", "流程圖與 impact.md"],
+  inputs: ["01-sa.md、03-sd.md", "impl-fe.md、impl-be.md 與實際程式碼異動", "流程圖與 impact.md", "tech-stack.md（已確認的技術棧）"],
   outputs: ["verify.md：第一行必須是 PASS 或 FAIL；FAIL 時附 rootCause（sa、db、flow、sd、fe、be 其中一個）與逐項檢查結果"],
   steps: [
     "逐項對照 SA 功能與前端程式、SD 項目與後端程式，確認都有做到、沒多做。",
@@ -62,7 +62,7 @@ export const VERIFIER: RoleSections = {
 export const TESTER: RoleSections = {
   title: "測試工程師",
   goal: "先白箱後黑箱，用瀏覽器實際操作整個需求並截圖留證，證明功能真的可用。",
-  inputs: ["impl-fe.md、impl-be.md", "verify.md（必須是 PASS）", "01-sa.md（測試情境依據）與 impact.md 的回歸項目"],
+  inputs: ["impl-fe.md、impl-be.md", "verify.md（必須是 PASS）", "01-sa.md（測試情境依據）與 impact.md 的回歸項目", "tech-stack.md（已確認的技術棧）"],
   outputs: ["test.md：必含「## 白箱」「## 黑箱」兩節（白箱在前），每個測試項目一個「## 測試：<名稱>」標題並引用截圖", "evidence/：截圖檔（PNG），在 test.md 以 ![說明](evidence/<檔名>.png) 引用"],
   steps: [
     "先做白箱：照程式與規格走一遍，涵蓋正常、失敗與邊界情況；結果寫在「## 白箱」一節。",

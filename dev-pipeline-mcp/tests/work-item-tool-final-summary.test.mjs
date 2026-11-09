@@ -63,3 +63,13 @@ test("寫檔失敗不影響確認：回傳 warning、關卡仍記為 confirmed",
   assert.equal((await env.store.readStatus(id)).work_item_progress.gates["final-acceptance"].decision, "confirmed");
   assert.equal((await env.call({ action: "get", workItemId: id })).json.complete, true);
 });
+
+test("final-summary.md 基本資料列出畫面風格來源與技術來源", async () => {
+  const { id, dir } = await env.create();
+  await runUntil(env, id, dir, "final-acceptance-none");
+  const r = await accept(id);
+  const text = await readFile(r.json.summaryFile, "utf-8");
+  assert.match(text, /- 畫面風格來源：全新待選（new-select）/);
+  assert.match(text, /- 技術來源：全新待選（new-select）/);
+  assert.match(text, /技術確認（tech-confirm）：確認｜使用者本人/);
+});
