@@ -7,7 +7,7 @@ import { connectClient } from "./helpers/support.mjs";
 import { checkGolden } from "./helpers/golden.mjs";
 import { registerAllTools } from "../dist/toolsets.js";
 
-const EXPECTED_TOOL_COUNT = 42;
+const EXPECTED_TOOL_COUNT = 43;
 const sha = (text) => crypto.createHash("sha256").update(text, "utf8").digest("hex");
 
 /** 遞迴把 schema 中的 description 換成雜湊與長度，其餘（type、enum、required、properties…）原樣保留。 */
@@ -46,7 +46,7 @@ async function buildSnapshot() {
   }
 }
 
-test("工具介面黃金快照：工具總數固定為 42", async () => {
+test("工具介面黃金快照：工具總數固定為 43", async () => {
   const snapshot = await buildSnapshot();
   assert.equal(Object.keys(snapshot).length, EXPECTED_TOOL_COUNT);
 });

@@ -222,7 +222,7 @@ npm run build
 
 用環境變數縮小工具清單（tools/list）送進 AI 上下文的量；**預設（沒設）全部註冊**。
 
-![工具群組可關閉：預設全部註冊共 42 個工具；用環境變數 DEV_PIPELINE_DISABLE_TOOLSETS 可關掉 worktree 群組（8 個，關後剩 34 個）或 bridge 群組（3 個，關後剩 39 個），兩個都關剩 31 個核心工具；內部流程不經過這些可關閉的工具，關閉不影響運作](docs/img/toolsets.svg)
+![工具群組可關閉：預設全部註冊共 43 個工具；用環境變數 DEV_PIPELINE_DISABLE_TOOLSETS 可關掉 worktree 群組（8 個，關後剩 35 個）或 bridge 群組（3 個，關後剩 40 個），兩個都關剩 32 個核心工具；內部流程不經過這些可關閉的工具，關閉不影響運作](docs/img/toolsets.svg)
 
 ```json
 "env": { "DEV_PIPELINE_DISABLE_TOOLSETS": "worktree,bridge" }
@@ -251,7 +251,7 @@ node --import ./tests/helpers/safe-env.mjs --test tests/gates.test.mjs   # 單�
 ## 提供的工具
 
 <details>
-<summary>展開完整工具清單（42 個）</summary>
+<summary>展開完整工具清單（43 個）</summary>
 
 | 工具 | 用途（一行版） |
 |---|---|
@@ -262,6 +262,7 @@ node --import ./tests/helpers/safe-env.mjs --test tests/gates.test.mjs   # 單�
 | `restore_rule_file` | 把規則檔還原成某個快照 |
 | `prepare_project` | 開工準備（取代逐個 `project_config` resolve）：一次回傳預設 Asana 專案、`projectDir`、SA/SD 設定、git 根目錄 |
 | `project_config` | 專案層級設定的單一入口：`project_config({ kind, action: "resolve" \| "register", ... })` |
+| `work_item` | 非 Asana 的規格先行工作項目單一入口：`work_item({ action, ... })`，action 為 `create`／`get`／`role_prompt`／`set_scope`／`write`／`attach`／`render`／`done`／`confirm`／`verdict`（Asana 票單不可用，請用既有 Asana 工具） |
 | `list_pending_tickets` | 列出某個 Asana 專案尚未處理完成的票單 |
 | `get_ticket_snapshot` | 抓票單內容＋留言，寫入追蹤檔案 |
 | `relocate_ticket_project` | 第一次 `get_ticket_snapshot` 傳錯 `projectName` 時，把票（含子任務）的追蹤資料夾搬到正確位置 |

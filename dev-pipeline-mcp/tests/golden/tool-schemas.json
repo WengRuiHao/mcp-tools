@@ -1725,7 +1725,203 @@
   },
   "paramCount": 5
  },
- "toolCount": 42,
+ "toolCount": 43,
+ "work_item": {
+  "descriptionLength": 893,
+  "descriptionSha256": "0cb168b5a818d05edbd56a734a5f14024c7d72b893cfdc60af9aeb7f72023460",
+  "inputSchema": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "additionalProperties": false,
+   "properties": {
+    "action": {
+     "descriptionLength": 76,
+     "descriptionSha256": "f71f1a31ac0ce17439064a715cfce2bcaf3f32f98d99ad4e896bdb31ff01f4d3",
+     "enum": [
+      "create",
+      "get",
+      "role_prompt",
+      "set_scope",
+      "write",
+      "attach",
+      "render",
+      "done",
+      "confirm",
+      "verdict"
+     ],
+     "type": "string"
+    },
+    "baseline": {
+     "descriptionLength": 16,
+     "descriptionSha256": "b3ddace3042fbde232c0d0c8165fdba965652758bf66709185b78d3de16b3cc9",
+     "enum": [
+      "greenfield",
+      "brownfield"
+     ],
+     "type": "string"
+    },
+    "by": {
+     "descriptionLength": 68,
+     "descriptionSha256": "162f0f3d1fc0cd9eb20b51889a77b5fd2022fdbb9dc9e5099db9612f0c54169c",
+     "enum": [
+      "human",
+      "agent"
+     ],
+     "type": "string"
+    },
+    "content": {
+     "descriptionLength": 20,
+     "descriptionSha256": "fe27842515717499dbf8f3745ca759883063ce672ac23e3346a8736b84fd5405",
+     "type": "string"
+    },
+    "decision": {
+     "descriptionLength": 13,
+     "descriptionSha256": "43dc5b0a9875a2bf45491b5c61c9fe495d69ddc9effc4a891ea620f90a7ff42e",
+     "enum": [
+      "confirmed",
+      "rejected"
+     ],
+     "type": "string"
+    },
+    "destDir": {
+     "descriptionLength": 30,
+     "descriptionSha256": "d23375d4151c2f3279d429c9420d90685e4b9ec66c4375d850762cec74b8180f",
+     "enum": [
+      "sa-mockup",
+      "sa-images",
+      "evidence",
+      "flow"
+     ],
+     "type": "string"
+    },
+    "filename": {
+     "descriptionLength": 35,
+     "descriptionSha256": "060ec43c388112ecb7c868ce89174a418407cf856c5e212a92081f50d606a793",
+     "type": "string"
+    },
+    "gateId": {
+     "descriptionLength": 48,
+     "descriptionSha256": "5d025b9e932e347e985bc8827f887c72ddcda8a1937fa4a79541b69eb57324dd",
+     "type": "string"
+    },
+    "hasDb": {
+     "descriptionLength": 27,
+     "descriptionSha256": "7c14ca3542e462d8d2abd26ae986059967d5ccc702d67cdcfaa34dc2e6af5807",
+     "type": "boolean"
+    },
+    "kind": {
+     "descriptionLength": 43,
+     "descriptionSha256": "aa1a69df5e1d6af08f9c2a5d6e8b5bb6e15dc11cf04eadcff3b80a8f76d11b85",
+     "enum": [
+      "html",
+      "mermaid"
+     ],
+     "type": "string"
+    },
+    "name": {
+     "descriptionLength": 28,
+     "descriptionSha256": "1378e4ffe3194e056d815c82040e95a4ca7885d6a70b02c3a50364349ccf2d90",
+     "type": "string"
+    },
+    "out": {
+     "descriptionLength": 23,
+     "descriptionSha256": "addd269842a2d28c9085622c3d0c7db77859bfbdca84d79709d22531c8f7a800",
+     "type": "string"
+    },
+    "projectDir": {
+     "descriptionLength": 21,
+     "descriptionSha256": "fe9dccbd2b05cc102d8733a5b14a35523bcb4098d19eb7569613a2c9c6bef31b",
+     "type": "string"
+    },
+    "reason": {
+     "descriptionLength": 25,
+     "descriptionSha256": "a6800a13b355876057a0eb25035880738e772785bfe67cbb356ceb75f768b7c2",
+     "type": "string"
+    },
+    "requirement": {
+     "descriptionLength": 11,
+     "descriptionSha256": "9a0d3cc44fd21858afcbb80d47e902ef7c27c656bc46083de11c06269d3f578f",
+     "type": "string"
+    },
+    "result": {
+     "descriptionLength": 14,
+     "descriptionSha256": "2c0ff7ab2ef90119614fb3b11b1f80041ae7afc25aa60cf1589de8d21ad29f87",
+     "enum": [
+      "pass",
+      "fail"
+     ],
+     "type": "string"
+    },
+    "review": {
+     "additionalProperties": false,
+     "descriptionLength": 75,
+     "descriptionSha256": "06ea37c87300a0a85d84c31b45b3a79a7686e8780bcf1e6f3b811103fc46c298",
+     "properties": {
+      "breaksExisting": {
+       "descriptionLength": 15,
+       "descriptionSha256": "cb26fbcfd328d53f447b6af4f7a77881b8b84e75c7a58ea40f585fb9aded8852",
+       "type": "boolean"
+      },
+      "reviewerUncertain": {
+       "descriptionLength": 18,
+       "descriptionSha256": "3ce52d1d51711de14d7e11cde7dadcc5c9744cf60206422c66ddbd0df7e6679f",
+       "type": "boolean"
+      },
+      "scopeSplit": {
+       "descriptionLength": 25,
+       "descriptionSha256": "5739e7f4240021c2d8b13db5794b5c64719c207d6dddad2e6890f784e179d74b",
+       "type": "boolean"
+      }
+     },
+     "type": "object"
+    },
+    "roleId": {
+     "descriptionLength": 37,
+     "descriptionSha256": "10bbb81fae60cf4be7b02b46744d1e8b30066075c46934c775de6ff8291bbfd6",
+     "type": "string"
+    },
+    "rootCause": {
+     "descriptionLength": 61,
+     "descriptionSha256": "e71d6bfa2a7021fb183e3f1f11a9117197675d73fc00f7ee1a28cf7812154e25",
+     "type": "string"
+    },
+    "scope": {
+     "descriptionLength": 19,
+     "descriptionSha256": "d8cf2c07642aac8848c20cdfcbb9533352c5f938b0da4737f58f5ca0a8b2927e",
+     "enum": [
+      "frontend",
+      "backend",
+      "both"
+     ],
+     "type": "string"
+    },
+    "src": {
+     "descriptionLength": 20,
+     "descriptionSha256": "a955934eb2115437ec195ba603d86664d49269df608c2342cd58f4ffbe55ea18",
+     "type": "string"
+    },
+    "srcPath": {
+     "descriptionLength": 24,
+     "descriptionSha256": "88e73c9b93f3711646b1f4143013f2317ffbfd30e16a644771520bf1930b3834",
+     "type": "string"
+    },
+    "title": {
+     "descriptionLength": 9,
+     "descriptionSha256": "b743241ce84381809033659d1dd61328c72244746214ea1ae34567b188fadd1d",
+     "type": "string"
+    },
+    "workItemId": {
+     "descriptionLength": 35,
+     "descriptionSha256": "812d6e4bde55fc40bd3c7768ac24ea40a3e58a68650b49bb6e7ad44eaaddc85e",
+     "type": "string"
+    }
+   },
+   "required": [
+    "action"
+   ],
+   "type": "object"
+  },
+  "paramCount": 24
+ },
  "write_project_file": {
   "descriptionLength": 352,
   "descriptionSha256": "e9c4dd3b200616f57a6f2d096e7774d4534ab7a1e15e9ee6d0fe359efbc6e1d5",

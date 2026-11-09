@@ -25,7 +25,7 @@ const EXPECTED_TOOLS = [
   "prepare_project", "project_config", "read_ticket_artifact", "record_confirmation", "record_sasd_check", "record_spec_confirmation", "record_test_evidence",
   "relocate_ticket_project", "request_reanalysis",
   "resolve_manual_action", "restore_rule_file",
-  "resync_ticket_artifact", "run_project_shell", "search_project_text", "write_project_file", "write_project_sd_doc", "write_ticket_artifact",
+  "resync_ticket_artifact", "run_project_shell", "search_project_text", "write_project_file", "write_project_sd_doc", "write_ticket_artifact", "work_item",
 ];
 const WORKTREE_TOOLS = [
   "create_ticket_worktree", "join_ticket_worktree", "list_worktrees", "get_worktree_status", "merge_ticket_worktree",
@@ -55,10 +55,10 @@ test("parseDisabledToolsets: unknown names are reported once, undefined/empty me
 });
 
 test("registerAllTools: tool counts by disabled group", async () => {
-  assert.equal((await listToolsWith()).length, 42);
-  assert.equal((await listToolsWith(["worktree"])).length, 34);
-  assert.equal((await listToolsWith(["bridge"])).length, 39);
-  assert.equal((await listToolsWith(["worktree", "bridge"])).length, 31);
+  assert.equal((await listToolsWith()).length, 43);
+  assert.equal((await listToolsWith(["worktree"])).length, 35);
+  assert.equal((await listToolsWith(["bridge"])).length, 40);
+  assert.equal((await listToolsWith(["worktree", "bridge"])).length, 32);
 });
 
 test("registerAllTools: each group removes exactly its own tools", async () => {

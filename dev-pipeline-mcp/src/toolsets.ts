@@ -12,6 +12,7 @@ import { registerTestEvidenceTools } from "./test-evidence-tools.js";
 import { registerWorktreeTools } from "./worktree-tools.js";
 import { registerGitHookTools } from "./git-hooks-tools.js";
 import { registerRuleHistoryTools } from "./rule-history-tools.js";
+import { registerWorkItemTools } from "./work-item-tools.js";
 import { installActiveWarnings } from "./active-warnings.js";
 import type { ToolsetName } from "./toolset-config.js";
 
@@ -43,4 +44,6 @@ export function registerAllTools(server: McpServer, disabledToolsets: ReadonlySe
     registerGitHookTools(server);
   }
   registerRuleHistoryTools(server);
+  // 非 Asana 的規格先行工作項目；不屬於可關閉的群組，永遠註冊。
+  registerWorkItemTools(server);
 }

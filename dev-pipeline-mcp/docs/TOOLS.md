@@ -42,3 +42,7 @@
 | `finalize_ticket_worktree` | 併入的票單全部確認結案後清除 worktree 資料夾＋分支；`dryRun` 預設 `true` |
 | `list_worktrees` | 列出所有登記中的 worktree，並跟 git 自己的 `worktree list` 交叉比對出對不起來的項目 |
 | `install_git_hooks` | 幫 `projectDir` 已登記的 git 根目錄裝 `post-commit`/`post-merge` 原生 hook（防繞過核心防線，觸發時也會局部重整對應的 `PENDING_HUMAN_ACTIONS.html`），詳見「多票單／多 AI 併行處理」一節 |
+
+## work_item（非 Asana 的規格先行工作項目）
+
+單一工具，以 `action` 分派：`create`、`get`、`role_prompt`、`set_scope`、`write`、`attach`、`render`、`done`、`confirm`、`verdict`。Asana 票單一律拒絕並轉介既有 Asana 工具。`confirm` 的 `by:"agent"` 只有關卡解析為 auto 且審查申報通過才成功；`final-acceptance` 與 manual 關卡只接受 `by:"human"`。參數與行為以工具自己的 description 為準。
