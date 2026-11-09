@@ -79,6 +79,7 @@ ul{margin:6px 0;padding-left:22px}
 <ol class="story">
   <li><b>建立</b>：AI 呼叫新工具 <code>work_item</code>（create），拿到編號 <code>wi-20261110-001</code>，程式在專案底下建好資料夾。</li>
   <li><b>現況盤點</b>（既有系統才有這步）：產出 <code>baseline.md</code>、<code>impact.md</code>，記錄現況與這次會影響到哪些地方。</li>
+  <li class="pause"><b>技術選型師</b>：決定前端、後端、資料庫、建置與測試工具、主要版本。沿用現有系統時只記錄、不用你確認；換技術或全新建置時，提出 2～3 組方案（附優缺點與成本）讓你選，<span class="tag wip">停下等你確認技術棧</span> 確認後鎖定，後面所有角色都照這份技術棧，不可自己換語言或框架。</li>
   <li class="pause"><b>mockup 設計師</b>（有前端畫面才需要）：只畫一個瀏覽器打得開的假畫面（mockup），放在 <code>sa-mockup/</code>。<span class="tag wip">停下等你確認 mockup</span> 畫面方向錯了只需重畫，不用重寫規格。</li>
   <li><b>SA 分析師</b>：依你確認過的 mockup 分析需求、寫 <code>01-sa.md</code>，並從 mockup 截圖存到 <code>sa-images/</code>，每個前端功能一張。程式會自動檢查每個畫面功能都有附圖。<b>預設不停下</b>：由 AI 派獨立審查員審查、程式裁決。<span class="tag done">預設 AI 審查</span></li>
   <li><b>DB 設計師與流程分析師</b>：產出 <code>02-db.sql</code> 和 <code>flow.mmd</code>（Mermaid，用文字描述的流程圖）。<b>預設不停下</b>：由 AI 派獨立審查員審查，程式裁決能不能放行。但 SQL 如果有刪表、刪資料，或碰到其他硬停點，一律強制停下等你。<span class="tag done">預設 AI 審查</span></li>
@@ -110,7 +111,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>長期維護的現況基線文件、自動跑資料庫差異比對</td><td><span class="tag todo">暫緩</span> 先手動盤點，用過之後再決定怎麼自動化最有用。</td></tr>
 </table>
 
-<h2 id="steps">三、切成 16 個步驟（每步獨立一個 commit，出問題就退回那一個）</h2>
+<h2 id="steps">三、切成 16 個步驟（S13 含技術選型）（每步獨立一個 commit，出問題就退回那一個）</h2>
 <p>每一步都用同一套方法證明 Asana 沒變：黃金快照逐字相同、整套測試通過、新增的「工具介面快照」不變。</p>
 <table>
 <tr><th>步驟</th><th>白話目的</th><th>主要改動</th><th>風險</th></tr>
@@ -129,7 +130,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>S10</td><td>重用防線（提示詞與文件）：現況盤點寫「可重用清單」、SD 寫「重用與共用設計」、工程師動手前先搜尋並寫「重用檢查紀錄」、驗證師檢查重複</td><td>新增／調整角色說明；實作內容關卡加「必須有重用檢查紀錄」檢查</td><td><span class="tag wip">中</span></td></tr>
 <tr><td>S11</td><td>自動重複程式碼偵測（必做）：掃描這次改動的檔案，找出與專案現有程式或本次改動之間大段相似的區塊，超過門檻就擋下交件</td><td>新增內建偵測模組（不需另外安裝套件）</td><td><span class="tag stop">中高</span> 建議你在場</td></tr>
 <tr><td>S12</td><td>現有 Asana 流程同步加上重用防線（工程師、驗證師提示詞與偵測關卡）</td><td>調整 Asana 流程的角色說明與推進檢查；黃金快照只允許這兩個角色的提示詞變動</td><td><span class="tag stop">中高</span> 建議你在場</td></tr>
-<tr><td>S13</td><td>畫面風格來源：建立工作項目時多一個「畫面風格來源」欄位（沿用現有／換新／全新有規範／全新待選），並依情況給預設值；現況盤點記錄現有畫面風格；mockup 設計師依來源決定風格，全新待選時先出 2～3 種風格讓你選</td><td><code>work_item</code> 的 create 與 set 動作、工作項目狀態、現況盤點與 mockup 設計師的提示詞（提示詞已先寫入）</td><td><span class="tag wip">中</span></td></tr>
+<tr><td>S13</td><td>畫面風格來源與技術選型：建立工作項目時多「畫面風格來源」與「技術來源」兩個欄位（各四種：沿用現有／換新或換技術／全新有規範／全新待選），並依情況給預設值；新增「技術選型師」角色（現況盤點之後、mockup 之前）與「技術確認」關卡（沿用現有時程式略過，其餘等你確認並鎖定），後面角色的提示詞帶入技術棧；現況盤點記錄現有畫面風格；mockup 設計師依來源決定風格，全新待選時先出 2～3 種風格讓你選</td><td><code>work_item</code> 的 create 與 set 動作、工作項目狀態、現況盤點與 mockup 設計師的提示詞（提示詞已先寫入）</td><td><span class="tag wip">中</span></td></tr>
 </table>
 <p class="note">平行規則：S0 一定最先；S1、S2、S3 改不同檔案可以分頭寫；S4 等 S2、S3；S5 等 S1、S4；S6、S7 可以平行；S8、S9 最後。但「建置與跑測試」一律輪流做，因為共用同一個輸出資料夾，同時做會互相干擾（前面已經遇過）。</p>
 
@@ -156,7 +157,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>和 Asana 的關係</td><td>與 <code>.asana-pipeline/</code> 分開放，Asana 的搬移、列表、報告功能碰不到它。索引檔共用，所以現有的查狀態、讀產出物、記錄測試證據等工具，只要帶 <code>workItemId</code> 就能直接用。</td></tr>
 </table>
 
-<h2 id="decide">六、你已做的 17 項決定</h2>
+<h2 id="decide">六、你已做的 21 項決定</h2>
 <table>
 <tr><th>#</th><th>問題</th><th>planner 推薦</th></tr>
 <tr><td>1</td><td>工具形式：新增一個 <code>work_item</code> 工具（工具數變 43，Asana 工具完全不動），還是改現有工具？</td><td><span class="tag done">已決定</span> 新增 <code>work_item</code> 工具</td></tr>
@@ -173,6 +174,10 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>15</td><td>要不要加「畫面風格來源」欄位？</td><td><span class="tag done">你已決定</span> 要加（步驟 S13）</td></tr>
 <tr><td>16</td><td>全新建置沒有規範時，要不要先出 2～3 種風格讓你選？</td><td><span class="tag done">你已決定</span> 要，mockup 確認那一關同時是選風格</td></tr>
 <tr><td>17</td><td>案子類型不固定時怎麼辦？</td><td><span class="tag done">你已決定</span> 每個工作項目建立時各自指定，系統依專案規範與既有／全新給預設值；翻新案要你明確選；AI 不確定就問你</td></tr>
+<tr><td>18</td><td>要不要加「技術選型」步驟與技術來源欄位？</td><td><span class="tag done">你已決定</span> 要（S13）；放在現況盤點之後、mockup 之前</td></tr>
+<tr><td>19</td><td>全新待選時，由 AI 提 2～3 組方案讓你選？</td><td><span class="tag done">你已決定</span> 要，每組附優缺點、學習與維運成本、相容性</td></tr>
+<tr><td>20</td><td>沿用現有時是否仍要你確認？</td><td><span class="tag done">你已決定</span> 不用，只記錄；換技術與全新才等你確認</td></tr>
+<tr><td>21</td><td>技術棧範圍？</td><td><span class="tag done">你已決定</span> 前端、後端、資料庫、建置與測試工具、主要版本，暫無其他補充</td></tr>
 <tr><td>11</td><td>SA 確認關卡預設要不要等你？</td><td><span class="tag done">你已決定</span> 改為預設 AI 審查（取代原本「SA 等你」）；只有 mockup 確認與最終驗收等你，硬停點仍強制停下</td></tr>
 <tr><td>8</td><td>SA 要不要拆成「mockup 設計師」與「SA 分析師」，並加 mockup 確認關卡？</td><td><span class="tag done">你已決定</span> 要拆；mockup 確認預設等你確認；SA 確認關卡保留</td></tr>
 <tr><td>9</td><td>四個延後項目怎麼處理？</td><td><span class="tag done">已決定</span> 模組／系統層級展開延續成階段 5；待處理報告改成最終驗收時整理一次；自訂整套流程與長期基線文件暫緩</td></tr>
@@ -218,6 +223,17 @@ ul{margin:6px 0;padding-left:22px}
   <li><b>AI 不確定時要停下來問你</b>，不可自己決定風格。</li>
 </ul>
 <p>提示詞已更新：現況盤點新增「## 現有畫面風格」一節；mockup 設計師依風格來源決定怎麼畫，並在交件說明寫明採用的風格依據。程式欄位與預設值邏輯是步驟 S13。</p>
+
+<h3>技術選型（前後端語言怎麼決定）</h3>
+<p>同樣的問題：原本沒有「技術怎麼決定」這一步，工程師拿到需求就用自己習慣的語言寫。解法同畫面風格：技術要有「來源」，並且放在 mockup 之前，因為前端技術影響 mockup 用哪些元件，後端與資料庫影響 SD 與 DB 設計。</p>
+<table>
+<tr><th>技術來源</th><th>適用情況</th><th>怎麼決定</th></tr>
+<tr><td>沿用現有</td><td>既有系統新增功能，或翻新但不換技術</td><td>現況盤點記錄現有技術棧，只記錄、不用你確認，後面角色必須照用</td></tr>
+<tr><td>換技術</td><td>翻新案要換框架或語言</td><td>你明確指定目標技術，AI 不替你猜；需你確認</td></tr>
+<tr><td>全新（有規範）</td><td>專案或客戶有技術規範</td><td>照專案設定檔的技術規範；需你確認</td></tr>
+<tr><td>全新（待選）</td><td>全新建置，什麼都沒指定</td><td>AI 提 2～3 組技術方案，附優缺點、學習與維運成本、與現有專案相容性，你選一組；確認後鎖定</td></tr>
+</table>
+<p>技術棧範圍：前端（語言、框架、元件庫）、後端（語言、框架）、資料庫（種類與版本）、建置與測試工具（舊專案如 JUnit4 的限制要列入）、主要版本。產出物是 <code>tech-stack.md</code>。程式碼（角色、關卡、欄位）屬 S13，提示詞會在 S13 一併寫入並更新角色說明書。</p>
 
 <h2 id="risk">七、風險與建議的推進順序</h2>
 <h3>建議順序</h3>
