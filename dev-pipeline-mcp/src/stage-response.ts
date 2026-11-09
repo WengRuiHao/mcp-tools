@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { computeSyncFlags, describeSdSkip, detectExternalChanges, needsHumanReview, type TicketStatus } from "./pipeline-store.js";
-import { computeNextAction } from "./next-action.js";
+import { computeNextActionForWorkflow } from "./workflow/next-action-dispatch.js";
 import { resolveSasdConfig } from "./project-registry.js";
 import { textResult } from "./shared.js";
 
@@ -31,7 +31,7 @@ export async function buildCompactStatus(taskGid: string, status: TicketStatus):
     ...(status.verifier_root_cause ? { verifier_root_cause: status.verifier_root_cause } : {}),
     ...(status.confirmation ? { confirmation: { confirmed: status.confirmation.confirmed } } : {}),
     ...(status.spec_confirmation ? { spec_confirmation: { confirmed: status.spec_confirmation.confirmed, ...(status.spec_confirmation.sdNotRequired ? { sdNotRequired: true, sdSkipNotice: describeSdSkip(status.spec_confirmation) } : {}) } } : {}),
-    nextAction: computeNextAction(status, { syncFlags, externalChanges, sasd }),
+    nextAction: computeNextActionForWorkflow(status, { syncFlags, externalChanges, sasd }),
   };
 }
 
