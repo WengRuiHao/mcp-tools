@@ -9,7 +9,7 @@ import { getBridgeToken } from "./bridge-token.js";
 import { CREDENTIAL_PATTERN } from "./sensitive-patterns.js";
 import { getSvnReportData, type SvnReportData, type SvnWorkCopySummary, type WcEntry } from "./svn-workcopy-bridge.js";
 import { resolveSasdConfig } from "./project-registry.js";
-import { getStageOrder } from "./workflow/stage-order.js";
+import { getStageOrder, type WorkflowSnapshot } from "./workflow/stage-order.js";
 import { buildSvnEditLink, renderSvnEditSection, type SvnEditLink } from "./svn-edit-link.js";
 
 export interface TicketSummaries {
@@ -80,6 +80,14 @@ export interface TestEvidenceRecord {
 export interface TicketStatus {
   /** 這張票走的 workflow id；缺省（舊票單）或 "asana-ticket" 都代表原本的 8 階段流程。刻意不放進 NEW_STATUS，舊 status.json 讀出再寫回不會多出這個 key。 */
   workflow_id?: string;
+  /** 手動來源（work item）才有的選填欄位，同樣刻意不放進 NEW_STATUS：Asana 票單的 status.json 不會多出這些 key。baseline＝既有／全新系統。 */
+  baseline?: "greenfield" | "brownfield";
+  /** 範圍：前端／後端／兩者；SA 確認前可改，確認後鎖定。 */
+  scope?: "frontend" | "backend" | "both";
+  /** 是否需要 DB 設計；鎖定規則同 scope。 */
+  has_db?: boolean;
+  /** 建立時存下的 workflow 階段順序與角色清單快照，日後內建定義改了不影響進行中的項目。 */
+  workflow_snapshot?: WorkflowSnapshot;
   stage: "new" | "snapshot" | "project_dir_confirmed" | "analyzed" | "sd_drafted" | "implemented" | "verified" | "tested";
   project_dir: string | null;
   /** 這張票所屬的 Asana 專案「全名稱」（未消毒過的原始字串）。get_ticket_snapshot 時自動記錄，供任何單張票的狀態異動事後局部重建 PENDING_HUMAN_ACTIONS.html 用（見 syncPendingActionsReport/listTicketsUnderProject），不需要呼叫端每次額外傳遞或記得重新呼叫 list_pending_tickets。 */
@@ -464,6 +472,11 @@ const NEW_STATUS: TicketStatus = {
   },
 };
 
+/** 以預設值為底、套用 patch 產生新的初始狀態（供手動來源建立 status.json；回傳新物件，不共用巢狀參照）。 */
+export function createInitialStatus(patch: Partial<TicketStatus> = {}): TicketStatus {
+  return withDefaults(patch);
+}
+
 /** 短雜湊（前 16 碼 sha256 hex），只用來比對票單內容有沒有真的變過，不需要密碼學強度。 */
 export function hashTicketContent(content: string): string {
   return createHash("sha256").update(content, "utf-8").digest("hex").slice(0, 16);
@@ -535,7 +548,7 @@ export async function peekStatus(ticketGid: string): Promise<TicketStatus> {
 /** Applies a forward-only stage transition to `status`: if `stage` isn't further along than the current one, only `patch` is applied (stage/history untouched); otherwise stage advances and a history entry is appended. Pure — used inside locked read-modify-write transactions below. */
 function applyStageIfForward(status: TicketStatus, stage: TicketStatus["stage"], patch: Partial<TicketStatus>): TicketStatus {
   // 以 string 陣列比較，非 Asana workflow 的階段是角色 id；TicketStatus["stage"] 的 union 維持不變。
-  const order = getStageOrder(status.workflow_id);
+  const order = getStageOrder(status.workflow_id, undefined, status.workflow_snapshot);
   if (order.indexOf(stage) <= order.indexOf(status.stage)) {
     return { ...status, ...patch };
   }
@@ -633,7 +646,7 @@ export async function recordSnapshotContent(
     }
 
     changed = true;
-    const order = getStageOrder(status.workflow_id);
+    const order = getStageOrder(status.workflow_id, undefined, status.workflow_snapshot);
     // 非 Asana workflow 沒有 snapshot 階段（indexOf 為 -1），以 "new"（0）為基準，避免剛建立的票被當成已有進度。
     const hadPriorProgress = order.indexOf(status.stage) > Math.max(order.indexOf("snapshot"), 0);
     return applyStageIfForward(status, "snapshot", {
