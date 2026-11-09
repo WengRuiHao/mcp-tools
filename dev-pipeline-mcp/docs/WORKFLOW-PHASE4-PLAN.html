@@ -60,7 +60,7 @@ ul{margin:6px 0;padding-left:22px}
 <nav>
   <a href="#story">一、完成後你能做什麼</a><a href="#scope">二、範圍</a><a href="#steps">三、步驟</a>
   <a href="#gaps">四、前面遺留的缺口</a><a href="#manual">五、手動來源怎麼運作</a>
-  <a href="#decide">六、需要你決定</a><a href="#risk">七、風險與順序</a><a href="#reuse">八、重複程式碼防線</a>
+  <a href="#decide">六、需要你決定</a><a href="#risk">七、風險與順序</a><a href="#reuse">八、重複程式碼防線</a><a href="#style">九、畫面風格來源</a>
 </nav>
 
 <div class="card">
@@ -110,7 +110,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>長期維護的現況基線文件、自動跑資料庫差異比對</td><td><span class="tag todo">暫緩</span> 先手動盤點，用過之後再決定怎麼自動化最有用。</td></tr>
 </table>
 
-<h2 id="steps">三、切成 15 個步驟（每步獨立一個 commit，出問題就退回那一個）</h2>
+<h2 id="steps">三、切成 16 個步驟（每步獨立一個 commit，出問題就退回那一個）</h2>
 <p>每一步都用同一套方法證明 Asana 沒變：黃金快照逐字相同、整套測試通過、新增的「工具介面快照」不變。</p>
 <table>
 <tr><th>步驟</th><th>白話目的</th><th>主要改動</th><th>風險</th></tr>
@@ -129,6 +129,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>S10</td><td>重用防線（提示詞與文件）：現況盤點寫「可重用清單」、SD 寫「重用與共用設計」、工程師動手前先搜尋並寫「重用檢查紀錄」、驗證師檢查重複</td><td>新增／調整角色說明；實作內容關卡加「必須有重用檢查紀錄」檢查</td><td><span class="tag wip">中</span></td></tr>
 <tr><td>S11</td><td>自動重複程式碼偵測（必做）：掃描這次改動的檔案，找出與專案現有程式或本次改動之間大段相似的區塊，超過門檻就擋下交件</td><td>新增內建偵測模組（不需另外安裝套件）</td><td><span class="tag stop">中高</span> 建議你在場</td></tr>
 <tr><td>S12</td><td>現有 Asana 流程同步加上重用防線（工程師、驗證師提示詞與偵測關卡）</td><td>調整 Asana 流程的角色說明與推進檢查；黃金快照只允許這兩個角色的提示詞變動</td><td><span class="tag stop">中高</span> 建議你在場</td></tr>
+<tr><td>S13</td><td>畫面風格來源：建立工作項目時多一個「畫面風格來源」欄位（沿用現有／換新／全新有規範／全新待選），並依情況給預設值；現況盤點記錄現有畫面風格；mockup 設計師依來源決定風格，全新待選時先出 2～3 種風格讓你選</td><td><code>work_item</code> 的 create 與 set 動作、工作項目狀態、現況盤點與 mockup 設計師的提示詞（提示詞已先寫入）</td><td><span class="tag wip">中</span></td></tr>
 </table>
 <p class="note">平行規則：S0 一定最先；S1、S2、S3 改不同檔案可以分頭寫；S4 等 S2、S3；S5 等 S1、S4；S6、S7 可以平行；S8、S9 最後。但「建置與跑測試」一律輪流做，因為共用同一個輸出資料夾，同時做會互相干擾（前面已經遇過）。</p>
 
@@ -155,7 +156,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>和 Asana 的關係</td><td>與 <code>.asana-pipeline/</code> 分開放，Asana 的搬移、列表、報告功能碰不到它。索引檔共用，所以現有的查狀態、讀產出物、記錄測試證據等工具，只要帶 <code>workItemId</code> 就能直接用。</td></tr>
 </table>
 
-<h2 id="decide">六、你已做的 14 項決定</h2>
+<h2 id="decide">六、你已做的 17 項決定</h2>
 <table>
 <tr><th>#</th><th>問題</th><th>planner 推薦</th></tr>
 <tr><td>1</td><td>工具形式：新增一個 <code>work_item</code> 工具（工具數變 43，Asana 工具完全不動），還是改現有工具？</td><td><span class="tag done">已決定</span> 新增 <code>work_item</code> 工具</td></tr>
@@ -169,6 +170,9 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>12</td><td>重用防線要不要也加到現有 Asana 流程？</td><td><span class="tag done">你已決定</span> 兩邊都加（見第八節、步驟 S12）</td></tr>
 <tr><td>13</td><td>沒有「重用檢查紀錄」要擋下還是只警告？</td><td><span class="tag done">你已決定</span> 擋下，不能交件</td></tr>
 <tr><td>14</td><td>要不要做自動重複程式碼偵測？</td><td><span class="tag done">你已決定</span> 必須做（步驟 S11），不是選用</td></tr>
+<tr><td>15</td><td>要不要加「畫面風格來源」欄位？</td><td><span class="tag done">你已決定</span> 要加（步驟 S13）</td></tr>
+<tr><td>16</td><td>全新建置沒有規範時，要不要先出 2～3 種風格讓你選？</td><td><span class="tag done">你已決定</span> 要，mockup 確認那一關同時是選風格</td></tr>
+<tr><td>17</td><td>案子類型不固定時怎麼辦？</td><td><span class="tag done">你已決定</span> 每個工作項目建立時各自指定，系統依專案規範與既有／全新給預設值；翻新案要你明確選；AI 不確定就問你</td></tr>
 <tr><td>11</td><td>SA 確認關卡預設要不要等你？</td><td><span class="tag done">你已決定</span> 改為預設 AI 審查（取代原本「SA 等你」）；只有 mockup 確認與最終驗收等你，硬停點仍強制停下</td></tr>
 <tr><td>8</td><td>SA 要不要拆成「mockup 設計師」與「SA 分析師」，並加 mockup 確認關卡？</td><td><span class="tag done">你已決定</span> 要拆；mockup 確認預設等你確認；SA 確認關卡保留</td></tr>
 <tr><td>9</td><td>四個延後項目怎麼處理？</td><td><span class="tag done">已決定</span> 模組／系統層級展開延續成階段 5；待處理報告改成最終驗收時整理一次；自訂整套流程與長期基線文件暫緩</td></tr>
@@ -196,6 +200,24 @@ ul{margin:6px 0;padding-left:22px}
 <p>每個專案的「共用程式碼放哪裡、命名慣例」不同，寫在專案設定檔的角色補充說明（或專案自己的規則檔），工程師每次都會讀到。這是最有效的一招，因為通用提示詞無法寫死每個專案的共用位置。</p>
 <h3>對現有 Asana 流程的影響</h3>
 <p>會調整 Asana 流程工程師與驗證師的提示詞，以及交件時的檢查。黃金快照只允許這兩個角色的提示詞出現預期內的變動，其餘必須逐字不變。</p>
+
+<h2 id="style">九、畫面風格來源（mockup 的風格怎麼決定）</h2>
+<p>問題：原本只寫「既有系統看現有畫面、全新系統依需求設計」，等於把風格交給 AI 自由發揮，每次風格都可能不同，也可能和客戶品牌或既有系統不一致。翻新案更沒有規則。解法：風格一定要有「來源」，由來源決定，AI 不自己發明。</p>
+<table>
+<tr><th>風格來源</th><th>適用情況</th><th>mockup 設計師怎麼做</th></tr>
+<tr><td>沿用現有</td><td>既有系統新增功能，或翻新但沿用原風格</td><td>以現況盤點記錄的「現有畫面風格」與共用元件為準，用現有元件拼畫面，不可自創顏色、字型或元件</td></tr>
+<tr><td>換新</td><td>翻新案，要換風格</td><td>依你提供的參考（品牌規範、參考網站、截圖）設計；沒有參考就先問你，不可自己決定</td></tr>
+<tr><td>全新（有規範）</td><td>全新建置，專案或客戶有風格規範</td><td>照專案設定檔裡的「畫面風格規範」與客戶提供的資料</td></tr>
+<tr><td>全新（待選）</td><td>全新建置，什麼規範都沒有</td><td>同一個主要畫面先做 2～3 種風格方向讓你選；選定後，其餘畫面都沿用該風格。mockup 確認這一關同時就是選風格</td></tr>
+</table>
+<h3>案子類型不固定時（你已決定的處理方式）</h3>
+<ul>
+  <li><b>每個工作項目建立時各自指定風格來源</b>，所以同一個專案這次是新增功能、下次是翻新，互不影響；建立之後、mockup 確認之前都可以改。</li>
+  <li><b>系統先給預設值，你不用每次都選</b>：專案設定檔有畫面風格規範 → 全新（有規範）；沒有規範而且是既有系統 → 沿用現有；沒有規範而且是全新系統 → 全新（待選）。</li>
+  <li><b>翻新案永遠不替你猜</b>：沿用還是換新差別很大，系統會要求你明確選一個。</li>
+  <li><b>AI 不確定時要停下來問你</b>，不可自己決定風格。</li>
+</ul>
+<p>提示詞已更新：現況盤點新增「## 現有畫面風格」一節；mockup 設計師依風格來源決定怎麼畫，並在交件說明寫明採用的風格依據。程式欄位與預設值邏輯是步驟 S13。</p>
 
 <h2 id="risk">七、風險與建議的推進順序</h2>
 <h3>建議順序</h3>
