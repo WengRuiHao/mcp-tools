@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 
 export const CLEAN_REVIEW = { breaksExisting: false, reviewerUncertain: false, scopeSplit: false };
+export const REUSABLE_LIST_OK = "影響\n## 可重用清單\n- ExcelUtil：src/main/ExcelUtil.java\n- 已搜尋：日期轉換，未找到\n";
+export const REUSE_RECORD_OK = "## 重用檢查紀錄\n| 搜尋關鍵字 | 找到的候選 | 決定 | 理由 |\n| --- | --- | --- | --- |\n| exportExcel | ExcelUtil.write | 重用 | |\n";
 const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
 
 export async function setupEnv(prefix, { renderer } = {}) {
@@ -40,15 +42,15 @@ export async function setupEnv(prefix, { renderer } = {}) {
 export async function fulfil(dir, roleId, opts = {}) {
   const w = (rel, text) => mkdir(path.dirname(path.join(dir, rel)), { recursive: true }).then(() => writeFile(path.join(dir, rel), text));
   const files = {
-    "baseline-survey": async () => { await w("baseline.md", "基線"); await w("impact.md", "影響"); },
+    "baseline-survey": async () => { await w("baseline.md", "基線"); await w("impact.md", REUSABLE_LIST_OK); },
     "mockup-designer": () => w("sa-mockup/index.html", "<html></html>"),
     "sa-analyst": async () => { await w("01-sa.md", "## 功能：登入\n![畫面](sa-images/a.png)\n"); await writeFile(path.join(dir, "sa-images", "a.png"), PNG); },
     "db-designer": () => w("02-db.sql", opts.sql ?? "CREATE TABLE t (id INT);"),
     "flow-analyst": async () => { await w("flow.mmd", "graph TD\nA-->B"); await writeFile(path.join(dir, "flow.png"), PNG); },
-    "sd-analyst": () => w("03-sd.md", "SD"),
+    "sd-analyst": () => w("03-sd.md", "SD\n## 重用與共用設計\n重用：呼叫 ExcelUtil\n"),
     "spec-verifier": () => w("spec-check.md", opts.verdictText ?? "PASS\n對照表"),
-    "frontend-engineer": () => w("impl-fe.md", "FE"),
-    "backend-engineer": () => w("impl-be.md", "BE"),
+    "frontend-engineer": () => w("impl-fe.md", `FE\n${REUSE_RECORD_OK}`),
+    "backend-engineer": () => w("impl-be.md", `BE\n${REUSE_RECORD_OK}`),
     verifier: () => w("verify.md", opts.verdictText ?? "PASS\n"),
     tester: async () => {
       await w("test.md", "## 白箱\n白箱結果\n## 黑箱\n黑箱結果\n## 測試：登入\n![畫面](evidence/a.png)\n");

@@ -4,7 +4,7 @@ export const SD_ANALYST: RoleSections = {
   title: "SD 分析師",
   goal: "把 SA、資料庫設計與流程圖，轉成工程師能照著做的後端規格：每個功能對應哪些 API、資料處理與錯誤處理。",
   inputs: ["01-sa.md", "02-db.sql 與 02-db.md（有動資料庫才有）", "flow.mmd（與 flow.png）"],
-  outputs: ["03-sd.md：後端規格，必含「## 重用與共用設計」一節"],
+  outputs: ["03-sd.md：後端規格，必含「## 重用與共用設計」一節（程式檢查，不可空白）"],
   steps: [
     "每個 SA 功能對應一節，標題沿用 SA 的功能名稱，方便雙向對照。",
     "寫清楚 API：路徑、方法、輸入欄位（名稱、型別、必填）、輸出欄位、錯誤碼與訊息。",

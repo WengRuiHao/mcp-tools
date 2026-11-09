@@ -56,7 +56,7 @@ test("destructive-db：SQL 含 DROP 時 agent 無法確認 db-flow-confirm，hum
 test("sensitive-data：關卡相關產出含密碼時 agent 被拒", async () => {
   const { id, dir } = await env.create();
   await runUntil(env, id, dir, "sd-analyst");
-  await writeFile(path.join(dir, "03-sd.md"), "連線 password=hunter2secret");
+  await writeFile(path.join(dir, "03-sd.md"), "連線 password=hunter2secret\n## 重用與共用設計\n重用：呼叫 ExcelUtil\n");
   assert.equal((await env.call({ action: "done", workItemId: id, roleId: "sd-analyst" })).isError, false);
   const r = await confirm(id, "sd-confirm", "agent", { review: CLEAN_REVIEW });
   assert.equal(r.isError, true);
