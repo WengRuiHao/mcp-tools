@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workflow 階段 4 規劃書</title>
+<style>
+:root{
+  --bg:#f7f8fa;--card:#fff;--text:#1d2330;--muted:#5d6678;--line:#dfe3ea;
+  --accent:#2f5bea;--ok:#1e8a4c;--ok-bg:#e3f5ea;--wip:#b26a00;--wip-bg:#fff1d6;
+  --todo:#5d6678;--todo-bg:#eceff4;--stop:#b3261e;--stop-bg:#fde7e5;--code:#eef1f6;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#12151c;--card:#1a1f2a;--text:#e6e9f0;--muted:#9aa3b5;--line:#2c3342;
+    --accent:#7d9bff;--ok:#5fd18b;--ok-bg:#16301f;--wip:#f0b25a;--wip-bg:#3a2c10;
+    --todo:#9aa3b5;--todo-bg:#242a37;--stop:#ff8f86;--stop-bg:#3d1b19;--code:#232938;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12151c;--card:#1a1f2a;--text:#e6e9f0;--muted:#9aa3b5;--line:#2c3342;
+  --accent:#7d9bff;--ok:#5fd18b;--ok-bg:#16301f;--wip:#f0b25a;--wip-bg:#3a2c10;
+  --todo:#9aa3b5;--todo-bg:#242a37;--stop:#ff8f86;--stop-bg:#3d1b19;--code:#232938;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.7 "Segoe UI","Microsoft JhengHei",system-ui,sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:26px;margin:0 0 4px}
+h2{font-size:19px;margin:36px 0 12px;padding-top:8px;border-top:1px solid var(--line)}
+h3{font-size:16px;margin:20px 0 8px}
+.sub{color:var(--muted);margin:0 0 18px}
+nav{display:flex;flex-wrap:wrap;gap:6px 14px;margin:14px 0 6px;font-size:13px}
+nav a{color:var(--accent);text-decoration:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0}
+table{width:100%;border-collapse:collapse;font-size:14px;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:block;overflow-x:auto}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:var(--todo-bg);font-weight:600;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+code{background:var(--code);padding:1px 6px;border-radius:4px;font:13px Consolas,monospace}
+.tag{display:inline-block;padding:1px 9px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+.done{background:var(--ok-bg);color:var(--ok)}
+.wip{background:var(--wip-bg);color:var(--wip)}
+.todo{background:var(--todo-bg);color:var(--todo)}
+.stop{background:var(--stop-bg);color:var(--stop)}
+ol.story{padding-left:0;list-style:none;counter-reset:s}
+ol.story li{counter-increment:s;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px 10px 48px;margin:8px 0;position:relative}
+ol.story li::before{content:counter(s);position:absolute;left:14px;top:10px;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;text-align:center;font-weight:700;font-size:13px;line-height:24px}
+ol.story li.pause{border-color:var(--wip)}
+ol.story li.lock{border-color:var(--stop)}
+ul{margin:6px 0;padding-left:22px}
+.note{color:var(--muted);font-size:13px}
+.rec{color:var(--ok);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Workflow 引擎：階段 4 規劃書</h1>
+<p class="sub">dev-pipeline-mcp · 規劃日期 2026-11-09 · 由 planner 讀程式碼後規劃，尚未動工，等你看過並決定第六節的 6 件事。</p>
+<nav>
+  <a href="#story">一、完成後你能做什麼</a><a href="#scope">二、範圍</a><a href="#steps">三、步驟</a>
+  <a href="#gaps">四、前面遺留的缺口</a><a href="#manual">五、手動來源怎麼運作</a>
+  <a href="#decide">六、需要你決定</a><a href="#risk">七、風險與順序</a>
+</nav>
+
+<div class="card">
+  <b>階段 4 一句話</b>：讓你不靠 Asana，也能直接開一個「工作項目」，從現況盤點一路走到最終驗收。
+  流程固定是「規格先行」：SA、SD 規格確認並通過規格驗證，才輪到寫程式。
+  現有 Asana 流程完全不動，並且有黃金快照逐字比對保護。
+</div>
+
+<h2 id="story">一、完成後你能做到什麼（實際走一次）</h2>
+<p>情境：你說「在某個專案新增需求：會員可匯出訂單 Excel，既有系統，前後端都要改」。</p>
+<ol class="story">
+  <li><b>建立</b>：AI 呼叫新工具 <code>work_item</code>（create），拿到編號 <code>wi-20261110-001</code>，程式在專案底下建好資料夾。</li>
+  <li><b>現況盤點</b>（既有系統才有這步）：產出 <code>baseline.md</code>、<code>impact.md</code>，記錄現況與這次會影響到哪些地方。</li>
+  <li class="pause"><b>SA 分析師</b>：先畫一個瀏覽器打得開的假畫面（mockup），截圖存到 <code>sa-images/</code>，再寫 <code>01-sa.md</code>。程式會自動檢查每個畫面功能都有附圖。<span class="tag wip">停下等你確認 SA</span></li>
+  <li class="pause"><b>DB 設計師與流程分析師</b>：產出 <code>02-db.sql</code> 和 <code>flow.mmd</code>（Mermaid，用文字描述的流程圖）。兩者一起給你確認。SQL 如果有刪表、刪資料，一律強制停下。<span class="tag wip">停下等你確認</span></li>
+  <li class="pause"><b>SD 分析師</b>：寫 <code>03-sd.md</code>（後端規格）。<span class="tag wip">停下等你確認 SD</span></li>
+  <li><b>規格驗證師</b>：只看規格、不看程式，寫 <code>spec-check.md</code>。判不通過時，依原因自動退回 SA、DB 或 SD 重做。</li>
+  <li><b>前端、後端工程師</b>：兩邊各自實作，產出 <code>impl-fe.md</code>、<code>impl-be.md</code>，兩邊都完成才往下。</li>
+  <li><b>驗證師 → 測試工程師</b>：驗證師檢查程式是否符合規格；測試工程師實際操作並截圖，存到 <code>evidence/</code>。</li>
+  <li class="lock"><b>最終驗收</b>：一定由你本人確認，這一步鎖死，不能交給 AI 代勞。<span class="tag stop">鎖死 manual</span></li>
+</ol>
+
+<h2 id="scope">二、範圍：要做的與建議延後的</h2>
+<h3>要做</h3>
+<ul>
+  <li>手動來源：不靠 Asana，由你手動建立工作項目。</li>
+  <li>規格先行流程的「推進引擎」：決定下一步輪到誰、不通過時退回、前後端平行。</li>
+  <li>新角色的說明（prompt）：現況盤點、SA、DB 設計師、流程分析師、SD 分析師、規格驗證師、前端、後端，加上這個流程版本的驗證師與測試工程師。</li>
+  <li>SA 截圖的自動檢查（現在只是文字描述，程式不會查）。</li>
+  <li>流程圖文字檔與測試截圖證據。</li>
+  <li>補上前面階段遺留的 9 個缺口（見第四節）。</li>
+</ul>
+<h3>建議延後或砍掉</h3>
+<table>
+<tr><th>項目</th><th>理由</th></tr>
+<tr><td>模組、系統層級與子項目展開</td><td>需求量大，先把「單一功能」這一層跑通。</td></tr>
+<tr><td>手動項目出現在待處理事項的網頁報告</td><td>那份報告綁 Asana。沒有 Asana 專案名稱時程式會直接略過，不會壞。</td></tr>
+<tr><td>自動把流程圖轉成 PNG 圖片</td><td>要多裝很大的套件和瀏覽器核心。先只用文字檔當正式版本。</td></tr>
+<tr><td>讓你自訂整套新流程</td><td>目前設定檔本來就只能「覆寫設定」，不能定義新流程。</td></tr>
+<tr><td>長期維護的現況基線文件、自動跑資料庫差異比對</td><td>先手動，需要時再做。</td></tr>
+</table>
+
+<h2 id="steps">三、切成 10 個步驟（每步獨立一個 commit，出問題就退回那一個）</h2>
+<p>每一步都用同一套方法證明 Asana 沒變：黃金快照逐字相同、整套測試通過、新增的「工具介面快照」不變。</p>
+<table>
+<tr><th>步驟</th><th>白話目的</th><th>主要改動</th><th>風險</th></tr>
+<tr><td>S0</td><td>先建安全網：替現有 42 個工具的名稱、參數、說明拍快照，之後誰動到都會被發現</td><td>新增 <code>tests/golden-tool-schemas.test.mjs</code></td><td><span class="tag done">低</span></td></tr>
+<tr><td>S1</td><td>讓舊工具能分辨「這不是 Asana 項目」，遇到時回清楚訊息請改用 <code>work_item</code></td><td><code>pipeline-info-tools.ts</code>、<code>ticket-lifecycle-tools.ts</code>、<code>stage-response.ts</code> 改走分流接縫</td><td><span class="tag wip">中</span> 建議你在場</td></tr>
+<tr><td>S2</td><td>手動來源的資料層：編號、資料夾、狀態檔</td><td>新增 <code>work-item-store.ts</code>；狀態檔加幾個選填欄位（舊檔不會多出欄位）</td><td><span class="tag done">低</span>～<span class="tag wip">中</span></td></tr>
+<tr><td>S3</td><td>調整規格先行流程定義：前後端依範圍決定要不要出現、退回目標</td><td><code>spec-first.ts</code>、<code>validate.ts</code></td><td><span class="tag done">低</span></td></tr>
+<tr><td>S4</td><td>推進引擎：算出下一個角色、前後端都完成才輪到驗證師、不通過時倒回並清掉下游已做過的確認</td><td>新增 <code>spec-first-engine.ts</code>，接上 <code>next-action-dispatch.ts</code></td><td><span class="tag wip">中</span></td></tr>
+<tr><td>S5</td><td>新工具 <code>work_item</code>：建立、推進、確認、寫入、附加檔案、取角色說明</td><td>新增 <code>work-item-tools.ts</code>；工具數 42 變 43，相關文件數字同步</td><td><span class="tag stop">中高</span> 建議你在場</td></tr>
+<tr><td>S6</td><td>SA 截圖自動檢查：每個功能標題底下要引用 <code>sa-images/</code> 的圖，標「（純後端）」的除外</td><td>新增 <code>sa-image-check.ts</code></td><td><span class="tag done">低</span>～<span class="tag wip">中</span></td></tr>
+<tr><td>S7</td><td>新角色說明（prompt）</td><td>新增 <code>prompts-spec-first.ts</code></td><td><span class="tag done">低</span>，但內容要你讀過</td></tr>
+<tr><td>S8</td><td>流程圖文字檔的基本格式檢查；測試截圖放 <code>evidence/</code> 且要在 <code>test.md</code> 被引用</td><td>S5、S6 的延伸（不改現有測試證據工具的參數）</td><td><span class="tag wip">中</span></td></tr>
+<tr><td>S9</td><td>更新文件，並拿暫存專案從頭走到尾實際跑一次</td><td>進度頁、<code>TOOLS.md</code></td><td>建議你在場</td></tr>
+</table>
+<p class="note">平行規則：S0 一定最先；S1、S2、S3 改不同檔案可以分頭寫；S4 等 S2、S3；S5 等 S1、S4；S6、S7 可以平行；S8、S9 最後。但「建置與跑測試」一律輪流做，因為共用同一個輸出資料夾，同時做會互相干擾（前面已經遇過）。</p>
+
+<h2 id="gaps">四、前面階段遺留的 9 個缺口各自在哪一步處理</h2>
+<table>
+<tr><th>#</th><th>缺口</th><th>處理</th></tr>
+<tr><td>1</td><td>兩處仍直接呼叫舊的「下一步判斷」，沒走新分流</td><td>S1</td></tr>
+<tr><td>2</td><td>舊工具的階段清單只認 8 個 Asana 階段</td><td>S1 擋下並轉介到 <code>work_item</code>；不放寬舊清單，避免動到 Asana 工具介面</td></tr>
+<tr><td>3</td><td>「現況盤點」角色缺少既有／全新系統的資訊</td><td>S2：建立時就填，存進狀態檔</td></tr>
+<tr><td>4</td><td>前後端沒有自動略過</td><td>S3：依「範圍」決定</td></tr>
+<tr><td>5</td><td>驗證師不通過時的退回目標是當初自訂的</td><td>S3，等第六節第 3 項決定</td></tr>
+<tr><td>6</td><td>非內建流程推進階段時會報錯</td><td>S2：建立時把階段定義存進狀態檔，日後內建流程改了也不影響進行中的項目</td></tr>
+<tr><td>7</td><td>SA 截圖只有文字描述、程式不檢查</td><td>S6</td></tr>
+<tr><td>8</td><td>代確認寫死只認 SD 確認關卡</td><td>S5：改成可帶任一關卡編號；最終驗收仍永遠拒絕代確認</td></tr>
+<tr><td>9</td><td>新角色沒有說明</td><td>S7</td></tr>
+</table>
+
+<h2 id="manual">五、手動來源怎麼運作</h2>
+<table>
+<tr><th>項目</th><th>設計</th></tr>
+<tr><td>怎麼建立</td><td><code>work_item</code>（create），要填：專案目錄（必須存在）、標題、需求原文、既有或全新系統、範圍（前端／後端／兩者）、流程（目前只接受規格先行）</td></tr>
+<tr><td>編號</td><td><code>wi-年月日-流水號</code>，例如 <code>wi-20261110-001</code>。加鎖後讀索引檔，取當天最大號加 1。Asana 編號全是數字，帶英文字的編號不可能撞號。</td></tr>
+<tr><td>存放位置</td><td><code>&lt;專案&gt;/.dev-pipeline/work-items/&lt;編號&gt;_&lt;標題&gt;/</code>，裡面有需求原文、狀態檔、各產出物，以及 <code>sa-images/</code>、<code>sa-mockup/</code>、<code>evidence/</code> 三個圖片資料夾</td></tr>
+<tr><td>和 Asana 的關係</td><td>與 <code>.asana-pipeline/</code> 分開放，Asana 的搬移、列表、報告功能碰不到它。索引檔共用，所以現有的查狀態、讀產出物、記錄測試證據等工具，只要帶 <code>workItemId</code> 就能直接用。</td></tr>
+</table>
+
+<h2 id="decide">六、需要你決定的 6 件事</h2>
+<table>
+<tr><th>#</th><th>問題</th><th>planner 推薦</th></tr>
+<tr><td>1</td><td>工具形式：新增一個 <code>work_item</code> 工具（工具數變 43，Asana 工具完全不動），還是改現有工具？</td><td class="rec">新增 <code>work_item</code></td></tr>
+<tr><td>2</td><td>前端、後端、DB 要不要做，在哪裡決定？</td><td class="rec">建立時填，SA 確認前還能改；DB 也比照</td></tr>
+<tr><td>3</td><td>驗證師與規格驗證師判不通過時，要不要都加上「退回流程分析師」這條路？目前只有退回 SA、DB、SD、前端、後端。</td><td class="rec">加上</td></tr>
+<tr><td>4</td><td>流程圖要不要強制附 PNG 圖片？</td><td class="rec">不強制，只有文字檔是正式版本（避免多裝很大的套件）</td></tr>
+<tr><td>5</td><td>SA 截圖怎麼檢查？</td><td class="rec">每個功能標題底下都要引用 <code>sa-images/</code> 的圖，標「（純後端）」的除外</td></tr>
+<tr><td>6</td><td>mockup 和測試截圖用哪個瀏覽器工具拍？</td><td>待確認你要用哪個；目前這個環境有「Claude in Chrome」瀏覽器自動化可用，我建議先用它</td></tr>
+</table>
+
+<h2 id="risk">七、風險與建議的推進順序</h2>
+<h3>建議順序</h3>
+<p><b>S0 → S1 → S2 與 S3 → S4 → S5 → S6 與 S7 → S8 → S9</b></p>
+<table>
+<tr><th>類型</th><th>步驟</th><th>原因</th></tr>
+<tr><td><span class="tag done">可以不用看著做</span></td><td>S0、S2、S3、S4、S6</td><td>只新增檔案或改規格先行流程，有快照保護</td></tr>
+<tr><td><span class="tag wip">建議你在場</span></td><td>S1、S5、S7、S9</td><td>S1 動到 Asana 工具的檔案；S5 新增工具、工具數改變；S7 角色說明內容需要你讀過；S9 要實際走一次</td></tr>
+</table>
+<h3>主要風險</h3>
+<ul>
+  <li>舊工具誤收非 Asana 項目：由 S1 擋下並轉介處理。</li>
+  <li>前後端平行在「階段」模式下很難表達：S4 改用「已完成角色清單」來判斷。</li>
+  <li>提示詞檔案 <code>prompts.ts</code> 已經很大：新角色說明另開新檔，不往裡面加。</li>
+</ul>
+<p class="note">以上為規劃，尚未改動任何程式。你決定第六節的 6 項後，才會開始依順序派工。</p>
+
+</div>
+</body>
+</html>
