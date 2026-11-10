@@ -60,7 +60,7 @@ ul{margin:6px 0;padding-left:22px}
 <nav>
   <a href="#story">一、完成後你能做什麼</a><a href="#scope">二、範圍</a><a href="#steps">三、步驟</a>
   <a href="#gaps">四、前面遺留的缺口</a><a href="#manual">五、手動來源怎麼運作</a>
-  <a href="#decide">六、需要你決定</a><a href="#risk">七、風險與順序</a><a href="#reuse">八、重複程式碼防線</a><a href="#style">九、畫面風格來源</a>
+  <a href="#decide">六、需要你決定</a><a href="#risk">七、風險與順序</a><a href="#reuse">八、重複程式碼防線</a><a href="#todo-discuss">十、待討論</a><a href="#style">九、畫面風格來源</a>
 </nav>
 
 <div class="card">
@@ -257,6 +257,12 @@ ul{margin:6px 0;padding-left:22px}
   <li>前後端平行在「階段」模式下很難表達：S4 改用「已完成角色清單」來判斷。</li>
   <li>提示詞檔案 <code>prompts.ts</code> 已經很大：新角色說明另開新檔，不往裡面加。</li>
 </ul>
+<h2 id="todo-discuss">十、待討論事項（事後再討論）</h2>
+<table>
+<tr><th>#</th><th>提出時間</th><th>問題</th><th>目前狀況與要討論的點</th></tr>
+<tr><td>D1</td><td>S9 實際走流程時</td><td>「為什麼不直接用 Playwright 的 MCP？我看官方是有 MCP 可以串接。」（使用者原話）</td><td>目前是在本專案內自己做一個選用的內建產圖功能（S8b，以 Playwright 把 mockup HTML 與流程圖轉成 PNG，沒裝時退回「AI 自己截圖再 attach」）。待討論：①改用官方 Playwright MCP 的好處與限制（本 MCP 不能直接呼叫另一個 MCP，需由 AI 客戶端同時掛載兩個 MCP，再把截好的圖用 attach 存進工作項目）；②內建產圖功能是否仍要保留作為備援，或改成建議使用官方 MCP；③官方 MCP 能否一併用來「實際操作 mockup 並截各種狀態」（解決 S15 的互動性與多狀態截圖）與測試工程師的白箱、黑箱截圖；④其他 AI 客戶端是否都能掛載它。討論前需先確認官方 Playwright MCP 目前的實際功能與相容性。</td></tr>
+</table>
+
 <p class="note">以上為規劃，尚未改動任何程式。你決定第六節的 6 項後，才會開始依順序派工。</p>
 
 </div>
