@@ -111,7 +111,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>長期維護的現況基線文件、自動跑資料庫差異比對</td><td><span class="tag todo">暫緩</span> 先手動盤點，用過之後再決定怎麼自動化最有用。</td></tr>
 </table>
 
-<h2 id="steps">三、切成 17 個步驟（S13 含技術選型；S14 為 SA 不寫程式）（每步獨立一個 commit，出問題就退回那一個）</h2>
+<h2 id="steps">三、切成 18 個步驟（S13 含技術選型；S14 為 SA 不寫程式；S15 為 mockup 互動性）（每步獨立一個 commit，出問題就退回那一個）</h2>
 <p>每一步都用同一套方法證明 Asana 沒變：黃金快照逐字相同、整套測試通過、新增的「工具介面快照」不變。</p>
 <table>
 <tr><th>步驟</th><th>白話目的</th><th>主要改動</th><th>風險</th></tr>
@@ -132,6 +132,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>S12</td><td>現有 Asana 流程同步加上重用防線（工程師、驗證師提示詞與偵測關卡）</td><td>調整 Asana 流程的角色說明與推進檢查；黃金快照只允許這兩個角色的提示詞變動</td><td><span class="tag stop">中高</span> 建議你在場</td></tr>
 <tr><td>S13</td><td>畫面風格來源與技術選型：建立工作項目時多「畫面風格來源」與「技術來源」兩個欄位（各四種：沿用現有／換新或換技術／全新有規範／全新待選），並依情況給預設值；新增「技術選型師」角色（現況盤點之後、mockup 之前）與「技術確認」關卡（沿用現有時程式略過，其餘等你確認並鎖定），後面角色的提示詞帶入技術棧；現況盤點記錄現有畫面風格；mockup 設計師依來源決定風格，全新待選時先出 2～3 種風格讓你選</td><td><code>work_item</code> 的 create 與 set 動作、工作項目狀態、現況盤點與 mockup 設計師的提示詞（提示詞已先寫入）</td><td><span class="tag wip">中</span></td></tr>
 <tr><td>S14</td><td>SA 不寫程式：SA 與規格驗證師的提示詞明文規定——允許寫業務規則白話描述、業務公式、使用者看得到的畫面欄位名稱、簡短標註沿用現有共用元件；禁止程式碼片段、SQL、類別與方法名稱、API 路徑、資料表與欄位名稱；從舊程式碼反推（翻新案）時要翻成業務語言，依據的檔案位置放在文件最後的「## 依據附錄」。程式檢查：01-sa.md 出現程式碼區塊或明顯 SQL 語句就擋下交件</td><td>SA 與規格驗證師提示詞、新增 SA 內容檢查模組並接進 sa-analyst 交件檢查</td><td><span class="tag done">低</span>～<span class="tag wip">中</span></td></tr>
+<tr><td>S15</td><td>mockup 要是可操作的原型（實際走流程時發現的問題：靜態頁面也能交件）：①提示詞：只用原生 HTML／CSS／JS 單檔不連外網；需求中每個使用者動作都能點、表單有驗證與錯誤提示；每個畫面至少有正常、載入中、成功、失敗、沒有資料五種狀態；頁面放示範用狀態切換列（強制）；多畫面可互相跳轉；交件說明列出每個畫面、可操作元素、狀態。②程式檢查：sa-mockup 每個 HTML 要有腳本與事件處理、不可有外部網路資源、必須有狀態切換列標記（例如 data-demo-states）。③SA 每個前端功能除正常畫面外，還要附錯誤與沒有資料等主要狀態截圖</td><td>mockup 設計師與 SA 提示詞、新增 mockup 檢查模組並接進 mockup-designer 交件檢查</td><td><span class="tag wip">中</span></td></tr>
 </table>
 <p class="note">平行規則：S0 一定最先；S1、S2、S3 改不同檔案可以分頭寫；S4 等 S2、S3；S5 等 S1、S4；S6、S7 可以平行；S8、S9 最後。但「建置與跑測試」一律輪流做，因為共用同一個輸出資料夾，同時做會互相干擾（前面已經遇過）。</p>
 
@@ -158,7 +159,7 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>和 Asana 的關係</td><td>與 <code>.asana-pipeline/</code> 分開放，Asana 的搬移、列表、報告功能碰不到它。索引檔共用，所以現有的查狀態、讀產出物、記錄測試證據等工具，只要帶 <code>workItemId</code> 就能直接用。</td></tr>
 </table>
 
-<h2 id="decide">六、你已做的 24 項決定</h2>
+<h2 id="decide">六、你已做的 27 項決定</h2>
 <table>
 <tr><th>#</th><th>問題</th><th>planner 推薦</th></tr>
 <tr><td>1</td><td>工具形式：新增一個 <code>work_item</code> 工具（工具數變 43，Asana 工具完全不動），還是改現有工具？</td><td><span class="tag done">已決定</span> 新增 <code>work_item</code> 工具</td></tr>
@@ -182,6 +183,9 @@ ul{margin:6px 0;padding-left:22px}
 <tr><td>22</td><td>SA 裡要不要明文禁止寫程式、SQL、類別與資料表名稱？</td><td><span class="tag done">你已決定</span> 要（S14），翻新案反推的依據放獨立附錄</td></tr>
 <tr><td>23</td><td>要不要加「程式碼區塊與 SQL」的自動檢查？</td><td><span class="tag done">你已決定</span> 要（S14）</td></tr>
 <tr><td>24</td><td>翻新案交接文件要不要加「依據附錄」規則？</td><td><span class="tag done">你已決定</span> 要，已寫入翻新案的交接文件</td></tr>
+<tr><td>25</td><td>mockup 互動性：提示詞、程式檢查、SA 多狀態截圖三層都做嗎？</td><td><span class="tag done">你已決定</span> 都做（S15）</td></tr>
+<tr><td>26</td><td>示範用的狀態切換列要不要強制？</td><td><span class="tag done">你已決定</span> 強制</td></tr>
+<tr><td>27</td><td>實際走流程時發現的問題，何時修？</td><td><span class="tag done">你已決定</span> 先把整條流程走完，再統一修</td></tr>
 <tr><td>11</td><td>SA 確認關卡預設要不要等你？</td><td><span class="tag done">你已決定</span> 改為預設 AI 審查（取代原本「SA 等你」）；只有 mockup 確認與最終驗收等你，硬停點仍強制停下</td></tr>
 <tr><td>8</td><td>SA 要不要拆成「mockup 設計師」與「SA 分析師」，並加 mockup 確認關卡？</td><td><span class="tag done">你已決定</span> 要拆；mockup 確認預設等你確認；SA 確認關卡保留</td></tr>
 <tr><td>9</td><td>四個延後項目怎麼處理？</td><td><span class="tag done">已決定</span> 模組／系統層級展開延續成階段 5；待處理報告改成最終驗收時整理一次；自訂整套流程與長期基線文件暫緩</td></tr>
