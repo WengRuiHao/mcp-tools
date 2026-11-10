@@ -1,7 +1,11 @@
 // S10：重用防線的程式檢查。三項：
 // C1 impl-fe.md／impl-be.md 的「## 重用檢查紀錄」表格；C2 impact.md 的「## 可重用清單」；C3 03-sd.md 的「## 重用與共用設計」。
 // 標題偵測沿用 sa-image-check 的 listHeadings（略過程式碼區塊）。
+import { headingMatches } from "./heading-match.js";
+import { tableDataRows } from "./md-table.js";
 import { listHeadings } from "./sa-image-check.js";
+
+export { tableDataRows };
 
 export const REUSE_RECORD_HEADING = "重用檢查紀錄";
 export const REUSABLE_LIST_HEADING = "可重用清單";
@@ -15,7 +19,7 @@ const SECTION_LEVELS: readonly number[] = [2, 3];
 /** 取出標題（層級 2～3、標題文字以 name 開頭）底下到下一個同級或更高級標題之前的內容；沒有該標題回 null。 */
 export function extractSection(text: string, name: string): string | null {
   const heads = listHeadings(text);
-  const at = heads.findIndex((h) => SECTION_LEVELS.includes(h.level) && h.title.startsWith(name));
+  const at = heads.findIndex((h) => SECTION_LEVELS.includes(h.level) && headingMatches(h.title, name));
   if (at < 0) return null;
   const end = heads.slice(at + 1).find((h) => h.level <= heads[at].level);
   const lines = text.split(/\r\n|\r|\n/);
@@ -23,16 +27,6 @@ export function extractSection(text: string, name: string): string | null {
 }
 
 const clean = (cell: string): string => cell.replace(/[`*_]/g, "").trim();
-const isSeparator = (cells: readonly string[]): boolean => cells.length > 0 && cells.every((c) => /^:?-{2,}:?$/.test(c.trim()));
-const splitRow = (line: string): string[] => line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
-
-/** 表格資料列（分隔列之後的列）；沒有表頭加分隔列回 null。全空白列略過。 */
-export function tableDataRows(body: string): string[][] | null {
-  const rows = body.split(/\r\n|\r|\n/).filter((l) => l.trim().startsWith("|")).map(splitRow);
-  const sep = rows.findIndex(isSeparator);
-  if (sep < 1) return null;
-  return rows.slice(sep + 1).filter((r) => r.some((c) => c !== ""));
-}
 
 const isOnlyNone = (body: string): boolean => /^[\s\-*>無无none：:。.（）()]*$/i.test(body) && /無|无|none/i.test(body);
 

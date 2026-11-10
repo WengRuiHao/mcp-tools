@@ -1,6 +1,7 @@
 // S13：技術選型的程式檢查。
 // tech-stack.md 必須有「## 技術來源」「## 技術棧」「## 選擇理由」三節；依技術來源另需「## 候選方案」（全新待選）或「## 目標技術」（換技術）。
 // baseline.md（既有系統）必須有非空的「## 現有技術棧」。標題偵測沿用 reuse-record-check 的 extractSection（略過程式碼區塊）。
+import { headingMatches, stripHeadingNumber } from "./heading-match.js";
 import { extractSection, tableDataRows } from "./reuse-record-check.js";
 import { listHeadings } from "./sa-image-check.js";
 
@@ -66,10 +67,10 @@ function checkCandidates(text: string, reason: string): string[] {
   const body = extractSection(text, TECH_CANDIDATES_HEADING);
   if (body === null) return [`${TECH_STACK_FILE} 缺少「## ${TECH_CANDIDATES_HEADING}」一節（技術來源為全新待選，要提出 ${MIN_CANDIDATES}～3 組方案讓使用者選）`];
   const heads = listHeadings(text);
-  const at = heads.findIndex((h) => h.level === 2 && h.title.startsWith(TECH_CANDIDATES_HEADING));
+  const at = heads.findIndex((h) => h.level === 2 && headingMatches(h.title, TECH_CANDIDATES_HEADING));
   const end = heads.slice(at + 1).find((h) => h.level <= 2);
   const lines = text.split(/\r\n|\r|\n/);
-  const subs = heads.slice(at + 1, end ? heads.indexOf(end) : undefined).filter((h) => h.level === 3 && CANDIDATE_RE.test(h.title));
+  const subs = heads.slice(at + 1, end ? heads.indexOf(end) : undefined).filter((h) => h.level === 3 && CANDIDATE_RE.test(stripHeadingNumber(h.title)));
   if (subs.length < MIN_CANDIDATES) return [`${TECH_STACK_FILE}「${TECH_CANDIDATES_HEADING}」至少要有 ${MIN_CANDIDATES} 個「### 方案…」子標題（目前 ${subs.length} 個）`];
   const problems: string[] = [];
   subs.forEach((h, i) => {

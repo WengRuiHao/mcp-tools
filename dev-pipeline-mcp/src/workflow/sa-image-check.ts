@@ -2,6 +2,7 @@
 // 純函式＋檔案讀取，不寫檔。標題約定常數與說明字串供 SA 角色說明（S7）共用。
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { headingMatches } from "./heading-match.js";
 
 export const SA_FILE_NAME = "01-sa.md";
 export const SA_IMAGES_DIR = "sa-images";
@@ -116,7 +117,7 @@ export function collectSections(text: string, prefix: string = FUNCTION_HEADING_
       const level = h[1].length;
       const title = h[2].trim();
       if (current && level <= current.level) current = null;
-      if (levels.includes(level) && title.startsWith(prefix)) {
+      if (levels.includes(level) && headingMatches(title, prefix)) {
         const section: Section = { heading: title, line: lineNo, refs: [] };
         sections.push(section);
         current = { level, section };

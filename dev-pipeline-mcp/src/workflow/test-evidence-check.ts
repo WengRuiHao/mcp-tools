@@ -2,6 +2,7 @@
 // 圖片路徑規則與 SA 截圖檢查完全一致，直接重用 sa-image-check 的 validateImageRef／collectSections。
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { headingMatches } from "./heading-match.js";
 import { collectSections, listHeadings, validateImageRef } from "./sa-image-check.js";
 
 export const TEST_FILE_NAME = "test.md";
@@ -26,7 +27,7 @@ export interface TestEvidenceResult {
 }
 
 function sectionLine(text: string, name: string): number | null {
-  const h = listHeadings(text).find((x) => x.level === 2 && x.title.startsWith(name));
+  const h = listHeadings(text).find((x) => x.level === 2 && headingMatches(x.title, name));
   return h ? h.line : null;
 }
 
