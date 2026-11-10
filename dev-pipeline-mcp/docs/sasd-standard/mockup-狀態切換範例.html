@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>我的訂單（狀態示範）</title>
+<style>
+body{margin:0;background:#f5f7fa;color:#1f2937;font:15px/1.6 "Microsoft JhengHei",sans-serif}
+.wrap{max-width:760px;margin:24px auto;background:#fff;border-radius:10px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.msg{display:none;margin:0 0 14px;padding:10px 14px;border-radius:6px;font-size:14px}
+.msg.err{display:block;background:#fef3f2;color:#b42318;border:1px solid #fda29b}
+.msg.info{display:block;background:#eff8ff;color:#175cd3;border:1px solid #84caff}
+h1{font-size:20px;margin:0 0 16px}
+.bar{display:flex;gap:12px;align-items:flex-start;margin-bottom:6px}
+.f{display:flex;flex-direction:column}
+.f label{display:flex;gap:6px;align-items:center}
+input{padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px}
+input.bad{border-color:#d92d20;background:#fffbfa}
+.ferr{color:#d92d20;font-size:12px;margin-top:4px;min-height:16px}
+button{background:#2563eb;color:#fff;border:0;border-radius:6px;padding:8px 16px;cursor:pointer;margin-top:0}
+button:disabled{background:#cbd5e1;color:#94a3b8;cursor:not-allowed}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{padding:8px;border-bottom:1px solid #e5e7eb;text-align:left}
+th{background:#f1f5f9}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="msg" class="msg"></div>
+  <h1>我的訂單</h1>
+  <div class="bar">
+    <div class="f"><label>起 <input id="s" type="date"></label></div>
+    <div class="f"><label>迄 <input id="e" type="date"></label></div>
+    <button id="btn">匯出 Excel</button>
+  </div>
+  <div id="ferr" class="ferr"></div>
+  <table>
+    <tr><th>訂單編號</th><th>下單日期</th><th>商品名稱</th><th>數量</th><th>金額</th></tr>
+    <tr><td>A001</td><td>2026-10-03</td><td>咖啡豆</td><td>2</td><td>640</td></tr>
+    <tr><td>A002</td><td>2026-10-12</td><td>濾掛咖啡</td><td>1</td><td>320</td></tr>
+  </table>
+</div>
+<script>
+const st = (location.hash || '').replace('#', '');
+const s = document.getElementById('s'), e = document.getElementById('e');
+const msg = document.getElementById('msg'), ferr = document.getElementById('ferr'), btn = document.getElementById('btn');
+s.value = '2026-11-01'; e.value = '2026-11-10';
+function fieldError(text, which) {
+  ferr.textContent = text; btn.disabled = true;
+  (which || [s, e]).forEach(function (x) { x.classList.add('bad'); });
+}
+function banner(kind, text) { msg.className = 'msg ' + kind; msg.textContent = text; }
+if (st === 'required') { s.value = ''; fieldError('請選擇日期區間', [s]); }
+if (st === 'order') { s.value = '2026-11-10'; e.value = '2026-11-01'; fieldError('起日不可晚於迄日'); }
+if (st === 'range') { s.value = '2025-01-01'; e.value = '2026-11-10'; fieldError('日期區間不可超過 366 天'); }
+if (st === 'toomany') { banner('err', '資料量過大，請縮小日期區間'); }
+if (st === 'empty') { banner('info', '此區間沒有訂單'); }
+if (st === 'failed') { banner('err', '匯出失敗，請稍後再試'); }
+</script>
+</body>
+</html>
