@@ -54,10 +54,10 @@ test("A1：flow.json 把 test-evidence 覆寫成 manual 時不自動通過，要
   await setFlow({});
 });
 
-test("A2：manual 關卡（mockup-confirm、final-acceptance）human 必附 ≥4 字原話；空白不算字數", async () => {
+test("A2：manual 關卡（mockup-confirm、final-acceptance）human 必附 ≥2 字原話；空白不算字數", async () => {
   const { id, dir } = await env.create();
   await runUntil(env, id, dir, "mockup-confirm");
-  for (const reason of [undefined, "", "   ", "ok  ", "好 的 "]) {
+  for (const reason of [undefined, "", "   ", "好", " 好 ", "o "]) {
     const r = await confirm(id, "mockup-confirm", { by: "human", ...(reason !== undefined ? { reason } : {}) });
     assert.equal(r.isError, true, String(reason));
     assert.match(r.json.message, /原話/);
@@ -65,8 +65,16 @@ test("A2：manual 關卡（mockup-confirm、final-acceptance）human 必附 ≥4
   assert.equal(await gateRec(id, "mockup-confirm"), undefined);
   assert.equal((await confirm(id, "mockup-confirm", { by: "human", reason: "使用者說可以" })).isError, false);
   await runUntil(env, id, dir, "final-acceptance-none");
-  assert.equal((await confirm(id, "final-acceptance", { by: "human", reason: "ok" })).isError, true);
+  assert.equal((await confirm(id, "final-acceptance", { by: "human", reason: "x" })).isError, true);
   assert.equal((await confirm(id, "final-acceptance", { by: "human", reason: "使用者驗收通過" })).isError, false);
+});
+
+test("A2：2 個字元的原話（確認、同意）通過，前後空白不算字數", async () => {
+  const { id, dir } = await env.create();
+  await runUntil(env, id, dir, "mockup-confirm");
+  assert.equal((await confirm(id, "mockup-confirm", { by: "human", reason: " 確 認 " })).isError, false);
+  await runUntil(env, id, dir, "final-acceptance-none");
+  assert.equal((await confirm(id, "final-acceptance", { by: "human", reason: "同意" })).isError, false);
 });
 
 test("A2：AI 審查（auto）路徑不要求 reason；被專案設成 manual 的 verdict 關卡 human 需附原話", async () => {

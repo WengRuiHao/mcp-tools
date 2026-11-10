@@ -69,7 +69,7 @@ export async function authorizeDecision(
 }
 
 /** 人工確認附的使用者原話：去除空白後至少幾個字元。 */
-export const MIN_HUMAN_QUOTE_CHARS = 4;
+export const MIN_HUMAN_QUOTE_CHARS = 2;
 
 /** by:"human" 且該關卡解析結果為 manual（含 locked、被專案設成 manual）時，reason 必須是使用者原話。AI 審查（auto）路徑不受影響。 */
 export function requireHumanQuote(def: WorkflowDefinition, gateId: string, by: "human" | "agent", reason: string | undefined): void {
