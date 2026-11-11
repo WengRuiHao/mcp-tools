@@ -29,7 +29,7 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
       { id: "impact", file: "impact.md", kind: "markdown" },
       { id: "tech-stack", file: "tech-stack.md", kind: "markdown" },
       { id: "mockup", file: "sa-mockup/", kind: "html" },
-      { id: "sa", file: "01-sa.md", kind: "markdown", attachments: ["sa-images/"] },
+      { id: "sa", file: "01-sa.md", kind: "markdown", attachments: ["sa-images/", "01-sa.docx"] },
       { id: "sa-notes", file: "sa-notes.md", kind: "markdown" },
       { id: "db", file: "02-db.sql", kind: "sql", attachments: ["02-db.md"] },
       { id: "table-schema", file: "TableSchema/", kind: "markdown" },

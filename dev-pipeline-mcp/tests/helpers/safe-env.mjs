@@ -5,3 +5,5 @@ import os from "node:os";
 import path from "node:path";
 
 process.env.ASANA_MCP_PATH = path.join(os.tmpdir(), "dev-pipeline-tests-no-such-asana-mcp.js");
+
+process.env.DEV_PIPELINE_PYTHON = "none"; // 預設不呼叫 Python；轉 Word 的測試自行覆寫

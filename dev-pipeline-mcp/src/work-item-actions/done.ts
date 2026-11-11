@@ -6,6 +6,7 @@ import { applyGateDecision, applyRoleDone, isProgramCheckGate, isTechConfirmAuto
 import type { WorkflowDefinition } from "../workflow/schema.js";
 import { WorkItemActionError, need, okReply, type ToolReply } from "./common.js";
 import { loadEffectiveDef, loadWorkItem } from "./context.js";
+import { convertSaToDocx } from "../export/sa-docx.js";
 import { checkDeliverables } from "./deliverables.js";
 import { checkDuplicatesOnDone } from "./dup-check.js";
 import type { WorkItemArgs } from "./schema.js";
@@ -50,11 +51,17 @@ export async function handleDone(a: WorkItemArgs): Promise<ToolReply> {
   const basic = await checkDeliverables(ctx.dir, roleId, def, { techSource: ctx.status.tech_source, projectDir: ctx.status.project_dir });
   const problems = basic.length > 0 ? basic : await checkDuplicatesOnDone(ctx.dir, ctx.status.project_dir, roleId, def);
   if (problems.length > 0) throw new WorkItemActionError(`交件檢查未通過，角色「${roleId}」未標記完成：${problems.join("；")}`, { problems });
+  const warnings: string[] = [];
+  if (roleId === "sa-analyst") {
+    const docx = await convertSaToDocx(ctx.dir);
+    if (docx.status === "failed") throw new WorkItemActionError(`交件檢查未通過，角色「${roleId}」未標記完成：${docx.message}`, { problems: [docx.message] });
+    if (docx.status === "unavailable") warnings.push(`未產生 01-sa.docx：${docx.hint}`);
+  }
   const updated = await updateStatus(ctx.id, (s) => {
     assertAvailable(s, def, overrideApplied, roleId);
     const r = applyRoleDone(s, roleId, { def });
     if (!r.ok) throw new WorkItemActionError(r.error);
     return passProgramGates(r.status, def, roleId);
   });
-  return okReply({ workItemId: ctx.id, roleId, done: true, ...nextBlock(viewFor(updated, def, overrideApplied)) });
+  return okReply({ workItemId: ctx.id, roleId, done: true, ...(warnings.length > 0 ? { warnings } : {}), ...nextBlock(viewFor(updated, def, overrideApplied)) });
 }

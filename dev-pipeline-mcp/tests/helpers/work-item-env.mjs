@@ -49,7 +49,7 @@ export const VALID_SD = [
   "#### INPUT", "", "| ElementName | ElementType | 必填 | 對應 DB 欄位 | 註解 |", "| --- | --- | --- | --- | --- |", "| account | string | Y | t.id | 帳號 |", "",
   "#### 業務邏輯", "1. 依帳號查詢，不存在回 401。", "", "#### OUTPUT", "HTTP 200，登入結果。", "",
 ].join("\n");
-const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 
 export async function setupEnv(prefix, { renderer } = {}) {
   const tmp = await mkdtemp(path.join(os.tmpdir(), prefix));

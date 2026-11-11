@@ -6,6 +6,7 @@ export const SA_ANALYST: RoleSections = {
   inputs: ["需求原文與範圍設定", "sa-mockup/（已確認的 mockup，含各狀態切換方式）", "impact.md（既有系統才有）", "tech-stack.md（已確認的技術棧）"],
   outputs: [
     "01-sa.md：客戶版 SA（正式交付物）",
+    "01-sa.docx：SA 的 Word 交付版（正式交付物）；由系統在你交件時從 01-sa.md 轉出（圖片嵌入），不能自己寫，也可用 work_item action=render kind=docx 先試轉。本機沒有 Python 與 python-docx 時只警告不擋交件",
     "sa-images/：從 mockup 截的畫面圖（PNG）：整體畫面一張，加上每一種提示狀態各一張",
     "sa-notes.md：內部檔，不交付給客戶：待確認問題、需求依據、翻新案的程式依據；每項標「需求規定／已確認／建議預設」",
   ],

@@ -29,7 +29,7 @@ export const workItemShape = {
   srcPath: z.string().optional().describe("attach：來源檔絕對路徑（必須存在且為檔案）"),
   destDir: z.enum(["sa-mockup", "sa-images", "evidence", "flow"]).optional().describe("attach：目的位置；flow＝根目錄的 flow.png"),
   name: z.string().optional().describe("attach：存檔檔名（選填，預設沿用來源檔名；會淨化）"),
-  kind: z.enum(["html", "mermaid"]).optional().describe("render：html（mockup 轉 PNG）｜mermaid（流程圖轉 PNG）"),
+  kind: z.enum(["html", "mermaid", "docx"]).optional().describe("render：html（mockup 轉 PNG）｜mermaid（流程圖轉 PNG）｜docx（01-sa.md 轉 01-sa.docx，不需 src／out）"),
   src: z.string().optional().describe("render：輸入檔，相對於工作項目目錄"),
   out: z.string().optional().describe("render：輸出 PNG，相對於工作項目目錄"),
   gateId: z.string().optional().describe("confirm：關卡 id；verdict：spec-check-verdict｜verdict"),

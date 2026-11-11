@@ -1727,8 +1727,8 @@
  },
  "toolCount": 43,
  "work_item": {
-  "descriptionLength": 1034,
-  "descriptionSha256": "c957d23c54d4daecbb7c62a5b415485a25676855a88649a5dad61bf0b0ad9568",
+  "descriptionLength": 1110,
+  "descriptionSha256": "b58a503a3a131aba3c3d9f93b4a934d251502a02cc208439f4b4bfa3ccba39d8",
   "inputSchema": {
    "$schema": "http://json-schema.org/draft-07/schema#",
    "additionalProperties": false,
@@ -1809,11 +1809,12 @@
      "type": "boolean"
     },
     "kind": {
-     "descriptionLength": 43,
-     "descriptionSha256": "aa1a69df5e1d6af08f9c2a5d6e8b5bb6e15dc11cf04eadcff3b80a8f76d11b85",
+     "descriptionLength": 82,
+     "descriptionSha256": "89b004926aa8f4be27cb0c829dc110d7c890ee2c58859ec17539b0ed2289c4a5",
      "enum": [
       "html",
-      "mermaid"
+      "mermaid",
+      "docx"
      ],
      "type": "string"
     },
