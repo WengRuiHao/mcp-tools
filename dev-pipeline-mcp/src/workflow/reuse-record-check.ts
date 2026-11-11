@@ -1,5 +1,6 @@
 // S10：重用防線的程式檢查。三項：
-// C1 impl-fe.md／impl-be.md 的「## 重用檢查紀錄」表格；C2 impact.md 的「## 可重用清單」；C3 03-sd.md 的「## 重用與共用設計」。
+// C1 impl-fe.md／impl-be.md 的「## 重用檢查紀錄」表格；C2 impact.md 的「## 可重用清單」。
+// 原 C3（03-sd.md 的「## 重用與共用設計」）已由 sd-structure-check 的「共用方法清單」取代，類型與決定值的對應見 SD_TYPE_DECISIONS。
 // 標題偵測沿用 sa-image-check 的 listHeadings（略過程式碼區塊）。
 import { headingMatches } from "./heading-match.js";
 import { tableDataRows } from "./md-table.js";
@@ -29,10 +30,6 @@ export function extractSection(text: string, name: string): string | null {
 const clean = (cell: string): string => cell.replace(/[`*_]/g, "").trim();
 
 const isOnlyNone = (body: string): boolean => /^[\s\-*>無无none：:。.（）()]*$/i.test(body) && /無|无|none/i.test(body);
-
-/** 去掉空白、標點與條列符號後，內容只剩「無」「N/A」「none」之類的敷衍答案。 */
-const NONE_ANSWER_RE = /^(無|无|沒有|没有|無此項|不適用|不适用|none|n\/a|na|nil|null)$/i;
-const isNoneAnswer = (body: string): boolean => NONE_ANSWER_RE.test(body.replace(/[\s\-*+>。.：:（）()、，,]/g, ""));
 
 /** C1：impl-fe.md／impl-be.md 的重用檢查紀錄。fileName 只用於訊息。 */
 export function checkReuseRecord(text: string, fileName: string): string[] {
@@ -78,10 +75,3 @@ export function checkImpactReuseList(text: string, fileName = "impact.md"): stri
   return entries.flatMap((e, i) => (FILE_LOCATION_RE.test(e) || NOT_FOUND_RE.test(e) ? [] : [`${fileName}「${REUSABLE_LIST_HEADING}」第 ${i + 1} 項沒有檔案位置，也沒有「已搜尋：<關鍵字>，未找到」字樣：${e.slice(0, 30)}`]));
 }
 
-/** C3：03-sd.md 的重用與共用設計。 */
-export function checkSdReuseDesign(text: string, fileName = "03-sd.md"): string[] {
-  const body = extractSection(text, SD_REUSE_HEADING);
-  if (body === null) return [`${fileName} 缺少「## ${SD_REUSE_HEADING}」一節`];
-  if (body.trim() === "") return [`${fileName}「${SD_REUSE_HEADING}」是空的`];
-  return isNoneAnswer(body) ? [`${fileName}「${SD_REUSE_HEADING}」不能只寫「無」；沒有可重用或共用的項目，也要寫明已檢查的範圍與結論`] : [];
-}

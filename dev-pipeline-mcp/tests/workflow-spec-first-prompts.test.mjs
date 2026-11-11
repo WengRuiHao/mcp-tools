@@ -128,10 +128,10 @@ test("前後端工程師依 SA／SD 並要求規格驗證 PASS", () => {
   for (const id of ["frontend-engineer", "backend-engineer"]) assert.ok(getSpecFirstRolePrompt(id).includes("spec-check.md"));
 });
 
-test("每份說明長度 800～2500 字元（標準較長的 SA 分析師、mockup 設計師、DB 設計師放寬到 3500）", () => {
+test("每份說明長度 800～2500 字元（標準較長的 SA 分析師、mockup 設計師、DB 設計師、SD 分析師、前後端工程師放寬到 3500）", () => {
   for (const id of SPEC_FIRST_ROLE_IDS) {
     const n = getSpecFirstRolePrompt(id).length;
-    assert.ok(n >= 800 && n <= (id === "sa-analyst" || id === "mockup-designer" || id === "db-designer" ? 3500 : 2500), `${id} 長度 ${n}`);
+    assert.ok(n >= 800 && n <= (["sa-analyst", "mockup-designer", "db-designer", "sd-analyst", "frontend-engineer", "backend-engineer"].includes(id) ? 3500 : 2500), `${id} 長度 ${n}`);
   }
 });
 

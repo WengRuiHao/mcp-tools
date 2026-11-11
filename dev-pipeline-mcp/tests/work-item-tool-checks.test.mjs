@@ -58,7 +58,7 @@ test("done frontend-engineer／backend-engineer：缺重用檢查紀錄或決定
   assert.equal((await env.store.readStatus(id)).work_item_progress.gates["implementation-content"].by, "agent");
 });
 
-test("done baseline-survey：impact.md 缺可重用清單或只寫無不通過；sd-analyst 缺重用與共用設計不通過", async () => {
+test("done baseline-survey：impact.md 缺可重用清單或只寫無不通過；sd-analyst 的 SD 不符新標準不通過", async () => {
   const { id, dir } = await env.create({ baseline: "brownfield" });
   await fulfil(dir, "baseline-survey");
   await writeFile(path.join(dir, "impact.md"), "影響\n## 可重用清單\n無\n");
@@ -74,5 +74,5 @@ test("done baseline-survey：impact.md 缺可重用清單或只寫無不通過�
   await writeFile(path.join(dir2, "03-sd.md"), "SD\n");
   const sd = await done(id2, "sd-analyst");
   assert.equal(sd.isError, true);
-  assert.ok(sd.json.problems.some((p) => p.includes("缺少「## 重用與共用設計」")));
+  assert.ok(sd.json.problems.some((p) => p.includes("SD 標準檢查未通過") && p.includes("缺少必備章節「## 規格說明」")));
 });

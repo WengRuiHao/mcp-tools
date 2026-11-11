@@ -3,7 +3,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
-import { setupEnv, fulfil, runUntil, CLEAN_REVIEW } from "./helpers/work-item-env.mjs";
+import { setupEnv, fulfil, runUntil, CLEAN_REVIEW, VALID_SD } from "./helpers/work-item-env.mjs";
 
 const env = await setupEnv("wi-gates-");
 after(() => env.cleanup());
@@ -56,7 +56,7 @@ test("destructive-db：SQL 含 DROP 時 agent 無法確認 db-flow-confirm，hum
 test("sensitive-data：關卡相關產出含密碼時 agent 被拒", async () => {
   const { id, dir } = await env.create();
   await runUntil(env, id, dir, "sd-analyst");
-  await writeFile(path.join(dir, "03-sd.md"), "連線 password=hunter2secret\n## 重用與共用設計\n重用：呼叫 ExcelUtil\n");
+  await writeFile(path.join(dir, "03-sd.md"), `${VALID_SD}\n連線 password=hunter2secret\n`);
   assert.equal((await env.call({ action: "done", workItemId: id, roleId: "sd-analyst" })).isError, false);
   const r = await confirm(id, "sd-confirm", "agent", { review: CLEAN_REVIEW });
   assert.equal(r.isError, true);

@@ -3,10 +3,11 @@ import path from "node:path";
 import type { WorkflowDefinition } from "../workflow/schema.js";
 import { checkMermaidFile } from "../workflow/mermaid-check.js";
 import { checkMockupDir } from "../workflow/mockup-check.js";
-import { checkImpactReuseList, checkReuseRecord, checkSdReuseDesign } from "../workflow/reuse-record-check.js";
+import { checkImpactReuseList, checkReuseRecord } from "../workflow/reuse-record-check.js";
 import { checkSaImages, SA_FILE_NAME } from "../workflow/sa-image-check.js";
 import { checkSaNoCode } from "../workflow/sa-no-code-check.js";
 import { checkSaStandard } from "../workflow/sa-standard-check.js";
+import { checkSdStructure } from "../workflow/sd-structure-check.js";
 import { checkTableSchemas } from "../workflow/table-schema-check.js";
 import { checkBaselineTechStack, checkTechStack, TECH_STACK_FILE, BASELINE_FILE } from "../workflow/tech-stack-check.js";
 import { checkTestEvidence, TEST_FILE_NAME } from "../workflow/test-evidence-check.js";
@@ -89,10 +90,9 @@ async function checkTest(dir: string): Promise<string[]> {
   }
 }
 
-/** 角色交件時要檢查內容的產出檔（artifact id）與對應的重用防線檢查（C1～C3）。 */
+/** 角色交件時要檢查內容的產出檔（artifact id）與對應的重用防線檢查（C1、C2）。 */
 const REUSE_CHECKS: Readonly<Record<string, { artifact: string; check: (text: string, fileName: string) => string[] }>> = {
   "baseline-survey": { artifact: "impact", check: checkImpactReuseList },
-  "sd-analyst": { artifact: "sd", check: checkSdReuseDesign },
   "frontend-engineer": { artifact: "impl-fe", check: checkReuseRecord },
   "backend-engineer": { artifact: "impl-be", check: checkReuseRecord },
 };
@@ -103,6 +103,17 @@ async function checkReuse(dir: string, roleId: string, def: WorkflowDefinition):
   if (!rule || !file) return [];
   try {
     return rule.check(await readFile(path.join(dir, file), "utf-8"), file);
+  } catch {
+    return []; // 檔案缺漏已由一般交件檢查回報
+  }
+}
+
+/** SD 新標準檢查（含 TableSchema 連結的檔案存在檢查）。 */
+async function checkSd(dir: string, def: WorkflowDefinition): Promise<string[]> {
+  const file = def.artifacts.find((a) => a.id === "sd")?.file;
+  if (!file) return [];
+  try {
+    return checkSdStructure(await readFile(path.join(dir, file), "utf-8"), dir).map((v) => `SD 標準檢查未通過：${v}`);
   } catch {
     return []; // 檔案缺漏已由一般交件檢查回報
   }
@@ -153,6 +164,7 @@ export async function checkDeliverables(dir: string, roleId: string, def: Workfl
   if (roleId === "mockup-designer") problems.push(...checkMockupDir(dir).map((v) => `mockup 檢查未通過：${v}`));
   if (roleId === "flow-analyst") problems.push(...checkMermaidFile(dir).map((v) => `流程圖（flow.mmd）格式檢查未通過：${v}`));
   if (roleId === "tester") problems.push(...(await checkTest(dir)));
+  if (roleId === "sd-analyst") problems.push(...(await checkSd(dir, def)));
   problems.push(...(await checkReuse(dir, roleId, def)));
   if (roleId === "baseline-survey" || roleId === "tech-selector") problems.push(...(await checkTech(dir, roleId, ctx.techSource)));
   return problems;

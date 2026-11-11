@@ -2,7 +2,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { parseDupInput } from "../dist/workflow/dup-input.js";
-import { checkSdReuseDesign } from "../dist/workflow/reuse-record-check.js";
 import { parseProjectFlowOverride } from "../dist/workflow/schema.js";
 
 test("改動檔案：條列、純文字、反引號、編號、反斜線與 ./ 都能解析並去重", () => {
@@ -24,13 +23,6 @@ test("重複豁免：三欄表格、相似檔案可空、理由含直線、欄�
   assert.deepEqual(w[1], { file: "c.js", reason: "樣板碼" });
   assert.equal(w[2].reason, "理由|含直線");
   assert.equal(w[3].reason, "");
-});
-
-test("C3 擴充：只有無、N/A、none 不通過，有實質內容通過", () => {
-  for (const v of ["無", "- 無", "N/A", "n/a。", "None", "沒有"]) {
-    assert.match(checkSdReuseDesign(`## 重用與共用設計\n${v}\n`)[0], /不能只寫「無」/, v);
-  }
-  assert.deepEqual(checkSdReuseDesign("## 重用與共用設計\n無共用項目，已檢查 util 目錄\n"), []);
 });
 
 test("schema dup：合法值通過，既有範例仍合法；非法值被拒", () => {

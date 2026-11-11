@@ -29,6 +29,19 @@ export const VALID_SA = [
   "## 帳號規則", "", "| 規則 | 說明 |", "| --- | --- |", "| 必填 | 帳號與密碼都要輸入 |", "",
   "## 輸入時的提示", "提示顯示在欄位下方。", "", "**帳號空白**", "", "![帳號空白](sa-images/a.png)", "",
 ].join("\n");
+/** 通過 SD 標準檢查的精簡 SD（使用資料表 t 對應 VALID_TABLE_SCHEMA，共用方法 ExcelUtil）。 */
+export const VALID_SD = [
+  "| 程式代號 | login | 使用技術 | Node.js |", "| --- | --- | --- | --- |", "| 程式名稱 | 登入 | 系統分析者 | 系統分析師 |", "| 上層程式名稱 | 會員中心 | 程式設計者 |  |", "| 程式類別 | 查詢 | 審查者 |  |", "",
+  "## 版本管控歷程", "", "| 版次 | 發行日期 | 修訂說明 | 修訂單位 | 修訂人員 |", "| --- | --- | --- | --- | --- |", "| 0.1 | 2026/11/10 | 初版 | 示範團隊 | 系統分析師 |", "",
+  "## 目錄", "", "一、規格說明", "二、API 說明", "",
+  "## 規格說明", "", "### 1. 使用資料表", "", "| Table | 功能 | 說明 | 結構文件 |", "| --- | --- | --- | --- |", "| t | 帳號 | 帳號資料 | [t 資料表結構](TableSchema/t.md) |", "",
+  "### 2. 前端功能與 API 對應表", "", "| 前端功能 | 觸發時機 | 呼叫的 API | 成功時 | 失敗時 | 前端位置 |", "| --- | --- | --- | --- | --- | --- |", "| 登入 | 按下登入 | 登入 `POST /api/login` | 進入首頁 | 訊息區顯示錯誤 | src/ui/login-page.js |", "",
+  "### 3. 共用方法清單", "", "| 共用方法 | 位置 | 類型 | 被誰使用 | 說明 |", "| --- | --- | --- | --- | --- |", "| ExcelUtil | src/main/ExcelUtil.java | 重用既有 | 登入 API 的服務層 | 既有工具 |", "",
+  "### 4. 共用回應與錯誤碼", "", "| HTTP | code | message | 說明 | 檢核位置 | 前端提示位置 |", "| --- | --- | --- | --- | --- | --- |", "| 401 | LOGIN_FAILED | 帳號或密碼錯誤 | 驗證失敗 | 僅後端 | 訊息區 |", "",
+  "## API 說明", "", "### 1. 登入", "", "**URL:** /api/login", "", "**METHOD:** POST", "", "**Controller:** src/api/login-controller.js ── login()", "", "**Service:** src/api/login-service.js ── login()", "", "**Repository:** src/api/login-repository.js ── findAccount()", "", "**使用的共用方法:** ExcelUtil", "",
+  "#### INPUT", "", "| ElementName | ElementType | 必填 | 對應 DB 欄位 | 註解 |", "| --- | --- | --- | --- | --- |", "| account | string | Y | t.id | 帳號 |", "",
+  "#### 業務邏輯", "1. 依帳號查詢，不存在回 401。", "", "#### OUTPUT", "HTTP 200，登入結果。", "",
+].join("\n");
 const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
 
 export async function setupEnv(prefix, { renderer } = {}) {
@@ -70,7 +83,7 @@ export async function fulfil(dir, roleId, opts = {}) {
     "sa-analyst": async () => { await w("01-sa.md", VALID_SA); await w("sa-notes.md", "## 待確認問題\n- 無\n"); await writeFile(path.join(dir, "sa-images", "a.png"), PNG); },
     "db-designer": async () => { await w("02-db.sql", opts.sql ?? "CREATE TABLE t (id INT);"); await w("TableSchema/t.md", VALID_TABLE_SCHEMA); },
     "flow-analyst": async () => { await w("flow.mmd", "graph TD\nA-->B"); await writeFile(path.join(dir, "flow.png"), PNG); },
-    "sd-analyst": () => w("03-sd.md", "SD\n## 重用與共用設計\n重用：呼叫 ExcelUtil\n"),
+    "sd-analyst": () => w("03-sd.md", VALID_SD),
     "spec-verifier": () => w("spec-check.md", opts.verdictText ?? "PASS\n對照表"),
     "frontend-engineer": () => w("impl-fe.md", `FE\n${REUSE_RECORD_OK}${CHANGED_FILES_FE}`),
     "backend-engineer": () => w("impl-be.md", `BE\n${REUSE_RECORD_OK}${CHANGED_FILES_BE}`),

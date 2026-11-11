@@ -1,7 +1,7 @@
-// S10 C1～C3：重用防線的程式檢查。
+// S10 C1～C2（原 C3 已由 sd-structure-check 取代）：重用防線的程式檢查。
 import test from "node:test";
 import assert from "node:assert/strict";
-import { checkImpactReuseList, checkReuseRecord, checkSdReuseDesign, extractSection } from "../dist/workflow/reuse-record-check.js";
+import { checkImpactReuseList, checkReuseRecord, extractSection } from "../dist/workflow/reuse-record-check.js";
 
 const HEAD = "| 搜尋關鍵字 | 找到的候選 | 決定 | 理由 |\n| --- | --- | --- | --- |";
 const rec = (...rows) => `# impl\n## 重用檢查紀錄\n${HEAD}\n${rows.join("\n")}\n## 其他\n文字`;
@@ -41,10 +41,4 @@ test("C2 可重用清單：缺節、空、只有無、無位置、合法", () =>
   const ok = "## 可重用清單\n- ExcelUtil（src/main/ExcelUtil.java）：匯出\n- 已搜尋：日期轉換，未找到\n";
   assert.deepEqual(checkImpactReuseList(ok), []);
   assert.deepEqual(checkImpactReuseList("## 可重用清單\n| 名稱 | 位置 |\n| --- | --- |\n| 工具 | src/a/Util.ts |\n"), []);
-});
-
-test("C3 重用與共用設計：缺節與空節不通過，有內容通過", () => {
-  assert.match(checkSdReuseDesign("# sd\n")[0], /缺少/);
-  assert.match(checkSdReuseDesign("## 重用與共用設計\n\n## 下一節\nx")[0], /空的/);
-  assert.deepEqual(checkSdReuseDesign("## 重用與共用設計\n重用：呼叫 ExcelUtil\n"), []);
 });
