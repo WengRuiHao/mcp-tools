@@ -55,7 +55,7 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
         dependsOn: ["baseline-survey", "tech-selector"], inputs: ["impact", "tech-stack"], outputs: ["mockup"],
         optional: true,
         when: "hasFrontend==true",
-        roleNotes: "只負責畫 mockup：產出能在瀏覽器開啟的檔案（例如 HTML），放 sa-mockup/。既有系統以現有畫面為底，標出新增／修改的部分。畫完先等使用者確認畫面方向，確認後才進 SA 分析師。",
+        roleNotes: "只負責畫 mockup：產出能在瀏覽器開啟的檔案（例如 HTML），放 sa-mockup/。既有系統以現有畫面為底；新增／修改寫在卡片外獨立的「本次變更說明」區塊，不疊在正式元件上。畫完先等使用者確認畫面方向，確認後才進 SA 分析師。",
       },
       {
         id: "sa-analyst",

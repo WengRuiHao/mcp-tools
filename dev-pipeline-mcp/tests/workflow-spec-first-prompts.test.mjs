@@ -69,6 +69,12 @@ test("mockup-designer：可操作原型、五種狀態、#狀態名稱 切換、
   for (const k of ["可操作原型", "單一 HTML", "原生 HTML／CSS／JS", "不連外網", "http:// 或 https://", "每個使用者動作都要能點", "表單要有驗證與錯誤提示", "正常、載入中、成功、失敗、沒有資料", "#狀態名稱", "mockup-狀態切換範例.html", "data-demo-states", "互相跳轉", "每個畫面", "每個可操作元素", "所有狀態名稱", "mockup 檢查"]) assert.ok(t.includes(k), k);
 });
 
+test("mockup-designer：標示規則、版面規則、控制面板、驗證紀錄", () => {
+  const t = getSpecFirstRolePrompt("mockup-designer");
+  for (const k of ["不可把標籤、虛線框、顏色或任何標示疊在正式元件上", "本次變更說明", "無既有行為變更", "勾選框", "同類元件", "大小一致", "現有畫面風格", "1280 與 1024", "自動換行", "驗證紀錄", "沒有瀏覽器工具就明講未實測", "不能只做語法檢查"]) assert.ok(t.includes(k), k);
+  assert.ok(!t.includes("用顏色或標籤標出"));
+});
+
 test("mockup-designer：只畫 mockup、放 sa-mockup/、不寫規格、等使用者確認", () => {
   const t = getSpecFirstRolePrompt("mockup-designer");
   assert.ok(t.includes("sa-mockup/") && t.includes("不寫規格") && t.includes("人工確認") && t.includes("瀏覽器"));

@@ -33,7 +33,7 @@ export const VALID_SYSTEM_ER = [
   "## 系統 ER 圖", "", "```mermaid", "erDiagram", "    t {", "        INT id PK", "    }", "```", "", "![系統 ER 圖](er/system-er.png)", "",
 ].join("\n");
 /** 通過 mockup 檢查的精簡可操作原型。 */
-export const VALID_MOCKUP = `<!doctype html><html><body data-demo-states="normal,loading,success,failed,empty"><button id="b">登入</button><script>document.getElementById("b").addEventListener("click", function () {});</script></body></html>`;
+export const VALID_MOCKUP = `<!doctype html><html><body data-demo-states="normal,loading,success,failed,empty"><h2>本次變更說明</h2><p>無既有行為變更</p><button id="b">登入</button><script>document.getElementById("b").addEventListener("click", function () {});</script></body></html>`;
 /** 通過所有 SA 檢查的精簡客戶版 SA（只用一張圖 sa-images/a.png）。 */
 export const VALID_SA = [
   "# 登入：需求說明", "", "| 項目 | 內容 |", "| --- | --- |", "| 功能名稱 | 登入 |", "| 文件版次 | 0.1 |", "| 系統分析者 | 系統分析師 |", "| 審查者 |  |", "",

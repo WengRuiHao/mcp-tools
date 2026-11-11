@@ -22,7 +22,7 @@ function item(files) {
   }
   return dir;
 }
-const GOOD = `<!doctype html><html><body data-demo-states="normal,loading,success,failed,empty"><button id="b">送出</button><script>document.getElementById("b").addEventListener("click",function(){});</script></body></html>`;
+const GOOD = `<!doctype html><html><body data-demo-states="normal,loading,success,failed,empty"><h2>本次變更說明</h2><button id="b">送出</button><script>document.getElementById("b").addEventListener("click",function(){});</script></body></html>`;
 const has = (list, re) => list.some((x) => re.test(x));
 
 test("範例 mockup-狀態切換範例.html 是合格樣本", () => {
@@ -32,7 +32,7 @@ test("範例 mockup-狀態切換範例.html 是合格樣本", () => {
 
 test("精簡合格樣本；on 事件屬性也算事件處理", () => {
   assert.deepEqual(checkMockupDir(item({ "a.html": GOOD })), []);
-  const inline = `<html><body data-demo-states="normal,loading,success,failed,empty"><button onclick="x()">k</button><script>function x(){}</script></body></html>`;
+  const inline = `<html><body data-demo-states="normal,loading,success,failed,empty"><h2>本次變更說明</h2><button onclick="x()">k</button><script>function x(){}</script></body></html>`;
   assert.deepEqual(checkMockupDir(item({ "a.html": inline })), []);
 });
 
@@ -45,19 +45,19 @@ test("資料夾不存在由一般交件檢查回報，這裡不重複", () => {
 });
 
 test("靜態頁面（沒有 script）", () => {
-  const r = checkMockupDir(item({ "a.html": `<html><body data-demo-states="normal,loading,success,failed,empty"><p>靜態</p></body></html>` }));
+  const r = checkMockupDir(item({ "a.html": `<html><body data-demo-states="normal,loading,success,failed,empty"><h2>本次變更說明</h2><p>靜態</p></body></html>` }));
   assert.ok(has(r, /沒有 <script>/));
 });
 
 test("有 script 但沒有事件處理", () => {
-  const r = checkMockupDir(item({ "a.html": `<html><body data-demo-states="normal,loading,success,failed,empty"><script>const x = 1;</script></body></html>` }));
+  const r = checkMockupDir(item({ "a.html": `<html><body data-demo-states="normal,loading,success,failed,empty"><h2>本次變更說明</h2><script>const x = 1;</script></body></html>` }));
   assert.ok(has(r, /沒有事件處理/));
 });
 
 test("外部 script 檔（相對路徑）內的事件處理算數", () => {
-  const dir = item({ "a.html": `<html><body data-demo-states="normal,loading,success,failed,empty"><script src="app.js"></script></body></html>`, "app.js": `document.addEventListener("click", () => {});` });
+  const dir = item({ "a.html": `<html><body data-demo-states="normal,loading,success,failed,empty"><h2>本次變更說明</h2><script src="app.js"></script></body></html>`, "app.js": `document.addEventListener("click", () => {});` });
   assert.deepEqual(checkMockupDir(dir), []);
-  const missing = item({ "a.html": `<html><body data-demo-states="normal,loading,success,failed,empty"><script src="none.js"></script></body></html>` });
+  const missing = item({ "a.html": `<html><body data-demo-states="normal,loading,success,failed,empty"><h2>本次變更說明</h2><script src="none.js"></script></body></html>` });
   assert.ok(has(checkMockupDir(missing), /沒有事件處理/));
 });
 
@@ -108,5 +108,45 @@ test("檔案太大", () => {
 test("多個 html：逐檔檢查並帶檔名；子資料夾也檢查", () => {
   const r = checkMockupDir(item({ "good.html": GOOD, "sub/bad.html": "<html></html>" }));
   assert.ok(r.every((x) => x.startsWith("sa-mockup/sub/bad.html")));
-  assert.equal(r.length, 2);
+  assert.equal(r.length, 3); // 缺 script、缺 data-demo-states、缺本次變更說明
+});
+
+const withCss = (css) => GOOD.replace("<body", `<style>\n${css}\n</style><body`);
+
+test("缺「本次變更說明」區塊會退回；標題需為 h1～h6，寫「無既有行為變更」即可", () => {
+  const noBlock = GOOD.replace("<h2>本次變更說明</h2>", "");
+  assert.ok(has(checkMockupHtml(noBlock, "a.html"), /缺少「本次變更說明」區塊/));
+  assert.ok(has(checkMockupHtml(GOOD.replace("<h2>本次變更說明</h2>", "<p>本次變更說明</p>"), "a.html"), /缺少「本次變更說明」/));
+  assert.deepEqual(checkMockupHtml(GOOD.replace("<h2>本次變更說明</h2>", "<h3 class=\"x\"><span>本次變更說明</span>（無既有行為變更）</h3>"), "a.html"), []);
+});
+
+test("標示疊在元件上：偽元素 content 含新增／變更／修改，訊息含行號與改法", () => {
+  const r = checkMockupHtml(withCss('.f::after{\n  content:"新增";\n  position:absolute}'), "a.html");
+  assert.equal(r.length, 1);
+  assert.match(r[0], /第 \d+ 行 CSS/);
+  assert.match(r[0], /偽元素/);
+  assert.match(r[0], /獨立的「本次變更說明」區塊/);
+  assert.ok(has(checkMockupHtml(withCss(".x:before{content:'已修改'}"), "a.html"), /偽元素/));
+});
+
+test("標示疊在元件上：標示用 class 搭配 absolute／fixed 加負偏移，或虛線框", () => {
+  assert.ok(has(checkMockupHtml(withCss(".badge-new{position:absolute;top:-8px;right:-8px}"), "a.html"), /絕對定位加負偏移/));
+  assert.ok(has(checkMockupHtml(withCss(".is-changed{position:fixed;left:-4px}"), "a.html"), /絕對定位加負偏移/));
+  assert.ok(has(checkMockupHtml(withCss(".changed{outline:2px dashed red}"), "a.html"), /虛線框/));
+  assert.ok(has(checkMockupHtml(withCss(".new-field{border:1px dashed #f00}"), "a.html"), /虛線框/));
+});
+
+test("低誤判：一般偽元素、一般 label／表單 class、非負偏移、說明區塊虛線框都放行；行號對得上原檔", () => {
+  for (const css of [
+    '.req::after{content:"*";color:red}',
+    ".label{position:absolute;top:-6px}",
+    ".tooltip{position:absolute;top:-6px}",
+    ".badge{position:absolute;top:4px;right:4px}",
+    ".change-notes{border:1px dashed #94a3b8}",
+    "/* .new{position:absolute;top:-1px} */",
+  ]) assert.deepEqual(checkMockupHtml(withCss(css), "a.html"), [], css);
+  const html = `<!doctype html>\n<!-- 兩行\n註解 -->\n${withCss(".new{position:absolute;top:-2px}")}`;
+  const hit = checkMockupHtml(html, "a.html").find((x) => /絕對定位/.test(x));
+  const line = Number(/第 (\d+) 行/.exec(hit)[1]);
+  assert.equal(html.split("\n")[line - 1].trim(), ".new{position:absolute;top:-2px}");
 });

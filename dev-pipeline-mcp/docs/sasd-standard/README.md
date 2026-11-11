@@ -10,7 +10,7 @@
 | 資料表結構文件-範本.md | 資料表結構文件（分組：有關聯的表同一份，單獨的表各一份；內含 orders 加 order_items 同組、members 單表兩份文件） |
 | 系統ER圖-範本.md | 系統 ER 圖文件（TableSchema/system-er.md）的樣子 |
 | er/ | 範本引用的 ER 圖 PNG（模組圖 orders.png、members.png，系統圖 system-er.png；路徑相對於文件） |
-| mockup-狀態切換範例.html | 可切換狀態的 mockup 範例，用來截各種狀態的畫面 |
+| mockup-狀態切換範例.html | 可切換狀態的 mockup 範例（含卡片外的「本次變更說明」區塊），用來截各種狀態的畫面 |
 | sa-images/ | 範本引用的畫面截圖（整體畫面與各種狀態，路徑相對於文件） |
 | tools/md2docx.py | md 轉 Word 的原型（python-docx，支援圖片、表格、標題） |
 

@@ -1,5 +1,6 @@
 // 步驟 C：mockup 可操作性檢查（mockup 設計師 done 時）。純靜態檢查，不執行頁面。
-// sa-mockup/ 內至少一個 html；每個 html 要有 script 且含事件處理、不可連外網、要有 data-demo-states 標記、大小有上限。
+// sa-mockup/ 內至少一個 html；每個 html 要有 script 且含事件處理、不可連外網、要有 data-demo-states 標記、大小有上限；
+// 要有「本次變更說明」區塊，且不可用偽元素／絕對定位／虛線框把新增變更標示疊在元件上。
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
@@ -34,7 +35,42 @@ const EXTERNAL_RES: readonly { re: RegExp; label: string }[] = [
   { re: /url\(\s*["']?\s*(?:https?:)?\/\/[^\s"')]+/gi, label: "url()" },
 ];
 
-const stripComments = (text: string): string => text.replace(/<!--[\s\S]*?-->/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+/** 移除註解但保留換行，讓後續報的行號與原檔一致。 */
+const stripComments = (text: string): string => text.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ""));
+
+export const CHANGE_NOTES_TITLE = "本次變更說明";
+const CHANGE_NOTES_RE = /<h([1-6])\b[^>]*>(?:(?!<\/h\1\s*>)[\s\S])*?本次變更說明/i;
+const STYLE_TAG_RE = /<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi;
+const CSS_RULE_RE = /([^{}]+)\{([^{}]*)\}/g;
+/** 「標示用途」的 class 名稱片語（以 - _ 切開整詞比對；不含 label，避免誤擋表單欄位標籤）。 */
+const MARKER_TOKENS = new Set(["badge", "tag", "mark", "marker", "changed", "new", "diff", "annotation", "ribbon"]);
+const OVERLAY_HINT = `改成放在頁面卡片外獨立的「${CHANGE_NOTES_TITLE}」區塊，不要疊在正式元件上`;
+
+const lineAt = (text: string, index: number): number => text.slice(0, index).split("\n").length;
+const markerClasses = (selector: string): string[] =>
+  [...selector.matchAll(/\.(-?[_a-z][\w-]*)/gi)].map((m) => m[1]).filter((c) => c.toLowerCase().split(/[-_]+/).some((t) => MARKER_TOKENS.has(t)));
+
+/** 最明確的「標示疊在正式元件上」寫法：偽元素 content 含新增／變更／修改；或標示用 class 以 absolute／fixed 搭配負偏移，或用虛線框。 */
+export function findOverlayMarks(html: string, name: string): string[] {
+  const out: string[] = [];
+  for (const style of html.matchAll(STYLE_TAG_RE)) {
+    const base = (style.index ?? 0) + style[0].indexOf(style[1]);
+    for (const rule of style[1].matchAll(CSS_RULE_RE)) {
+      const selector = rule[1].trim();
+      const decl = rule[2];
+      const at = `${name} 第 ${lineAt(html, base + (rule.index ?? 0) + rule[1].search(/\S/))} 行 CSS「${selector.slice(0, 40)}」`;
+      if (/::?(?:before|after)\b/i.test(selector) && /\bcontent\s*:\s*(["'])[^"']*(?:新增|變更|修改)/i.test(decl)) {
+        out.push(`${at}用偽元素（::before／::after）顯示「新增／變更／修改」標示；${OVERLAY_HINT}`);
+        continue;
+      }
+      const marks = markerClasses(selector);
+      if (marks.length === 0) continue;
+      if (/\bposition\s*:\s*(?:absolute|fixed)\b/i.test(decl) && /\b(?:top|left|right|bottom)\s*:\s*-/i.test(decl)) out.push(`${at}（class ${marks.join("、")}）用絕對定位加負偏移把標示疊在其他元件上；${OVERLAY_HINT}`);
+      else if (/\b(?:outline|border)(?:-[a-z]+)*\s*:[^;]*\bdashed\b/i.test(decl)) out.push(`${at}（class ${marks.join("、")}）用虛線框標示新增或變更；${OVERLAY_HINT}`);
+    }
+  }
+  return out;
+}
 
 function listHtml(dir: string): string[] {
   const out: string[] = [];
@@ -82,6 +118,8 @@ export function checkMockupHtml(html: string, name: string, where?: { htmlPath: 
     const hit = body.match(r.re);
     if (hit) out.push(`${name} 含外部網路資源（${r.label}）：${hit[0].slice(0, 60)}；不可連外網，只允許 data: 與相對路徑`);
   }
+  out.push(...findOverlayMarks(body, name));
+  if (!CHANGE_NOTES_RE.test(body)) out.push(`${name} 缺少「${CHANGE_NOTES_TITLE}」區塊（頁面卡片外放一個標題含「${CHANGE_NOTES_TITLE}」的區塊，列出新增與改動的既有行為；沒有變更也要保留並寫「無既有行為變更」）`);
   const states = DEMO_STATES_VALUE_RE.exec(body);
   if (states) {
     const missing = missingDemoStates(states[1] ?? states[2] ?? "");
