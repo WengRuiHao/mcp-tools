@@ -42,7 +42,7 @@ export async function handleVerdict(a: WorkItemArgs): Promise<ToolReply> {
   let failInfo: Record<string, unknown> = {};
   let rewound: string[] = [];
   const updated = await updateStatus(ctx.id, async (s) => {
-    await authorizeDecision({ dir: ctx.dir, status: s }, def, gateId, by, a.review);
+    await authorizeDecision({ dir: ctx.dir, status: s }, def, gateId, by, a.review, result === "fail");
     if (by === "agent") await assertMatchesReport(ctx.dir, def, gateId, result, a.rootCause?.trim());
     if (result === "pass") {
       const r = applyGateDecision(s, gateId, { decision: "passed", by, ...(reason !== undefined ? { reason } : {}) }, { def });

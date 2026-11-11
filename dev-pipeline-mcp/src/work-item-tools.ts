@@ -23,7 +23,7 @@ const WORK_ITEM_DESCRIPTION =
   "- attach：把截圖或 mockup 檔存進工作項目（srcPath 絕對路徑、destDir：sa-mockup｜sa-images｜evidence｜flow）。AI 用自己的瀏覽器工具截好圖後用它存放。\n" +
   "- render：選用的內建產圖（kind=html｜mermaid，src、out）；不可用會回 ok:false 與 hint，改走 attach。kind=docx 把 01-sa.md 轉成 01-sa.docx（不需 src、out；SA 的 Word 只能由它產生，SA 交件時也會自動轉）。\n" +
   "- done：交件（roleId）；會檢查產出檔、SA 截圖、flow.png、PASS／FAIL 報告格式，不合格不標記完成。\n" +
-  "- confirm：確認關卡（gateId、decision、by）。by:\"human\" 只能在使用者本人明確說確認時使用，AI 不可冒用；by:\"agent\" 只有該關卡為 auto 且審查申報（review）通過才成功，final-acceptance 與 manual 關卡一律拒絕代確認。\n" +
+  "- confirm：確認關卡（gateId、decision、by）。by:\"human\" 只能在使用者本人明確說確認時使用，AI 不可冒用；by:\"agent\" 核准只有該關卡為 auto 且審查申報（review）通過才成功，硬性停止時 AI 不可核准；AI 可用 decision:\"rejected\"（reason 必填）打回，不受硬性停止限制；final-acceptance 核准與打回都只能 human，manual 關卡 AI 不可核准。\n" +
   "- verdict：規格驗證／驗證判定（gateId=spec-check-verdict｜verdict、result、rootCause、by、review）。\n" +
   "Asana 票單不可用本工具，請用既有 Asana 工具。錯誤一律回 isError。";
 

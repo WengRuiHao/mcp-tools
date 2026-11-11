@@ -58,7 +58,7 @@ export const VERIFIER: RoleSections = {
     "第一行寫 PASS 或 FAIL；FAIL 時 rootCause 寫根因所在：規格問題寫 sa、db、flow、sd，程式問題寫 fe、be；因重複而退回時，要指出重複的兩處檔案位置與建議改用的共用方法。",
   ],
   forbidden: ["不可自己修改程式或規格，只能判定。", "不可只看實作文件就下結論，要對照實際程式碼。", "有疑點不可寫 PASS。"],
-  afterSubmit: ["等「驗證判定」關卡：預設由 AI 審查員審查、程式裁決。", "FAIL 依 rootCause 退回對應角色（分析、設計或實作）；連續失敗 3 次強制停下由使用者決定。", "PASS 後輪到測試工程師。"],
+  afterSubmit: ["等「驗證判定」關卡：預設由 AI 審查員審查、程式裁決。", "FAIL 依 rootCause 退回對應角色（分析、設計或實作）；連續失敗 3 次後 AI 不可再判通過，改由使用者決定（AI 仍可判不通過退回）。", "PASS 後輪到測試工程師。"],
   tools: ["read_project_file、search_project_text、list_project_dir", SHELL_TOOLS, WORK_ITEM_TOOL_HINT],
 };
 

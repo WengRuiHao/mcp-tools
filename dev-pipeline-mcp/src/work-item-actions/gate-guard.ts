@@ -15,6 +15,7 @@ import { WorkItemActionError } from "./common.js";
  * by:"agent" 必須同時通過兩層（任何一層拒絕就丟錯、不寫入）：
  * 1) evaluateAgentConfirmation：locked（final-acceptance）永遠拒絕、未知關卡拒絕、非 auto 拒絕；
  * 2) decideGate 帶完整訊號：02-db.sql 全文（destructive-db）、關卡相關產出檔的敏感資訊掃描（sensitive-data）、連續 FAIL 次數、審查員申報。
+ * 硬性停止只封鎖 AI 的「核准／通過」；AI 打回（confirm rejected、verdict fail）不受硬性停止與人工關卡限制，只有 locked（最終驗收）例外：核准與打回都只有人可以。
  */
 
 const MAX_SCAN_BYTES = 512 * 1024;
@@ -53,9 +54,14 @@ export async function authorizeDecision(
   def: WorkflowDefinition,
   gateId: string,
   by: "human" | "agent",
-  review: unknown
+  review: unknown,
+  rejecting = false
 ): Promise<void> {
   if (by === "human") return;
+  if (rejecting) {
+    if (def.gates.find((g) => g.id === gateId)?.locked) throw new WorkItemActionError(`關卡「${gateId}」是 locked（最終驗收類），核准與打回都只能由使用者本人決定，AI 不可代為打回。`, { reason: "locked" });
+    return;
+  }
   const ticket = { workflow_id: SPEC_FIRST_ID, project_dir: ctx.status.project_dir, consecutive_fail_count: ctx.status.consecutive_fail_count };
   const first = await evaluateAgentConfirmation(ticket, gateId, review, def);
   if (!first.ok) throw new WorkItemActionError(first.message, { reason: first.reason, hardStop: first.hardStop });
@@ -76,6 +82,12 @@ export function requireHumanQuote(def: WorkflowDefinition, gateId: string, by: "
   if (by !== "human" || (gateId !== TECH_CONFIRM_GATE && resolveConfirmMode(def, gateId).mode !== "manual")) return;
   if ((reason ?? "").replace(/\s/g, "").length >= MIN_HUMAN_QUOTE_CHARS) return;
   throw new WorkItemActionError(`關卡「${gateId}」是人工確認關卡：reason 必填，且必須附上使用者這次確認的原話（去除空白後至少 ${MIN_HUMAN_QUOTE_CHARS} 個字元），不可自行編寫。`);
+}
+
+/** AI 打回確認關卡：reason 必填（去除空白後至少 MIN_HUMAN_QUOTE_CHARS 字元），記錄在流程紀錄（actor 為 agent）。 */
+export function requireAgentRejectReason(gateId: string, by: "human" | "agent", decision: "confirmed" | "rejected", reason: string | undefined): void {
+  if (by !== "agent" || decision !== "rejected" || (reason ?? "").replace(/\s/g, "").length >= MIN_HUMAN_QUOTE_CHARS) return;
+  throw new WorkItemActionError(`AI 打回關卡「${gateId}」必須附 reason（至少 ${MIN_HUMAN_QUOTE_CHARS} 個字元），說明退回的理由。`);
 }
 
 /** 把審查員申報寫進理由，留下可稽核的紀錄。 */

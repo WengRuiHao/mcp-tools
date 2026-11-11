@@ -25,7 +25,7 @@ export const SD_ANALYST: RoleSections = {
     "不可指向內部過程檔案（02-db、spec-check、sa-notes、impl-fe／impl-be、verify、test、dup-report、.dev-pipeline 等），SD 必須自足。",
     "不可另寫獨立的分層對照表。",
   ],
-  afterSubmit: ["先過程式的「SD 標準檢查」：必備章節與順序、基本資料表、版本管控歷程、目錄、各表表頭、共用方法類型、共用回應兩個指定欄位、每支 API 的 URL／METHOD／三層／INPUT／業務邏輯／OUTPUT、TableSchema 連結的檔案存在、禁用字詞與內部檔名、沒有欄位定義；沒過會直接退回你修改。", "再等「SD 確認」關卡：預設由 AI 派獨立審查員審查、程式裁決，不是等人。", "不通過退回你修改；碰到強制停下情況由使用者決定。", "通過後進入規格驗證師。"],
+  afterSubmit: ["先過程式的「SD 標準檢查」：必備章節與順序、基本資料表、版本管控歷程、目錄、各表表頭、共用方法類型、共用回應兩個指定欄位、每支 API 的 URL／METHOD／三層／INPUT／業務邏輯／OUTPUT、TableSchema 連結的檔案存在、禁用字詞與內部檔名、沒有欄位定義；沒過會直接退回你修改。", "再等「SD 確認」關卡：預設由 AI 派獨立審查員審查、程式裁決，不是等人。", "不通過退回你修改；碰到強制停下情況時 AI 不可核准、改由使用者決定（AI 仍可打回）。", "通過後進入規格驗證師。"],
   tools: ["read_project_file、search_project_text（對照既有程式碼風格，找出可重用的共用方法與實際檔案位置）", "db_schema（核對欄位）", WORK_ITEM_TOOL_HINT],
 };
 
@@ -44,6 +44,6 @@ export const SPEC_VERIFIER: RoleSections = {
     "第一行寫 PASS 或 FAIL；FAIL 要在 rootCause 寫出錯在 sa、db、flow、sd 哪一個，並說明具體問題。",
   ],
   forbidden: ["不可閱讀或引用程式碼，只看規格。", "不可自己修改規格，只能判定。", "不可在有疑點時寫 PASS。"],
-  afterSubmit: ["等「規格驗證判定」關卡：預設由 AI 審查員審查、程式裁決。", "PASS 才能開發；FAIL 依 rootCause 退回 SA 分析師、DB 設計師、流程分析師或 SD 分析師修正，修完重新驗證。", "連續失敗 3 次會強制停下由使用者決定。"],
+  afterSubmit: ["等「規格驗證判定」關卡：預設由 AI 審查員審查、程式裁決。", "PASS 才能開發；FAIL 依 rootCause 退回 SA 分析師、DB 設計師、流程分析師或 SD 分析師修正，修完重新驗證。", "連續失敗 3 次後 AI 不可再判通過，改由使用者決定（AI 仍可判不通過退回）。"],
   tools: ["read_project_file（只讀工作項目內的規格檔）", WORK_ITEM_TOOL_HINT],
 };

@@ -39,14 +39,14 @@ const roleLabel = (id: string): string => `${ROLE_LABELS[id] ?? id}（${id}）`;
 export function describeGate(g: PendingGate): GateView {
   const base = { gateId: g.gateId, type: g.type, ...(g.hardStop ? { hardStop: g.hardStop } : {}), ...(g.lastRejection ? { lastRejection: g.lastRejection } : {}) };
   if (g.waitingFor === "program-check") return { ...base, waitingFor: "program-check", howTo: "由程式檢查：所屬角色 done 且交件檢查全部通過時自動記為通過，不需要 confirm；不合格會列出問題，修正後重新 done。" };
-  if (g.gateId === TECH_CONFIRM_GATE) return { ...base, waitingFor: "user", howTo: `等使用者本人確認技術棧（技術來源不是沿用現有）：使用者看過 tech-stack.md 說確認或打回後，用 confirm（gateId="${g.gateId}"、by="human"、reason 附使用者原話）；AI 不可代為確認，確認後技術棧鎖定。` };
-  if (g.locked) return { ...base, waitingFor: "user", howTo: `最終驗收只能由使用者本人確認：使用者說確認後，用 confirm（gateId="${g.gateId}"、by="human"）；AI 不可代為確認。` };
+  if (g.gateId === TECH_CONFIRM_GATE) return { ...base, waitingFor: "user", howTo: `等使用者本人確認技術棧（技術來源不是沿用現有）：使用者看過 tech-stack.md 說確認或打回後，用 confirm（gateId="${g.gateId}"、by="human"、reason 附使用者原話）；AI 不可代為確認（AI 發現問題可用 by="agent"、decision="rejected"、reason 打回），確認後技術棧鎖定。` };
+  if (g.locked) return { ...base, waitingFor: "user", howTo: `最終驗收只能由使用者本人確認：使用者說確認後，用 confirm（gateId="${g.gateId}"、by="human"）；AI 不可代為確認，也不可代為打回。` };
   if (g.mode === "manual") {
-    const why = g.hardStop ? `（觸發硬停點 ${g.hardStop}，必須由使用者處理）` : "";
+    const why = g.hardStop ? `（觸發硬停點 ${g.hardStop}，核准必須由使用者處理；AI 發現問題仍可用 by="agent"、decision="rejected"、reason 打回）` : "";
     return { ...base, waitingFor: "user", howTo: `等使用者本人確認${why}：使用者說確認或打回後，用 confirm（gateId="${g.gateId}"、by="human"）。` };
   }
   if (g.type === "verdict") return { ...base, waitingFor: "ai-review", howTo: `由獨立審查員（不是作者）審查，再用 verdict（gateId="${g.gateId}"、result、by="agent"、review）裁決；不通過要帶 rootCause。` };
-  if (g.type === "confirmation") return { ...base, waitingFor: "ai-review", howTo: `由獨立審查員（不是作者）審查，再用 confirm（gateId="${g.gateId}"、by="agent"、review）代為確認；硬停點命中時會被拒絕，改由使用者確認。` };
+  if (g.type === "confirmation") return { ...base, waitingFor: "ai-review", howTo: `由獨立審查員（不是作者）審查，再用 confirm（gateId="${g.gateId}"、by="agent"、review）代為確認；硬停點命中時 AI 不可核准，改由使用者確認；發現問題時 AI 可用 confirm（decision="rejected"、by="agent"、reason 必填）打回，退回上一個工作階段。` };
   return { ...base, waitingFor: "ai-review", howTo: `由獨立審查員（不是作者）審查，再用 confirm（gateId="${g.gateId}"、by="agent"、review）代為確認。` };
 }
 

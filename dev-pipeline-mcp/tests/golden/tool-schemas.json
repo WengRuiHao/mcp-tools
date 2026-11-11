@@ -1727,8 +1727,8 @@
  },
  "toolCount": 43,
  "work_item": {
-  "descriptionLength": 1110,
-  "descriptionSha256": "b58a503a3a131aba3c3d9f93b4a934d251502a02cc208439f4b4bfa3ccba39d8",
+  "descriptionLength": 1188,
+  "descriptionSha256": "3745a333fd0d675f80a50cb4331afc639db04acaf8ed65db625e6d821d8a1181",
   "inputSchema": {
    "$schema": "http://json-schema.org/draft-07/schema#",
    "additionalProperties": false,
@@ -1760,8 +1760,8 @@
      "type": "string"
     },
     "by": {
-     "descriptionLength": 68,
-     "descriptionSha256": "162f0f3d1fc0cd9eb20b51889a77b5fd2022fdbb9dc9e5099db9612f0c54169c",
+     "descriptionLength": 134,
+     "descriptionSha256": "aaf59296871da878d26084276be1f77c19910a99110aca1ce0806809fe48a37a",
      "enum": [
       "human",
       "agent"
@@ -1834,8 +1834,8 @@
      "type": "string"
     },
     "reason": {
-     "descriptionLength": 25,
-     "descriptionSha256": "a6800a13b355876057a0eb25035880738e772785bfe67cbb356ceb75f768b7c2",
+     "descriptionLength": 67,
+     "descriptionSha256": "1d240cad1aacb2a1bfb6e1caf33fcf60274bc07d07830494dc33c9456a55ba6b",
      "type": "string"
     },
     "renewal": {
