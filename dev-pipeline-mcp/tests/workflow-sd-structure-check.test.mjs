@@ -86,15 +86,22 @@ test("前端功能與 API 對應表至少一列", () => {
   assert.ok(has(checkSdStructure(empty), /「前端功能與API對應表」至少要有一列/));
 });
 
-test("使用資料表：連結缺、指錯、檔案不存在", () => {
-  assert.ok(has(checkSdStructure(mut("[members 資料表結構](TableSchema/members.md)", "members 資料表結構")), /members）的結構文件要用相對路徑連結/));
-  assert.ok(has(checkSdStructure(mut("(TableSchema/members.md)", "(TableSchema/orders.md)")), /連結 TableSchema\/orders.md 必須是 TableSchema\/members.md/));
+test("使用資料表：連結缺、格式錯、錨點錯、檔案或小節不存在", () => {
+  const L = "[members 資料表結構](TableSchema/members.md#members)";
+  assert.ok(has(checkSdStructure(mut(L, "members 資料表結構")), /members）的結構文件要用相對路徑連結/));
+  assert.ok(has(checkSdStructure(mut("(TableSchema/members.md#members)", "(TableSchema/members.md)")), /格式不對，必須是 TableSchema\/<文件>\.md#members/));
+  assert.ok(has(checkSdStructure(mut("(TableSchema/members.md#members)", "(https://x.example/members.md)")), /格式不對/));
+  assert.ok(has(checkSdStructure(mut("(TableSchema/members.md#members)", "(TableSchema/members.md#orders)")), /錨點 #orders 必須是 #members/));
   const dir = itemWithSchemas();
+  assert.deepEqual(checkSdStructure(T(), dir), []);
   fs.rmSync(path.join(dir, "TableSchema", "orders.md"));
   const r = checkSdStructure(T(), dir);
-  assert.equal(r.length, 1);
-  assert.match(r[0], /orders）連到的 TableSchema\/orders.md 不存在/);
-  assert.ok(has(checkSdStructure(mut("(TableSchema/members.md)", "(https://x.example/members.md)")), /必須是 TableSchema\/members.md/));
+  assert.equal(r.length, 2);
+  assert.match(r[0], /orders）連到的 TableSchema\/orders\.md 不存在/);
+  const dir2 = itemWithSchemas();
+  const f = path.join(dir2, "TableSchema", "orders.md");
+  fs.writeFileSync(f, fs.readFileSync(f, "utf-8").replace("## 資料表：order_items", "## 資料表：other"));
+  assert.match(checkSdStructure(T(), dir2).join("\n"), /order_items）連到的 TableSchema\/orders\.md 沒有「## 資料表：order_items」小節/);
 });
 
 test("沒有動資料庫（工作項目沒有 TableSchema）：使用資料表可以沒有列，其他情況仍要有列", () => {

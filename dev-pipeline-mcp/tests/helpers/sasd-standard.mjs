@@ -9,11 +9,11 @@ export const SA_TEMPLATE = () => readStandard("SA-範本.md");
 export const SD_TEMPLATE = () => readStandard("SD-範本.md");
 export const MOCKUP_TEMPLATE = () => readStandard("mockup-狀態切換範例.html");
 
-/** 資料表結構文件範本拆成每張表一份：{ 表名: 內容 }。 */
+/** 資料表結構文件範本拆成每份文件：{ 主表名: 內容 }（以「交付檔案：TableSchema/<名稱>.md」辨識）。 */
 export function tableSchemaTemplates() {
   const out = {};
   for (const part of readStandard("資料表結構文件-範本.md").split(/\n---\n/)) {
-    const m = /^# (\w+) 資料表結構/m.exec(part);
+    const m = /交付檔案：TableSchema\/(\w[\w-]*)\.md/.exec(part);
     if (m) out[m[1]] = part.trim() + "\n";
   }
   return out;

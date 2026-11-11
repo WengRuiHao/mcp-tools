@@ -29,9 +29,9 @@
 
 | Table | 功能 | 說明 | 結構文件 |
 | --- | --- | --- | --- |
-| members | 會員 | 會員基本資料 | [members 資料表結構](TableSchema/members.md) |
-| orders | 訂單主檔 | 訂單編號、所屬會員、下單時間 | [orders 資料表結構](TableSchema/orders.md) |
-| order_items | 訂單明細 | 每項商品的名稱、數量、小計 | [order_items 資料表結構](TableSchema/order_items.md) |
+| members | 會員 | 會員基本資料 | [members 資料表結構](TableSchema/members.md#members) |
+| orders | 訂單主檔 | 訂單編號、所屬會員、下單時間 | [orders 資料表結構](TableSchema/orders.md#orders) |
+| order_items | 訂單明細 | 每項商品的名稱、數量、小計 | [order_items 資料表結構](TableSchema/orders.md#order_items) |
 
 ### 2. 前端功能與 API 對應表
 

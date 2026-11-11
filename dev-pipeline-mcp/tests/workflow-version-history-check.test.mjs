@@ -11,11 +11,11 @@ const HEAD = "| 版次 | 發行日期 | 修訂說明 | 修訂單位 | 修訂人�
 const doc = (rows, heading = "## 版本管控歷程") => `# 文件\n\n${heading}\n\n${HEAD}${rows}\n\n## 其他\n內容\n`;
 const row = (v, d, n) => `| ${v} | ${d} | ${n} | 團隊 | 某人 |\n`;
 
-test("範本中的版本管控歷程全部合格（SA、SD、三張資料表）", () => {
+test("範本中的版本管控歷程全部合格（SA、SD、兩份資料表文件）", () => {
   assert.deepEqual(checkVersionHistory(SA_TEMPLATE(), "SA"), []);
   assert.deepEqual(checkVersionHistory(SD_TEMPLATE(), "SD"), []);
   for (const [name, text] of Object.entries(tableSchemaTemplates())) assert.deepEqual(checkVersionHistory(text, name), [], name);
-  assert.deepEqual(Object.keys(tableSchemaTemplates()), ["members", "orders", "order_items"]);
+  assert.deepEqual(Object.keys(tableSchemaTemplates()), ["orders", "members"]);
 });
 
 test("單列初版與 1.0、1.1 遞增都合格", () => {

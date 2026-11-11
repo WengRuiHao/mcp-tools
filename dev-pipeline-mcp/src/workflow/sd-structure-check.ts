@@ -1,6 +1,6 @@
 // SD 新標準檢查（取代舊 C3「重用與共用設計」標題檢查）。格式以 docs/sasd-standard/SD-範本.md 為準。
 // 純文字檢查，回傳違規逐項說明（空陣列＝合格）；帶 workItemDir 時另檢查「使用資料表」連結的 TableSchema 檔案存在。
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { headingMatches } from "./heading-match.js";
 import { SD_INTERNAL_TERMS } from "./internal-files.js";
@@ -10,6 +10,7 @@ import { eachLine, listHeadings } from "./sa-image-check.js";
 import { META_SENTENCES, termRe } from "./sa-standard-check.js";
 import { checkSdApis, parseSdApis, splitCommonMethods } from "./sd-api-parse.js";
 import { TABLE_SCHEMA_DIR } from "./table-schema-check.js";
+import { hasTableSection } from "./table-schema-doc.js";
 import { checkVersionHistory } from "./version-history-check.js";
 
 export const SD_FILE_NAME = "03-sd.md";
@@ -35,6 +36,7 @@ export const UNCERTAIN_TERMS: readonly string[] = ["選用", "視情況", "可�
 export const SD_INTERNAL_FILES: readonly string[] = SD_INTERNAL_TERMS;
 const WORD_RES = [...UNCERTAIN_TERMS.map((t) => ({ t, re: termRe(t), kind: "不確定寫法" })), ...SD_INTERNAL_FILES.map((t) => ({ t, re: termRe(t), kind: "內部檔名" }))];
 const LINK_RE = /\[[^\]]*\]\(([^)\s]+)\)/;
+const TABLE_LINK_RE = /^TableSchema\/(\w+)\.md#(.+)$/;
 
 const noSpace = (s: string): string => s.replace(/\s+/g, "");
 const clean = (c: string): string => c.replace(/[`*]/g, "").trim();
@@ -121,11 +123,19 @@ function checkTables(rows: string[][], dir: string | undefined, out: string[]): 
     const w = `${SD_FILE_NAME}「使用資料表」第 ${i + 1} 列`;
     const name = clean(r[0] ?? "");
     const target = LINK_RE.exec(r[3] ?? "")?.[1]?.replace(/^\.\//, "");
+    const m = target ? TABLE_LINK_RE.exec(target) : null;
     if (name === "") out.push(`${w}的 Table 空白`);
-    else if (!target) out.push(`${w}（${name}）的結構文件要用相對路徑連結連到 ${TABLE_SCHEMA_DIR}/${name}.md（只放連結，不放欄位）`);
-    else if (target !== `${TABLE_SCHEMA_DIR}/${name}.md`) out.push(`${w}（${name}）的連結 ${target} 必須是 ${TABLE_SCHEMA_DIR}/${name}.md`);
-    else if (dir && !existsSync(path.join(dir, TABLE_SCHEMA_DIR, `${name}.md`))) out.push(`${w}（${name}）連到的 ${target} 不存在於工作項目的 ${TABLE_SCHEMA_DIR}/`);
+    else if (!target) out.push(`${w}（${name}）的結構文件要用相對路徑連結連到 ${TABLE_SCHEMA_DIR}/<文件>.md#${name}（只放連結，不放欄位）`);
+    else if (!m) out.push(`${w}（${name}）的連結 ${target} 格式不對，必須是 ${TABLE_SCHEMA_DIR}/<文件>.md#${name}（錨點＝表名，對應文件內「## 資料表：${name}」小節）`);
+    else if (m[2].toLowerCase() !== name.toLowerCase()) out.push(`${w}（${name}）的連結錨點 #${m[2]} 必須是 #${name}`);
+    else if (dir) checkTableLink(dir, m[1], name, `${w}（${name}）`, out);
   });
+}
+
+function checkTableLink(dir: string, file: string, name: string, w: string, out: string[]): void {
+  const full = path.join(dir, TABLE_SCHEMA_DIR, `${file}.md`);
+  if (!existsSync(full)) out.push(`${w}連到的 ${TABLE_SCHEMA_DIR}/${file}.md 不存在於工作項目的 ${TABLE_SCHEMA_DIR}/`);
+  else if (!hasTableSection(readFileSync(full, "utf-8"), name)) out.push(`${w}連到的 ${TABLE_SCHEMA_DIR}/${file}.md 沒有「## 資料表：${name}」小節`);
 }
 
 function checkCommon(rows: string[][], out: string[]): Set<string> {

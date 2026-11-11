@@ -1,71 +1,24 @@
-// 步驟 D：資料表結構文件檢查（DB 設計師 done 時）。
-// 02-db.sql 內每個 CREATE TABLE 的資料表，都要有 TableSchema/<表名>.md；每份要有版本管控歷程、欄位清單表（表頭固定）、各規格使用欄位對照，
-// 且欄位清單涵蓋 SQL 內該表的所有欄位。
-import { existsSync, readFileSync } from "node:fs";
+// 資料表結構文件檢查（DB 設計師 done 時）：分組格式。有關聯的表放同一份 TableSchema/<主表名>.md，單獨的表各一份。
+// 每份文件：本文件包含的資料表清單、版本管控歷程（整份一次）、每張表一個「## 資料表：<表名>」小節（欄位清單、索引、各規格使用欄位對照）。
+// 02-db.sql 的每個 CREATE TABLE 必須恰好出現在一份文件的一個小節；欄位清單涵蓋 SQL 全部欄位。
+// 分組由 DB 設計師判斷，程式只擋明顯不合理：同一份文件內的表之間必須有關聯連通。
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { parseTable } from "./md-table.js";
+import { parseCreateTables, type SqlTable } from "./sql-schema-parse.js";
+import { INCLUDED_HEADING, INCLUDED_HEADER, includedTables, tableSections } from "./table-schema-doc.js";
 import { extractSection } from "./reuse-record-check.js";
 import { checkVersionHistory } from "./version-history-check.js";
 
+export { parseCreateTables, type SqlTable };
 export const TABLE_SCHEMA_DIR = "TableSchema";
 export const DB_SQL_FILE = "02-db.sql";
 export const COLUMN_LIST_HEADING = "欄位清單";
 export const USAGE_HEADING = "各規格使用欄位對照";
 export const COLUMN_LIST_HEADER: readonly string[] = ["#", "欄位", "型別", "PK", "說明"];
 export const USAGE_HEADER: readonly string[] = ["規格", "使用欄位"];
-
-export interface SqlTable {
-  name: string;
-  columns: string[];
-}
-
-const NON_COLUMN_RE = /^(?:constraint|primary|foreign|unique|key|index|check|fulltext|spatial|exclude|like)\b/i;
-const stripSqlComments = (sql: string): string => sql.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ");
-const unquote = (id: string): string => id.replace(/^[`"[]+|[`"\]]+$/g, "");
-
-/** 找出對應的右括號位置（text[open] 是左括號）；找不到回 -1。 */
-function matchParen(text: string, open: number): number {
-  let depth = 0;
-  for (let i = open; i < text.length; i++) {
-    if (text[i] === "(") depth++;
-    else if (text[i] === ")" && --depth === 0) return i;
-  }
-  return -1;
-}
-
-/** 以最外層逗號切開欄位定義。 */
-function splitTopLevel(body: string): string[] {
-  const parts: string[] = [];
-  let depth = 0;
-  let cur = "";
-  for (const ch of body) {
-    if (ch === "(") depth++;
-    else if (ch === ")") depth--;
-    if (ch === "," && depth === 0) {
-      parts.push(cur);
-      cur = "";
-    } else cur += ch;
-  }
-  return [...parts, cur].map((p) => p.trim()).filter(Boolean);
-}
-
-/** 解析 SQL 中所有 CREATE TABLE 的表名與欄位名稱（表名去掉 schema 前綴與引號）。 */
-export function parseCreateTables(sql: string): SqlTable[] {
-  const text = stripSqlComments(sql);
-  const out: SqlTable[] = [];
-  for (const m of text.matchAll(/CREATE\s+(?:(?:GLOBAL\s+|LOCAL\s+)?TEMP(?:ORARY)?\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([`"[\]\w.]+)\s*\(/gi)) {
-    const open = (m.index ?? 0) + m[0].length - 1;
-    const close = matchParen(text, open);
-    if (close < 0) continue;
-    const name = unquote(m[1].split(".").pop() ?? "");
-    const columns = splitTopLevel(text.slice(open + 1, close))
-      .filter((item) => !NON_COLUMN_RE.test(item))
-      .map((item) => unquote(/^([`"[\]\w]+)/.exec(item)?.[1] ?? ""))
-      .filter(Boolean);
-    out.push({ name, columns });
-  }
-  return out;
-}
+/** 系統 ER 圖文件（檔名固定、含連字號，不會與表名衝突）。 */
+export const SYSTEM_ER_FILE = "system-er.md";
 
 const clean = (c: string): string => c.replace(/[`*_]/g, "").trim();
 const sameHeader = (header: readonly string[], want: readonly string[]): boolean => header.length === want.length && header.every((h, i) => clean(h) === want[i]);
@@ -73,7 +26,7 @@ const RELATIVE_LINK_RE = /\[[^\]]+\]\((?!https?:|\/|[a-z]:|mailto:|#)[^)\s]+\)/i
 
 function checkColumnList(text: string, where: string, columns: readonly string[]): string[] {
   const body = extractSection(text, COLUMN_LIST_HEADING);
-  if (body === null) return [`${where} 缺少「## ${COLUMN_LIST_HEADING}」一節`];
+  if (body === null) return [`${where} 缺少「### ${COLUMN_LIST_HEADING}」一節`];
   const table = parseTable(body);
   if (table === null || !sameHeader(table.header, COLUMN_LIST_HEADER)) return [`${where}「${COLUMN_LIST_HEADING}」必須是表格，表頭固定為：${COLUMN_LIST_HEADER.join("｜")}`];
   const listed = new Set(table.rows.map((r) => (r[1] ?? "").replace(/[`*]/g, "").trim().toLowerCase()));
@@ -83,29 +36,86 @@ function checkColumnList(text: string, where: string, columns: readonly string[]
 
 function checkUsage(text: string, where: string): string[] {
   const body = extractSection(text, USAGE_HEADING);
-  if (body === null) return [`${where} 缺少「## ${USAGE_HEADING}」一節`];
+  if (body === null) return [`${where} 缺少「### ${USAGE_HEADING}」一節`];
   const table = parseTable(body);
   if (table === null || !sameHeader(table.header, USAGE_HEADER)) return [`${where}「${USAGE_HEADING}」必須是表格，表頭固定為：${USAGE_HEADER.join("｜")}`];
   if (table.rows.length === 0) return [`${where}「${USAGE_HEADING}」至少要有一列（哪份規格使用哪些欄位）`];
   return table.rows.flatMap((r, i) => (RELATIVE_LINK_RE.test(r[0] ?? "") ? [] : [`${where}「${USAGE_HEADING}」第 ${i + 1} 列的規格要用相對路徑連結連回規格文件（例如 [規格名稱](../03-sd.md)）`]));
 }
 
-/** 檢查單一資料表結構文件全文。 */
-export function checkTableSchemaText(text: string, fileName: string, columns: readonly string[]): string[] {
-  return [...checkVersionHistory(text, fileName), ...checkColumnList(text, fileName, columns), ...checkUsage(text, fileName)];
+/** 檢查單一表小節（欄位清單、各規格使用欄位對照）。 */
+export function checkTableSection(body: string, where: string, columns: readonly string[]): string[] {
+  return [...checkColumnList(body, where, columns), ...checkUsage(body, where)];
 }
 
-/** 檢查工作項目：02-db.sql 的每個資料表都有結構文件且內容合格；沒有 02-db.sql 回空陣列（缺檔由一般交件檢查回報）。 */
+/** 一份文件結構檢查：包含清單、版本管控歷程、每個小節；回傳違規與文件內的表名。 */
+export function checkDocStructure(text: string, rel: string, sqlTables: readonly SqlTable[]): { problems: string[]; tables: string[] } {
+  const problems = checkVersionHistory(text, rel);
+  const sections = tableSections(text);
+  const listed = includedTables(text);
+  const incBody = extractSection(text, INCLUDED_HEADING);
+  const incTable = incBody === null ? null : parseTable(incBody);
+  if (listed === null || incTable === null || !sameHeader(incTable.header, INCLUDED_HEADER)) problems.push(`${rel} 缺少「## ${INCLUDED_HEADING}」表格（表頭固定為：${INCLUDED_HEADER.join("｜")}），列出本文件包含的每張表`);
+  if (sections.length === 0) problems.push(`${rel} 沒有任何「## 資料表：<表名>」小節`);
+  const names = sections.map((s) => s.table);
+  names.forEach((n, i) => names.indexOf(n) !== i && problems.push(`${rel} 的資料表 ${n} 小節重複出現`));
+  if (listed !== null && [...listed].sort().join(",") !== [...names].sort().join(",")) problems.push(`${rel}「${INCLUDED_HEADING}」（${listed.join("、")}）必須與文件內的「資料表：」小節（${names.join("、")}）一致`);
+  const stem = path.posix.basename(rel, ".md");
+  if (listed && listed.length > 0 && listed[0] !== stem) problems.push(`${rel} 檔名必須是主表名：「${INCLUDED_HEADING}」第一列是 ${listed[0]}，檔名應為 ${TABLE_SCHEMA_DIR}/${listed[0]}.md`);
+  for (const s of sections) {
+    const t = sqlTables.find((x) => x.name === s.table);
+    if (!t) problems.push(`${rel} 的資料表 ${s.table} 不在 ${DB_SQL_FILE} 的 CREATE TABLE 內`);
+    else problems.push(...checkTableSection(s.body, `${rel}「資料表：${s.table}」`, t.columns));
+  }
+  return { problems, tables: names };
+}
+
+/** 同一份文件內的表必須經由外鍵（或關聯清單的邏輯關聯）連通。links 為額外的關聯對（子表, 父表）。 */
+export function checkConnected(tables: readonly string[], sqlTables: readonly SqlTable[], rel: string, links: readonly [string, string][] = []): string[] {
+  if (tables.length < 2) return [];
+  const edges: [string, string][] = [...links, ...sqlTables.filter((t) => tables.includes(t.name)).flatMap((t) => t.foreignKeys.map((f): [string, string] => [t.name, f.parentTable]))];
+  const seen = new Set<string>([tables[0]]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const [a, b] of edges) {
+      if (seen.has(a) !== seen.has(b) && tables.includes(a) && tables.includes(b)) {
+        seen.add(a).add(b);
+        grew = true;
+      }
+    }
+  }
+  const apart = tables.filter((t) => !seen.has(t));
+  return apart.length > 0 ? [`${rel} 內的資料表 ${apart.join("、")} 與其他表沒有任何關聯（外鍵或關聯清單），不可硬湊在同一份文件；沒有關聯的表請各自一份`] : [];
+}
+
+/** TableSchema/ 內的分組文件檔名（不含系統 ER 圖）。 */
+export function schemaDocFiles(workItemDir: string): string[] {
+  try {
+    return readdirSync(path.join(workItemDir, TABLE_SCHEMA_DIR)).filter((f) => f.toLowerCase().endsWith(".md") && f !== SYSTEM_ER_FILE).sort();
+  } catch {
+    return [];
+  }
+}
+
+/** 檢查工作項目：02-db.sql 的每個資料表恰好在一份文件的一個小節；沒有 02-db.sql 回空陣列（缺檔由一般交件檢查回報）。 */
 export function checkTableSchemas(workItemDir: string): string[] {
   const sqlFile = path.join(workItemDir, DB_SQL_FILE);
   if (!existsSync(sqlFile)) return [];
+  const sqlTables = parseCreateTables(readFileSync(sqlFile, "utf-8"));
   const problems: string[] = [];
-  for (const t of parseCreateTables(readFileSync(sqlFile, "utf-8"))) {
-    const rel = `${TABLE_SCHEMA_DIR}/${t.name}.md`;
-    const file = path.join(workItemDir, TABLE_SCHEMA_DIR, `${t.name}.md`);
-    if (!/^\w+$/.test(t.name)) problems.push(`資料表「${t.name}」的名稱不是英數字與底線，無法對應 ${TABLE_SCHEMA_DIR}/<表名>.md`);
-    else if (!existsSync(file)) problems.push(`02-db.sql 的資料表 ${t.name} 缺少結構文件 ${rel}`);
-    else problems.push(...checkTableSchemaText(readFileSync(file, "utf-8"), rel, t.columns));
+  const owner = new Map<string, string[]>();
+  for (const t of sqlTables) if (!/^\w+$/.test(t.name)) problems.push(`資料表「${t.name}」的名稱不是英數字與底線，無法作為小節名稱與檔名`);
+  for (const f of schemaDocFiles(workItemDir)) {
+    const rel = `${TABLE_SCHEMA_DIR}/${f}`;
+    const text = readFileSync(path.join(workItemDir, TABLE_SCHEMA_DIR, f), "utf-8");
+    const r = checkDocStructure(text, rel, sqlTables);
+    problems.push(...r.problems, ...checkConnected(r.tables, sqlTables, rel));
+    for (const n of new Set(r.tables)) owner.set(n, [...(owner.get(n) ?? []), rel]);
+  }
+  for (const t of sqlTables) {
+    const docs = owner.get(t.name) ?? [];
+    if (docs.length === 0) problems.push(`${DB_SQL_FILE} 的資料表 ${t.name} 沒有出現在任何 ${TABLE_SCHEMA_DIR}/ 文件的小節（每張表都要有「## 資料表：${t.name}」）`);
+    else if (docs.length > 1) problems.push(`資料表 ${t.name} 同時出現在多份文件（${docs.join("、")}），每張表只能在一份文件的一個小節`);
   }
   return problems;
 }
