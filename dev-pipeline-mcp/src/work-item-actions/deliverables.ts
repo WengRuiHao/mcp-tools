@@ -175,6 +175,8 @@ export interface DeliverableContext {
   techSource?: string | undefined;
   /** 工作項目的專案目錄；沒有時分層檢查只比對 impl 說明與 SD。 */
   projectDir?: string | null | undefined;
+  /** 既有系統才需要既有資料表。 */
+  baseline?: string | undefined;
 }
 
 export async function checkDeliverables(dir: string, roleId: string, def: WorkflowDefinition, ctx: DeliverableContext = {}): Promise<string[]> {
@@ -196,7 +198,7 @@ export async function checkDeliverables(dir: string, roleId: string, def: Workfl
     if (art.render && !((await sizeOf(path.join(dir, art.render))) ?? 0)) problems.push(`缺少圖片 ${art.render}（必須存在且非空；用 attach 或 render 產生）`);
   }
   if (roleId === "sa-analyst") problems.push(...(await checkSa(dir)));
-  if (roleId === "db-designer") problems.push(...checkTableSchemas(dir).map((v) => `資料表結構文件檢查未通過：${v}`));
+  if (roleId === "db-designer") problems.push(...checkTableSchemas(dir, { baseline: ctx.baseline, projectDir: ctx.projectDir }).map((v) => `資料表結構文件檢查未通過：${v}`));
   if (roleId === "mockup-designer") problems.push(...checkMockupDir(dir).map((v) => `mockup 檢查未通過：${v}`));
   if (roleId === "flow-analyst") problems.push(...checkMermaidFile(dir).map((v) => `流程圖（flow.mmd）格式檢查未通過：${v}`));
   if (roleId === "tester") problems.push(...(await checkTest(dir)));

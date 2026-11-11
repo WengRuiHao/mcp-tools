@@ -7,6 +7,7 @@ import type { WorkflowDefinition } from "../workflow/schema.js";
 import { WorkItemActionError, need, okReply, type ToolReply } from "./common.js";
 import { loadEffectiveDef, loadWorkItem } from "./context.js";
 import { convertSaToDocx } from "../export/sa-docx.js";
+import { listLogicalRelations } from "../workflow/table-schema-check.js";
 import { checkDeliverables } from "./deliverables.js";
 import { checkDuplicatesOnDone } from "./dup-check.js";
 import type { WorkItemArgs } from "./schema.js";
@@ -48,7 +49,7 @@ export async function handleDone(a: WorkItemArgs): Promise<ToolReply> {
   const ctx = await loadWorkItem(workItemId);
   const { def, overrideApplied } = await loadEffectiveDef(ctx.status);
   assertAvailable(ctx.status, def, overrideApplied, roleId);
-  const basic = await checkDeliverables(ctx.dir, roleId, def, { techSource: ctx.status.tech_source, projectDir: ctx.status.project_dir });
+  const basic = await checkDeliverables(ctx.dir, roleId, def, { techSource: ctx.status.tech_source, projectDir: ctx.status.project_dir, baseline: ctx.status.baseline });
   const problems = basic.length > 0 ? basic : await checkDuplicatesOnDone(ctx.dir, ctx.status.project_dir, roleId, def);
   if (problems.length > 0) throw new WorkItemActionError(`交件檢查未通過，角色「${roleId}」未標記完成：${problems.join("；")}`, { problems });
   const warnings: string[] = [];
@@ -56,6 +57,10 @@ export async function handleDone(a: WorkItemArgs): Promise<ToolReply> {
     const docx = await convertSaToDocx(ctx.dir);
     if (docx.status === "failed") throw new WorkItemActionError(`交件檢查未通過，角色「${roleId}」未標記完成：${docx.message}`, { problems: [docx.message] });
     if (docx.status === "unavailable") warnings.push(`未產生 01-sa.docx：${docx.hint}`);
+  }
+  if (roleId === "db-designer") {
+    const logical = listLogicalRelations(ctx.dir);
+    if (logical.length > 0) warnings.push(`邏輯關聯清單（程式無法驗證真偽，規格驗證師須對照程式碼確認）：${logical.join("；")}`);
   }
   const updated = await updateStatus(ctx.id, (s) => {
     assertAvailable(s, def, overrideApplied, roleId);

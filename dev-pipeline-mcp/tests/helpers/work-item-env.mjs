@@ -24,6 +24,7 @@ export const VALID_TABLE_SCHEMA = [
   "## 版本管控歷程", "", "| 版次 | 發行日期 | 修訂說明 | 修訂單位 | 修訂人員 |", "| --- | --- | --- | --- | --- |", "| 1.0 | 2026/11/10 | 初版 | 示範團隊 | 系統分析師 |", "",
   "## 資料表：t", "", "### 欄位清單", "", "| # | 欄位 | 型別 | PK | 說明 |", "|:-:|---|---|:-:|---|", "| 1 | id | INT | ✓ | 編號 |", "",
   "### 各規格使用欄位對照", "", "| 規格 | 使用欄位 |", "| --- | --- |", "| [登入](../03-sd.md) | id |", "",
+  "## 關聯清單", "", "| 子表 | 子表欄位 | 父表 | 父表欄位 | 關係 | 依據 |", "| --- | --- | --- | --- | --- | --- |", "",
 ].join("\n");
 /** 通過 mockup 檢查的精簡可操作原型。 */
 export const VALID_MOCKUP = `<!doctype html><html><body data-demo-states="normal,loading,success,failed,empty"><button id="b">登入</button><script>document.getElementById("b").addEventListener("click", function () {});</script></body></html>`;

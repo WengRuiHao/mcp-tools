@@ -5,6 +5,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { parseTable } from "./md-table.js";
+import { mergeExisting, readExistingSection, scanProjectTables } from "./existing-tables.js";
+import { checkRelationList, type Relation } from "./relation-list-check.js";
 import { parseCreateTables, type SqlTable } from "./sql-schema-parse.js";
 import { INCLUDED_HEADING, INCLUDED_HEADER, includedTables, tableSections } from "./table-schema-doc.js";
 import { extractSection } from "./reuse-record-check.js";
@@ -88,6 +90,22 @@ export function checkConnected(tables: readonly string[], sqlTables: readonly Sq
   return apart.length > 0 ? [`${rel} 內的資料表 ${apart.join("、")} 與其他表沒有任何關聯（外鍵或關聯清單），不可硬湊在同一份文件；沒有關聯的表請各自一份`] : [];
 }
 
+/** 全部分組文件的關聯清單列（供 ER 圖比對與邏輯關聯清單使用）。 */
+export function collectRelations(workItemDir: string, sqlTables: readonly SqlTable[]): Relation[] {
+  return schemaDocFiles(workItemDir).flatMap((f) => {
+    const text = readFileSync(path.join(workItemDir, TABLE_SCHEMA_DIR, f), "utf-8");
+    return checkRelationList(text, f, tableSections(text).map((s) => s.table), sqlTables, () => undefined).relations;
+  });
+}
+
+/** 邏輯關聯清單：程式無法驗證真偽，列給規格驗證師對照程式碼確認。 */
+export function listLogicalRelations(workItemDir: string): string[] {
+  const sqlFile = path.join(workItemDir, DB_SQL_FILE);
+  if (!existsSync(sqlFile)) return [];
+  const rels = collectRelations(workItemDir, parseCreateTables(readFileSync(sqlFile, "utf-8")));
+  return rels.filter((r) => r.basis === "邏輯關聯").map((r) => `${r.child}.${r.childCols.join("、")} → ${r.parent}.${r.parentCols.join("、")}（${r.kind}）`);
+}
+
 /** TableSchema/ 內的分組文件檔名（不含系統 ER 圖）。 */
 export function schemaDocFiles(workItemDir: string): string[] {
   try {
@@ -97,11 +115,27 @@ export function schemaDocFiles(workItemDir: string): string[] {
   }
 }
 
+export interface SchemaCheckOptions {
+  /** brownfield 才需要既有資料表（外鍵可指向既有表）。 */
+  baseline?: string | undefined;
+  /** 掃描既有 DB 腳本用的專案目錄。 */
+  projectDir?: string | null | undefined;
+}
+
+/** 既有資料表（僅 brownfield）：專案 .sql 掃描，加上 system-er.md「既有資料表」一節。 */
+export function loadExistingTables(workItemDir: string, sqlTables: readonly SqlTable[], opts: SchemaCheckOptions): SqlTable[] {
+  if (opts.baseline !== "brownfield") return [];
+  const section = readExistingSection(path.join(workItemDir, TABLE_SCHEMA_DIR, SYSTEM_ER_FILE));
+  return mergeExisting(scanProjectTables(opts.projectDir), section, sqlTables.map((t) => t.name));
+}
+
 /** 檢查工作項目：02-db.sql 的每個資料表恰好在一份文件的一個小節；沒有 02-db.sql 回空陣列（缺檔由一般交件檢查回報）。 */
-export function checkTableSchemas(workItemDir: string): string[] {
+export function checkTableSchemas(workItemDir: string, opts: SchemaCheckOptions = {}): string[] {
   const sqlFile = path.join(workItemDir, DB_SQL_FILE);
   if (!existsSync(sqlFile)) return [];
   const sqlTables = parseCreateTables(readFileSync(sqlFile, "utf-8"));
+  const existing = loadExistingTables(workItemDir, sqlTables, opts);
+  const lookup = (n: string) => sqlTables.find((t) => t.name === n) ?? existing.find((t) => t.name === n);
   const problems: string[] = [];
   const owner = new Map<string, string[]>();
   for (const t of sqlTables) if (!/^\w+$/.test(t.name)) problems.push(`資料表「${t.name}」的名稱不是英數字與底線，無法作為小節名稱與檔名`);
@@ -109,7 +143,8 @@ export function checkTableSchemas(workItemDir: string): string[] {
     const rel = `${TABLE_SCHEMA_DIR}/${f}`;
     const text = readFileSync(path.join(workItemDir, TABLE_SCHEMA_DIR, f), "utf-8");
     const r = checkDocStructure(text, rel, sqlTables);
-    problems.push(...r.problems, ...checkConnected(r.tables, sqlTables, rel));
+    const rels = checkRelationList(text, rel, r.tables, sqlTables, lookup);
+    problems.push(...r.problems, ...rels.problems, ...checkConnected(r.tables, sqlTables, rel, rels.relations.map((x): [string, string] => [x.child, x.parent])));
     for (const n of new Set(r.tables)) owner.set(n, [...(owner.get(n) ?? []), rel]);
   }
   for (const t of sqlTables) {

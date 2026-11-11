@@ -79,7 +79,8 @@ test("同一張表出現在多份文件、小節重複、文件內的表不在 S
 });
 
 test("沒有關聯的表不可硬湊同一份文件；有外鍵連通可以", () => {
-  const both = `${T().orders.replace("| order_items | 訂單明細 |", "| order_items | 訂單明細 |\n| members | 會員 |")}\n${sectionOf(T().members, "members")}`;
+  const noRow = T().orders.replace("| orders | member_id | members | id | 一對多 | 外鍵約束 |\n", "");
+  const both = `${noRow.replace("| order_items | 訂單明細 |", "| order_items | 訂單明細 |\n| members | 會員 |")}\n${sectionOf(T().members, "members")}`;
   const r = checkTableSchemas(item({ orders: both }, SQL_NO_MEMBER_FK));
   assert.ok(has(r, /members 與其他表沒有任何關聯/), r.join("\n"));
   assert.equal(has(checkTableSchemas(item({ orders: both })), /沒有任何關聯/), false);
