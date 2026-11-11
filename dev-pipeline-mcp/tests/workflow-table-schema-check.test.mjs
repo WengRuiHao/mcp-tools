@@ -4,25 +4,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpDir, removeDir } from "./helpers/support.mjs";
-import { tableSchemaTemplates } from "./helpers/sasd-standard.mjs";
+import { tableSchemaTemplates, TEMPLATE_SQL, installSchemaExtras } from "./helpers/sasd-standard.mjs";
 
 const { checkTableSchemas, checkTableSection, parseCreateTables } = await import("../dist/workflow/table-schema-check.js");
 const root = makeTmpDir("dpm-tschema-");
 after(() => removeDir(root));
 
-const SQL = `-- 會員匯出訂單
-CREATE TABLE members (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, created_at TEXT);
-CREATE TABLE IF NOT EXISTS "orders" (
-  id INTEGER PRIMARY KEY, /* 主鍵 */
-  order_no TEXT UNIQUE,
-  member_id INTEGER REFERENCES members(id),
-  ordered_at TEXT,
-  FOREIGN KEY (member_id) REFERENCES members(id)
-);
-CREATE INDEX idx_orders_member_date ON orders(member_id, ordered_at);
-CREATE TABLE dbo.order_items (id INTEGER PRIMARY KEY, order_id INTEGER, product_name TEXT, quantity INTEGER CHECK (quantity > 0), subtotal INTEGER, CONSTRAINT fk FOREIGN KEY (order_id) REFERENCES orders(id));
-`;
-const SQL_NO_MEMBER_FK = SQL.replace("member_id INTEGER REFERENCES members(id),", "member_id INTEGER,").replace("  FOREIGN KEY (member_id) REFERENCES members(id)\n", "  CHECK (1 = 1)\n");
+const SQL = TEMPLATE_SQL;
+const SQL_NO_MEMBER_FK = SQL.replace("member_id INTEGER NOT NULL REFERENCES members(id),", "member_id INTEGER NOT NULL,").replace("  FOREIGN KEY (member_id) REFERENCES members(id)\n", "  CHECK (1 = 1)\n");
 
 let n = 0;
 /** schemas: { 檔名: 內容 }；sql 預設為 SQL。 */
@@ -30,6 +19,7 @@ function item(schemas, sql = SQL) {
   const dir = path.join(root, `w${n++}`);
   fs.mkdirSync(path.join(dir, "TableSchema"), { recursive: true });
   fs.writeFileSync(path.join(dir, "02-db.sql"), sql);
+  installSchemaExtras(dir);
   for (const [name, text] of Object.entries(schemas)) fs.writeFileSync(path.join(dir, "TableSchema", `${name}.md`), text);
   return dir;
 }

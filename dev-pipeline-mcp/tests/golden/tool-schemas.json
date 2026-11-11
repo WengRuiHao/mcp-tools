@@ -1727,8 +1727,8 @@
  },
  "toolCount": 43,
  "work_item": {
-  "descriptionLength": 1188,
-  "descriptionSha256": "3745a333fd0d675f80a50cb4331afc639db04acaf8ed65db625e6d821d8a1181",
+  "descriptionLength": 1220,
+  "descriptionSha256": "ff139c4e1ad75bce794ce0ab22c03677b72d788237f4a27d63ee22b9830b7404",
   "inputSchema": {
    "$schema": "http://json-schema.org/draft-07/schema#",
    "additionalProperties": false,
@@ -1783,13 +1783,14 @@
      "type": "string"
     },
     "destDir": {
-     "descriptionLength": 30,
-     "descriptionSha256": "d23375d4151c2f3279d429c9420d90685e4b9ec66c4375d850762cec74b8180f",
+     "descriptionLength": 83,
+     "descriptionSha256": "37a94489c5e82042d458cf599492f1206dec32ae944bbc5fcab0661172e6705a",
      "enum": [
       "sa-mockup",
       "sa-images",
       "evidence",
-      "flow"
+      "flow",
+      "er"
      ],
      "type": "string"
     },
@@ -1809,8 +1810,8 @@
      "type": "boolean"
     },
     "kind": {
-     "descriptionLength": 82,
-     "descriptionSha256": "89b004926aa8f4be27cb0c829dc110d7c890ee2c58859ec17539b0ed2289c4a5",
+     "descriptionLength": 152,
+     "descriptionSha256": "9be84cd1a9b5733b3eeb5a3526dc4a8e0152453c4a86d328f6b330aa77140974",
      "enum": [
       "html",
       "mermaid",

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { SA_TEMPLATE, SD_TEMPLATE, tableSchemaTemplates } from "./helpers/sasd-standard.mjs";
+import { SA_TEMPLATE, SD_TEMPLATE, tableSchemaTemplates, systemErTemplate } from "./helpers/sasd-standard.mjs";
 import { setupEnv, runUntil, fulfil } from "./helpers/work-item-env.mjs";
 
 const { checkDeliverablePointers } = await import("../dist/workflow/deliverable-pointer-check.js");
@@ -67,6 +67,17 @@ test("suppress：SA／SD 標準檢查已回報的內部檔名不重複判定", a
   assert.match(sup[0], /tech-stack\.md/);
 });
 
+test("ER 圖 PNG：只允許 TableSchema/er/ 的固定位置，範本（含系統 ER 圖）合格", async () => {
+  const schemas = { ...tableSchemaTemplates(), "system-er": systemErTemplate() };
+  assert.deepEqual(checkDeliverablePointers(await makeDir({ schemas }), def, { only: ["table-schema"] }), []);
+  const bad = (ref) => makeDir({ schemas: { orders: tableSchemaTemplates().orders.replace("er/orders.png", ref) } }).then((d) => checkDeliverablePointers(d, def, { only: ["table-schema"] }));
+  for (const ref of ["er/x.jpg", "https://example.com/er/a.png", "../other/er/a.png", "er/sub/a.png", "../flow.mmd", "er/%E4%B8%AD.png", "/er/a.png"]) {
+    const r = await bad(ref);
+    assert.ok(r.some((v) => v.includes("圖片") && v.includes(ref)), ref);
+  }
+  assert.deepEqual(await bad("er/a_b-1.png"), []);
+});
+
 const env = await setupEnv("wi-ptr-");
 after(() => env.cleanup());
 
@@ -75,7 +86,7 @@ test("get 列出正式交付物與內部過程檔兩組；內部檔不在交付�
   const r = (await env.call({ action: "get", workItemId: id })).json;
   const del = r.deliverables.map((f) => f.path);
   const internal = r.internalFiles.map((f) => f.path);
-  assert.deepEqual(del.sort(), ["01-sa.docx", "01-sa.md", "03-sd.md", "TableSchema/", "flow.png", "sa-images/"].sort());
+  assert.deepEqual(del.sort(), ["01-sa.docx", "01-sa.md", "03-sd.md", "TableSchema/", "TableSchema/er/", "flow.png", "sa-images/"].sort());
   for (const f of ["sa-notes.md", "02-db.sql", "02-db.md", "spec-check.md", "impl-fe.md", "verify.md", "test.md", "dup-report.md", "sa-mockup/"]) assert.ok(internal.includes(f), f);
   assert.equal(internal.some((p) => del.includes(p)), false);
 });

@@ -43,7 +43,7 @@ test("auto 關卡：agent 需完整審查申報；申報不完整或任一硬停
 test("destructive-db：SQL 含 DROP 時 agent 無法確認 db-flow-confirm，human 可以", async () => {
   const { id, dir } = await env.create();
   await runUntil(env, id, dir, "db-designer");
-  await fulfil(dir, "db-designer", { sql: "DROP TABLE users; CREATE TABLE t (id INT);" });
+  await fulfil(dir, "db-designer", { sql: "DROP TABLE users; CREATE TABLE t (id INT PRIMARY KEY);" });
   assert.equal((await env.call({ action: "done", workItemId: id, roleId: "db-designer" })).isError, false);
   await fulfil(dir, "flow-analyst");
   await env.call({ action: "done", workItemId: id, roleId: "flow-analyst" });

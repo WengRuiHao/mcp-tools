@@ -13,7 +13,10 @@ const ALLOWED_EXT: Record<DestDir, readonly string[]> = {
   "sa-images": IMAGE_EXT,
   evidence: IMAGE_EXT,
   flow: ["png"],
+  er: ["png"],
 };
+/** er：ER 圖 PNG 固定放 TableSchema/er/，檔名由 name 指定（<文件名>.png 或 system-er.png）。 */
+const ER_DIR = "TableSchema/er";
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
 const MAX_NAME_LEN = 80;
@@ -47,6 +50,7 @@ export async function handleAttach(a: WorkItemArgs): Promise<ToolReply> {
   const limit = IMAGE_EXT.includes(srcExt) ? MAX_IMAGE_BYTES : MAX_TEXT_BYTES;
   if (size === 0) throw new WorkItemActionError("來源檔是空的。");
   if (size > limit) throw new WorkItemActionError(`來源檔太大（${size} bytes），上限 ${limit} bytes。`);
+  if (destDir === "er" && !/^[A-Za-z0-9_-]+\.png$/.test(a.name?.trim() ?? "")) throw new WorkItemActionError("destDir=er 必須帶 name（ER 圖檔名，限英數字、底線與連字號，例如 orders.png 或 system-er.png）。");
   let fileName = FLOW_IMAGE_NAME;
   if (destDir !== "flow") {
     fileName = sanitizeAttachName(a.name?.trim() ? a.name.trim() : path.basename(srcPath));
@@ -55,7 +59,7 @@ export async function handleAttach(a: WorkItemArgs): Promise<ToolReply> {
   }
   const ctx = await loadWorkItem(workItemId);
   try {
-    const target = destDir === "flow" ? ctx.dir : path.join(ctx.dir, destDir);
+    const target = destDir === "flow" ? ctx.dir : path.join(ctx.dir, destDir === "er" ? ER_DIR : destDir);
     await mkdir(target, { recursive: true });
     const realTarget = await realpath(target);
     const realDir = await realpath(ctx.dir);

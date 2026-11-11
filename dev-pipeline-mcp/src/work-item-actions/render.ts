@@ -1,6 +1,7 @@
 import type { Renderer } from "../render/index.js";
 import { WorkItemActionError, need, okReply, type ToolReply } from "./common.js";
 import { loadWorkItem } from "./context.js";
+import { ER_MD_SRC_RE, withErDiagramSource } from "./render-er.js";
 import type { WorkItemArgs } from "./schema.js";
 import { convertSaToDocx } from "../export/sa-docx.js";
 import { textResult } from "../shared.js";
@@ -17,10 +18,13 @@ export async function handleRender(a: WorkItemArgs, renderer: Renderer): Promise
   if (!availability.available) {
     return textResult({ success: false, ok: false, reason: availability.reason, hint: `${availability.hint ?? "內建產圖功能不可用"}${ATTACH_FALLBACK}` });
   }
+  const mermaid = (mmdPath: string) => renderer.renderMermaidToPng({ baseDir: ctx.dir, mmdPath, outPath: out });
   const result =
     kind === "html"
       ? await renderer.renderHtmlToPng({ baseDir: ctx.dir, htmlPath: src, outPath: out })
-      : await renderer.renderMermaidToPng({ baseDir: ctx.dir, mmdPath: src, outPath: out });
+      : ER_MD_SRC_RE.test(src)
+        ? await withErDiagramSource(ctx.dir, src, out, mermaid)
+        : await mermaid(src);
   if (!result.ok) return textResult({ success: false, ok: false, reason: result.reason, hint: `${result.hint}${ATTACH_FALLBACK}` });
   return okReply({ workItemId: ctx.id, ok: true, out, bytes: result.bytes });
 }

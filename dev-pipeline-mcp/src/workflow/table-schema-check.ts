@@ -5,9 +5,10 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { parseTable } from "./md-table.js";
+import { checkModuleEr, checkSystemEr } from "./er-docs-check.js";
 import { mergeExisting, readExistingSection, scanProjectTables } from "./existing-tables.js";
 import { checkRelationList, type Relation } from "./relation-list-check.js";
-import { parseCreateTables, type SqlTable } from "./sql-schema-parse.js";
+import { parseAlteredTables, parseCreateTables, type SqlTable } from "./sql-schema-parse.js";
 import { INCLUDED_HEADING, INCLUDED_HEADER, includedTables, tableSections } from "./table-schema-doc.js";
 import { extractSection } from "./reuse-record-check.js";
 import { checkVersionHistory } from "./version-history-check.js";
@@ -133,7 +134,9 @@ export function loadExistingTables(workItemDir: string, sqlTables: readonly SqlT
 export function checkTableSchemas(workItemDir: string, opts: SchemaCheckOptions = {}): string[] {
   const sqlFile = path.join(workItemDir, DB_SQL_FILE);
   if (!existsSync(sqlFile)) return [];
-  const sqlTables = parseCreateTables(readFileSync(sqlFile, "utf-8"));
+  const sqlText = readFileSync(sqlFile, "utf-8");
+  const sqlTables = parseCreateTables(sqlText);
+  const allRelations: Relation[] = [];
   const existing = loadExistingTables(workItemDir, sqlTables, opts);
   const lookup = (n: string) => sqlTables.find((t) => t.name === n) ?? existing.find((t) => t.name === n);
   const problems: string[] = [];
@@ -144,6 +147,8 @@ export function checkTableSchemas(workItemDir: string, opts: SchemaCheckOptions 
     const text = readFileSync(path.join(workItemDir, TABLE_SCHEMA_DIR, f), "utf-8");
     const r = checkDocStructure(text, rel, sqlTables);
     const rels = checkRelationList(text, rel, r.tables, sqlTables, lookup);
+    allRelations.push(...rels.relations);
+    problems.push(...checkModuleEr(text, rel, workItemDir, sqlTables.filter((t) => r.tables.includes(t.name)), rels.relations));
     problems.push(...r.problems, ...rels.problems, ...checkConnected(r.tables, sqlTables, rel, rels.relations.map((x): [string, string] => [x.child, x.parent])));
     for (const n of new Set(r.tables)) owner.set(n, [...(owner.get(n) ?? []), rel]);
   }
@@ -152,5 +157,6 @@ export function checkTableSchemas(workItemDir: string, opts: SchemaCheckOptions 
     if (docs.length === 0) problems.push(`${DB_SQL_FILE} 的資料表 ${t.name} 沒有出現在任何 ${TABLE_SCHEMA_DIR}/ 文件的小節（每張表都要有「## 資料表：${t.name}」）`);
     else if (docs.length > 1) problems.push(`資料表 ${t.name} 同時出現在多份文件（${docs.join("、")}），每張表只能在一份文件的一個小節`);
   }
+  problems.push(...checkSystemEr({ dir: workItemDir, sqlTables, sqlText, relations: allRelations, brownfield: opts.baseline === "brownfield", projectDir: opts.projectDir, existing, alteredTables: parseAlteredTables(sqlText) }));
   return problems;
 }

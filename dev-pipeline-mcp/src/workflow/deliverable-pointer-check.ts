@@ -1,4 +1,4 @@
-// 正式交付物引用檢查：所有 deliverable=true 的 markdown 不可連結或提及內部過程檔／目錄，圖片只能引用 sa-images/ 或 flow.png。
+// 正式交付物引用檢查：所有 deliverable=true 的 markdown 不可連結或提及內部過程檔／目錄，圖片只能引用 sa-images/、flow.png 或 TableSchema/er/ 的 ER 圖。
 // 回傳違規逐項說明（空陣列＝合格）。SA／SD 標準檢查已回報過的內部檔名，可由 suppress 抑制，避免同一次交件重複判定。
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -9,6 +9,8 @@ import { termRe } from "./sa-standard-check.js";
 import type { WorkflowDefinition } from "./schema.js";
 
 const FLOW_IMAGE = "flow.png";
+/** ER 圖 PNG 的固定位置（資料表結構文件內引用）。 */
+const ER_IMAGE_RE = /^TableSchema\/er\/[A-Za-z0-9_-]+\.png$/;
 const SCHEME_RE = /^[a-z][a-z0-9+.-]*:/i;
 const TERM_RES = INTERNAL_POINTER_TERMS.map((t) => ({ term: t, re: termRe(t) }));
 const shorten = (t: string): string => (t.trim().length <= 40 ? t.trim() : `${t.trim().slice(0, 39)}…`);
@@ -20,7 +22,7 @@ export interface PointerCheckOptions {
   suppress?: Readonly<Record<string, readonly string[]>>;
 }
 
-/** 圖片引用是否為允許的正式交付物：解析成相對工作項目根目錄後必須在 sa-images/ 底下，或就是 flow.png。回傳違規原因，合法回 null。 */
+/** 圖片引用是否為允許的正式交付物：解析成相對工作項目根目錄後必須在 sa-images/ 底下，或就是 flow.png，或是 TableSchema/er/ 底下的 ER 圖 PNG。回傳違規原因，合法回 null。 */
 function imageProblem(mdRel: string, ref: string): string | null {
   if (SCHEME_RE.test(ref)) return "外部網址";
   let decoded = ref;
@@ -29,9 +31,10 @@ function imageProblem(mdRel: string, ref: string): string | null {
   } catch {
     return "路徑不合法";
   }
-  const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(mdRel), decoded.split(String.fromCharCode(92)).join("/")));
+  if (decoded.startsWith("/") || decoded.startsWith(String.fromCharCode(92))) return "超出工作項目目錄";
+  const resolved =path.posix.normalize(path.posix.join(path.posix.dirname(mdRel), decoded.split(String.fromCharCode(92)).join("/")));
   if (resolved.startsWith("..") || path.posix.isAbsolute(resolved)) return "超出工作項目目錄";
-  return resolved === FLOW_IMAGE || resolved.startsWith(`${SA_IMAGES_DIR}/`) ? null : "不是正式交付物";
+  return resolved === FLOW_IMAGE || resolved.startsWith(`${SA_IMAGES_DIR}/`) || ER_IMAGE_RE.test(resolved) ? null : "不是正式交付物";
 }
 
 function checkOneFile(dir: string, rel: string, skipTerms: readonly string[]): string[] {
@@ -42,7 +45,7 @@ function checkOneFile(dir: string, rel: string, skipTerms: readonly string[]): s
     for (const m of line.matchAll(IMAGE_RE)) {
       const why = imageProblem(rel, m[1]);
       if (why) {
-        out.push(`${rel} 第 ${lineNo} 行圖片「${m[1]}」${why}（圖片只能引用 ${SA_IMAGES_DIR}/ 或 ${FLOW_IMAGE} 等正式交付物）`);
+        out.push(`${rel} 第 ${lineNo} 行圖片「${m[1]}」${why}（圖片只能引用 ${SA_IMAGES_DIR}/、${FLOW_IMAGE} 或 TableSchema/er/ 的 ER 圖等正式交付物）`);
         rest = rest.replace(m[0], "");
       }
     }

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpDir, removeDir } from "./helpers/support.mjs";
-import { tableSchemaTemplates } from "./helpers/sasd-standard.mjs";
+import { tableSchemaTemplates, TEMPLATE_SQL, installSchemaExtras } from "./helpers/sasd-standard.mjs";
 
 const { checkTableSchemas, listLogicalRelations } = await import("../dist/workflow/table-schema-check.js");
 const { parseCreateTables } = await import("../dist/workflow/sql-schema-parse.js");
@@ -12,20 +12,20 @@ const { kindOfForeignKey, isRequired, parseRelations } = await import("../dist/w
 const root = makeTmpDir("dpm-rel-");
 after(() => removeDir(root));
 
-const SQL = `CREATE TABLE members (id INTEGER PRIMARY KEY, name TEXT, created_at TEXT);
-CREATE TABLE orders (id INTEGER PRIMARY KEY, order_no TEXT UNIQUE, member_id INTEGER NOT NULL REFERENCES members(id), ordered_at TEXT);
-CREATE TABLE order_items (id INTEGER PRIMARY KEY, order_id INTEGER, product_name TEXT, quantity INTEGER, subtotal INTEGER, FOREIGN KEY (order_id) REFERENCES orders(id));
-`;
+const SQL = TEMPLATE_SQL;
 let n = 0;
 function item(schemas, sql = SQL) {
   const dir = path.join(root, `w${n++}`);
   fs.mkdirSync(path.join(dir, "TableSchema"), { recursive: true });
   fs.writeFileSync(path.join(dir, "02-db.sql"), sql);
+  installSchemaExtras(dir);
   for (const [name, text] of Object.entries(schemas)) fs.writeFileSync(path.join(dir, "TableSchema", `${name}.md`), text);
   return dir;
 }
 const T = () => tableSchemaTemplates();
 const has = (list, re) => list.some((x) => re.test(x));
+/** 只看關聯清單相關的違規（系統 ER 圖等其他檢查另有測試）。 */
+const rl = (list) => list.filter((x) => x.includes("「關聯清單」"));
 const ROW_ORDERS = "| orders | member_id | members | id | 一對多 | 外鍵約束 |";
 const ROW_ITEMS = "| order_items | order_id | orders | id | 一對多 | 外鍵約束 |";
 const withOrders = (fn) => ({ ...T(), orders: fn(T().orders) });
@@ -49,13 +49,13 @@ test("依據為外鍵約束但 SQL 沒有：擋；改標邏輯關聯可以", () 
   const extra = "| order_items | product_name | members | name | 一對多 | 外鍵約束 |";
   assert.ok(has(checkTableSchemas(item(withOrders((t) => `${t}${extra}\n`))), /標示為外鍵約束，但 02-db\.sql 沒有這個外鍵/));
   const logical = extra.replace("外鍵約束", "邏輯關聯");
-  assert.deepEqual(checkTableSchemas(item(withOrders((t) => `${t}${logical}\n`))), []);
+  assert.deepEqual(rl(checkTableSchemas(item(withOrders((t) => `${t}${logical}\n`)))), []);
 });
 
 test("關係種類：外鍵欄位 UNIQUE 或主鍵判一對一，否則一對多；與 SQL 不符就擋", () => {
   const sqlOne = SQL.replace("member_id INTEGER NOT NULL REFERENCES", "member_id INTEGER NOT NULL UNIQUE REFERENCES");
   assert.ok(has(checkTableSchemas(item(T(), sqlOne)), /orders\.member_id → members\.id.*關係應為「一對一」/));
-  assert.deepEqual(checkTableSchemas(item(withOrders((t) => t.replace(ROW_ORDERS, ROW_ORDERS.replace("一對多", "一對一"))), sqlOne)), []);
+  assert.deepEqual(rl(checkTableSchemas(item(withOrders((t) => t.replace(ROW_ORDERS, ROW_ORDERS.replace("一對多", "一對一"))), sqlOne))), []);
   assert.ok(has(checkTableSchemas(item(withOrders((t) => t.replace(ROW_ITEMS, ROW_ITEMS.replace("一對多", "一對一"))))), /order_items\.order_id → orders\.id.*關係應為「一對多」/));
   const sqlPk = parseCreateTables("CREATE TABLE a (id INT PRIMARY KEY); CREATE TABLE b (id INT PRIMARY KEY REFERENCES a(id), x INT);");
   assert.equal(kindOfForeignKey(sqlPk[1], sqlPk[1].foreignKeys[0]), "一對一");
@@ -66,7 +66,9 @@ test("關係種類：外鍵欄位 UNIQUE 或主鍵判一對一，否則一對多
 test("必選判定：外鍵欄位 NOT NULL 為必選，否則可選", () => {
   const t = parseCreateTables(SQL);
   assert.equal(isRequired(t[1], ["member_id"]), true);
-  assert.equal(isRequired(t[2], ["order_id"]), false);
+  assert.equal(isRequired(t[2], ["order_id"]), true);
+  const loose = parseCreateTables("CREATE TABLE a (id INT PRIMARY KEY, b_id INT REFERENCES b(id));");
+  assert.equal(isRequired(loose[0], ["b_id"]), false);
 });
 
 test("關係與依據的值必須合法", () => {
@@ -83,7 +85,7 @@ test("邏輯關聯：只檢查格式與表、欄位存在", () => {
 });
 
 test("邏輯關聯可讓文件內的表連通，且會列在邏輯關聯清單", () => {
-  const sqlNoFk = SQL.replace(" REFERENCES members(id)", "");
+  const sqlNoFk = SQL.replace(" REFERENCES members(id)", "").replace(",\n  FOREIGN KEY (member_id) REFERENCES members(id)\n", "\n");
   const both = `${T().orders.replace(`${ROW_ORDERS}\n`, "").replace("| order_items | 訂單明細 |", "| order_items | 訂單明細 |\n| members | 會員 |")}\n## 資料表：members\n\n${T().members.slice(T().members.indexOf("### 欄位清單"))}`;
   assert.ok(has(checkTableSchemas(item({ orders: both }, sqlNoFk)), /members 與其他表沒有任何關聯/));
   const linked = both.replace(ROW_ITEMS, `${ROW_ITEMS}\n| orders | member_id | members | id | 一對多 | 邏輯關聯 |`);

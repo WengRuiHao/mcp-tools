@@ -32,7 +32,7 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
       { id: "sa", file: "01-sa.md", kind: "markdown", attachments: ["sa-images/", "01-sa.docx"], deliverable: true },
       { id: "sa-notes", file: "sa-notes.md", kind: "markdown" },
       { id: "db", file: "02-db.sql", kind: "sql", attachments: ["02-db.md"] },
-      { id: "table-schema", file: "TableSchema/", kind: "markdown", deliverable: true },
+      { id: "table-schema", file: "TableSchema/", kind: "markdown", attachments: ["TableSchema/er/"], deliverable: true },
       { id: "flow", file: "flow.mmd", kind: "mermaid", render: "flow.png", deliverable: true },
       { id: "sd", file: "03-sd.md", kind: "markdown", deliverable: true },
       { id: "spec-check", file: "spec-check.md", kind: "report" },

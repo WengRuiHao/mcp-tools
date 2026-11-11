@@ -25,6 +25,12 @@ export const VALID_TABLE_SCHEMA = [
   "## 資料表：t", "", "### 欄位清單", "", "| # | 欄位 | 型別 | PK | 說明 |", "|:-:|---|---|:-:|---|", "| 1 | id | INT | ✓ | 編號 |", "",
   "### 各規格使用欄位對照", "", "| 規格 | 使用欄位 |", "| --- | --- |", "| [登入](../03-sd.md) | id |", "",
   "## 關聯清單", "", "| 子表 | 子表欄位 | 父表 | 父表欄位 | 關係 | 依據 |", "| --- | --- | --- | --- | --- | --- |", "",
+  "## 模組 ER 圖", "", "```mermaid", "erDiagram", "    t {", "        INT id PK", "    }", "```", "", "![t 模組 ER 圖](er/t.png)", "",
+].join("\n");
+/** 對應 VALID_TABLE_SCHEMA 的系統 ER 圖文件。 */
+export const VALID_SYSTEM_ER = [
+  "# 系統 ER 圖", "", "## 版本管控歷程", "", "| 版次 | 發行日期 | 修訂說明 | 修訂單位 | 修訂人員 |", "| --- | --- | --- | --- | --- |", "| 1.0 | 2026/11/10 | 初版 | 示範團隊 | 系統分析師 |", "",
+  "## 系統 ER 圖", "", "```mermaid", "erDiagram", "    t {", "        INT id PK", "    }", "```", "", "![系統 ER 圖](er/system-er.png)", "",
 ].join("\n");
 /** 通過 mockup 檢查的精簡可操作原型。 */
 export const VALID_MOCKUP = `<!doctype html><html><body data-demo-states="normal,loading,success,failed,empty"><button id="b">登入</button><script>document.getElementById("b").addEventListener("click", function () {});</script></body></html>`;
@@ -90,7 +96,7 @@ export async function fulfil(dir, roleId, opts = {}) {
     "tech-selector": async () => w("tech-stack.md", techStackFor(JSON.parse(await readFile(path.join(dir, "status.json"), "utf-8")).tech_source)),
     "mockup-designer": () => w("sa-mockup/index.html", VALID_MOCKUP),
     "sa-analyst": async () => { await w("01-sa.md", VALID_SA); await w("sa-notes.md", "## 待確認問題\n- 無\n"); await writeFile(path.join(dir, "sa-images", "a.png"), PNG); },
-    "db-designer": async () => { await w("02-db.sql", opts.sql ?? "CREATE TABLE t (id INT);"); await w("TableSchema/t.md", VALID_TABLE_SCHEMA); },
+    "db-designer": async () => { await w("02-db.sql", opts.sql ?? "CREATE TABLE t (id INT PRIMARY KEY);"); await w("TableSchema/t.md", VALID_TABLE_SCHEMA); await w("TableSchema/system-er.md", VALID_SYSTEM_ER); await w("TableSchema/er/t.png", PNG); await w("TableSchema/er/system-er.png", PNG); },
     "flow-analyst": async () => { await w("flow.mmd", "graph TD\nA-->B"); await writeFile(path.join(dir, "flow.png"), PNG); },
     "sd-analyst": () => w("03-sd.md", VALID_SD),
     "spec-verifier": () => w("spec-check.md", opts.verdictText ?? "PASS\n對照表"),

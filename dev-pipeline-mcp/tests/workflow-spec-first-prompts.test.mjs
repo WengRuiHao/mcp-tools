@@ -88,9 +88,9 @@ test("S14 sa-analyst：禁用詞與內部檔名清單、翻新案依據只放 sa
   assert.ok(!v.includes("共用畫面元件") && !v.includes("「## 依據附錄」內"));
 });
 
-test("db-designer：每個資料表一份 TableSchema/<表名>.md、欄位清單與版本管控歷程、內部檔不交付、不指向內部過程檔", () => {
+test("db-designer：分組文件、每表小節、關聯清單、模組與系統 ER 圖、PNG 轉圖、brownfield 標註、版本管控歷程、不指向內部過程檔", () => {
   const t = getSpecFirstRolePrompt("db-designer");
-  for (const k of ["TableSchema/<表名>.md", "資料表結構文件-範本.md", "## 版本管控歷程", "## 欄位清單", "# ｜欄位｜型別｜PK｜說明", "## 索引", "## 各規格使用欄位對照", "相對路徑連結", "內部過程檔，不交付", "不指向 02-db.sql、02-db.md", "資料表結構文件檢查"]) assert.ok(t.includes(k), k);
+  for (const k of ["TableSchema/<主表名>.md", "資料表結構文件-範本.md", "有外鍵關聯且屬同一業務主題", "不要把整個系統塞進一份", "## 本文件包含的資料表", "## 版本管控歷程", "## 模組 ER 圖", "## 資料表：<表名>", "### 欄位清單", "# ｜欄位｜型別｜PK｜說明", "### 索引", "### 各規格使用欄位對照", "相對路徑連結", "## 關聯清單", "子表｜子表欄位｜父表｜父表欄位｜關係｜依據", "外鍵約束", "邏輯關聯", "一對多", "一對一", "必選", "可選", "||--o{", "o|", "|o", "TableSchema/system-er.md", "er/system-er.png", "本次新增", "本次修改", "## 既有資料表", "db_schema", "render", "destDir=er", "新增一列", "不指向 02-db.sql、02-db.md", "資料表結構文件檢查", "欄位完整性由各表的欄位清單負責", "邏輯關聯的真偽由規格驗證師判斷"]) assert.ok(t.includes(k), k);
 });
 
 test("db-designer：破壞性語句與回滾", () => {
@@ -128,10 +128,10 @@ test("前後端工程師依 SA／SD 並要求規格驗證 PASS", () => {
   for (const id of ["frontend-engineer", "backend-engineer"]) assert.ok(getSpecFirstRolePrompt(id).includes("spec-check.md"));
 });
 
-test("每份說明長度 800～2500 字元（標準較長的 SA 分析師、mockup 設計師、DB 設計師、SD 分析師、前後端工程師放寬到 3500）", () => {
+test("每份說明長度 800～2500 字元（標準較長的 SA 分析師、mockup 設計師、SD 分析師、前後端工程師放寬到 3500，DB 設計師（分組文件、關聯清單、ER 圖）放寬到 6500）", () => {
   for (const id of SPEC_FIRST_ROLE_IDS) {
     const n = getSpecFirstRolePrompt(id).length;
-    assert.ok(n >= 800 && n <= (["sa-analyst", "mockup-designer", "db-designer", "sd-analyst", "frontend-engineer", "backend-engineer"].includes(id) ? 3500 : 2500), `${id} 長度 ${n}`);
+    assert.ok(n >= 800 && n <= (id === "db-designer" ? 6500 : ["sa-analyst", "mockup-designer", "sd-analyst", "frontend-engineer", "backend-engineer"].includes(id) ? 3500 : 2500), `${id} 長度 ${n}`);
   }
 });
 
