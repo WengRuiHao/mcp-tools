@@ -31,19 +31,25 @@ export const SA_ANALYST: RoleSections = {
 
 export const DB_DESIGNER: RoleSections = {
   title: "DB 設計師",
-  goal: "依 SA 設計資料表、view、index 的異動，產出可執行的 SQL，並說明對既有資料的影響與回滾方法。只在有動資料庫時才需要。",
+  goal: "依 SA 設計資料表、view、index 的異動，產出可執行的 SQL，並為每個資料表寫一份正式的資料表結構文件。只在有動資料庫時才需要。",
   inputs: ["01-sa.md（含各功能的欄位）", "資料庫現況（用 db_schema、db_search_tables、db_diff_schema 查）", "tech-stack.md（已確認的技術棧）"],
-  outputs: ["02-db.sql：資料庫異動 SQL", "02-db.md：說明（設計理由、每個異動的影響、風險與回滾方式）"],
+  outputs: [
+    "02-db.sql：資料庫異動 SQL（內部過程檔，不交付）",
+    "02-db.md：說明（設計理由、每個異動的影響、風險與回滾方式；內部過程檔，不交付）",
+    "TableSchema/：02-db.sql 內每個資料表一份 TableSchema/<表名>.md（正式交付物，表名限英數字與底線）",
+  ],
   steps: [
     "從 SA 列出需要保存或查詢的資料，對照現有資料表，決定新增或修改哪些。",
     "寫 02-db.sql，一個異動一段，加簡短註解標明對應的 SA 功能。",
     "在 02-db.md 寫每個異動的影響、對既有資料的處理，以及出問題時怎麼回滾（回滾 SQL 也寫出來）。",
     "有破壞性語句（DROP、TRUNCATE、沒有 WHERE 的 DELETE、ALTER … TYPE 改欄位型別）時，要在說明最前面標明風險與回滾方式。",
+    "依 docs/sasd-standard/資料表結構文件-範本.md，為 02-db.sql 內每個 CREATE TABLE 的資料表寫一份 TableSchema/<表名>.md：「## 版本管控歷程」（表頭固定：版次｜發行日期｜修訂說明｜修訂單位｜修訂人員）、「## 欄位清單」（表頭固定：# ｜欄位｜型別｜PK｜說明，包含 SQL 內該表的所有欄位）、有索引時加「## 索引」、「## 各規格使用欄位對照」（規格｜使用欄位，規格用相對路徑連結連回規格文件）。",
+    "資料表結構文件是正式交付物，必須自足：不指向 02-db.sql、02-db.md 等內部過程檔案；版次只在表結構本身變動時遞增。",
     "用 db_diff_schema 比對設計前後的差異，確認與 SQL 一致。",
   ],
-  forbidden: ["不可在資料庫實際執行寫入類 SQL，只產出檔案（查詢用工具只能唯讀）。", "不可偷偷加入 SA 沒有的資料表或欄位。", "不可省略風險說明。"],
-  afterSubmit: ["與流程分析師的產出合併，等「DB 與流程圖確認」關卡：預設由 AI 審查員審查。", "含破壞性語句時，會觸發強制人工確認，由使用者決定放行與否。", "不通過退回你修改。"],
-  tools: ["db_schema、db_search_tables、db_diff_schema（唯讀查詢）", "read_project_file、search_project_text", WORK_ITEM_TOOL_HINT],
+  forbidden: ["不可在資料庫實際執行寫入類 SQL，只產出檔案（查詢用工具只能唯讀）。", "不可偷偷加入 SA 沒有的資料表或欄位。", "不可省略風險說明。", "資料表結構文件的欄位清單不可漏掉 SQL 裡的欄位。"],
+  afterSubmit: ["先過程式的「資料表結構文件檢查」：每個資料表都有結構文件、版本管控歷程、欄位清單與各規格使用欄位對照；沒過會直接退回你修改。", "與流程分析師的產出合併，等「DB 與流程圖確認」關卡：預設由 AI 審查員審查。", "含破壞性語句時，會觸發強制人工確認，由使用者決定放行與否。", "不通過退回你修改。"],
+  tools: ["db_schema、db_search_tables、db_diff_schema（唯讀查詢）", "read_project_file、search_project_text", WORK_ITEM_TOOL_HINT + "（寫 TableSchema/<表名>.md 時 filename 帶這個路徑）"],
 };
 
 export const FLOW_ANALYST: RoleSections = {

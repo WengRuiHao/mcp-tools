@@ -7,6 +7,7 @@ import { checkImpactReuseList, checkReuseRecord, checkSdReuseDesign } from "../w
 import { checkSaImages, SA_FILE_NAME } from "../workflow/sa-image-check.js";
 import { checkSaNoCode } from "../workflow/sa-no-code-check.js";
 import { checkSaStandard } from "../workflow/sa-standard-check.js";
+import { checkTableSchemas } from "../workflow/table-schema-check.js";
 import { checkBaselineTechStack, checkTechStack, TECH_STACK_FILE, BASELINE_FILE } from "../workflow/tech-stack-check.js";
 import { checkTestEvidence, TEST_FILE_NAME } from "../workflow/test-evidence-check.js";
 
@@ -148,6 +149,7 @@ export async function checkDeliverables(dir: string, roleId: string, def: Workfl
     if (art.render && !((await sizeOf(path.join(dir, art.render))) ?? 0)) problems.push(`缺少圖片 ${art.render}（必須存在且非空；用 attach 或 render 產生）`);
   }
   if (roleId === "sa-analyst") problems.push(...(await checkSa(dir)));
+  if (roleId === "db-designer") problems.push(...checkTableSchemas(dir).map((v) => `資料表結構文件檢查未通過：${v}`));
   if (roleId === "mockup-designer") problems.push(...checkMockupDir(dir).map((v) => `mockup 檢查未通過：${v}`));
   if (roleId === "flow-analyst") problems.push(...checkMermaidFile(dir).map((v) => `流程圖（flow.mmd）格式檢查未通過：${v}`));
   if (roleId === "tester") problems.push(...(await checkTest(dir)));

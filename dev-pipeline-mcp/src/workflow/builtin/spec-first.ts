@@ -32,6 +32,7 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
       { id: "sa", file: "01-sa.md", kind: "markdown", attachments: ["sa-images/"] },
       { id: "sa-notes", file: "sa-notes.md", kind: "markdown" },
       { id: "db", file: "02-db.sql", kind: "sql", attachments: ["02-db.md"] },
+      { id: "table-schema", file: "TableSchema/", kind: "markdown" },
       { id: "flow", file: "flow.mmd", kind: "mermaid", render: "flow.png" },
       { id: "sd", file: "03-sd.md", kind: "markdown" },
       { id: "spec-check", file: "spec-check.md", kind: "report" },
@@ -63,7 +64,7 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
         roleNotes:
           "規格是給客戶看的客戶版（格式以 docs/sasd-standard/SA-範本.md 為準）。程式未開發前畫面只能靠 mockup 截圖：依已確認的 mockup（sa-mockup/）用網址 #狀態名稱 切換狀態截圖，整體畫面一張、每種提示狀態各一張，圖檔放 sa-images/ 並在規格中引用。定稿後圖片不換成實際系統畫面。待確認問題、需求依據與翻新案的程式依據寫在內部檔 sa-notes.md，不放進 SA。",
       },
-      { id: "db-designer", promptRef: "db-designer", dependsOn: ["sa-analyst"], inputs: ["sa", "tech-stack"], outputs: ["db"], optional: true, when: "hasDb==true" },
+      { id: "db-designer", promptRef: "db-designer", dependsOn: ["sa-analyst"], inputs: ["sa", "tech-stack"], outputs: ["db", "table-schema"], optional: true, when: "hasDb==true" },
       { id: "flow-analyst", promptRef: "flow-analyst", dependsOn: ["sa-analyst", "db-designer"], inputs: ["sa", "db"], outputs: ["flow"] },
       { id: "sd-analyst", promptRef: "sd-analyst", dependsOn: ["sa-analyst", "flow-analyst"], inputs: ["sa", "db", "flow", "tech-stack"], outputs: ["sd"] },
       {

@@ -88,6 +88,11 @@ test("S14 sa-analyst：禁用詞與內部檔名清單、翻新案依據只放 sa
   assert.ok(!v.includes("共用畫面元件") && !v.includes("「## 依據附錄」內"));
 });
 
+test("db-designer：每個資料表一份 TableSchema/<表名>.md、欄位清單與版本管控歷程、內部檔不交付、不指向內部過程檔", () => {
+  const t = getSpecFirstRolePrompt("db-designer");
+  for (const k of ["TableSchema/<表名>.md", "資料表結構文件-範本.md", "## 版本管控歷程", "## 欄位清單", "# ｜欄位｜型別｜PK｜說明", "## 索引", "## 各規格使用欄位對照", "相對路徑連結", "內部過程檔，不交付", "不指向 02-db.sql、02-db.md", "資料表結構文件檢查"]) assert.ok(t.includes(k), k);
+});
+
 test("db-designer：破壞性語句與回滾", () => {
   const t = getSpecFirstRolePrompt("db-designer");
   for (const k of ["02-db.sql", "02-db.md", "DROP", "TRUNCATE", "WHERE", "ALTER", "回滾", "強制人工確認"]) assert.ok(t.includes(k), k);
@@ -123,10 +128,10 @@ test("前後端工程師依 SA／SD 並要求規格驗證 PASS", () => {
   for (const id of ["frontend-engineer", "backend-engineer"]) assert.ok(getSpecFirstRolePrompt(id).includes("spec-check.md"));
 });
 
-test("每份說明長度 800～2500 字元（標準較長的 SA 分析師、mockup 設計師放寬到 3500）", () => {
+test("每份說明長度 800～2500 字元（標準較長的 SA 分析師、mockup 設計師、DB 設計師放寬到 3500）", () => {
   for (const id of SPEC_FIRST_ROLE_IDS) {
     const n = getSpecFirstRolePrompt(id).length;
-    assert.ok(n >= 800 && n <= (id === "sa-analyst" || id === "mockup-designer" ? 3500 : 2500), `${id} 長度 ${n}`);
+    assert.ok(n >= 800 && n <= (id === "sa-analyst" || id === "mockup-designer" || id === "db-designer" ? 3500 : 2500), `${id} 長度 ${n}`);
   }
 });
 

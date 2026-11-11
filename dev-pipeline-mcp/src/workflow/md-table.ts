@@ -1,6 +1,6 @@
 // markdown 表格解析的共用函式（各種內容檢查共用）。
 
-export const isSeparator = (cells: readonly string[]): boolean => cells.length > 0 && cells.every((c) => /^:?-{2,}:?$/.test(c.trim()));
+export const isSeparator = (cells: readonly string[]): boolean => cells.length > 0 && cells.every((c) => /^:?-+:?$/.test(c.trim()));
 export const splitRow = (line: string): string[] => line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
 
 export interface ParsedTable {

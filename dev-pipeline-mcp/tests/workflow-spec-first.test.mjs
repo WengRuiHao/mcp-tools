@@ -110,6 +110,12 @@ test("sa-content-check 描述：至少一張畫面圖、所有圖片引用有效
   assert.doesNotMatch(c.description, /純後端|功能標題/);
 });
 
+test("table-schema：正式交付物（TableSchema/、markdown），由 db-designer 與 02-db.sql 一起產出", () => {
+  const d = buildSpecFirstWorkflow();
+  assert.deepEqual(d.artifacts.find((a) => a.id === "table-schema"), { id: "table-schema", file: "TableSchema/", kind: "markdown" });
+  assert.deepEqual(d.roles.find((r) => r.id === "db-designer").outputs, ["db", "table-schema"]);
+});
+
 test("sa-notes：內部產出物（sa-notes.md、markdown），由 sa-analyst 產出", () => {
   const d = buildSpecFirstWorkflow();
   assert.deepEqual(d.artifacts.find((a) => a.id === "sa-notes"), { id: "sa-notes", file: "sa-notes.md", kind: "markdown" });

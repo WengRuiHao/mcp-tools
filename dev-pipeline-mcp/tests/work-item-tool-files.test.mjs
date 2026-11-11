@@ -33,6 +33,16 @@ test("write：只能寫流程定義的產出檔，寫入後不自動完成", asy
   assert.deepEqual(g.json.doneRoles, []);
 });
 
+test("write：TableSchema/<名稱>.md 可寫（名稱限英數字與底線），其他子路徑與穿越拒絕", async () => {
+  const ok = await env.call({ action: "write", workItemId: id, filename: "TableSchema/order_items2.md", content: "x" });
+  assert.equal(ok.isError, false, ok.text);
+  assert.equal(readFileSync(path.join(dir, "TableSchema", "order_items2.md"), "utf-8"), "x");
+  for (const f of ["TableSchema/a-b.md", "TableSchema/.md", "TableSchema/a.txt", "TableSchema/sub/a.md", "TableSchema/../x.md", "TableSchema\\a.md", "tableschema/a.md", "TableSchema/", "TableSchema/a.md/", "TableSchema/中文.md", "x/TableSchema/a.md"]) {
+    const r = await env.call({ action: "write", workItemId: id, filename: f, content: "x" });
+    assert.equal(r.isError, true, f);
+  }
+});
+
 test("write：路徑穿越、子路徑、非白名單檔名、過大內容、缺 content 都拒絕", async () => {
   for (const f of ["../evil.md", "..\\evil.md", "sa-images/x.md", "status.json", "item.md", "flow.png", "C:\\x.md", "/etc/x.md", "01-sa.md/"]) {
     const r = await env.call({ action: "write", workItemId: id, filename: f, content: "x" });

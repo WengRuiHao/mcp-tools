@@ -14,17 +14,21 @@ export function writableFilenames(): string[] {
   return names.filter((n) => !n.endsWith("/") && TEXT_EXTENSIONS.has(path.extname(n).toLowerCase()));
 }
 
+/** 資料表結構文件：TableSchema/<名稱>.md，名稱限英數字與底線（正式交付物，檔名由 DB 設計師依資料表命名）。 */
+export const TABLE_SCHEMA_FILE_RE = /^TableSchema\/[A-Za-z0-9_]+\.md$/;
+
 export async function handleWrite(a: WorkItemArgs): Promise<ToolReply> {
   const { workItemId, filename } = need("write", a, ["workItemId", "filename"]);
   if (typeof a.content !== "string") throw new WorkItemActionError("action=write 缺少必填參數：content");
   const allowed = writableFilenames();
-  if (!allowed.includes(filename)) throw new WorkItemActionError(`不允許寫入「${filename}」：只能寫流程定義的產出檔（${allowed.join("、")}）。圖片請用 attach，不可帶路徑。`);
+  if (!allowed.includes(filename) && !TABLE_SCHEMA_FILE_RE.test(filename)) throw new WorkItemActionError(`不允許寫入「${filename}」：只能寫流程定義的產出檔（${allowed.join("、")}），或資料表結構文件 TableSchema/<名稱>.md（名稱限英數字與底線）。圖片請用 attach，不可帶路徑。`);
   const bytes = Buffer.byteLength(a.content, "utf-8");
   if (bytes > MAX_WRITE_BYTES) throw new WorkItemActionError(`content 太大（${bytes} bytes），上限 ${MAX_WRITE_BYTES} bytes。`);
   const ctx = await loadWorkItem(workItemId);
   try {
     const full = resolveArtifactPath(ctx.dir, filename);
     await mkdir(path.dirname(full), { recursive: true });
+    if (TABLE_SCHEMA_FILE_RE.test(filename) && (await lstat(path.dirname(full))).isSymbolicLink()) throw new WorkItemActionError("TableSchema 資料夾是符號連結，拒絕寫入。");
     const existing = await lstat(full).catch(() => null);
     if (existing?.isSymbolicLink()) throw new WorkItemActionError(`「${filename}」是符號連結，拒絕寫入。`);
     await writeFile(full, a.content, "utf-8");
