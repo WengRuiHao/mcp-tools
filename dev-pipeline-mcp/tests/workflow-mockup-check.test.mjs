@@ -32,7 +32,7 @@ test("範例 mockup-狀態切換範例.html 是合格樣本", () => {
 
 test("精簡合格樣本；on 事件屬性也算事件處理", () => {
   assert.deepEqual(checkMockupDir(item({ "a.html": GOOD })), []);
-  const inline = `<html><body data-demo-states="a"><button onclick="x()">k</button><script>function x(){}</script></body></html>`;
+  const inline = `<html><body data-demo-states="normal,loading,success,failed,empty"><button onclick="x()">k</button><script>function x(){}</script></body></html>`;
   assert.deepEqual(checkMockupDir(item({ "a.html": inline })), []);
 });
 
@@ -45,19 +45,19 @@ test("資料夾不存在由一般交件檢查回報，這裡不重複", () => {
 });
 
 test("靜態頁面（沒有 script）", () => {
-  const r = checkMockupDir(item({ "a.html": `<html><body data-demo-states="a"><p>靜態</p></body></html>` }));
+  const r = checkMockupDir(item({ "a.html": `<html><body data-demo-states="normal,loading,success,failed,empty"><p>靜態</p></body></html>` }));
   assert.ok(has(r, /沒有 <script>/));
 });
 
 test("有 script 但沒有事件處理", () => {
-  const r = checkMockupDir(item({ "a.html": `<html><body data-demo-states="a"><script>const x = 1;</script></body></html>` }));
+  const r = checkMockupDir(item({ "a.html": `<html><body data-demo-states="normal,loading,success,failed,empty"><script>const x = 1;</script></body></html>` }));
   assert.ok(has(r, /沒有事件處理/));
 });
 
 test("外部 script 檔（相對路徑）內的事件處理算數", () => {
-  const dir = item({ "a.html": `<html><body data-demo-states="a"><script src="app.js"></script></body></html>`, "app.js": `document.addEventListener("click", () => {});` });
+  const dir = item({ "a.html": `<html><body data-demo-states="normal,loading,success,failed,empty"><script src="app.js"></script></body></html>`, "app.js": `document.addEventListener("click", () => {});` });
   assert.deepEqual(checkMockupDir(dir), []);
-  const missing = item({ "a.html": `<html><body data-demo-states="a"><script src="none.js"></script></body></html>` });
+  const missing = item({ "a.html": `<html><body data-demo-states="normal,loading,success,failed,empty"><script src="none.js"></script></body></html>` });
   assert.ok(has(checkMockupDir(missing), /沒有事件處理/));
 });
 
@@ -79,6 +79,20 @@ test("外部網路資源：src、href、@import、url()、協定相對網址都�
 test("允許 data: 與相對路徑，註解內的網址不算，svg xmlns 不算", () => {
   const ok = GOOD.replace("</body>", `<img src="data:image/png;base64,AAAA"><a href="other.html">下一頁</a><link rel="stylesheet" href="style.css"><svg xmlns="http://www.w3.org/2000/svg"></svg><!-- https://example.com/x.png --><style>a{background:url(data:image/png;base64,AA)}</style></body>`);
   assert.deepEqual(checkMockupDir(item({ "a.html": ok })), []);
+});
+
+test("data-demo-states 必須涵蓋五種狀態：中英文名稱皆可，缺哪個說明哪個", () => {
+  const withStates = (v) => GOOD.replace("normal,loading,success,failed,empty", v);
+  for (const ok of ["正常,載入中,成功,失敗,沒有資料", "Normal, LOADING, Success, Error, No-Data", "normal,loading,success,fail,empty,extra-state", "normal，loading，success，failure，無資料"]) {
+    assert.deepEqual(checkMockupHtml(withStates(ok), "a.html"), [], ok);
+  }
+  const r = checkMockupHtml(withStates("normal,failed"), "a.html");
+  assert.equal(r.length, 1);
+  assert.match(r[0], /缺少必備狀態：載入中、成功、沒有資料/);
+  assert.match(checkMockupHtml(withStates("normal,loading,success,failed"), "a.html")[0], /缺少必備狀態：沒有資料/);
+  assert.match(checkMockupHtml(withStates("loading,success,failed,empty"), "a.html")[0], /缺少必備狀態：正常/);
+  assert.match(checkMockupHtml(withStates(""), "a.html")[0], /缺少必備狀態：正常、載入中、成功、失敗、沒有資料/);
+  assert.match(checkMockupHtml(GOOD.replace('"normal,loading,success,failed,empty"', "'normal'"), "a.html")[0], /缺少必備狀態：載入中/);
 });
 
 test("缺 data-demo-states 標記", () => {

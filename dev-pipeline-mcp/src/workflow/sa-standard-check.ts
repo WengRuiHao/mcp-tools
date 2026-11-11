@@ -16,7 +16,7 @@ export const FORBIDDEN_TERMS: readonly string[] = ["已確認的決定", "依據
 /** 內部過程檔名，不可出現在正式交付物。 */
 export const INTERNAL_FILE_TERMS: readonly string[] = ["01-sa", "02-db", "03-sd", "spec-check", "sa-notes", ".dev-pipeline"];
 /** 說明「這段文字為什麼存在」的後設句。 */
-const META_SENTENCES: readonly { re: RegExp; label: string }[] = [
+export const META_SENTENCES: readonly { re: RegExp; label: string }[] = [
   { re: /本節說明[^。\n]*為什麼/, label: "本節說明…為什麼" },
   { re: /(?:這裡|此處)只列/, label: "這裡只列…" },
   { re: /本(?:文件|節|段)(?:的)?(?:目的|用途)(?:是|為)/, label: "說明本文件或本節的用途" },
@@ -24,7 +24,7 @@ const META_SENTENCES: readonly { re: RegExp; label: string }[] = [
 ];
 
 const isAscii = (t: string): boolean => /^[\x20-\x7e]+$/.test(t);
-const termRe = (t: string): RegExp => (isAscii(t) ? new RegExp(`(?<![A-Za-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9])`, "i") : new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+export const termRe = (t: string): RegExp => (isAscii(t) ? new RegExp(`(?<![A-Za-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9])`, "i") : new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 const FORBIDDEN_RES = FORBIDDEN_TERMS.map((t) => ({ term: t, re: termRe(t), kind: "禁用詞" }));
 const INTERNAL_RES = INTERNAL_FILE_TERMS.map((t) => ({ term: t, re: termRe(t), kind: "內部檔名" }));
 
@@ -79,8 +79,9 @@ function checkWording(text: string): string[] {
 }
 
 const BOLD_LABEL_RE = /^\s*\*\*([^*]+)\*\*(.*)$/;
-/** 標籤後面直接用冒號接說明文字者（例如導向其他頁面），沒有畫面訊息可截圖，不要求附圖。 */
-const INLINE_EXPLANATION_RE = /^\s*[：:]\s*\S/;
+/** 明確豁免：標籤文字結尾寫「（無畫面）」才免附圖（例如導向其他頁面、沒有畫面訊息可截）；後面接冒號說明文字不算豁免。 */
+export const NO_SCREEN_MARK = "（無畫面）";
+const NO_SCREEN_RE = /[（(]\s*無畫面\s*[）)]\s*$/;
 
 interface TipLabel {
   label: string;
@@ -103,7 +104,7 @@ function tipLabels(text: string): { tips: number; labels: TipLabel[]; emptyTips:
       if (HEADING_RE.test(line)) return;
       const m = BOLD_LABEL_RE.exec(line);
       if (m) {
-        current = { label: m[1].trim(), line: h.line + rel, hasImage: INLINE_EXPLANATION_RE.test(m[2]) };
+        current = { label: m[1].trim(), line: h.line + rel, hasImage: NO_SCREEN_RE.test(m[1].trim()) };
         found.push(current);
       }
       if (current && [...line.matchAll(IMAGE_RE)].length > 0) current.hasImage = true;
@@ -118,7 +119,7 @@ function checkTips(text: string): string[] {
   const { labels, emptyTips } = tipLabels(text);
   return [
     ...emptyTips.map((t) => `${SA_FILE_NAME}「${t}」章節沒有用粗體標籤列出任何提示狀態（每個狀態一行 **標籤**，下面附該狀態的畫面截圖）`),
-    ...labels.filter((l) => !l.hasImage).map((l) => `${SA_FILE_NAME} 第 ${l.line} 行提示狀態「${l.label}」後面沒有畫面截圖（警告訊息要用 mockup 截的實際畫面，不可用文字表格代替）`),
+    ...labels.filter((l) => !l.hasImage).map((l) => `${SA_FILE_NAME} 第 ${l.line} 行提示狀態「${l.label}」後面沒有畫面截圖（警告訊息要用 mockup 截的實際畫面，不可用文字或表格代替；確實沒有畫面的狀態，標籤結尾要寫「${NO_SCREEN_MARK}」才免附圖）`),
   ];
 }
 

@@ -32,11 +32,11 @@ export const MOCKUP_DESIGNER: RoleSections = {
     "讀需求與影響分析，列出要做的畫面清單，以及需求中每個使用者動作（按鈕、輸入、選擇、跳轉）。",
     "風格不能自己決定，一律依「畫面風格來源」：沿用現有＝以「現有畫面風格」與共用元件為準；換新＝依使用者提供的參考設計，沒有參考就先問；全新有規範＝照專案規範與客戶資料；全新待選＝同一個主要畫面先做 2～3 種風格方向（style-a.html、style-b.html…），等使用者選定，其餘畫面沿用。風格來源不明確時停下來問使用者。",
     "每個畫面是單一 HTML 檔、原生 HTML／CSS／JS、不連外網（不可有 http:// 或 https:// 的 src、href、@import、url()，只允許 data: 與相對路徑）；需求中每個使用者動作都要能點，表單要有驗證與錯誤提示。",
-    "每個畫面至少有正常、載入中、成功、失敗、沒有資料五種狀態，用網址 #狀態名稱 切換（例如 order.html#failed），參考 docs/sasd-standard/mockup-狀態切換範例.html；並在頁面標示 data-demo-states 屬性列出可用的狀態名稱，例如 <body data-demo-states=\"normal,loading,success,failed,empty\">。畫面有其他提示狀態（欄位檢核錯誤等）也各做一個狀態。",
+    "每個畫面至少有正常、載入中、成功、失敗、沒有資料五種狀態，用網址 #狀態名稱 切換（例如 order.html#failed），參考 docs/sasd-standard/mockup-狀態切換範例.html；並在頁面標示 data-demo-states 屬性列出可用的狀態名稱，例如 <body data-demo-states=\"normal,loading,success,failed,empty\">；五種必備狀態的名稱只能用這些寫法：正常（normal／正常）、載入中（loading／載入中）、成功（success／成功）、失敗（failed／error／fail／failure／失敗）、沒有資料（empty／nodata／沒有資料／無資料），缺任何一種程式檢查會退回，其他提示狀態的名稱可自訂（附加在後面）。畫面有其他提示狀態（欄位檢核錯誤等）也各做一個狀態。",
     "多個畫面要能互相跳轉（連結用相對路徑）。用顏色或標籤標出新增與修改的部分，並自己用瀏覽器逐一切換狀態、點過每個動作，確認排版與行為正常。",
     "交件說明列出每個畫面（檔名與對應功能）、每個可操作元素，以及每個畫面的所有狀態名稱，並寫明採用的風格依據。",
   ],
   forbidden: ["不寫規格（不寫需求分析、不寫欄位定義），那是 SA 分析師的工作。", "不寫真正的後端邏輯或資料庫操作，畫面資料一律是假資料。", "不可做只能看不能點的靜態頁面，也不可缺少 data-demo-states 標記與狀態切換。", "使用者確認之前，不可先動手寫 SA。", "不可自行更換 tech-stack.md 已確認的語言、框架、元件庫。"],
-  afterSubmit: ["先過程式的「mockup 檢查」：sa-mockup/ 至少一個 html、每個 html 有 script 與事件處理、沒有外部網路資源、有 data-demo-states、檔案大小在上限內；沒過會直接退回你修改。", "再等「mockup 確認」關卡：預設由使用者本人確認畫面方向（人工確認，不是 AI 審查）；風格來源是「全新待選」時，這一關同時是選風格，使用者選定一種後才往下。", "使用者要求修改就退回你重做；確認後才輪到 SA 分析師。"],
+  afterSubmit: ["先過程式的「mockup 檢查」：sa-mockup/ 至少一個 html、每個 html 有 script 與事件處理、沒有外部網路資源、有 data-demo-states 且涵蓋五種必備狀態、檔案大小在上限內；沒過會直接退回你修改。", "再等「mockup 確認」關卡：預設由使用者本人確認畫面方向（人工確認，不是 AI 審查）；風格來源是「全新待選」時，這一關同時是選風格，使用者選定一種後才往下。", "使用者要求修改就退回你重做；確認後才輪到 SA 分析師。"],
   tools: ["write_project_file（只限寫入 sa-mockup/）", "瀏覽器工具（自行開啟 HTML、切換狀態、點操作檢查）", WORK_ITEM_TOOL_HINT],
 };

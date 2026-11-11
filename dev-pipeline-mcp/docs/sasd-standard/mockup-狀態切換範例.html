@@ -23,7 +23,7 @@ th,td{padding:8px;border-bottom:1px solid #e5e7eb;text-align:left}
 th{background:#f1f5f9}
 </style>
 </head>
-<body data-demo-states="required,order,range,toomany,empty,failed">
+<body data-demo-states="normal,loading,success,failed,empty,required,order,range,toomany">
 <div class="wrap">
   <div id="msg" class="msg"></div>
   <h1>我的訂單</h1>
@@ -49,6 +49,8 @@ function fieldError(text, which) {
   (which || [s, e]).forEach(function (x) { x.classList.add('bad'); });
 }
 function banner(kind, text) { msg.className = 'msg ' + kind; msg.textContent = text; }
+if (st === 'loading') { btn.disabled = true; btn.textContent = '處理中…'; banner('info', '資料載入中，請稍候'); }
+if (st === 'success') { banner('info', '匯出完成，檔案已下載'); }
 if (st === 'required') { s.value = ''; fieldError('請選擇日期區間', [s]); }
 if (st === 'order') { s.value = '2026-11-10'; e.value = '2026-11-01'; fieldError('起日不可晚於迄日'); }
 if (st === 'range') { s.value = '2025-01-01'; e.value = '2026-11-10'; fieldError('日期區間不可超過 366 天'); }

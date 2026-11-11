@@ -129,9 +129,20 @@ test("提示章節：狀態標籤後面缺圖", () => {
   assert.equal(r.filter((x) => /沒有畫面截圖/.test(x)).length, 1);
 });
 
-test("提示章節：標籤用冒號直接接說明文字（導向其他頁面）不要求附圖", () => {
-  assert.ok(T().includes("**尚未登入或登入已失效**："));
+test("提示章節：標籤結尾寫（無畫面）才免附圖（範本即為此寫法）", () => {
+  assert.ok(T().includes("**尚未登入或登入已失效（無畫面）**："));
   assert.deepEqual(checkSaStandard(T()), []);
+  const half = T().replace("（無畫面）", "(無畫面)");
+  assert.deepEqual(checkSaStandard(half), []);
+});
+
+test("提示章節：用冒號接說明文字規避附圖必須被擋", () => {
+  for (const evade of ["**尚未登入或登入已失效**：前往登入頁，登入後回到「我的訂單」頁面。", "**尚未登入或登入已失效**: 前往登入頁。", "**尚未登入或登入已失效**（無畫面）前往登入頁。", "**尚未登入或登入已失效（無畫面）說明**：前往登入頁。"]) {
+    const sa = T().replace(/\*\*尚未登入或登入已失效（無畫面）\*\*：.*/, evade);
+    const r = checkSaStandard(sa);
+    assert.ok(has(r, /提示狀態「尚未登入或登入已失效.*」後面沒有畫面截圖/), evade);
+    assert.ok(has(r, /（無畫面）/), "訊息要說明豁免寫法");
+  }
 });
 
 test("提示章節：沒有任何標籤", () => {

@@ -6,6 +6,22 @@ import path from "node:path";
 export const MOCKUP_DIR = "sa-mockup";
 export const MOCKUP_MAX_BYTES = 512 * 1024;
 export const DEMO_STATES_ATTR = "data-demo-states";
+/** 五種必備狀態與容許的名稱寫法（比對時忽略大小寫、底線與連字號）。 */
+export const REQUIRED_DEMO_STATES: readonly { label: string; names: readonly string[] }[] = [
+  { label: "正常", names: ["正常", "normal"] },
+  { label: "載入中", names: ["載入中", "loading"] },
+  { label: "成功", names: ["成功", "success"] },
+  { label: "失敗", names: ["失敗", "error", "failed", "failure", "fail"] },
+  { label: "沒有資料", names: ["沒有資料", "無資料", "empty", "nodata"] },
+];
+const DEMO_STATES_VALUE_RE = new RegExp(`${DEMO_STATES_ATTR}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i");
+const normalizeState = (s: string): string => s.trim().toLowerCase().replace(/[\s_-]/g, "");
+
+/** 缺少的必備狀態（label 清單）；values 是 data-demo-states 的值。 */
+export function missingDemoStates(values: string): string[] {
+  const have = new Set(values.split(/[,，、;；]/).map(normalizeState).filter(Boolean));
+  return REQUIRED_DEMO_STATES.filter((r) => !r.names.some((n) => have.has(normalizeState(n)))).map((r) => r.label);
+}
 
 const SCRIPT_TAG_RE = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
 const SCRIPT_SRC_RE = /\bsrc\s*=\s*["']?([^"'\s>]+)/i;
@@ -66,7 +82,11 @@ export function checkMockupHtml(html: string, name: string, where?: { htmlPath: 
     const hit = body.match(r.re);
     if (hit) out.push(`${name} 含外部網路資源（${r.label}）：${hit[0].slice(0, 60)}；不可連外網，只允許 data: 與相對路徑`);
   }
-  if (!new RegExp(`${DEMO_STATES_ATTR}\\s*=`, "i").test(body)) out.push(`${name} 缺少 ${DEMO_STATES_ATTR} 標記（例如 <body ${DEMO_STATES_ATTR}="normal,loading,success,failed,empty">，列出可用網址 #狀態名稱 切換的狀態）`);
+  const states = DEMO_STATES_VALUE_RE.exec(body);
+  if (states) {
+    const missing = missingDemoStates(states[1] ?? states[2] ?? "");
+    if (missing.length > 0) out.push(`${name} 的 ${DEMO_STATES_ATTR} 缺少必備狀態：${missing.join("、")}（五種都要有：${REQUIRED_DEMO_STATES.map((r) => `${r.label}＝${r.names.join("／")}`).join("；")}）`);
+  } else if (!new RegExp(`${DEMO_STATES_ATTR}\\s*=`, "i").test(body)) out.push(`${name} 缺少 ${DEMO_STATES_ATTR} 標記（例如 <body ${DEMO_STATES_ATTR}="normal,loading,success,failed,empty">，列出可用網址 #狀態名稱 切換的狀態）`);
   return out;
 }
 
