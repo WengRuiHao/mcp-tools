@@ -11,6 +11,16 @@ export const REUSE_RECORD_OK = "## 重用檢查紀錄\n| 搜尋關鍵字 | 找�
 /** 專案目錄是暫存空目錄（非版本控制），所以實作說明要自己列出「## 改動檔案」；列的檔案不存在也算有清單。 */
 export const CHANGED_FILES_FE = "## 改動檔案\n- src/ui/login-page.js\n";
 export const CHANGED_FILES_BE = "## 改動檔案\n- src/api/login-service.js\n";
+/** 通過所有 SA 檢查的精簡客戶版 SA（只用一張圖 sa-images/a.png）。 */
+export const VALID_SA = [
+  "# 登入：需求說明", "", "| 項目 | 內容 |", "| --- | --- |", "| 功能名稱 | 登入 |", "| 文件版次 | 0.1 |", "| 系統分析者 | 系統分析師 |", "| 審查者 |  |", "",
+  "## 版本管控歷程", "", "| 版次 | 發行日期 | 修訂說明 | 修訂單位 | 修訂人員 |", "| --- | --- | --- | --- | --- |", "| 0.1 | 2026/11/10 | 初版 | 示範團隊 | 系統分析師 |", "",
+  "## 功能目的", "會員輸入帳號密碼登入系統。", "",
+  "## 畫面", "![登入畫面](sa-images/a.png)", "", "畫面上有帳號、密碼欄位與登入按鈕。", "",
+  "## 操作說明", "1. 輸入帳號與密碼。", "2. 按下登入。", "",
+  "## 帳號規則", "", "| 規則 | 說明 |", "| --- | --- |", "| 必填 | 帳號與密碼都要輸入 |", "",
+  "## 輸入時的提示", "提示顯示在欄位下方。", "", "**帳號空白**", "", "![帳號空白](sa-images/a.png)", "",
+].join("\n");
 const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
 
 export async function setupEnv(prefix, { renderer } = {}) {
@@ -49,7 +59,7 @@ export async function fulfil(dir, roleId, opts = {}) {
     "baseline-survey": async () => { await w("baseline.md", BASELINE_TECH_OK); await w("impact.md", REUSABLE_LIST_OK); },
     "tech-selector": async () => w("tech-stack.md", techStackFor(JSON.parse(await readFile(path.join(dir, "status.json"), "utf-8")).tech_source)),
     "mockup-designer": () => w("sa-mockup/index.html", "<html></html>"),
-    "sa-analyst": async () => { await w("01-sa.md", "## 功能：登入\n![畫面](sa-images/a.png)\n"); await writeFile(path.join(dir, "sa-images", "a.png"), PNG); },
+    "sa-analyst": async () => { await w("01-sa.md", VALID_SA); await w("sa-notes.md", "## 待確認問題\n- 無\n"); await writeFile(path.join(dir, "sa-images", "a.png"), PNG); },
     "db-designer": () => w("02-db.sql", opts.sql ?? "CREATE TABLE t (id INT);"),
     "flow-analyst": async () => { await w("flow.mmd", "graph TD\nA-->B"); await writeFile(path.join(dir, "flow.png"), PNG); },
     "sd-analyst": () => w("03-sd.md", "SD\n## 重用與共用設計\n重用：呼叫 ExcelUtil\n"),

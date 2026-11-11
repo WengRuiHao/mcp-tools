@@ -54,29 +54,29 @@
 
 **沒有選擇起日或迄日**
 
-![沒有選擇起日或迄日](states/state-required.png)
+![沒有選擇起日或迄日](sa-images/state-required.png)
 
 **起日晚於迄日**
 
-![起日晚於迄日](states/state-order.png)
+![起日晚於迄日](sa-images/state-order.png)
 
 **區間超過 366 天**
 
-![區間超過 366 天](states/state-range.png)
+![區間超過 366 天](sa-images/state-range.png)
 
 ## 按下「匯出 Excel」之後的提示
 按下按鈕後，按鈕會顯示處理中並暫時不能按；結果出來後，提示顯示在頁面上方的訊息區，訂單列表維持原來的內容。
 
 **匯出筆數超過 10000 列**（不產生檔案）
 
-![匯出筆數超過 10000 列](states/state-toomany.png)
+![匯出筆數超過 10000 列](sa-images/state-toomany.png)
 
 **區間內沒有訂單**（仍會下載只有標題列的檔案）
 
-![區間內沒有訂單](states/state-empty.png)
+![區間內沒有訂單](sa-images/state-empty.png)
 
 **匯出失敗**
 
-![匯出失敗](states/state-failed.png)
+![匯出失敗](sa-images/state-failed.png)
 
 **尚未登入或登入已失效**：前往登入頁，登入後回到「我的訂單」頁面。

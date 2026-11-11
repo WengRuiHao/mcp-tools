@@ -6,19 +6,12 @@ import { headingMatches } from "./heading-match.js";
 
 export const SA_FILE_NAME = "01-sa.md";
 export const SA_IMAGES_DIR = "sa-images";
-/** 功能標題：`##` 或 `###` 開頭，標題文字以此前綴開頭。 */
-export const FUNCTION_HEADING_PREFIX = "功能";
-export const FUNCTION_HEADING_LEVELS: readonly number[] = [2, 3];
-/** 標題文字含此標記者免附圖。 */
-export const BACKEND_ONLY_MARKER = "（純後端）";
 export const ALLOWED_IMAGE_EXTENSIONS: readonly string[] = ["png", "jpg", "jpeg", "webp"];
 
 /** 給 SA 角色說明引用的約定說明。 */
 export const SA_IMAGE_CONVENTION_TEXT = [
-  `功能標題＝${SA_FILE_NAME} 中以 \`##\` 或 \`###\` 開頭、且標題文字以「${FUNCTION_HEADING_PREFIX}」開頭的標題（例如「## 功能：會員匯出訂單 Excel」）。`,
-  `標題文字含「${BACKEND_ONLY_MARKER}」者免附圖。`,
-  `每個功能標題底下（到下一個同級或更高級標題之前）至少要有一個圖片引用 \`![說明](${SA_IMAGES_DIR}/<檔名>)\`。`,
-  `圖檔必須存在於工作項目的 ${SA_IMAGES_DIR}/ 下、副檔名為 ${ALLOWED_IMAGE_EXTENSIONS.join("／")}、檔案大小大於 0。`,
+  `${SA_FILE_NAME} 至少要有一張畫面圖：\`![說明](${SA_IMAGES_DIR}/<檔名>)\`。`,
+  `所有圖片引用都必須有效：圖檔存在於工作項目的 ${SA_IMAGES_DIR}/ 下、副檔名為 ${ALLOWED_IMAGE_EXTENSIONS.join("／")}、檔案大小大於 0。`,
   `圖片路徑只認 ${SA_IMAGES_DIR}/ 相對路徑，不可含 \`..\`、不可是絕對路徑或外部網址。`,
 ].join("\n");
 
@@ -30,7 +23,7 @@ export interface SaImageViolation {
 export interface SaImageCheckResult {
   ok: boolean;
   violations: SaImageViolation[];
-  functionCount: number;
+  imageCount: number;
 }
 
 export const HEADING_RE = /^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$/;
@@ -108,7 +101,7 @@ export function listHeadings(text: string): { level: number; title: string; line
 }
 
 /** 掃描 markdown，切出每個「以 prefix 開頭、層級在 levels 內」的標題範圍並收集範圍內的圖片引用（略過程式碼區塊）。 */
-export function collectSections(text: string, prefix: string = FUNCTION_HEADING_PREFIX, levels: readonly number[] = FUNCTION_HEADING_LEVELS): Section[] {
+export function collectSections(text: string, prefix: string, levels: readonly number[]): Section[] {
   const sections: Section[] = [];
   let current: { level: number; section: Section } | null = null;
   eachLine(text, (line, lineNo) => {
@@ -130,31 +123,32 @@ export function collectSections(text: string, prefix: string = FUNCTION_HEADING_
   return sections;
 }
 
+/** 全文所有圖片引用（略過程式碼區塊），附上所在的最近標題。 */
+function collectImageRefs(text: string): { ref: string; line: number; heading: string }[] {
+  const refs: { ref: string; line: number; heading: string }[] = [];
+  let heading = "";
+  eachLine(text, (line, lineNo) => {
+    const h = HEADING_RE.exec(line);
+    if (h) heading = h[2].trim();
+    for (const m of line.matchAll(IMAGE_RE)) refs.push({ ref: m[1], line: lineNo, heading });
+  });
+  return refs;
+}
+
+/** 至少一張圖（畫面），且所有圖片引用都有效。 */
 export function checkSaImages(workItemDir: string): SaImageCheckResult {
   const saPath = path.join(workItemDir, SA_FILE_NAME);
   if (!existsSync(saPath)) {
     throw new Error(`找不到 ${SA_FILE_NAME}（${saPath}），無法檢查 SA 截圖；請先完成 SA 規格。`);
   }
-  const sections = collectSections(readFileSync(saPath, "utf-8"));
-  if (sections.length === 0) {
-    return {
-      ok: false,
-      functionCount: 0,
-      violations: [{ heading: "", line: 0, reason: `找不到任何功能標題（需以「${FUNCTION_HEADING_PREFIX}」開頭）` }],
-    };
+  const refs = collectImageRefs(readFileSync(saPath, "utf-8"));
+  if (refs.length === 0) {
+    return { ok: false, imageCount: 0, violations: [{ heading: "", line: 0, reason: `至少要有一張圖（畫面）：![說明](${SA_IMAGES_DIR}/<檔名>)` }] };
   }
   const imagesRoot = path.resolve(workItemDir, SA_IMAGES_DIR);
-  const violations: SaImageViolation[] = [];
-  for (const s of sections) {
-    if (s.heading.includes(BACKEND_ONLY_MARKER)) continue;
-    if (s.refs.length === 0) {
-      violations.push({ heading: s.heading, line: s.line, reason: `缺圖引用：功能標題底下沒有 ![說明](${SA_IMAGES_DIR}/<檔名>)` });
-      continue;
-    }
-    for (const r of s.refs) {
-      const reason = validateImageRef(r.ref, imagesRoot);
-      if (reason) violations.push({ heading: s.heading, line: r.line, reason });
-    }
-  }
-  return { ok: violations.length === 0, violations, functionCount: sections.length };
+  const violations = refs.flatMap((r) => {
+    const reason = validateImageRef(r.ref, imagesRoot);
+    return reason ? [{ heading: r.heading, line: r.line, reason }] : [];
+  });
+  return { ok: violations.length === 0, violations, imageCount: refs.length };
 }

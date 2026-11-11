@@ -24,7 +24,7 @@ await writeFile(png, Buffer.from("89504e47", "hex"));
 after(() => env.cleanup());
 
 test("write：只能寫流程定義的產出檔，寫入後不自動完成", async () => {
-  for (const f of ["01-sa.md", "02-db.sql", "02-db.md", "flow.mmd", "03-sd.md", "spec-check.md", "impl-fe.md", "impl-be.md", "verify.md", "test.md", "baseline.md", "impact.md"]) {
+  for (const f of ["01-sa.md", "02-db.sql", "02-db.md", "flow.mmd", "03-sd.md", "spec-check.md", "impl-fe.md", "impl-be.md", "verify.md", "test.md", "baseline.md", "impact.md", "sa-notes.md"]) {
     const r = await env.call({ action: "write", workItemId: id, filename: f, content: `內容 ${f}` });
     assert.equal(r.isError, false, f);
     assert.equal(readFileSync(path.join(dir, f), "utf-8"), `內容 ${f}`);

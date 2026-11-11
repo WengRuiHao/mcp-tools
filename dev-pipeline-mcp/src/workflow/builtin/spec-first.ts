@@ -30,6 +30,7 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
       { id: "tech-stack", file: "tech-stack.md", kind: "markdown" },
       { id: "mockup", file: "sa-mockup/", kind: "html" },
       { id: "sa", file: "01-sa.md", kind: "markdown", attachments: ["sa-images/"] },
+      { id: "sa-notes", file: "sa-notes.md", kind: "markdown" },
       { id: "db", file: "02-db.sql", kind: "sql", attachments: ["02-db.md"] },
       { id: "flow", file: "flow.mmd", kind: "mermaid", render: "flow.png" },
       { id: "sd", file: "03-sd.md", kind: "markdown" },
@@ -58,9 +59,9 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
       {
         id: "sa-analyst",
         promptRef: "sa-analyst",
-        dependsOn: ["baseline-survey", "tech-selector", "mockup-designer"], inputs: ["impact", "tech-stack", "mockup"], outputs: ["sa"],
+        dependsOn: ["baseline-survey", "tech-selector", "mockup-designer"], inputs: ["impact", "tech-stack", "mockup"], outputs: ["sa", "sa-notes"],
         roleNotes:
-          "規格是給客戶看的，程式未開發前前端畫面只能靠 mockup 截圖：依已確認的 mockup（sa-mockup/）分析需求，從 mockup 截圖，每個前端功能條目附對應截圖，圖檔放 sa-images/ 並在規格中引用；純後端條目不需截圖。定稿後圖片不換成實際系統畫面。",
+          "規格是給客戶看的客戶版（格式以 docs/sasd-standard/SA-範本.md 為準）。程式未開發前畫面只能靠 mockup 截圖：依已確認的 mockup（sa-mockup/）用網址 #狀態名稱 切換狀態截圖，整體畫面一張、每種提示狀態各一張，圖檔放 sa-images/ 並在規格中引用。定稿後圖片不換成實際系統畫面。待確認問題、需求依據與翻新案的程式依據寫在內部檔 sa-notes.md，不放進 SA。",
       },
       { id: "db-designer", promptRef: "db-designer", dependsOn: ["sa-analyst"], inputs: ["sa", "tech-stack"], outputs: ["db"], optional: true, when: "hasDb==true" },
       { id: "flow-analyst", promptRef: "flow-analyst", dependsOn: ["sa-analyst", "db-designer"], inputs: ["sa", "db"], outputs: ["flow"] },
@@ -71,7 +72,7 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
         dependsOn: ["sa-analyst", "db-designer", "flow-analyst", "sd-analyst"],
         inputs: ["sa", "db", "flow", "sd", "impact", "tech-stack"],
         outputs: ["spec-check"],
-        roleNotes: "只看規格、不看程式碼：驗證 SA 與 SD 能串起來（雙向可追溯、欄位／型別／流程與 DB 一致、新增／修改／不動與影響分析一致）。另須檢查每個前端功能條目都有 mockup 截圖（sa-images/）且圖與功能對得上，純後端條目除外。",
+        roleNotes: "只看規格、不看程式碼：驗證 SA 與 SD 能串起來（雙向可追溯、欄位／型別／流程與 DB 一致、新增／修改／不動與影響分析一致）。另須檢查 SA 的畫面與每個提示狀態都有 mockup 截圖（sa-images/）且圖與說明對得上；前端功能只需要出現在 SD 的「前端功能與 API 對應表」。",
       },
       { id: "frontend-engineer", promptRef: "frontend-engineer", dependsOn: ["spec-verifier"], parallelWith: ["backend-engineer"], inputs: ["sa", "spec-check", "tech-stack"], outputs: ["impl-fe"], optional: true, when: "hasFrontend==true" },
       { id: "backend-engineer", promptRef: "backend-engineer", dependsOn: ["spec-verifier"], parallelWith: ["frontend-engineer"], inputs: ["sd", "spec-check", "tech-stack"], outputs: ["impl-be"], optional: true, when: "hasBackend==true" },
@@ -91,7 +92,7 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
           {
             id: "sa-mockup-screenshot",
             description:
-              "每個功能標題底下都要引用 sa-images/ 的圖（圖檔存在且被規格 01-sa.md 引用），標「（純後端）」的除外；截圖取自已確認的 mockup。",
+              "01-sa.md 至少一張畫面圖且所有圖片引用有效（sa-images/ 內存在的圖）；必備章節、基本資料表、版本管控歷程、規則表格；沒有禁用詞與內部檔名；每個提示狀態附有效截圖；截圖取自已確認的 mockup。",
           },
         ],
       },

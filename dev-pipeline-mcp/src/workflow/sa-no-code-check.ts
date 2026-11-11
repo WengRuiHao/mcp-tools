@@ -1,10 +1,9 @@
 // S14：SA 不寫程式檢查。01-sa.md 不可有程式碼區塊（mermaid 流程圖除外）與明顯的 SQL 語句。
-// 資料表／類別名稱難以自動判斷，交給 SA 提示詞與規格驗證師。「## 依據附錄」內允許檔案路徑與行號，其餘規則相同。
+// 資料表／類別名稱難以自動判斷，交給 SA 提示詞與規格驗證師。沒有任何章節例外（翻新案的程式依據放內部檔 sa-notes.md，不放 SA）。
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { eachLine, SA_FILE_NAME } from "./sa-image-check.js";
 
-export const SA_APPENDIX_HEADING = "## 依據附錄";
 export const SNIPPET_MAX = 60;
 const ALLOWED_FENCE_LANG = "mermaid";
 
@@ -49,7 +48,7 @@ export function checkSaNoCode(workItemDir: string): SaNoCodeResult {
     },
     (info, lineNo, opening) => {
       if (!opening || info.split(/\s+/)[0].toLowerCase() === ALLOWED_FENCE_LANG) return;
-      violations.push({ line: lineNo, reason: "出現程式碼區塊（僅 mermaid 流程圖允許），請改用業務語言描述；依據的檔案位置放「## 依據附錄」", snippet: shorten(`\`\`\`${info}`) });
+      violations.push({ line: lineNo, reason: "出現程式碼區塊（僅 mermaid 流程圖允許），請改用業務語言描述；程式依據放內部檔 sa-notes.md", snippet: shorten(`\`\`\`${info}`) });
     },
   );
   return { ok: violations.length === 0, violations };

@@ -32,16 +32,17 @@ test("done：還沒輪到、被略過、不存在的角色都拒絕", async () =
   assert.equal((await done(id, "ghost")).isError, true);
 });
 
-test("done sa-analyst：01-sa.md 不存在轉成失敗訊息；缺圖逐項回報；通過後程式自動通過 sa-content-check", async () => {
+test("done sa-analyst：01-sa.md 不存在轉成失敗訊息；沒有任何圖與不符標準逐項回報；通過後程式自動通過 sa-content-check", async () => {
   const { id, dir } = await env.create();
   await runUntil(env, id, dir, "sa-analyst");
   const none = await done(id, "sa-analyst");
   assert.equal(none.isError, true);
   assert.match(none.json.message, /01-sa\.md/);
-  await writeFile(path.join(dir, "01-sa.md"), "## 功能：登入\n沒有圖\n## 功能：匯出\n沒有圖\n");
+  await writeFile(path.join(dir, "01-sa.md"), "# 需求\n沒有圖\n");
   const viol = await done(id, "sa-analyst");
   assert.equal(viol.isError, true);
-  assert.equal(viol.json.problems.filter((p) => p.includes("缺圖引用")).length, 2);
+  assert.equal(viol.json.problems.filter((p) => p.includes("至少要有一張圖")).length, 1);
+  assert.ok(viol.json.problems.some((p) => p.includes("SA 標準檢查未通過")));
   await fulfil(dir, "sa-analyst");
   const ok = await done(id, "sa-analyst");
   assert.equal(ok.isError, false);

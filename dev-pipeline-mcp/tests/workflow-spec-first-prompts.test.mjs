@@ -69,17 +69,18 @@ test("mockup-designer：只畫 mockup、放 sa-mockup/、不寫規格、等使�
   assert.ok(t.includes("sa-mockup/") && t.includes("不寫規格") && t.includes("人工確認") && t.includes("瀏覽器"));
 });
 
-test("sa-analyst：功能標題格式、純後端、sa-images/、定稿不換圖、客戶語氣", () => {
+test("sa-analyst：新標準（客戶版、章節結構、版本管控歷程、表格、提示截圖、sa-notes.md、不再有功能標題與純後端）", () => {
   const t = getSpecFirstRolePrompt("sa-analyst");
-  assert.ok(t.includes("## 功能：") && t.includes("（純後端）") && t.includes("sa-images/") && t.includes("![說明](sa-images/"));
-  assert.ok(t.includes("不可把圖片換成實際系統畫面") && t.includes("客戶看得懂"));
+  for (const k of ["SA-範本.md", "客戶版", "客戶看得懂", "基本資料表", "## 版本管控歷程", "版次｜發行日期｜修訂說明｜修訂單位｜修訂人員", "功能目的 → 畫面 → 操作說明", "一律用表格", "編號清單", "前端檢核", "後端回應", "欄位下方", "訊息區", "sa-images/", "![說明](sa-images/", "不要用文字表格代替截圖", "sa-notes.md", "待確認問題", "需求規定／已確認／建議預設", "不可自行訂", "不可在定稿後把截圖換成實際系統畫面"]) assert.ok(t.includes(k), k);
+  assert.ok(!t.includes("## 功能：") && !t.includes("使用的共用畫面元件") && !t.includes("放「## 依據附錄」"));
 });
 
-test("S14 sa-analyst：SA 不寫程式（允許與禁止清單、依據附錄）；spec-verifier 檢查並判 FAIL rootCause sa", () => {
+test("S14 sa-analyst：禁用詞與內部檔名清單、翻新案依據只放 sa-notes.md；spec-verifier 檢查並判 FAIL rootCause sa，不再檢查共用畫面元件與依據附錄", () => {
   const t = getSpecFirstRolePrompt("sa-analyst");
-  for (const k of ["業務語言", "業務公式", "畫面欄位名稱", "沿用現有的某共用元件", "程式碼片段", "SQL 語句", "類別與方法名稱", "API 路徑", "資料表與資料庫欄位名稱", "mermaid", "## 依據附錄", "檔案位置與行號", "翻新案"]) assert.ok(t.includes(k), k);
+  for (const k of ["已確認的決定", "依據附錄", "純後端", "共用畫面元件", "mockup、API、SQL", "前端工程師", "後端工程師", "交給前端", "通知前端", "01-sa、02-db、03-sd、spec-check、sa-notes、.dev-pipeline", "程式碼區塊", "類別與方法名稱", "翻新案", "只放 sa-notes.md", "本節說明"]) assert.ok(t.includes(k), k);
   const v = getSpecFirstRolePrompt("spec-verifier");
-  for (const k of ["SA 正文沒有程式碼", "SQL", "類別與方法名稱", "API 路徑", "資料表與欄位名稱", "## 依據附錄", "rootCause 填 sa"]) assert.ok(v.includes(k), k);
+  for (const k of ["SA 正文沒有程式碼", "SQL", "類別與方法名稱", "API 路徑", "資料表與欄位名稱", "前端功能與 API 對應表", "rootCause 填 sa"]) assert.ok(v.includes(k), k);
+  assert.ok(!v.includes("共用畫面元件") && !v.includes("「## 依據附錄」內"));
 });
 
 test("db-designer：破壞性語句與回滾", () => {
@@ -117,10 +118,10 @@ test("前後端工程師依 SA／SD 並要求規格驗證 PASS", () => {
   for (const id of ["frontend-engineer", "backend-engineer"]) assert.ok(getSpecFirstRolePrompt(id).includes("spec-check.md"));
 });
 
-test("每份說明長度 800～2500 字元", () => {
+test("每份說明長度 800～2500 字元（標準較長的 SA 分析師放寬到 3500）", () => {
   for (const id of SPEC_FIRST_ROLE_IDS) {
     const n = getSpecFirstRolePrompt(id).length;
-    assert.ok(n >= 800 && n <= 2500, `${id} 長度 ${n}`);
+    assert.ok(n >= 800 && n <= (id === "sa-analyst" ? 3500 : 2500), `${id} 長度 ${n}`);
   }
 });
 

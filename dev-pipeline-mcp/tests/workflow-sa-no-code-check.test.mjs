@@ -77,13 +77,12 @@ test("一般中文與含 select／update／delete 字樣的普通句子不誤判
   for (const c of ok) assert.equal(check(`## 功能：a\n${c}\n`).ok, true, c);
 });
 
-test("依據附錄：檔案路徑與行號放行，程式碼區塊與 SQL 仍被擋", () => {
-  const okAppendix = "## 功能：a\n白話規則\n## 依據附錄\n- src/main/java/OrderService.java:120-135\n- legacy/order.jsp 第 88 行\n";
-  assert.equal(check(okAppendix).ok, true);
+test("「## 依據附錄」不再有例外：檔案路徑照放行（不是程式碼），程式碼區塊與 SQL 一律被擋", () => {
+  assert.equal(check("## 功能：a\n白話規則\n## 依據附錄\n- src/main/java/OrderService.java:120-135\n").ok, true);
   const bad = check("## 依據附錄\n```java\nx\n```\nSELECT a FROM t\n");
   assert.deepEqual(bad.violations.map((v) => v.line), [2, 5]);
+  assert.ok(!bad.violations.some((v) => v.reason.includes("依據附錄")));
 });
-
 test("CRLF 行號正確", () => {
   const r = check("## 功能：a\r\n文字\r\n```\r\nx\r\n```\r\nDELETE FROM t\r\n");
   assert.deepEqual(r.violations.map((v) => v.line), [3, 6]);

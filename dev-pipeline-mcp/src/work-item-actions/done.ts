@@ -13,7 +13,7 @@ import { nextBlock, viewFor } from "./view.js";
 
 /** 程式檢查關卡通過時寫進紀錄的檢查名稱（對應 deliverables.ts 的檢查）。 */
 const CHECK_NAMES: Readonly<Record<string, string>> = {
-  "sa-content-check": "checkSaImages",
+  "sa-content-check": "checkSaStandard、checkSaImages、checkSaNoCode",
   "impact-content": "checkImpactReuseList",
   "implementation-content": "checkReuseRecord",
   "test-evidence": "checkTestEvidence",

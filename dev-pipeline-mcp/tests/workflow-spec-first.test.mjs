@@ -89,7 +89,8 @@ test("sa-analyst 與 spec-verifier 的 roleNotes 提到 mockup 截圖", () => {
   assert.match(notes("sa-analyst"), /mockup[\s\S]*sa-images\//);
   assert.match(notes("sa-analyst"), /不換成實際系統畫面/);
   assert.match(notes("spec-verifier"), /mockup 截圖/);
-  assert.match(notes("spec-verifier"), /純後端/);
+  assert.match(notes("spec-verifier"), /前端功能與 API 對應表/);
+  assert.match(notes("sa-analyst"), /sa-notes\.md/);
 });
 
 test("resolve 後 sa-content-check 仍在，stage 順序不受內容關卡影響", () => {
@@ -99,12 +100,20 @@ test("resolve 後 sa-content-check 仍在，stage 順序不受內容關卡影響
   assert.equal(ids(r.roles).length, 12);
 });
 
-test("sa-content-check 描述：每個功能標題引用 sa-images/、純後端除外、取自已確認 mockup，check id 不變", () => {
+test("sa-content-check 描述：至少一張畫面圖、所有圖片引用有效、提示狀態附圖、取自已確認 mockup，check id 不變", () => {
   const c = buildSpecFirstWorkflow().gates.find((g) => g.id === "sa-content-check").checks[0];
   assert.equal(c.id, "sa-mockup-screenshot");
-  assert.match(c.description, /每個功能標題底下都要引用 sa-images\//);
-  assert.match(c.description, /（純後端）/);
+  assert.match(c.description, /至少一張畫面圖且所有圖片引用有效/);
+  assert.match(c.description, /sa-images\//);
+  assert.match(c.description, /每個提示狀態附有效截圖/);
   assert.match(c.description, /已確認的 mockup/);
+  assert.doesNotMatch(c.description, /純後端|功能標題/);
+});
+
+test("sa-notes：內部產出物（sa-notes.md、markdown），由 sa-analyst 產出", () => {
+  const d = buildSpecFirstWorkflow();
+  assert.deepEqual(d.artifacts.find((a) => a.id === "sa-notes"), { id: "sa-notes", file: "sa-notes.md", kind: "markdown" });
+  assert.deepEqual(d.roles.find((r) => r.id === "sa-analyst").outputs, ["sa", "sa-notes"]);
 });
 
 test("mockup-designer：optional、hasFrontend==true、位於 baseline-survey 之後 sa-analyst 之前，產出 mockup", () => {
