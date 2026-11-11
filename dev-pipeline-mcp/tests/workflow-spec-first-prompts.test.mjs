@@ -146,3 +146,12 @@ test("不含真實客戶或專案代號", () => {
     for (const w of FORBIDDEN) assert.ok(!t.includes(w), `${id} 含 ${w}`);
   }
 });
+
+test("sd-analyst：使用資料表連結為 TableSchema/<文件>.md#表名（分組文件小節錨點）；spec-verifier：分組文件、邏輯關聯與 ER 圖由驗證師確認", () => {
+  const sd = getSpecFirstRolePrompt("sd-analyst");
+  for (const k of ["TableSchema/<文件>.md#表名", "「## 資料表：表名」小節", "分組文件", "連結的檔案與小節存在"]) assert.ok(sd.includes(k), k);
+  const v = getSpecFirstRolePrompt("spec-verifier");
+  for (const k of ["分組", "TableSchema/<文件>.md#表名", "邏輯關聯", "無法驗證真偽", "ER 圖", "本次新增", "唯一例外"]) assert.ok(v.includes(k), k);
+  const notes = Object.fromEntries(wf.roles.map((r) => [r.id, r.roleNotes ?? ""]));
+  assert.ok(notes["sd-analyst"].includes("#表名") && notes["spec-verifier"].includes("邏輯關聯") && notes["spec-verifier"].includes("ER 圖"));
+});
