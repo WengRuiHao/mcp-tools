@@ -2,6 +2,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { WorkflowDefinition } from "../workflow/schema.js";
 import { checkMermaidFile } from "../workflow/mermaid-check.js";
+import { checkMockupDir } from "../workflow/mockup-check.js";
 import { checkImpactReuseList, checkReuseRecord, checkSdReuseDesign } from "../workflow/reuse-record-check.js";
 import { checkSaImages, SA_FILE_NAME } from "../workflow/sa-image-check.js";
 import { checkSaNoCode } from "../workflow/sa-no-code-check.js";
@@ -147,6 +148,7 @@ export async function checkDeliverables(dir: string, roleId: string, def: Workfl
     if (art.render && !((await sizeOf(path.join(dir, art.render))) ?? 0)) problems.push(`缺少圖片 ${art.render}（必須存在且非空；用 attach 或 render 產生）`);
   }
   if (roleId === "sa-analyst") problems.push(...(await checkSa(dir)));
+  if (roleId === "mockup-designer") problems.push(...checkMockupDir(dir).map((v) => `mockup 檢查未通過：${v}`));
   if (roleId === "flow-analyst") problems.push(...checkMermaidFile(dir).map((v) => `流程圖（flow.mmd）格式檢查未通過：${v}`));
   if (roleId === "tester") problems.push(...(await checkTest(dir)));
   problems.push(...(await checkReuse(dir, roleId, def)));

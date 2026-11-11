@@ -64,6 +64,11 @@ test("baseline-survey：盤點「## 現有技術棧」；mockup-designer 的風�
   for (const k of ["沿用現有", "換新", "全新有規範", "全新待選", "畫面風格來源"]) assert.ok(m.includes(k), k);
 });
 
+test("mockup-designer：可操作原型、五種狀態、#狀態名稱 切換、data-demo-states、不連外網、可互相跳轉、交件說明", () => {
+  const t = getSpecFirstRolePrompt("mockup-designer");
+  for (const k of ["可操作原型", "單一 HTML", "原生 HTML／CSS／JS", "不連外網", "http:// 或 https://", "每個使用者動作都要能點", "表單要有驗證與錯誤提示", "正常、載入中、成功、失敗、沒有資料", "#狀態名稱", "mockup-狀態切換範例.html", "data-demo-states", "互相跳轉", "每個畫面", "每個可操作元素", "所有狀態名稱", "mockup 檢查"]) assert.ok(t.includes(k), k);
+});
+
 test("mockup-designer：只畫 mockup、放 sa-mockup/、不寫規格、等使用者確認", () => {
   const t = getSpecFirstRolePrompt("mockup-designer");
   assert.ok(t.includes("sa-mockup/") && t.includes("不寫規格") && t.includes("人工確認") && t.includes("瀏覽器"));
@@ -118,10 +123,10 @@ test("前後端工程師依 SA／SD 並要求規格驗證 PASS", () => {
   for (const id of ["frontend-engineer", "backend-engineer"]) assert.ok(getSpecFirstRolePrompt(id).includes("spec-check.md"));
 });
 
-test("每份說明長度 800～2500 字元（標準較長的 SA 分析師放寬到 3500）", () => {
+test("每份說明長度 800～2500 字元（標準較長的 SA 分析師、mockup 設計師放寬到 3500）", () => {
   for (const id of SPEC_FIRST_ROLE_IDS) {
     const n = getSpecFirstRolePrompt(id).length;
-    assert.ok(n >= 800 && n <= (id === "sa-analyst" ? 3500 : 2500), `${id} 長度 ${n}`);
+    assert.ok(n >= 800 && n <= (id === "sa-analyst" || id === "mockup-designer" ? 3500 : 2500), `${id} 長度 ${n}`);
   }
 });
 

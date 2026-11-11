@@ -23,7 +23,7 @@ th,td{padding:8px;border-bottom:1px solid #e5e7eb;text-align:left}
 th{background:#f1f5f9}
 </style>
 </head>
-<body>
+<body data-demo-states="required,order,range,toomany,empty,failed">
 <div class="wrap">
   <div id="msg" class="msg"></div>
   <h1>我的訂單</h1>
@@ -55,6 +55,8 @@ if (st === 'range') { s.value = '2025-01-01'; e.value = '2026-11-10'; fieldError
 if (st === 'toomany') { banner('err', '資料量過大，請縮小日期區間'); }
 if (st === 'empty') { banner('info', '此區間沒有訂單'); }
 if (st === 'failed') { banner('err', '匯出失敗，請稍後再試'); }
+// 網址 #狀態名稱 改變時重新載入，切換到該狀態
+window.addEventListener('hashchange', function () { location.reload(); });
 </script>
 </body>
 </html>

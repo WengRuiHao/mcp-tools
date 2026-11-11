@@ -16,6 +16,12 @@ test("done：缺產出檔不標記完成、補齊後成功並回傳下一步", a
   assert.equal(bad.isError, true);
   assert.match(bad.json.message, /sa-mockup\//);
   assert.deepEqual((await env.call({ action: "get", workItemId: id })).json.doneRoles, ["tech-selector"]);
+  await mkdir(path.join(dir, "sa-mockup"), { recursive: true });
+  await writeFile(path.join(dir, "sa-mockup", "index.html"), "<html><body><p>靜態頁</p></body></html>");
+  const stat = await done(id, "mockup-designer");
+  assert.equal(stat.isError, true);
+  assert.ok(stat.json.problems.some((p) => p.includes("mockup 檢查未通過") && p.includes("沒有 <script>")));
+  assert.ok(stat.json.problems.some((p) => p.includes("缺少 data-demo-states")));
   await fulfil(dir, "mockup-designer");
   const ok = await done(id, "mockup-designer");
   assert.equal(ok.isError, false);

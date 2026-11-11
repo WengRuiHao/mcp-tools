@@ -11,6 +11,8 @@ export const REUSE_RECORD_OK = "## 重用檢查紀錄\n| 搜尋關鍵字 | 找�
 /** 專案目錄是暫存空目錄（非版本控制），所以實作說明要自己列出「## 改動檔案」；列的檔案不存在也算有清單。 */
 export const CHANGED_FILES_FE = "## 改動檔案\n- src/ui/login-page.js\n";
 export const CHANGED_FILES_BE = "## 改動檔案\n- src/api/login-service.js\n";
+/** 通過 mockup 檢查的精簡可操作原型。 */
+export const VALID_MOCKUP = `<!doctype html><html><body data-demo-states="normal,loading,success,failed,empty"><button id="b">登入</button><script>document.getElementById("b").addEventListener("click", function () {});</script></body></html>`;
 /** 通過所有 SA 檢查的精簡客戶版 SA（只用一張圖 sa-images/a.png）。 */
 export const VALID_SA = [
   "# 登入：需求說明", "", "| 項目 | 內容 |", "| --- | --- |", "| 功能名稱 | 登入 |", "| 文件版次 | 0.1 |", "| 系統分析者 | 系統分析師 |", "| 審查者 |  |", "",
@@ -58,7 +60,7 @@ export async function fulfil(dir, roleId, opts = {}) {
   const files = {
     "baseline-survey": async () => { await w("baseline.md", BASELINE_TECH_OK); await w("impact.md", REUSABLE_LIST_OK); },
     "tech-selector": async () => w("tech-stack.md", techStackFor(JSON.parse(await readFile(path.join(dir, "status.json"), "utf-8")).tech_source)),
-    "mockup-designer": () => w("sa-mockup/index.html", "<html></html>"),
+    "mockup-designer": () => w("sa-mockup/index.html", VALID_MOCKUP),
     "sa-analyst": async () => { await w("01-sa.md", VALID_SA); await w("sa-notes.md", "## 待確認問題\n- 無\n"); await writeFile(path.join(dir, "sa-images", "a.png"), PNG); },
     "db-designer": () => w("02-db.sql", opts.sql ?? "CREATE TABLE t (id INT);"),
     "flow-analyst": async () => { await w("flow.mmd", "graph TD\nA-->B"); await writeFile(path.join(dir, "flow.png"), PNG); },
