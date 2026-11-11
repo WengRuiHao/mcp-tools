@@ -3,7 +3,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { setupEnv, runUntil, REUSE_RECORD_OK } from "./helpers/work-item-env.mjs";
+import { setupEnv, runUntil, REUSE_RECORD_OK, IMPL_LAYERS_OK, writeLayerFiles } from "./helpers/work-item-env.mjs";
 
 const env = await setupEnv("wi-dup-");
 after(() => env.cleanup());
@@ -44,7 +44,8 @@ test("有效豁免通過，報告列出已豁免區塊與理由；後端交件�
   const report = await readFile(path.join(dir, "dup-report.md"), "utf-8");
   assert.match(report, /已豁免的重複區塊/);
   assert.match(report, /兩邊刻意獨立演進/);
-  await writeFile(path.join(dir, "impl-be.md"), `BE\n${REUSE_RECORD_OK}## 改動檔案\n- src/ok.js\n`);
+  await writeFile(path.join(dir, "impl-be.md"), `BE\n${IMPL_LAYERS_OK}${REUSE_RECORD_OK}## 改動檔案\n- src/ok.js\n`);
+  await writeLayerFiles(env.projectDir);
   await put("src/ok.js", js(lines(10, "unique")));
   assert.equal((await done(id, "backend-engineer")).isError, false);
   const both = await readFile(path.join(dir, "dup-report.md"), "utf-8");

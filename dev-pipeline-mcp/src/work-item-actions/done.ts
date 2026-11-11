@@ -47,7 +47,7 @@ export async function handleDone(a: WorkItemArgs): Promise<ToolReply> {
   const ctx = await loadWorkItem(workItemId);
   const { def, overrideApplied } = await loadEffectiveDef(ctx.status);
   assertAvailable(ctx.status, def, overrideApplied, roleId);
-  const basic = await checkDeliverables(ctx.dir, roleId, def, { techSource: ctx.status.tech_source });
+  const basic = await checkDeliverables(ctx.dir, roleId, def, { techSource: ctx.status.tech_source, projectDir: ctx.status.project_dir });
   const problems = basic.length > 0 ? basic : await checkDuplicatesOnDone(ctx.dir, ctx.status.project_dir, roleId, def);
   if (problems.length > 0) throw new WorkItemActionError(`交件檢查未通過，角色「${roleId}」未標記完成：${problems.join("；")}`, { problems });
   const updated = await updateStatus(ctx.id, (s) => {

@@ -11,6 +11,13 @@ export const REUSE_RECORD_OK = "## 重用檢查紀錄\n| 搜尋關鍵字 | 找�
 /** 專案目錄是暫存空目錄（非版本控制），所以實作說明要自己列出「## 改動檔案」；列的檔案不存在也算有清單。 */
 export const CHANGED_FILES_FE = "## 改動檔案\n- src/ui/login-page.js\n";
 export const CHANGED_FILES_BE = "## 改動檔案\n- src/api/login-service.js\n";
+/** 對應 VALID_SD 的 API 落地清單。 */
+export const IMPL_LAYERS_OK = "## API 落地清單\n| API | Controller | Service | Repository |\n| --- | --- | --- | --- |\n| POST /api/login | src/api/login-controller.js ── login() | src/api/login-service.js ── login() | src/api/login-repository.js ── findAccount() |\n";
+/** 在專案目錄寫出 VALID_SD 宣告的三層檔案（含宣告的方法）。 */
+export async function writeLayerFiles(projectDir) {
+  await mkdir(path.join(projectDir, "src", "api"), { recursive: true });
+  for (const [f, m] of [["login-controller", "login"], ["login-service", "login"], ["login-repository", "findAccount"]]) await writeFile(path.join(projectDir, "src", "api", `${f}.js`), `export function ${m}() {}\n`);
+}
 /** 對應預設 02-db.sql（CREATE TABLE t (id INT)）的合格資料表結構文件。 */
 export const VALID_TABLE_SCHEMA = [
   "# t 資料表結構", "", "## 版本管控歷程", "", "| 版次 | 發行日期 | 修訂說明 | 修訂單位 | 修訂人員 |", "| --- | --- | --- | --- | --- |", "| 1.0 | 2026/11/10 | 初版 | 示範團隊 | 系統分析師 |", "",
@@ -86,7 +93,7 @@ export async function fulfil(dir, roleId, opts = {}) {
     "sd-analyst": () => w("03-sd.md", VALID_SD),
     "spec-verifier": () => w("spec-check.md", opts.verdictText ?? "PASS\n對照表"),
     "frontend-engineer": () => w("impl-fe.md", `FE\n${REUSE_RECORD_OK}${CHANGED_FILES_FE}`),
-    "backend-engineer": () => w("impl-be.md", `BE\n${REUSE_RECORD_OK}${CHANGED_FILES_BE}`),
+    "backend-engineer": async () => { await writeLayerFiles(JSON.parse(await readFile(path.join(dir, "status.json"), "utf-8")).project_dir); await w("impl-be.md", `BE\n${IMPL_LAYERS_OK}${REUSE_RECORD_OK}${CHANGED_FILES_BE}`); },
     verifier: () => w("verify.md", opts.verdictText ?? "PASS\n"),
     tester: async () => {
       await w("test.md", "## 白箱\n白箱結果\n## 黑箱\n黑箱結果\n## 測試：登入\n![畫面](evidence/a.png)\n");

@@ -7,6 +7,7 @@ import { checkImpactReuseList, checkReuseRecord } from "../workflow/reuse-record
 import { checkSaImages, SA_FILE_NAME } from "../workflow/sa-image-check.js";
 import { checkSaNoCode } from "../workflow/sa-no-code-check.js";
 import { checkSaStandard } from "../workflow/sa-standard-check.js";
+import { checkSdLayers } from "../workflow/sd-layer-check.js";
 import { checkSdStructure } from "../workflow/sd-structure-check.js";
 import { checkTableSchemas } from "../workflow/table-schema-check.js";
 import { checkBaselineTechStack, checkTechStack, TECH_STACK_FILE, BASELINE_FILE } from "../workflow/tech-stack-check.js";
@@ -119,6 +120,19 @@ async function checkSd(dir: string, def: WorkflowDefinition): Promise<string[]> 
   }
 }
 
+/** 後端工程師交件：impl-be.md 的 API 落地清單與 SD 三層宣告比對，有專案目錄再檢查實際檔案。 */
+async function checkLayers(dir: string, def: WorkflowDefinition, projectDir: string | null | undefined): Promise<string[]> {
+  const sdFile = def.artifacts.find((a) => a.id === "sd")?.file;
+  const implFile = def.artifacts.find((a) => a.id === "impl-be")?.file;
+  if (!sdFile || !implFile) return [];
+  try {
+    const [sd, impl] = [await readFile(path.join(dir, sdFile), "utf-8"), await readFile(path.join(dir, implFile), "utf-8")];
+    return checkSdLayers(sd, impl, projectDir ?? null).map((v) => `SD 分層落地檢查未通過：${v}`);
+  } catch {
+    return []; // 檔案缺漏已由一般交件檢查回報
+  }
+}
+
 async function readOptional(file: string): Promise<string | undefined> {
   try {
     return await readFile(file, "utf-8");
@@ -139,6 +153,8 @@ async function checkTech(dir: string, roleId: string, techSource: string | undef
 
 export interface DeliverableContext {
   techSource?: string | undefined;
+  /** 工作項目的專案目錄；沒有時分層檢查只比對 impl 說明與 SD。 */
+  projectDir?: string | null | undefined;
 }
 
 export async function checkDeliverables(dir: string, roleId: string, def: WorkflowDefinition, ctx: DeliverableContext = {}): Promise<string[]> {
@@ -165,6 +181,7 @@ export async function checkDeliverables(dir: string, roleId: string, def: Workfl
   if (roleId === "flow-analyst") problems.push(...checkMermaidFile(dir).map((v) => `流程圖（flow.mmd）格式檢查未通過：${v}`));
   if (roleId === "tester") problems.push(...(await checkTest(dir)));
   if (roleId === "sd-analyst") problems.push(...(await checkSd(dir, def)));
+  if (roleId === "backend-engineer") problems.push(...(await checkLayers(dir, def, ctx.projectDir)));
   problems.push(...(await checkReuse(dir, roleId, def)));
   if (roleId === "baseline-survey" || roleId === "tech-selector") problems.push(...(await checkTech(dir, roleId, ctx.techSource)));
   return problems;
