@@ -25,6 +25,8 @@ export const ArtifactDefSchema = z
     attachments: z.array(z.string()).optional(),
     render: z.string().optional(),
     evidence: z.array(z.enum(["screenshot"])).optional(),
+    /** 正式交付物（給客戶／使用者收件）；沒標記＝內部過程檔。 */
+    deliverable: z.boolean().optional(),
   })
   .strict();
 

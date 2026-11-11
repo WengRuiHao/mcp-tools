@@ -1,5 +1,6 @@
 // SA 新標準檢查（客戶版 SA，格式以 docs/sasd-standard/SA-範本.md 為準）。純文字檢查，回傳違規逐項說明（空陣列＝合格）。
 // 與 sa-image-check（圖片引用有效性）、sa-no-code-check（程式碼與 SQL）並行；圖檔是否存在由 sa-image-check 負責，這裡只看提示狀態標籤後面有沒有圖片引用。
+import { SA_INTERNAL_TERMS } from "./internal-files.js";
 import { headingMatches, stripHeadingNumber } from "./heading-match.js";
 import { parseTable } from "./md-table.js";
 import { extractSection } from "./reuse-record-check.js";
@@ -14,7 +15,7 @@ export const BASIC_INFO_ITEMS: readonly string[] = ["功能名稱", "文件版�
 /** 客戶版 SA 的禁用詞；ASCII 詞以不連著其他英文字母為準（避免 RAPID 命中 API）。 */
 export const FORBIDDEN_TERMS: readonly string[] = ["已確認的決定", "依據附錄", "純後端", "共用畫面元件", "mockup", "API", "SQL", "前端工程師", "後端工程師", "交給前端", "通知前端"];
 /** 內部過程檔名，不可出現在正式交付物。 */
-export const INTERNAL_FILE_TERMS: readonly string[] = ["01-sa", "02-db", "03-sd", "spec-check", "sa-notes", ".dev-pipeline"];
+export const INTERNAL_FILE_TERMS: readonly string[] = SA_INTERNAL_TERMS;
 /** 說明「這段文字為什麼存在」的後設句。 */
 export const META_SENTENCES: readonly { re: RegExp; label: string }[] = [
   { re: /本節說明[^。\n]*為什麼/, label: "本節說明…為什麼" },

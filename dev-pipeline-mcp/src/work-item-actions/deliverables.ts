@@ -1,6 +1,8 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { WorkflowDefinition } from "../workflow/schema.js";
+import { checkDeliverablePointers } from "../workflow/deliverable-pointer-check.js";
+import { SA_INTERNAL_TERMS, SD_INTERNAL_TERMS } from "../workflow/internal-files.js";
 import { checkMermaidFile } from "../workflow/mermaid-check.js";
 import { checkMockupDir } from "../workflow/mockup-check.js";
 import { checkImpactReuseList, checkReuseRecord } from "../workflow/reuse-record-check.js";
@@ -151,6 +153,24 @@ async function checkTech(dir: string, roleId: string, techSource: string | undef
   return text === undefined ? [] : checkTechStack(text, { techSource, baselineText: await readOptional(path.join(dir, BASELINE_FILE)) });
 }
 
+/** 正式交付物引用檢查（內部檔名、圖片來源）。SA／SD 交件時只看自己的文件，並略過標準檢查已回報的內部檔名；測試工程師交件（最終驗收前）檢查全部正式交付物。 */
+const POINTER_SCOPE: Readonly<Record<string, { only?: string[]; suppress?: Record<string, readonly string[]> }>> = {
+  "sa-analyst": { only: ["sa"], suppress: { "01-sa.md": [...SA_INTERNAL_TERMS, "sa-mockup"] } },
+  "db-designer": { only: ["table-schema"] },
+  "sd-analyst": { only: ["sd"], suppress: { "03-sd.md": SD_INTERNAL_TERMS } },
+  tester: {},
+};
+
+function checkPointers(dir: string, roleId: string, def: WorkflowDefinition): string[] {
+  const scope = POINTER_SCOPE[roleId];
+  if (!scope) return [];
+  try {
+    return checkDeliverablePointers(dir, def, scope).map((v) => `交付物引用檢查未通過：${v}`);
+  } catch (e) {
+    return [`交付物引用檢查失敗：${e instanceof Error ? e.message : String(e)}`];
+  }
+}
+
 export interface DeliverableContext {
   techSource?: string | undefined;
   /** 工作項目的專案目錄；沒有時分層檢查只比對 impl 說明與 SD。 */
@@ -182,6 +202,7 @@ export async function checkDeliverables(dir: string, roleId: string, def: Workfl
   if (roleId === "tester") problems.push(...(await checkTest(dir)));
   if (roleId === "sd-analyst") problems.push(...(await checkSd(dir, def)));
   if (roleId === "backend-engineer") problems.push(...(await checkLayers(dir, def, ctx.projectDir)));
+  problems.push(...checkPointers(dir, roleId, def));
   problems.push(...(await checkReuse(dir, roleId, def)));
   if (roleId === "baseline-survey" || roleId === "tech-selector") problems.push(...(await checkTech(dir, roleId, ctx.techSource)));
   return problems;

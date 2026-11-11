@@ -37,6 +37,9 @@ export interface FinalSummaryInput {
   consecutiveFailCount: number;
   files: readonly FileFact[];
   dupReport: string | undefined;
+  /** 正式交付物與內部過程檔路徑（有給才列出分組清單）。 */
+  deliverablePaths?: readonly string[];
+  internalPaths?: readonly string[];
 }
 
 const GATE_LABELS: Readonly<Record<string, string>> = {
@@ -153,6 +156,11 @@ export function artifactPaths(artifacts: readonly ArtifactDef[]): string[] {
   return [...new Set(artifacts.flatMap((a) => [a.file, ...(a.attachments ?? []), ...(a.render ? [a.render] : [])]))];
 }
 
+function groupLines(title: string, paths: readonly string[] | undefined, by: ReadonlyMap<string, FileFact>): string[] {
+  if (!paths) return [];
+  return [`### ${title}`, "", ...paths.map((p) => `- ${p}：${by.get(p)?.exists ? "存在" : "不存在"}`), ""];
+}
+
 function countLine(label: string, f: FileFact | undefined, unit: string): string {
   return `- ${label}：${f?.exists ? `${f.fileCount} ${unit}` : f ? `0 ${unit}` : NO_RECORD}`;
 }
@@ -168,6 +176,8 @@ function artifactSection(i: FinalSummaryInput): string[] {
     countLine("evidence 張數", by.get("evidence/"), "張"),
     `- flow.png：${flowPng ? (flowPng.exists ? "存在" : "不存在") : NO_RECORD}`,
     "",
+    ...groupLines("正式交付物（交給客戶／使用者）", i.deliverablePaths, by),
+    ...groupLines("內部過程檔（不交付）", i.internalPaths, by),
   ];
 }
 

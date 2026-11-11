@@ -2,6 +2,7 @@ import { isSaConfirmed } from "../work-item-store.js";
 import { isStyleSourceLocked, isTechSourceLocked } from "../work-item-sources.js";
 import { need, okReply, type ToolReply } from "./common.js";
 import { loadWorkItem } from "./context.js";
+import { listDeliverables } from "./deliverable-list.js";
 import { existingSummaryFile } from "./final-summary-io.js";
 import type { WorkItemArgs } from "./schema.js";
 import { buildView, nextBlock } from "./view.js";
@@ -28,6 +29,7 @@ export async function handleGet(a: WorkItemArgs): Promise<ToolReply> {
     doneRoles: v.next.doneRoles,
     consecutiveFailCount: v.next.consecutiveFailCount,
     ...(summaryFile ? { summaryFile } : {}),
+    ...(await listDeliverables(ctx.dir, v.def)),
     ...nextBlock(v),
   });
 }

@@ -3,6 +3,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { headingMatches } from "./heading-match.js";
+import { SD_INTERNAL_TERMS } from "./internal-files.js";
 import { parseTable } from "./md-table.js";
 import { extractSection } from "./reuse-record-check.js";
 import { eachLine, listHeadings } from "./sa-image-check.js";
@@ -31,7 +32,7 @@ const TOP_SECTIONS: readonly string[] = ["版本管控歷程", "目錄", "規格
 /** 不確定寫法（SD 的每一項都要寫定案）。 */
 export const UNCERTAIN_TERMS: readonly string[] = ["選用", "視情況", "可能", "或許", "也許", "酌情", "視需要", "必要時", "看情況", "待定", "暫定", "TBD"];
 /** 內部過程檔名，不可出現在正式交付物。 */
-export const SD_INTERNAL_FILES: readonly string[] = ["01-sa", "02-db", "03-sd", "spec-check", "sa-notes", "impl-fe", "impl-be", "dup-report", ".dev-pipeline", "verify.md", "test.md", "impact.md", "baseline.md", "tech-stack.md"];
+export const SD_INTERNAL_FILES: readonly string[] = SD_INTERNAL_TERMS;
 const WORD_RES = [...UNCERTAIN_TERMS.map((t) => ({ t, re: termRe(t), kind: "不確定寫法" })), ...SD_INTERNAL_FILES.map((t) => ({ t, re: termRe(t), kind: "內部檔名" }))];
 const LINK_RE = /\[[^\]]*\]\(([^)\s]+)\)/;
 
