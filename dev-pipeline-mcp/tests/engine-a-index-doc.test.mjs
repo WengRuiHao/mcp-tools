@@ -1,7 +1,7 @@
 // 問題 57／64：每個工作項目目錄自動產生 00-索引.md（流程對照表、重點檔、關卡確認紀錄），標示重點檔與內部過程檔。
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdir, readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { setupEnv, runUntil } from "./helpers/work-item-env.mjs";
 
@@ -55,6 +55,7 @@ test("00-索引.md 屬於內部檔，不影響最終驗收產出物計數，且�
 
 test("無法寫索引（路徑被資料夾佔用）：write 與 done 仍成功，附警告", async () => {
   const { id, dir } = await env.create();
+  await rm(path.join(dir, INDEX), { force: true }); // create 已會產生索引檔，先移除再用資料夾佔用同名路徑
   await mkdir(path.join(dir, INDEX));
   const w = await env.call({ action: "write", workItemId: id, filename: "baseline.md", content: "x" });
   assert.equal(w.isError, false);

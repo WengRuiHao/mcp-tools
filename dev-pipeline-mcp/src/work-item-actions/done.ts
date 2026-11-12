@@ -1,3 +1,4 @@
+import path from "node:path";
 import { updateStatus, type TicketStatus } from "../pipeline-store.js";
 import { buildWhenContext } from "../work-item-store.js";
 import { resolveWorkflow } from "../workflow/resolve.js";
@@ -11,6 +12,9 @@ import { listLogicalRelations } from "../workflow/table-schema-check.js";
 import { checkDeliverables } from "./deliverables.js";
 import { checkDuplicatesOnDone } from "./dup-check.js";
 import { refreshIndexDoc } from "./index-doc.js";
+import { sdImplWarnings } from "./sd-impl-warnings.js";
+import { hasTechCandidates } from "../workflow/tech-stack-check.js";
+import { readOptionalText } from "./sd-impl-warnings.js";
 import { stackdumpWarning } from "./stackdump.js";
 import type { WorkItemArgs } from "./schema.js";
 import { nextBlock, viewFor } from "./view.js";
@@ -34,6 +38,13 @@ function passProgramGates(status: TicketStatus, def: WorkflowDefinition, roleId:
     const r = applyGateDecision(s, g.id, input, { def });
     return r.ok ? r.status : s;
   }, status);
+}
+
+/** 讀 tech-stack.md 判斷是否含候選方案；讀不到回 undefined（不改旗標）。 */
+async function detectTechCandidates(dir: string, def: WorkflowDefinition): Promise<boolean | undefined> {
+  const file = def.artifacts.find((a) => a.id === "tech-stack")?.file;
+  const text = file ? await readOptionalText(path.join(dir, file)) : undefined;
+  return text === undefined ? undefined : hasTechCandidates(text);
 }
 
 function assertAvailable(status: TicketStatus, def: WorkflowDefinition, overrideApplied: boolean, roleId: string): void {
@@ -64,15 +75,18 @@ export async function handleDone(a: WorkItemArgs): Promise<ToolReply> {
     const logical = listLogicalRelations(ctx.dir);
     if (logical.length > 0) warnings.push(`邏輯關聯清單（程式無法驗證真偽，規格驗證師須對照程式碼確認）：${logical.join("；")}`);
   }
+  const techCandidates = roleId === "tech-selector" ? await detectTechCandidates(ctx.dir, def) : undefined;
   const updated = await updateStatus(ctx.id, (s) => {
     assertAvailable(s, def, overrideApplied, roleId);
-    const r = applyRoleDone(s, roleId, { def });
+    const r = applyRoleDone(techCandidates === undefined ? s : { ...s, tech_has_candidates: techCandidates }, roleId, { def });
     if (!r.ok) throw new WorkItemActionError(r.error);
     return passProgramGates(r.status, def, roleId);
   });
+  warnings.push(...(await sdImplWarnings(ctx.dir, roleId, def)));
+  const techNote = techCandidates && updated.tech_source === "existing" ? { techConfirmNote: "tech-stack.md 含「候選方案」（需要使用者做技術決定），即使技術來源為沿用現有，tech-confirm 也必須由使用者本人確認。" } : {};
   const dump = await stackdumpWarning(ctx.dir, ctx.status.project_dir);
   if (dump) warnings.push(dump);
   const indexWarning = await refreshIndexDoc({ dir: ctx.dir, status: updated }, { def, overrideApplied });
   if (indexWarning) warnings.push(indexWarning);
-  return okReply({ workItemId: ctx.id, roleId, done: true, ...(warnings.length > 0 ? { warnings } : {}), ...nextBlock(viewFor(updated, def, overrideApplied)) });
+  return okReply({ workItemId: ctx.id, roleId, done: true, ...techNote, ...(warnings.length > 0 ? { warnings } : {}), ...nextBlock(viewFor(updated, def, overrideApplied)) });
 }

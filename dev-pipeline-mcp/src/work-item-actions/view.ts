@@ -39,6 +39,7 @@ const roleLabel = (id: string): string => `${ROLE_LABELS[id] ?? id}（${id}）`;
 export function describeGate(g: PendingGate): GateView {
   const base = { gateId: g.gateId, type: g.type, ...(g.hardStop ? { hardStop: g.hardStop } : {}), ...(g.lastRejection ? { lastRejection: g.lastRejection } : {}) };
   if (g.waitingFor === "program-check") return { ...base, waitingFor: "program-check", howTo: "由程式檢查：所屬角色 done 且交件檢查全部通過時自動記為通過，不需要 confirm；不合格會列出問題，修正後重新 done。" };
+  if (g.gateId === TECH_CONFIRM_GATE && g.reason === "tech-candidates") return { ...base, waitingFor: "user", howTo: `技術來源雖是沿用現有，但 tech-stack.md 含「候選方案」（需要使用者做技術決定，例如要不要用外部套件），所以改為人工確認：請把候選方案給使用者看並請他決定，使用者說確認或打回後，用 confirm（gateId="${g.gateId}"、by="human"、reason 附使用者原話）；AI 不可代為確認（AI 發現問題可用 by="agent"、decision="rejected"、reason 打回）。` };
   if (g.gateId === TECH_CONFIRM_GATE) return { ...base, waitingFor: "user", howTo: `等使用者本人確認技術棧（技術來源不是沿用現有）：使用者看過 tech-stack.md 說確認或打回後，用 confirm（gateId="${g.gateId}"、by="human"、reason 附使用者原話）；AI 不可代為確認（AI 發現問題可用 by="agent"、decision="rejected"、reason 打回），確認後技術棧鎖定。` };
   if (g.locked) return { ...base, waitingFor: "user", howTo: `最終驗收只能由使用者本人確認：使用者說確認後，用 confirm（gateId="${g.gateId}"、by="human"）；AI 不可代為確認，也不可代為打回。` };
   if (g.mode === "manual") {

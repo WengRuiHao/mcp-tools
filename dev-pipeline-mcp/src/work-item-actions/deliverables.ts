@@ -1,5 +1,6 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { describeRootCauses } from "../workflow/builtin/spec-first.js";
 import type { WorkflowDefinition } from "../workflow/schema.js";
 import { checkDeliverablePointers } from "../workflow/deliverable-pointer-check.js";
 import { SA_INTERNAL_TERMS, SD_INTERNAL_TERMS } from "../workflow/internal-files.js";
@@ -56,8 +57,8 @@ async function checkVerdictFile(file: string, routeOnFail: Record<string, string
   if (!parsed.verdict) return [`${name} 第一行必須是 PASS 或 FAIL`];
   if (parsed.verdict === "PASS") return [];
   const keys = Object.keys(routeOnFail);
-  if (!parsed.rootCause) return [`${name} 判定 FAIL，必須帶 rootCause 行（例如「rootCause: ${keys[0]}」），可用值：${keys.join("、")}`];
-  if (!Object.prototype.hasOwnProperty.call(routeOnFail, parsed.rootCause)) return [`${name} 的 rootCause「${parsed.rootCause}」不合法，可用值：${keys.join("、")}`];
+  if (!parsed.rootCause) return [`${name} 判定 FAIL，必須帶 rootCause 行（例如「rootCause: ${keys[0]}」），可用值：${describeRootCauses(keys)}`];
+  if (!Object.prototype.hasOwnProperty.call(routeOnFail, parsed.rootCause)) return [`${name} 的 rootCause「${parsed.rootCause}」不合法，可用值：${describeRootCauses(keys)}`];
   return [];
 }
 

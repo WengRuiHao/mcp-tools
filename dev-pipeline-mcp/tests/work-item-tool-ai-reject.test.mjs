@@ -64,7 +64,7 @@ test("連續失敗計數沿用現有行為：confirm 打回不累計；verdict f
   const [id2, dir2] = [second.id, second.dir];
   await env.store.updateStatus(id2, (s) => ({ ...s, consecutive_fail_count: 2 }));
   await fulfil(dir2, "spec-verifier", { verdictText: "FAIL\nrootCause: sa\n" });
-  const f = await env.call({ action: "verdict", workItemId: id2, gateId: "spec-check-verdict", result: "fail", rootCause: "sa", by: "agent", review: CLEAN_REVIEW });
+  const f = await env.call({ action: "verdict", workItemId: id2, gateId: "spec-check-verdict", result: "fail", rootCause: "sa", by: "agent", review: CLEAN_REVIEW, reason: "規格不一致" });
   assert.equal(f.isError, false, f.text);
   assert.equal(f.json.consecutiveFailCount, 3);
   assert.equal(f.json.hardStop, "consecutive-fail-3");
@@ -78,7 +78,7 @@ test("verdict：連續失敗已達 3 次，AI 判 pass 被擋、判 fail 通過�
   assert.equal(pass.isError, true);
   assert.equal(pass.json.hardStop, "consecutive-fail-3");
   await fulfil(dir, "spec-verifier", { verdictText: "FAIL\nrootCause: sd\n" });
-  const fail = await env.call({ action: "verdict", workItemId: id, gateId: "spec-check-verdict", result: "fail", rootCause: "sd", by: "agent", review: CLEAN_REVIEW });
+  const fail = await env.call({ action: "verdict", workItemId: id, gateId: "spec-check-verdict", result: "fail", rootCause: "sd", by: "agent", review: CLEAN_REVIEW, reason: "SD 缺欄位" });
   assert.equal(fail.isError, false, fail.text);
   assert.equal(fail.json.routedTo, "sd-analyst");
 });

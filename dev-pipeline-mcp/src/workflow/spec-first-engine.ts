@@ -62,14 +62,17 @@ function isAvailable(role: ResolvedWorkflow["roles"][number], resolved: Resolved
 export const isProgramCheckGate = (type: GateDef["type"], mode: "manual" | "auto"): boolean => (type === "content" || type === "evidence") && mode === "auto";
 
 /** 技術確認：技術來源為沿用現有時由程式自動記錄（不需確認）；其他來源一律等使用者，不受專案 confirmMode 覆寫影響。 */
-export const isTechConfirmAuto = (gateId: string, status: Pick<TicketStatus, "tech_source">): boolean => gateId === TECH_CONFIRM_GATE && status.tech_source === "existing";
+export const isTechConfirmAuto = (gateId: string, status: Pick<TicketStatus, "tech_source" | "tech_has_candidates">): boolean => gateId === TECH_CONFIRM_GATE && status.tech_source === "existing" && status.tech_has_candidates !== true;
+
+/** 技術來源為沿用現有、但 tech-stack.md 有候選方案：tech-confirm 改為人工確認。 */
+export const isTechCandidatesManual = (gateId: string, status: Pick<TicketStatus, "tech_source" | "tech_has_candidates">): boolean => gateId === TECH_CONFIRM_GATE && status.tech_source === "existing" && status.tech_has_candidates === true;
 
 function describeGate(g: ResolvedWorkflow["gates"][number], status: TicketStatus): PendingGate {
   const failCount = status.consecutive_fail_count;
   const techGate = g.id === TECH_CONFIRM_GATE;
   const programCheck = !g.locked && (techGate ? isTechConfirmAuto(g.id, status) : isProgramCheckGate(g.type, g.effectiveConfirm.mode));
   const hardStopHit = !g.locked && !programCheck && !(failCount < CONSECUTIVE_FAIL_LIMIT);
-  const base = techGate && !programCheck ? { mode: "manual" as const, reason: "tech-source" } : hardStopHit ? { mode: "manual" as const, reason: "hard-stop", hardStop: "consecutive-fail-3" as const } : { mode: g.effectiveConfirm.mode, reason: g.effectiveConfirm.reason };
+  const base = techGate && !programCheck ? { mode: "manual" as const, reason: isTechCandidatesManual(g.id, status) ? "tech-candidates" : "tech-source" } : hardStopHit ? { mode: "manual" as const, reason: "hard-stop", hardStop: "consecutive-fail-3" as const } : { mode: g.effectiveConfirm.mode, reason: g.effectiveConfirm.reason };
   const last = status.work_item_progress?.gates[g.id];
   const rejected = last && (last.decision === "rejected" || last.decision === "failed");
   return {

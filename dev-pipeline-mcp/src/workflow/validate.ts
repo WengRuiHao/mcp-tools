@@ -98,6 +98,12 @@ export function validateWorkflow(def: WorkflowDefinition, knownWhenKeys?: readon
     for (const target of Object.values(g.routeOnFail ?? {})) {
       if (!roleSet.has(target)) errors.push(`gate ${g.id} 的 routeOnFail 引用不存在的角色：${target}`);
     }
+    for (const [cause, roles] of Object.entries(g.routeRewind ?? {})) {
+      const target = g.routeOnFail?.[cause];
+      if (target === undefined) errors.push(`gate ${g.id} 的 routeRewind 根因「${cause}」不在 routeOnFail 中`);
+      else if (!roles.includes(target)) errors.push(`gate ${g.id} 的 routeRewind「${cause}」必須包含退回目標角色：${target}`);
+      for (const r of roles) if (!roleSet.has(r)) errors.push(`gate ${g.id} 的 routeRewind「${cause}」引用不存在的角色：${r}`);
+    }
     if (g.locked && g.confirmMode === "auto") errors.push(`gate ${g.id} 是 locked，不得設為 auto`);
     if (g.checks && g.type !== "content") errors.push(`gate ${g.id} 不是 content 關卡，不可有 checks`);
   }

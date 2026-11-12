@@ -7,8 +7,9 @@ import { WorkItemActionError, need, okReply, type ToolReply } from "./common.js"
 import { doneRoleIds } from "./confirm.js";
 import { loadEffectiveDef, loadWorkItem } from "./context.js";
 import { parseVerdictFile } from "./deliverables.js";
-import { authorizeDecision, requireHumanQuote, withReviewNote } from "./gate-guard.js";
+import { authorizeDecision, requireAgentRejectReason, requireHumanQuote, withReviewNote } from "./gate-guard.js";
 import type { WorkItemArgs } from "./schema.js";
+import { refreshIndexDoc } from "./index-doc.js";
 import { nextBlock, viewFor } from "./view.js";
 
 const VERDICT_GATES = ["spec-check-verdict", "verdict"];
@@ -33,11 +34,12 @@ async function assertMatchesReport(dir: string, def: WorkflowDefinition, gateId:
 export async function handleVerdict(a: WorkItemArgs): Promise<ToolReply> {
   const { workItemId, gateId, result, by } = need("verdict", a, ["workItemId", "gateId", "result", "by"]);
   if (!VERDICT_GATES.includes(gateId)) throw new WorkItemActionError(`verdict 只接受關卡：${VERDICT_GATES.join("、")}`);
-  if (result === "fail" && !a.rootCause?.trim()) throw new WorkItemActionError("result=fail 必須帶 rootCause（該關卡 routeOnFail 的 key）。");
+  if (result === "fail" && !a.rootCause?.trim()) throw new WorkItemActionError("result=fail 必須帶 rootCause（該關卡 routeOnFail 的 key；spec-check-verdict 可用：sa、sa-text、db、flow、sd，sa-text＝SA 文字／截圖用字修正，只退回 SA 與規格驗證師）。");
   const ctx = await loadWorkItem(workItemId);
   const { def, overrideApplied } = await loadEffectiveDef(ctx.status);
   if (def.gates.find((g) => g.id === gateId)?.type !== "verdict") throw new WorkItemActionError(`關卡「${gateId}」不是判定關卡。`);
-  requireHumanQuote(def, gateId, by, a.reason);
+  requireHumanQuote(def, gateId, by, a.reason, result === "pass" ? "pass" : "fail");
+  requireAgentRejectReason(gateId, by, result === "pass" ? "confirmed" : "rejected", a.reason, "verdict");
   const reason = withReviewNote(a.reason, by, a.review);
   let failInfo: Record<string, unknown> = {};
   let rewound: string[] = [];
@@ -49,12 +51,13 @@ export async function handleVerdict(a: WorkItemArgs): Promise<ToolReply> {
       if (!r.ok) throw new WorkItemActionError(r.error);
       return r.status;
     }
-    const r = applyVerdictFail(s, gateId, (a.rootCause ?? "").trim(), { def, by });
+    const r = applyVerdictFail(s, gateId, (a.rootCause ?? "").trim(), { def, by, ...(reason !== undefined ? { reason } : {}) });
     if (!r.ok) throw new WorkItemActionError(r.error);
     failInfo = { routedTo: r.routedTo, rewound: r.rewound, consecutiveFailCount: r.consecutiveFailCount, requireManual: r.requireManual, ...(r.hardStop ? { hardStop: r.hardStop } : {}) };
     rewound = doneRoleIds(s).filter((id) => !doneRoleIds(r.status).includes(id));
     return r.status;
   });
   const extra = result === "fail" ? { ...failInfo, rewoundRoles: rewound } : {};
-  return okReply({ workItemId: ctx.id, gateId, result, by, ...extra, ...nextBlock(viewFor(updated, def, overrideApplied)) });
+  const indexWarning = await refreshIndexDoc({ dir: ctx.dir, status: updated }, { def, overrideApplied });
+  return okReply({ workItemId: ctx.id, gateId, result, by, ...extra, ...(indexWarning ? { indexWarning } : {}), ...nextBlock(viewFor(updated, def, overrideApplied)) });
 }

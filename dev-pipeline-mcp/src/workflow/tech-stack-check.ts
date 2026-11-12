@@ -89,6 +89,22 @@ function checkCandidates(text: string, reason: string): string[] {
   return problems;
 }
 
+/** 「候選方案」小節寫了「無」之類（沒有需要使用者決定的方案）。 */
+const NO_CANDIDATE_RE = /^(無|无|沒有|没有|none|n\/a|na|nil|不適用|不适用|略|無需|无需|不需|不用|--+|—+)/i;
+
+/**
+ * tech-stack.md 是否有需要使用者決定的候選方案：有「候選方案」小節，且（有「### 方案…」子標題，或內容第一行不是「無／沒有／不適用」之類）。
+ * 沒有該小節、內容空白、或只寫「無」都是 false。程式碼區塊內的標題不算（沿用 extractSection）。
+ */
+export function hasTechCandidates(text: string): boolean {
+  const body = extractSection(text, TECH_CANDIDATES_HEADING);
+  if (body === null) return false;
+  const lines = body.split(/\r\n|\r|\n/);
+  if (lines.some((l) => /^#{3,}\s*方案/.test(l.trim()))) return true;
+  const first = lines.map((l) => l.replace(/[\s>*_`\-:：。.（）()]/g, "")).find((l) => l !== "");
+  return first !== undefined && !NO_CANDIDATE_RE.test(first);
+}
+
 export interface TechStackCheckInput {
   techSource: string | undefined;
   /** baseline.md 全文（沿用現有時用來核對；讀不到傳 undefined）。 */

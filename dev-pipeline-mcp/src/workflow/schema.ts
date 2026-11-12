@@ -69,6 +69,8 @@ export const GateDefSchema = z
     locked: z.boolean().optional(),
     checks: z.array(CheckDefSchema).optional(),
     routeOnFail: z.record(z.string(), idField).optional(),
+    /** 輕量退回：某個根因只退回列出的角色（不含下游）；key 必須存在於 routeOnFail、列表必須包含該根因的退回目標。沒列的根因維持「退回目標與全部下游」。 */
+    routeRewind: z.record(z.string(), z.array(idField).min(1)).optional(),
   })
   .strict();
 

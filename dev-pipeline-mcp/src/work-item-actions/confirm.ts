@@ -40,19 +40,21 @@ export async function handleConfirm(a: WorkItemArgs): Promise<ToolReply> {
     throw new WorkItemActionError(`關卡「${gateId}」的技術來源是沿用現有，技術選型師交件後由程式自動記錄，不需確認。`);
   }
   if (gateId === TECH_CONFIRM_GATE && by === "agent" && decision === "confirmed") {
-    throw new WorkItemActionError(`關卡「${gateId}」的技術來源不是沿用現有，必須由使用者本人確認技術棧（by="human"，reason 附使用者原話），AI 不可代確認。`);
+    throw new WorkItemActionError(`關卡「${gateId}」的技術來源不是沿用現有、或選型文件含候選方案，必須由使用者本人確認技術棧（by="human"，reason 附使用者原話），AI 不可代確認（技術來源沿用現有但 tech-stack.md 含「候選方案」時也一樣）。`);
   }
   if (isProgramCheckGate(gate.type, resolveConfirmMode(def, gateId).mode)) {
     throw new WorkItemActionError(`關卡「${gateId}」由程式檢查，不需確認：所屬角色 done 且交件檢查通過時會自動通過。若專案要人工把關，請在專案 flow.json 把它的 confirmMode 設成 manual。`);
   }
-  requireHumanQuote(def, gateId, by, a.reason);
+  requireHumanQuote(def, gateId, by, a.reason, decision);
   requireAgentRejectReason(gateId, by, decision, a.reason);
+  const alsoRewind = [...new Set((a.alsoRewind ?? []).map((x) => x.trim()).filter((x) => x !== ""))];
+  if (alsoRewind.length > 0 && decision !== "rejected") throw new WorkItemActionError("alsoRewind 只能搭配打回（decision=\"rejected\"）使用。");
   const value = mapDecision(gate.type, decision);
   const reason = withReviewNote(a.reason, by, a.review);
   let rewound: string[] = [];
   const updated = await updateStatus(ctx.id, async (s) => {
     await authorizeDecision({ dir: ctx.dir, status: s }, def, gateId, by, a.review, decision === "rejected");
-    const r = applyGateDecision(s, gateId, { decision: value, by, ...(reason !== undefined ? { reason } : {}) }, { def });
+    const r = applyGateDecision(s, gateId, { decision: value, by, ...(reason !== undefined ? { reason } : {}), ...(alsoRewind.length > 0 ? { alsoRewind } : {}) }, { def });
     if (!r.ok) throw new WorkItemActionError(r.error);
     const after = new Set(doneRoleIds(r.status));
     rewound = doneRoleIds(s).filter((id) => !after.has(id));
@@ -60,5 +62,5 @@ export async function handleConfirm(a: WorkItemArgs): Promise<ToolReply> {
   });
   const summary = gateId === FINAL_ACCEPTANCE_GATE && value === "confirmed" ? await trySummary(ctx.dir, updated, def, ctx.id) : {};
   const indexWarning = await refreshIndexDoc({ dir: ctx.dir, status: updated }, { def, overrideApplied });
-  return okReply({ workItemId: ctx.id, gateId, decision: value, by, rewoundRoles: rewound, ...summary, ...(indexWarning ? { indexWarning } : {}), ...nextBlock(viewFor(updated, def, overrideApplied)) });
+  return okReply({ workItemId: ctx.id, gateId, decision: value, by, rewoundRoles: rewound, ...(alsoRewind.length > 0 ? { alsoRewind } : {}), ...summary, ...(indexWarning ? { indexWarning } : {}), ...nextBlock(viewFor(updated, def, overrideApplied)) });
 }

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /** work_item 單一工具的參數：以 action 分派，其餘欄位依動作選填（缺必填欄位由各動作回清楚錯誤）。 */
 
-export const WORK_ITEM_ACTIONS = ["create", "get", "role_prompt", "set_scope", "write", "attach", "render", "done", "confirm", "verdict"] as const;
+export const WORK_ITEM_ACTIONS = ["create", "get", "role_prompt", "set_scope", "write", "attach", "render", "done", "confirm", "verdict", "update_requirement"] as const;
 export type WorkItemAction = (typeof WORK_ITEM_ACTIONS)[number];
 
 const reviewShape = {
@@ -12,11 +12,11 @@ const reviewShape = {
 };
 
 export const workItemShape = {
-  action: z.enum(WORK_ITEM_ACTIONS).describe("動作：create｜get｜role_prompt｜set_scope｜write｜attach｜render｜done｜confirm｜verdict"),
+  action: z.enum(WORK_ITEM_ACTIONS).describe("動作：create｜get｜role_prompt｜set_scope｜write｜attach｜render｜done｜confirm｜verdict｜update_requirement"),
   workItemId: z.string().optional().describe("工作項目編號（wi-YYYYMMDD-NNN）；create 以外都要"),
   projectDir: z.string().optional().describe("create：專案目錄絕對路徑（必須存在）"),
   title: z.string().optional().describe("create：標題"),
-  requirement: z.string().optional().describe("create：需求原文"),
+  requirement: z.string().optional().describe("create：需求原文；update_requirement：新的需求全文（取代 item.md）"),
   baseline: z.enum(["greenfield", "brownfield"]).optional().describe("create：全新系統｜既有系統"),
   scope: z.enum(["frontend", "backend", "both"]).optional().describe("create／set_scope：範圍"),
   hasDb: z.boolean().optional().describe("create／set_scope：是否需要 DB 設計"),
@@ -35,10 +35,11 @@ export const workItemShape = {
   gateId: z.string().optional().describe("confirm：關卡 id；verdict：spec-check-verdict｜verdict"),
   decision: z.enum(["confirmed", "rejected"]).optional().describe("confirm：確認或打回"),
   by: z.enum(["human", "agent"]).optional().describe("confirm／verdict：human＝使用者本人說了算；agent＝AI 代為決定：核准只有該關卡解析為 auto 且通過把關才成功；打回（confirm rejected、verdict fail）不受硬性停止限制，最終驗收除外（核准與打回都只能 human）"),
-  reason: z.string().optional().describe("confirm：理由；human 時請寫使用者原話；AI 打回（by:agent、decision:rejected）必填，寫退回原因"),
+  reason: z.string().optional().describe("confirm／verdict／update_requirement：理由；by:human 一律必填（至少 2 字，寫使用者原話，不可只是選項代號如 A、1）；by:agent 打回（confirm rejected、verdict fail）必填，寫退回原因；update_requirement 寫使用者要求修改的原話"),
+  alsoRewind: z.array(z.string()).optional().describe("confirm（decision:rejected）：一併退回的角色 id 陣列，只能是該關卡之前的角色（例如打回 sa-confirm 時一併退回 baseline-survey 重做 impact.md）；這些角色與其下游都退回未完成並清掉相關確認。沒給＝行為不變"),
   review: z.object(reviewShape).optional().describe("by:agent 時必填：審查員申報 {breaksExisting, reviewerUncertain, scopeSplit}，三個都要是布林值"),
   result: z.enum(["pass", "fail"]).optional().describe("verdict：通過或不通過"),
-  rootCause: z.string().optional().describe("verdict fail：根因（該關卡 routeOnFail 的 key，例如 sa、db、flow、sd、fe、be）"),
+  rootCause: z.string().optional().describe("verdict fail：根因（該關卡 routeOnFail 的 key，例如 sa、sa-text、db、flow、sd、fe、be）；spec-check-verdict 的 sa-text＝SA 文字／截圖用字修正，只退回 SA 與規格驗證師，不影響 DB／流程／SD"),
 };
 
 export type WorkItemArgs = z.infer<z.ZodObject<typeof workItemShape>>;

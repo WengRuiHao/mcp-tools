@@ -93,6 +93,10 @@ export interface TicketStatus {
   tech_source?: "existing" | "change" | "new-guided" | "new-select";
   /** 建立時存下的 workflow 階段順序與角色清單快照，日後內建定義改了不影響進行中的項目。 */
   workflow_snapshot?: WorkflowSnapshot;
+  /** 技術選型師交件時偵測 tech-stack.md 是否含「候選方案」（需要使用者做技術決定）；true 時即使技術來源為沿用現有，tech-confirm 也必須由使用者確認。選填，不放進 NEW_STATUS。 */
+  tech_has_candidates?: boolean;
+  /** 需求修改歷程（update_requirement 寫入）：時間、使用者原話、舊需求前 200 字摘要。選填，不放進 NEW_STATUS。 */
+  requirement_history?: { at: string; quote: string; previous_summary: string }[];
   /** 手動來源逐角色／逐關卡進度（選填，不放進 NEW_STATUS，Asana 票單的 status.json 不會多出這個 key）。 */
   work_item_progress?: WorkItemProgress;
   stage: "new" | "snapshot" | "project_dir_confirmed" | "analyzed" | "sd_drafted" | "implemented" | "verified" | "tested";

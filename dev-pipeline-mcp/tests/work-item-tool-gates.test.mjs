@@ -50,7 +50,7 @@ test("destructive-db：SQL 含 DROP 時 agent 無法確認 db-flow-confirm，hum
   const r = await confirm(id, "db-flow-confirm", "agent", { review: CLEAN_REVIEW });
   assert.equal(r.isError, true);
   assert.equal(r.json.hardStop, "destructive-db");
-  assert.equal((await confirm(id, "db-flow-confirm", "human")).isError, false);
+  assert.equal((await confirm(id, "db-flow-confirm", "human", { reason: "使用者核准破壞性 SQL" })).isError, false);
 });
 
 test("sensitive-data：關卡相關產出含密碼時 agent 被拒", async () => {
@@ -87,8 +87,8 @@ test("verdict：agent 結果必須與報告一致；pass 清零連續失敗；fa
   const lie = await verdict(id, "spec-check-verdict", { result: "pass", by: "agent", review: CLEAN_REVIEW });
   assert.equal(lie.isError, true);
   assert.match(lie.json.message, /不一致/);
-  assert.equal((await verdict(id, "spec-check-verdict", { result: "fail", by: "agent", review: CLEAN_REVIEW })).isError, true);
-  const f = await verdict(id, "spec-check-verdict", { result: "fail", rootCause: "sd", by: "agent", review: CLEAN_REVIEW });
+  assert.equal((await verdict(id, "spec-check-verdict", { result: "fail", by: "agent", review: CLEAN_REVIEW, reason: "不一致" })).isError, true);
+  const f = await verdict(id, "spec-check-verdict", { result: "fail", rootCause: "sd", by: "agent", review: CLEAN_REVIEW, reason: "SD 缺欄位" });
   assert.equal(f.isError, false);
   assert.equal(f.json.routedTo, "sd-analyst");
   assert.equal(f.json.consecutiveFailCount, 1);
@@ -105,7 +105,7 @@ test("verdict：連續失敗 3 次後 agent 不可再判，只能 human；不接
     await fulfil(dir, "spec-verifier", { verdictText: "FAIL\nrootCause: sd" });
     if (i > 0) await confirm(id, "sd-confirm", "agent", { review: CLEAN_REVIEW });
     assert.equal((await env.call({ action: "done", workItemId: id, roleId: "spec-verifier" })).isError, false, `第 ${i} 輪交件`);
-    const f = await verdict(id, "spec-check-verdict", { result: "fail", rootCause: "sd", by: i < 2 ? "agent" : "human", ...(i < 2 ? { review: CLEAN_REVIEW } : {}) });
+    const f = await verdict(id, "spec-check-verdict", { result: "fail", rootCause: "sd", by: i < 2 ? "agent" : "human", reason: "第" + i + "輪不通過", ...(i < 2 ? { review: CLEAN_REVIEW } : {}) });
     assert.equal(f.isError, false, `第 ${i} 輪判定`);
     if (i === 2) assert.equal(f.json.requireManual, true);
   }
@@ -115,7 +115,7 @@ test("verdict：連續失敗 3 次後 agent 不可再判，只能 human；不接
   const blocked = await confirm(id, "sd-confirm", "agent", { review: CLEAN_REVIEW });
   assert.equal(blocked.isError, true);
   assert.equal(blocked.json.hardStop, "consecutive-fail-3");
-  assert.equal((await confirm(id, "sd-confirm", "human")).isError, false);
+  assert.equal((await confirm(id, "sd-confirm", "human", { reason: "使用者核准" })).isError, false);
   assert.equal((await verdict(id, "sd-confirm", { result: "pass", by: "human" })).isError, true);
 });
 

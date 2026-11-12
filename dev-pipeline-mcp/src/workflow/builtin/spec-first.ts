@@ -13,7 +13,24 @@ export const SPEC_CHECK_ROUTES: Readonly<Record<string, string>> = {
   db: "db-designer",
   flow: "flow-analyst",
   sd: "sd-analyst",
+  "sa-text": "sa-analyst",
 };
+
+/** 規格驗證 FAIL 的輕量根因：只退回列出的角色（SA 與規格驗證師），不動 DB／流程／SD 已完成與已確認的內容。 */
+export const SPEC_CHECK_REWIND: Readonly<Record<string, readonly string[]>> = {
+  "sa-text": ["sa-analyst", "spec-verifier"],
+};
+
+/** 根因白話說明（錯誤訊息與提示用）。 */
+export const ROOT_CAUSE_HINTS: Readonly<Record<string, string>> = {
+  sa: "SA 需求本身有誤或矛盾，會連鎖退回 SA、DB、流程、SD 與規格驗證",
+  "sa-text": "SA 文字／截圖用字修正，不影響 DB／流程／SD 設計，只退回 SA 與規格驗證師並重置 SA 確認",
+};
+
+/** 列出可用根因（有白話說明的附上說明）。 */
+export function describeRootCauses(keys: readonly string[]): string {
+  return keys.map((k) => (ROOT_CAUSE_HINTS[k] ? `${k}（${ROOT_CAUSE_HINTS[k]}）` : k)).join("；");
+}
 
 export function buildSpecFirstWorkflow(): WorkflowDefinition {
   return {
@@ -100,7 +117,7 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
       { id: "sa-confirm", after: "sa-analyst", type: "confirmation", confirmMode: "auto" },
       { id: "db-flow-confirm", after: ["db-designer", "flow-analyst"], type: "confirmation", confirmMode: "auto" },
       { id: "sd-confirm", after: "sd-analyst", type: "confirmation", confirmMode: "auto" },
-      { id: "spec-check-verdict", after: "spec-verifier", type: "verdict", confirmMode: "auto", routeOnFail: { ...SPEC_CHECK_ROUTES } },
+      { id: "spec-check-verdict", after: "spec-verifier", type: "verdict", confirmMode: "auto", routeOnFail: { ...SPEC_CHECK_ROUTES }, routeRewind: Object.fromEntries(Object.entries(SPEC_CHECK_REWIND).map(([k, v]) => [k, [...v]])) },
       { id: "implementation-content", after: ["frontend-engineer", "backend-engineer"], type: "content", confirmMode: "auto", checks: [] },
       { id: "verdict", after: "verifier", type: "verdict", confirmMode: "auto", routeOnFail: { sa: "sa-analyst", db: "db-designer", flow: "flow-analyst", sd: "sd-analyst", fe: "frontend-engineer", be: "backend-engineer" } },
       { id: "test-evidence", after: "tester", type: "evidence", confirmMode: "auto" },

@@ -35,7 +35,7 @@ test("規格驗證關卡：非 locked、預設 auto，FAIL 的 rootCause 目標�
   const d = buildSpecFirstWorkflow();
   const g = d.gates.find((x) => x.after === "spec-verifier");
   assert.deepEqual([g.type, g.confirmMode, Boolean(g.locked)], ["verdict", "auto", false]);
-  assert.deepEqual(Object.keys(g.routeOnFail).sort(), ["db", "flow", "sa", "sd"]);
+  assert.deepEqual(Object.keys(g.routeOnFail).sort(), ["db", "flow", "sa", "sa-text", "sd"]);
   assert.equal(g.routeOnFail.flow, "flow-analyst");
   const roleIds = new Set(ids(d.roles));
   for (const t of Object.values(g.routeOnFail)) assert.ok(roleIds.has(t), t);

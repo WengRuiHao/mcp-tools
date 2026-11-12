@@ -4,9 +4,7 @@ import { scanLineForSecrets } from "../sensitive-patterns.js";
 import type { TicketStatus } from "../pipeline-store.js";
 import { evaluateAgentConfirmation } from "../workflow/agent-confirm.js";
 import { decideGate, type GateSignals } from "../workflow/enforce.js";
-import { resolveConfirmMode } from "../workflow/resolve.js";
 import type { WorkflowDefinition } from "../workflow/schema.js";
-import { TECH_CONFIRM_GATE } from "../work-item-sources.js";
 import { SPEC_FIRST_ID } from "./context.js";
 import { WorkItemActionError } from "./common.js";
 
@@ -87,20 +85,34 @@ export function isOptionCode(reason: string | undefined): boolean {
   return OPTION_CODE_RE.test(t) && !AFFIRMATIVE_WORDS.has(t.toLowerCase());
 }
 
-/** by:"human" 且該關卡解析結果為 manual（含 locked、被專案設成 manual）時，reason 必須是使用者原話。AI 審查（auto）路徑不受影響。 */
-export function requireHumanQuote(def: WorkflowDefinition, gateId: string, by: "human" | "agent", reason: string | undefined): void {
-  if (by !== "human" || (gateId !== TECH_CONFIRM_GATE && resolveConfirmMode(def, gateId).mode !== "manual")) return;
+/** 要求原話的決定種類：confirmed／pass＝核准；rejected／fail＝打回或判定不通過。 */
+export type QuoteKind = "confirmed" | "rejected" | "pass" | "fail";
+const isApprove = (k: QuoteKind): boolean => k === "confirmed" || k === "pass";
+
+/** 去除空白後的 reason 字數是否達到門檻。 */
+const hasEnoughChars = (reason: string | undefined): boolean => (reason ?? "").replace(/\s/g, "").length >= MIN_HUMAN_QUOTE_CHARS;
+
+/**
+ * by:"human" 的 confirm（confirmed／rejected）與 verdict（pass／fail）一律要求 reason：必須是使用者原話，
+ * 不可只是選項代號（1～3 個英數字）。核准與打回的錯誤訊息措辭不同。by:"agent" 不受此函式影響（見 requireAgentRejectReason）。
+ */
+export function requireHumanQuote(_def: WorkflowDefinition, gateId: string, by: "human" | "agent", reason: string | undefined, kind: QuoteKind = "confirmed"): void {
+  if (by !== "human") return;
+  const what = isApprove(kind) ? (kind === "pass" ? "判定通過" : "確認") : kind === "fail" ? "判定不通過" : "打回";
   if (isOptionCode(reason)) {
-    throw new WorkItemActionError(`關卡「${gateId}」是人工確認關卡：reason「${(reason ?? "").trim()}」只是選項代號（1～3 個英數字），那是在回答問題、不是確認這道關卡。請向使用者再問一次明確的確認（例如「是否確認 ${gateId}？」），並引用使用者完整原話當 reason。`);
+    throw new WorkItemActionError(`使用者${what}關卡「${gateId}」：reason「${(reason ?? "").trim()}」只是選項代號（1～3 個英數字），那是在回答問題、不是${what}這道關卡。請向使用者再問一次明確的${what === "打回" || what === "判定不通過" ? "打回理由（例如「要打回 " + gateId + " 嗎？原因是什麼？」）" : "確認（例如「是否確認 " + gateId + "？」）"}，並引用使用者完整原話當 reason。`);
   }
-  if ((reason ?? "").replace(/\s/g, "").length >= MIN_HUMAN_QUOTE_CHARS) return;
-  throw new WorkItemActionError(`關卡「${gateId}」是人工確認關卡：reason 必填，且必須附上使用者這次確認的原話（去除空白後至少 ${MIN_HUMAN_QUOTE_CHARS} 個字元），不可自行編寫。`);
+  if (hasEnoughChars(reason)) return;
+  if (isApprove(kind)) {
+    throw new WorkItemActionError(`使用者本人${what}關卡「${gateId}」必須附 reason：使用者這次${what}的原話（去除空白後至少 ${MIN_HUMAN_QUOTE_CHARS} 個字元），不可自行編寫。`);
+  }
+  throw new WorkItemActionError(`使用者本人${what}關卡「${gateId}」必須附 reason：使用者要求${what}的原話或理由（去除空白後至少 ${MIN_HUMAN_QUOTE_CHARS} 個字元），讓退回原因留下紀錄、供被退回的角色參考。`);
 }
 
-/** AI 打回確認關卡：reason 必填（去除空白後至少 MIN_HUMAN_QUOTE_CHARS 字元），記錄在流程紀錄（actor 為 agent）。 */
-export function requireAgentRejectReason(gateId: string, by: "human" | "agent", decision: "confirmed" | "rejected", reason: string | undefined): void {
-  if (by !== "agent" || decision !== "rejected" || (reason ?? "").replace(/\s/g, "").length >= MIN_HUMAN_QUOTE_CHARS) return;
-  throw new WorkItemActionError(`AI 打回關卡「${gateId}」必須附 reason（至少 ${MIN_HUMAN_QUOTE_CHARS} 個字元），說明退回的理由。`);
+/** AI 打回確認關卡或判定不通過：reason 必填（去除空白後至少 MIN_HUMAN_QUOTE_CHARS 字元），記錄在流程紀錄（actor 為 agent）。 */
+export function requireAgentRejectReason(gateId: string, by: "human" | "agent", decision: "confirmed" | "rejected", reason: string | undefined, via: "confirm" | "verdict" = "confirm"): void {
+  if (by !== "agent" || decision !== "rejected" || hasEnoughChars(reason)) return;
+  throw new WorkItemActionError(`AI ${via === "verdict" ? "判定不通過" : "打回"}關卡「${gateId}」必須附 reason（至少 ${MIN_HUMAN_QUOTE_CHARS} 個字元），說明退回的理由。`);
 }
 
 /** 把審查員申報寫進理由，留下可稽核的紀錄。 */
@@ -109,4 +121,11 @@ export function withReviewNote(reason: string | undefined, by: "human" | "agent"
   const r = review as Record<string, unknown>;
   const note = `審查申報 breaksExisting=${String(r.breaksExisting)}、reviewerUncertain=${String(r.reviewerUncertain)}、scopeSplit=${String(r.scopeSplit)}`;
   return reason ? `${reason}（${note}）` : note;
+}
+
+/** 非關卡動作（例如 update_requirement）要求使用者原話：至少 MIN_HUMAN_QUOTE_CHARS 字元，且不可只是選項代號。 */
+export function requireReasonQuote(subject: string, reason: string | undefined): void {
+  if (isOptionCode(reason)) throw new WorkItemActionError(`${subject}：reason「${(reason ?? "").trim()}」只是選項代號（1～3 個英數字），不是使用者的原話。請引用使用者完整原話當 reason。`);
+  if (hasEnoughChars(reason)) return;
+  throw new WorkItemActionError(`${subject}必須附 reason：使用者要求修改的原話（去除空白後至少 ${MIN_HUMAN_QUOTE_CHARS} 個字元），不可自行編寫。`);
 }

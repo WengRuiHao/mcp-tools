@@ -3,6 +3,7 @@ import { WorkItemActionError, errorMessage, need, okReply, type ToolReply } from
 import { loadProjectFlowOverride } from "../workflow/load.js";
 import { loadWorkItem } from "./context.js";
 import type { WorkItemArgs } from "./schema.js";
+import { refreshIndexDoc } from "./index-doc.js";
 import { buildView, nextBlock } from "./view.js";
 
 export async function handleCreate(a: WorkItemArgs): Promise<ToolReply> {
@@ -26,8 +27,10 @@ export async function handleCreate(a: WorkItemArgs): Promise<ToolReply> {
   }
   const base = { workItemId: created.id, dir: created.dir, baseline: f.baseline, scope: f.scope, hasDb: f.hasDb, styleSource: created.styleSource, techSource: created.techSource };
   try {
-    const v = await buildView(await loadWorkItem(created.id));
-    return okReply({ ...base, ...nextBlock(v) });
+    const ctx = await loadWorkItem(created.id);
+    const v = await buildView(ctx);
+    const indexWarning = await refreshIndexDoc({ dir: ctx.dir, status: ctx.status }, { def: v.def, overrideApplied: v.overrideApplied });
+    return okReply({ ...base, ...(indexWarning ? { indexWarning } : {}), ...nextBlock(v) });
   } catch (e) {
     return okReply({ ...base, warning: `已建立，但無法計算第一步建議：${errorMessage(e)}；修正後用 get 重新查詢。` });
   }
