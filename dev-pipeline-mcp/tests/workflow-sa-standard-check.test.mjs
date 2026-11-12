@@ -38,7 +38,12 @@ test("SA-範本.md（搭配 sa-images/ 的圖）通過所有 SA 檢查", () => {
 
 test("範本的狀態圖都在 sa-images/ 內", () => {
   const imgs = fs.readdirSync(path.join(STANDARD_DIR, "sa-images")).sort();
-  assert.deepEqual(imgs, ["orders-page.png", "state-empty.png", "state-failed.png", "state-order.png", "state-range.png", "state-required.png", "state-toomany.png"]);
+  assert.deepEqual(imgs, [
+    "orders-page.png", "state-export-empty.png", "state-export-failed.png", "state-export-loading.png", "state-export-ok.png", "state-export-toomany.png",
+    "state-loading.png", "state-order.png", "state-queried.png", "state-query-empty.png", "state-query-failed.png", "state-range.png", "state-required.png",
+  ]);
+  const referenced = [...T().matchAll(/!\[[^\]]*\]\(sa-images\/([^)]+)\)/g)].map((m) => m[1]).sort();
+  assert.deepEqual(referenced, imgs, "範本引用的圖與資料夾內的圖一致，沒有作廢圖片");
   assert.ok(!fs.existsSync(path.join(STANDARD_DIR, "states")));
   assert.ok(!T().includes("states/"));
 });

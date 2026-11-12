@@ -9,9 +9,9 @@
 | SD-範本.md | SD（自足版）的樣子 |
 | 資料表結構文件-範本.md | 資料表結構文件（分組：有關聯的表同一份，單獨的表各一份；內含 orders 加 order_items 同組、members 單表兩份文件） |
 | 系統ER圖-範本.md | 系統 ER 圖文件（TableSchema/system-er.md）的樣子 |
-| er/ | 範本引用的 ER 圖 PNG（模組圖 orders.png、members.png，系統圖 system-er.png；路徑相對於文件） |
-| mockup-狀態切換範例.html | 可切換狀態的 mockup 範例（含卡片外的「本次變更說明」區塊），用來截各種狀態的畫面 |
-| sa-images/ | 範本引用的畫面截圖（整體畫面與各種狀態，路徑相對於文件） |
+| er/ | 範本引用的 ER 圖 PNG（模組圖 orders.png、members.png，系統圖 system-er.png；路徑相對於文件）。由範本文件內的 Mermaid erDiagram 原始碼以 mermaid（npm，本機 mermaid.min.js）在 Edge 無頭模式實際渲染後截圖，是 Mermaid 實際轉出；members.png 是單表文件的模組 ER 圖，只有 members 一張表、沒有關聯線 |
+| mockup-狀態切換範例.html | 可切換狀態的 mockup 範例（「查詢」與「匯出 Excel」並排、進頁面與改日期不自動查詢；含卡片外的「本次變更說明」與示範控制面板，日期欄位用固定「年-月-日」格式的文字欄位），所有狀態共用同一組日期（預設 2026-11-01～2026-11-11）與同一組訂單資料；用網址 #狀態名稱 切換 |
+| sa-images/ | 範本引用的 13 張畫面截圖（尚未查詢、已查詢、查詢處理中、日期三種檢核、查詢失敗、查詢沒有訂單、匯出處理中、匯出成功、匯出沒有訂單、匯出超過 10000 列、匯出失敗）。由 mockup 以 Edge 無頭模式只截 #page 正式畫面區域（不含說明與示範面板，2 倍解析度），路徑相對於文件 |
 | tools/md2docx.py | md 轉 Word 的原型（python-docx，支援圖片、表格、標題） |
 
 ## SA 標準（給客戶看）
