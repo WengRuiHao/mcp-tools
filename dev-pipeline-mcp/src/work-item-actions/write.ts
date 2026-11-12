@@ -2,7 +2,9 @@ import { lstat, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { resolveArtifactPath } from "../pipeline-store.js";
 import { WorkItemActionError, errorMessage, need, okReply, type ToolReply } from "./common.js";
-import { builtinDefinition, loadWorkItem } from "./context.js";
+import { builtinDefinition, loadEffectiveDef, loadWorkItem } from "./context.js";
+import { refreshIndexDoc } from "./index-doc.js";
+import { recheckAfterWrite, type RecheckResult } from "./recheck.js";
 import type { WorkItemArgs } from "./schema.js";
 
 export const MAX_WRITE_BYTES = 512 * 1024;
@@ -36,5 +38,26 @@ export async function handleWrite(a: WorkItemArgs): Promise<ToolReply> {
     if (e instanceof WorkItemActionError) throw e;
     throw new WorkItemActionError(`寫入失敗：${errorMessage(e)}`);
   }
-  return okReply({ workItemId: ctx.id, filename, bytes, note: "已寫入；不會自動標記完成，寫好後請用 done 交件。" });
+  const recheck = await tryRecheck(ctx.dir, ctx.status, filename);
+  const indexWarning = await refreshIndexDoc(ctx);
+  return okReply({
+    workItemId: ctx.id,
+    filename,
+    bytes,
+    note: "已寫入；不會自動標記完成，寫好後請用 done 交件。",
+    ...(recheck ? { recheck: { ok: recheck.ok, failures: recheck.failures }, ...(recheck.ok ? {} : { warning: recheckWarning(recheck) }) } : {}),
+    ...(indexWarning ? { indexWarning } : {}),
+  });
+}
+
+const recheckWarning = (r: RecheckResult): string => `警告：角色「${r.roles.join("、")}」已經 done，但重寫後的內容檢查未通過（${r.failures.length} 項，見 recheck.failures）。檔案已寫入，請修正後再 write 一次直到 recheck.ok 為 true。`;
+
+/** 已 done 的角色重寫產出檔：重跑交件內容檢查。流程定義載入失敗時略過（write 本身不受影響）。 */
+async function tryRecheck(dir: string, status: Parameters<typeof recheckAfterWrite>[1], filename: string): Promise<RecheckResult | undefined> {
+  try {
+    const { def } = await loadEffectiveDef(status);
+    return await recheckAfterWrite(dir, status, def, filename);
+  } catch {
+    return undefined;
+  }
 }

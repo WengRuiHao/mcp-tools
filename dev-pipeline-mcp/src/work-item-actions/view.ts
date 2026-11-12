@@ -8,7 +8,7 @@ import { loadEffectiveDef, type WorkItemContext } from "./context.js";
 
 /** get／create／各推進動作共用的「下一步」檢視：引擎結果加白話說明。 */
 
-const ROLE_LABELS: Readonly<Record<string, string>> = {
+export const ROLE_LABELS: Readonly<Record<string, string>> = {
   "baseline-survey": "現況盤點／影響分析師",
   "tech-selector": "技術選型師",
   "mockup-designer": "mockup 設計師",

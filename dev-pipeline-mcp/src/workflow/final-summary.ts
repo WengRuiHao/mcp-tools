@@ -40,9 +40,11 @@ export interface FinalSummaryInput {
   /** 正式交付物與內部過程檔路徑（有給才列出分組清單）。 */
   deliverablePaths?: readonly string[];
   internalPaths?: readonly string[];
+  /** 工作項目目錄與專案目錄根殘留的 *.stackdump（Bash 當機遺留，有才列出警告節）。 */
+  stackdumpPaths?: readonly string[];
 }
 
-const GATE_LABELS: Readonly<Record<string, string>> = {
+export const GATE_LABELS: Readonly<Record<string, string>> = {
   "impact-content": "影響分析內容檢查",
   "tech-confirm": "技術確認",
   "mockup-confirm": "mockup 確認",
@@ -60,8 +62,8 @@ const GATE_LABELS: Readonly<Record<string, string>> = {
 const BASELINE_TEXT: Readonly<Record<string, string>> = { brownfield: "既有系統", greenfield: "全新系統" };
 const SCOPE_TEXT: Readonly<Record<string, string>> = { frontend: "只有前端", backend: "只有後端", both: "前後端都有" };
 
-const oneLine = (s: string): string => s.replace(/\s+/g, " ").trim();
-const gateLabel = (id: string): string => `${GATE_LABELS[id] ?? id}（${id}）`;
+export const oneLine = (s: string): string => s.replace(/\s+/g, " ").trim();
+export const gateLabel = (id: string): string => `${GATE_LABELS[id] ?? id}（${id}）`;
 
 /** 時間一律轉成台灣時間（UTC+8）並固定格式，避免受執行環境時區影響。 */
 export function formatTime(iso: string | undefined): string {
@@ -75,8 +77,8 @@ function formatSize(bytes: number): string {
   return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-const decisionText = (d: GateRecord["decision"]): string => (d === "rejected" || d === "failed" ? "退回" : d === "confirmed" ? "確認" : "通過");
-const deciderText = (r: GateRecord): string => (r.by === "human" ? "使用者本人" : (r.reason ?? "").startsWith("程式檢查") ? "程式檢查" : "AI 審查");
+export const decisionText = (d: GateRecord["decision"]): string => (d === "rejected" || d === "failed" ? "退回" : d === "confirmed" ? "確認" : "通過");
+export const deciderText = (r: GateRecord): string => (r.by === "human" ? "使用者本人" : (r.reason ?? "").startsWith("程式檢查") ? "程式檢查" : "AI 審查");
 
 function summarizeRequirement(text: string | undefined): string {
   const t = oneLine(text ?? "");
@@ -191,6 +193,11 @@ function dupSection(report: string | undefined): string[] {
   return ["## 五、重複程式碼偵測", "", `- 未豁免的重複區塊：${dupCount(report, "未豁免的重複區塊")}`, `- 已豁免的重複區塊：${dupCount(report, "已豁免的重複區塊")}`, "- 詳細內容見同目錄的 dup-report.md", ""];
 }
 
+function stackdumpSection(paths: readonly string[] | undefined): string[] {
+  if (!paths || paths.length === 0) return [];
+  return ["## 六、殘留的 stackdump 檔（警告）", "", "以下是 Bash 當機遺留的 *.stackdump，不是交付物，請確認後刪除，並留意當時的指令是否真的執行完成：", "", ...paths.map((p) => `- ${p}`), ""];
+}
+
 /** 完整報告字串。第五節只有工作項目目錄內有 dup-report.md 才會出現。 */
 export function buildFinalSummary(i: FinalSummaryInput): string {
   const completedAt = i.progress?.gates["final-acceptance"]?.at;
@@ -202,6 +209,7 @@ export function buildFinalSummary(i: FinalSummaryInput): string {
     ...hardStopSection(i),
     ...artifactSection(i),
     ...dupSection(i.dupReport),
+    ...stackdumpSection(i.stackdumpPaths),
     "---",
     "",
     "這份報告由程式依紀錄彙整，不含 AI 的主觀評論。",

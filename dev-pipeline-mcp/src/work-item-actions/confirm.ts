@@ -8,6 +8,7 @@ import { WorkItemActionError, errorMessage, need, okReply, type ToolReply } from
 import { loadEffectiveDef, loadWorkItem } from "./context.js";
 import { FINAL_ACCEPTANCE_GATE, writeFinalSummary } from "./final-summary-io.js";
 import { authorizeDecision, requireAgentRejectReason, requireHumanQuote, withReviewNote } from "./gate-guard.js";
+import { refreshIndexDoc } from "./index-doc.js";
 import type { WorkItemArgs } from "./schema.js";
 import { nextBlock, viewFor } from "./view.js";
 
@@ -58,5 +59,6 @@ export async function handleConfirm(a: WorkItemArgs): Promise<ToolReply> {
     return r.status;
   });
   const summary = gateId === FINAL_ACCEPTANCE_GATE && value === "confirmed" ? await trySummary(ctx.dir, updated, def, ctx.id) : {};
-  return okReply({ workItemId: ctx.id, gateId, decision: value, by, rewoundRoles: rewound, ...summary, ...nextBlock(viewFor(updated, def, overrideApplied)) });
+  const indexWarning = await refreshIndexDoc({ dir: ctx.dir, status: updated }, { def, overrideApplied });
+  return okReply({ workItemId: ctx.id, gateId, decision: value, by, rewoundRoles: rewound, ...summary, ...(indexWarning ? { indexWarning } : {}), ...nextBlock(viewFor(updated, def, overrideApplied)) });
 }

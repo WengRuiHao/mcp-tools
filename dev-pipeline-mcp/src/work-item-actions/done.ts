@@ -10,6 +10,8 @@ import { convertSaToDocx } from "../export/sa-docx.js";
 import { listLogicalRelations } from "../workflow/table-schema-check.js";
 import { checkDeliverables } from "./deliverables.js";
 import { checkDuplicatesOnDone } from "./dup-check.js";
+import { refreshIndexDoc } from "./index-doc.js";
+import { stackdumpWarning } from "./stackdump.js";
 import type { WorkItemArgs } from "./schema.js";
 import { nextBlock, viewFor } from "./view.js";
 
@@ -68,5 +70,9 @@ export async function handleDone(a: WorkItemArgs): Promise<ToolReply> {
     if (!r.ok) throw new WorkItemActionError(r.error);
     return passProgramGates(r.status, def, roleId);
   });
+  const dump = await stackdumpWarning(ctx.dir, ctx.status.project_dir);
+  if (dump) warnings.push(dump);
+  const indexWarning = await refreshIndexDoc({ dir: ctx.dir, status: updated }, { def, overrideApplied });
+  if (indexWarning) warnings.push(indexWarning);
   return okReply({ workItemId: ctx.id, roleId, done: true, ...(warnings.length > 0 ? { warnings } : {}), ...nextBlock(viewFor(updated, def, overrideApplied)) });
 }

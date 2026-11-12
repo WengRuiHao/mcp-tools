@@ -77,9 +77,22 @@ export async function authorizeDecision(
 /** 人工確認附的使用者原話：去除空白後至少幾個字元。 */
 export const MIN_HUMAN_QUOTE_CHARS = 2;
 
+/** 明確同意的英文單字：雖然只有 1～3 個英數字，仍是確認原話而非選項代號（比對時不分大小寫）。 */
+const AFFIRMATIVE_WORDS: ReadonlySet<string> = new Set(["ok", "yes", "y"]);
+const OPTION_CODE_RE = /^[A-Za-z0-9]{1,3}$/;
+
+/** reason（去頭尾空白後）只有 1～3 個 ASCII 英數字、且不是明確同意詞：視為使用者只回答了選項（A、AA、1），不算確認原話。中文原話不受影響。 */
+export function isOptionCode(reason: string | undefined): boolean {
+  const t = (reason ?? "").trim();
+  return OPTION_CODE_RE.test(t) && !AFFIRMATIVE_WORDS.has(t.toLowerCase());
+}
+
 /** by:"human" 且該關卡解析結果為 manual（含 locked、被專案設成 manual）時，reason 必須是使用者原話。AI 審查（auto）路徑不受影響。 */
 export function requireHumanQuote(def: WorkflowDefinition, gateId: string, by: "human" | "agent", reason: string | undefined): void {
   if (by !== "human" || (gateId !== TECH_CONFIRM_GATE && resolveConfirmMode(def, gateId).mode !== "manual")) return;
+  if (isOptionCode(reason)) {
+    throw new WorkItemActionError(`關卡「${gateId}」是人工確認關卡：reason「${(reason ?? "").trim()}」只是選項代號（1～3 個英數字），那是在回答問題、不是確認這道關卡。請向使用者再問一次明確的確認（例如「是否確認 ${gateId}？」），並引用使用者完整原話當 reason。`);
+  }
   if ((reason ?? "").replace(/\s/g, "").length >= MIN_HUMAN_QUOTE_CHARS) return;
   throw new WorkItemActionError(`關卡「${gateId}」是人工確認關卡：reason 必填，且必須附上使用者這次確認的原話（去除空白後至少 ${MIN_HUMAN_QUOTE_CHARS} 個字元），不可自行編寫。`);
 }

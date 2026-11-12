@@ -6,6 +6,7 @@ import { deliverablePaths, internalPaths } from "../workflow/deliverable-files.j
 import { FINAL_SUMMARY_FILE, artifactPaths, buildFinalSummary, buildFinalSummaryBrief, type FileFact, type FinalSummaryInput } from "../workflow/final-summary.js";
 import { resolveWorkflow } from "../workflow/resolve.js";
 import type { WorkflowDefinition } from "../workflow/schema.js";
+import { findStackdumps } from "./stackdump.js";
 import { isGatePassed } from "../workflow/work-item-progress.js";
 
 export const FINAL_ACCEPTANCE_GATE = "final-acceptance";
@@ -58,15 +59,21 @@ async function collectInput(dir: string, status: TicketStatus, def: WorkflowDefi
     dupReport: await readOptional(path.join(dir, "dup-report.md")),
     deliverablePaths: delivered,
     internalPaths: internal,
+    stackdumpPaths: await findStackdumps(dir, status.project_dir),
   };
 }
 
 /** 彙整報告並寫入工作項目目錄的 final-summary.md；回傳檔案絕對路徑與簡短摘要。寫檔失敗會丟錯，由呼叫端轉成 warning。 */
-export async function writeFinalSummary(dir: string, status: TicketStatus, def: WorkflowDefinition, id: string): Promise<{ summaryFile: string; finalSummaryBrief: string }> {
+export async function writeFinalSummary(dir: string, status: TicketStatus, def: WorkflowDefinition, id: string): Promise<{ summaryFile: string; finalSummaryBrief: string; stackdumpWarning?: string }> {
   const input = await collectInput(dir, status, def, id);
   const summaryFile = path.join(dir, FINAL_SUMMARY_FILE);
   await writeFile(summaryFile, buildFinalSummary(input), "utf-8");
-  return { summaryFile, finalSummaryBrief: buildFinalSummaryBrief(input) };
+  const dumps = input.stackdumpPaths ?? [];
+  return {
+    summaryFile,
+    finalSummaryBrief: buildFinalSummaryBrief(input),
+    ...(dumps.length > 0 ? { stackdumpWarning: `發現 Bash 當機遺留的 stackdump 檔：${dumps.join("、")}，請確認先前指令是否完成並刪除（已列入 final-summary.md）。` } : {}),
+  };
 }
 
 /** 已通過最終驗收且報告檔存在時回傳路徑，否則 undefined（get 動作用）。 */
