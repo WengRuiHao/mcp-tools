@@ -7,9 +7,9 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { parseTable } from "./md-table.js";
 import { checkModuleEr, checkSystemEr } from "./er-docs-check.js";
-import { EXISTING_HEADING, mergeExisting, readExistingSection, scanProjectTables } from "./existing-tables.js";
+import { EXISTING_HEADING, applyAlterChanges, declaresNoTables, mergeExisting, readExistingSection, scanProjectTables } from "./existing-tables.js";
 import { checkRelationList, type Relation } from "./relation-list-check.js";
-import { classifySql, parseAlteredTables, parseCreateTables, type SqlTable } from "./sql-schema-parse.js";
+import { classifySql, parseAlterChanges, parseAlteredTables, parseCreateTables, type SqlTable } from "./sql-schema-parse.js";
 import { INCLUDED_HEADING, INCLUDED_HEADER, includedTables, tableSections } from "./table-schema-doc.js";
 import { extractSection } from "./reuse-record-check.js";
 import { checkVersionHistory } from "./version-history-check.js";
@@ -54,7 +54,7 @@ export function checkTableSection(body: string, where: string, columns: readonly
 }
 
 /** 一份文件結構檢查：包含清單、版本管控歷程、每個小節；回傳違規與文件內的表名。 */
-export function checkDocStructure(text: string, rel: string, sqlTables: readonly SqlTable[], noChange = false): { problems: string[]; tables: string[] } {
+export function checkDocStructure(text: string, rel: string, sqlTables: readonly SqlTable[], noChange = false, created?: readonly string[]): { problems: string[]; tables: string[] } {
   const problems = checkVersionHistory(text, rel);
   const sections = tableSections(text);
   const listed = includedTables(text);
@@ -69,8 +69,9 @@ export function checkDocStructure(text: string, rel: string, sqlTables: readonly
   if (listed && listed.length > 0 && listed[0] !== stem) problems.push(`${rel} 檔名必須是主表名：「${INCLUDED_HEADING}」第一列是 ${listed[0]}，檔名應為 ${TABLE_SCHEMA_DIR}/${listed[0]}.md`);
   for (const s of sections) {
     const t = sqlTables.find((x) => x.name === s.table);
-    if (!t) problems.push(noChange ? `${rel} 的資料表 ${s.table} 不在既有資料表內（${DB_SQL_FILE} 只有註解、無 CREATE TABLE）：只能寫既有的表；請確認表名，或在 ${SYSTEM_ER_PATH_HINT} 的「## ${EXISTING_HEADING}」補上這張表` : `${rel} 的資料表 ${s.table} 不在 ${DB_SQL_FILE} 的 CREATE TABLE 內`);
-    else problems.push(...checkTableSection(s.body, `${rel}「資料表：${s.table}」`, t.columns, noChange ? "既有資料表宣告（主鍵、外鍵與「欄位」欄）中" : undefined));
+    const fromExisting = noChange || (created !== undefined && !created.includes(s.table));
+    if (!t) problems.push(noChange ? `${rel} 的資料表 ${s.table} 不在既有資料表內（${DB_SQL_FILE} 只有註解、無 CREATE TABLE）：只能寫既有的表；請確認表名，或在 ${SYSTEM_ER_PATH_HINT} 的「## ${EXISTING_HEADING}」補上這張表` : `${rel} 的資料表 ${s.table} 不在 ${DB_SQL_FILE} 的 CREATE TABLE 內，也不是既有資料表（既有表要在 ${SYSTEM_ER_PATH_HINT} 的「## ${EXISTING_HEADING}」列出，或在專案 .sql 腳本內）`);
+    else problems.push(...checkTableSection(s.body, `${rel}「資料表：${s.table}」`, t.columns, fromExisting ? "既有資料表宣告（主鍵、外鍵與「欄位」欄）中" : undefined));
   }
   return { problems, tables: names };
 }
@@ -126,10 +127,19 @@ export interface SchemaCheckOptions {
 }
 
 /** 既有資料表（僅 brownfield）：專案 .sql 掃描，加上 system-er.md「既有資料表」一節。 */
-export function loadExistingTables(workItemDir: string, sqlTables: readonly SqlTable[], opts: SchemaCheckOptions): SqlTable[] {
+export function loadExistingTables(workItemDir: string, sqlTables: readonly SqlTable[], opts: SchemaCheckOptions, sqlText = ""): SqlTable[] {
   if (opts.baseline !== "brownfield") return [];
   const section = readExistingSection(path.join(workItemDir, TABLE_SCHEMA_DIR, SYSTEM_ER_FILE));
-  return mergeExisting(scanProjectTables(opts.projectDir), section, sqlTables.map((t) => t.name));
+  const created = sqlTables.map((t) => t.name);
+  return applyAlterChanges(mergeExisting(scanProjectTables(opts.projectDir), section, created), parseAlterChanges(sqlText), created);
+}
+
+/** 欄位清單表格內列出的欄位名（章節缺少或表頭不符回空陣列；格式問題由 checkColumnList 回報）。 */
+function listedColumns(sectionBody: string): string[] {
+  const body = extractSection(sectionBody, COLUMN_LIST_HEADING);
+  const table = body === null ? null : parseTable(body);
+  if (table === null || !sameHeader(table.header, COLUMN_LIST_HEADER)) return [];
+  return table.rows.map((r) => (r[1] ?? "").replace(/[`*]/g, "").trim()).filter(Boolean);
 }
 
 const BLANK_SQL_PROBLEM = `${DB_SQL_FILE} 是空白的：本次有資料表異動就寫 SQL；沒有異動也不能留空，請只寫註解說明「本次無資料庫異動」與理由（例如只讀既有表 xxx），並在 ${SYSTEM_ER_PATH_HINT} 加「## ${EXISTING_HEADING}」章節、把用到的既有表整理成分組文件`;
@@ -149,30 +159,39 @@ export function checkTableSchemas(workItemDir: string, opts: SchemaCheckOptions 
   const noChange = kind === "comment-only";
   const sqlTables = parseCreateTables(sqlText);
   const allRelations: Relation[] = [];
-  const existing = loadExistingTables(workItemDir, sqlTables, opts);
-  const known = noChange ? existing : sqlTables;
-  const lookup = (n: string) => sqlTables.find((t) => t.name === n) ?? existing.find((t) => t.name === n);
+  const created = sqlTables.map((t) => t.name);
+  const existing = loadExistingTables(workItemDir, sqlTables, opts, sqlText);
+  const known = [...sqlTables, ...existing];
+  const lookup = (n: string) => known.find((t) => t.name === n);
   const problems: string[] = [];
   const owner = new Map<string, string[]>();
   for (const t of sqlTables) if (!/^\w+$/.test(t.name)) problems.push(`資料表「${t.name}」的名稱不是英數字與底線，無法作為小節名稱與檔名`);
   const files = schemaDocFiles(workItemDir);
+  // 本次沒有使用任何資料表：無異動、既有資料表章節明確為空或寫「無」、也沒有分組文件 → 不要求文件與系統 ER 圖。
+  if (noChange && files.length === 0 && declaresNoTables(readExistingSection(path.join(workItemDir, TABLE_SCHEMA_DIR, SYSTEM_ER_FILE)))) return problems;
   if (noChange) problems.push(...noChangeProblems(existing, files.length));
-  for (const f of files) {
-    const rel = `${TABLE_SCHEMA_DIR}/${f}`;
-    const text = readFileSync(path.join(workItemDir, TABLE_SCHEMA_DIR, f), "utf-8");
-    const r = checkDocStructure(text, rel, known, noChange);
+  const docs = files.map((f) => ({ rel: `${TABLE_SCHEMA_DIR}/${f}`, text: readFileSync(path.join(workItemDir, TABLE_SCHEMA_DIR, f), "utf-8") }));
+  // 只知道部分欄位的既有表：欄位清單是圖上欄位的依據（ER 圖欄位必須在欄位清單內）。
+  const docColumns = new Map<string, string[]>();
+  for (const d of docs) for (const s of tableSections(d.text)) docColumns.set(s.table, [...(docColumns.get(s.table) ?? []), ...listedColumns(s.body)]);
+  const withListed = (t: SqlTable): SqlTable => (t.columnsPartial ? { ...t, columns: [...new Set([...t.columns, ...(docColumns.get(t.name) ?? [])])] } : t);
+  const knownEr = known.map(withListed);
+  for (const { rel, text } of docs) {
+    const r = checkDocStructure(text, rel, known, noChange, created);
     const rels = checkRelationList(text, rel, r.tables, known, lookup);
     allRelations.push(...rels.relations);
-    problems.push(...checkModuleEr(text, rel, workItemDir, known.filter((t) => r.tables.includes(t.name)), rels.relations, noChange));
+    problems.push(...checkModuleEr(text, rel, workItemDir, knownEr.filter((t) => r.tables.includes(t.name)), rels.relations, noChange));
     problems.push(...r.problems, ...rels.problems, ...checkConnected(r.tables, known, rel, rels.relations.map((x): [string, string] => [x.child, x.parent])));
     for (const n of new Set(r.tables)) owner.set(n, [...(owner.get(n) ?? []), rel]);
   }
   for (const t of sqlTables) {
-    const docs = owner.get(t.name) ?? [];
-    if (docs.length === 0) problems.push(`${DB_SQL_FILE} 的資料表 ${t.name} 沒有出現在任何 ${TABLE_SCHEMA_DIR}/ 文件的小節（每張表都要有「## 資料表：${t.name}」）`);
-    else if (docs.length > 1) problems.push(`資料表 ${t.name} 同時出現在多份文件（${docs.join("、")}），每張表只能在一份文件的一個小節`);
+    const owners = owner.get(t.name) ?? [];
+    if (owners.length === 0) problems.push(`${DB_SQL_FILE} 的資料表 ${t.name} 沒有出現在任何 ${TABLE_SCHEMA_DIR}/ 文件的小節（每張表都要有「## 資料表：${t.name}」）`);
+    else if (owners.length > 1) problems.push(`資料表 ${t.name} 同時出現在多份文件（${owners.join("、")}），每張表只能在一份文件的一個小節`);
   }
-  if (noChange) for (const [n, docs] of owner) if (docs.length > 1) problems.push(`資料表 ${n} 同時出現在多份文件（${docs.join("、")}），每張表只能在一份文件的一個小節`);
-  problems.push(...checkSystemEr({ dir: workItemDir, sqlTables, sqlText, relations: allRelations, brownfield: opts.baseline === "brownfield", projectDir: opts.projectDir, existing, alteredTables: parseAlteredTables(sqlText), noChange }));
+  for (const [n, owners] of owner) if (!created.includes(n) && owners.length > 1) problems.push(`資料表 ${n} 同時出現在多份文件（${owners.join("、")}），每張表只能在一份文件的一個小節`);
+  const alteredFk = [...new Set(parseAlterChanges(sqlText).map((c) => c.table))].filter((n) => !created.includes(n) && existing.some((t) => t.name === n));
+  for (const n of alteredFk) if (!owner.has(n)) problems.push(`${DB_SQL_FILE} 以 ALTER TABLE 對既有資料表 ${n} 新增了外鍵，${n} 要整理進 ${TABLE_SCHEMA_DIR}/ 的分組文件（「## 資料表：${n}」），並在該文件的「關聯清單」與系統 ER 圖列出新外鍵`);
+  problems.push(...checkSystemEr({ dir: workItemDir, sqlTables, sqlText, relations: allRelations, brownfield: opts.baseline === "brownfield", projectDir: opts.projectDir, existing: existing.map(withListed), alteredTables: parseAlteredTables(sqlText), noChange }));
   return problems;
 }

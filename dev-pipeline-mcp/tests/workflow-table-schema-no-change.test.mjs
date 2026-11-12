@@ -125,7 +125,8 @@ test("greenfield 的註解 SQL 沒有既有表：文件的表視為不存在", (
   assert.ok(has(run({}, { baseline: "greenfield" }), /不在既有資料表內/));
 });
 
-test("一般有 DDL：SQL 有 CREATE TABLE 時，文件內的既有表不在 CREATE TABLE 內仍擋（行為不變）", () => {
-  const r = run({ sql: "CREATE TABLE members (id INTEGER PRIMARY KEY, name TEXT, created_at TEXT);\n" });
-  assert.ok(has(r, /orders 不在 02-db\.sql 的 CREATE TABLE 內/), r.join("\n"));
+test("一般有 DDL：文件內的表既不在 CREATE TABLE 也不是既有表仍擋（問題 52：既有表可收進分組文件）", () => {
+  const ghost = D().orders.replace("## 資料表：orders", "## 資料表：ghost").replace("| orders | 訂單主檔 |", "| ghost | 訂單主檔 |");
+  const r = run({ sql: "CREATE TABLE members (id INTEGER PRIMARY KEY, name TEXT, created_at TEXT);\n", orders: ghost });
+  assert.ok(has(r, /ghost 不在 02-db\.sql 的 CREATE TABLE 內，也不是既有資料表/), r.join("\n"));
 });

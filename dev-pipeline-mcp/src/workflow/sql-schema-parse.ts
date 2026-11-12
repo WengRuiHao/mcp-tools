@@ -104,7 +104,47 @@ function parseTableBody(name: string, body: string): SqlTable {
   return t;
 }
 
-const ALTER_FK_RE = new RegExp(`ALTER\\s+TABLE\\s+(?:ONLY\\s+)?(?:IF\\s+EXISTS\\s+)?(${ID})\\s+ADD\\s+(?:CONSTRAINT\\s+${ID}\\s+)?FOREIGN\\s+KEY\\s*\\(([^)]*)\\)\\s*REFERENCES\\s+(${ID})\\s*(?:\\(([^)]*)\\))?`, "gi");
+/** 一個 ALTER TABLE 語句新增的外鍵（表層級 ADD FOREIGN KEY、欄位層級 ADD COLUMN ... REFERENCES）。 */
+export interface AlterChange {
+  table: string;
+  /** 以 ADD COLUMN 新增且帶 REFERENCES 的欄位（ADD FOREIGN KEY 不新增欄位）。 */
+  columns: string[];
+  foreignKeys: SqlForeignKey[];
+  /** 上述新增欄位中宣告 NOT NULL 者。 */
+  notNull: string[];
+}
+
+const ALTER_HEAD_RE = new RegExp(`^\\s*ALTER\\s+TABLE\\s+(?:ONLY\\s+)?(?:IF\\s+EXISTS\\s+)?(${ID})\\s+([\\s\\S]*)$`, "i");
+const ADD_FK_RE = new RegExp(`^ADD\\s+(?:CONSTRAINT\\s+${ID}\\s+)?FOREIGN\\s+KEY\\s*(?:${ID}\\s*)?\\(([^)]*)\\)\\s*REFERENCES\\s+(${ID})\\s*(?:\\(([^)]*)\\))?`, "i");
+const ADD_COLUMN_RE = new RegExp(`^ADD\\s+(?:COLUMN\\s+)?(?:IF\\s+NOT\\s+EXISTS\\s+)?(${ID})\\s+([\\s\\S]*)$`, "i");
+
+/** 解析 SQL 內每個 ALTER TABLE 新增的外鍵（一個語句可有多個以逗號分隔的 ADD 動作）；沒有新增外鍵的 ALTER 不回傳。 */
+export function parseAlterChanges(sql: string): AlterChange[] {
+  const out: AlterChange[] = [];
+  for (const stmt of stripSqlComments(sql).split(";")) {
+    const head = ALTER_HEAD_RE.exec(stmt);
+    if (!head) continue;
+    const change: AlterChange = { table: lastPart(head[1]), columns: [], foreignKeys: [], notNull: [] };
+    for (const action of splitTopLevel(head[2])) {
+      const fk = ADD_FK_RE.exec(action);
+      if (fk) {
+        change.foreignKeys.push({ columns: idList(fk[1]), parentTable: lastPart(fk[2]), parentColumns: idList(fk[3] ?? "") });
+        continue;
+      }
+      const col = ADD_COLUMN_RE.exec(action);
+      if (!col || NON_COLUMN_RE.test(action.replace(/^ADD\s+/i, ""))) continue;
+      const tmp: SqlTable = { name: change.table, columns: [], primaryKey: [], foreignKeys: [], uniques: [], notNull: [] };
+      const name = unquote(col[1]);
+      applyColumn(`${col[1]} ${col[2]}`, name, tmp);
+      if (tmp.foreignKeys.length === 0) continue;
+      change.columns.push(name);
+      change.foreignKeys.push(...tmp.foreignKeys);
+      change.notNull.push(...tmp.notNull);
+    }
+    if (change.foreignKeys.length > 0) out.push(change);
+  }
+  return out;
+}
 const UNIQUE_INDEX_RE = new RegExp(`CREATE\\s+UNIQUE\\s+INDEX\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?${ID}\\s+ON\\s+(${ID})\\s*\\(([^)]*)\\)`, "gi");
 
 /** 解析 SQL 中所有 CREATE TABLE（表名去掉 schema 前綴與引號），並套用同一份 SQL 內的 ALTER TABLE ADD FOREIGN KEY 與 CREATE UNIQUE INDEX。 */
@@ -116,7 +156,13 @@ export function parseCreateTables(sql: string): SqlTable[] {
     const close = matchParen(text, open);
     if (close >= 0) out.push(parseTableBody(lastPart(m[1]), text.slice(open + 1, close)));
   }
-  for (const m of text.matchAll(ALTER_FK_RE)) out.find((t) => t.name === lastPart(m[1]))?.foreignKeys.push({ columns: idList(m[2]), parentTable: lastPart(m[3]), parentColumns: idList(m[4] ?? "") });
+  for (const c of parseAlterChanges(sql)) {
+    const t = out.find((x) => x.name === c.table);
+    if (!t) continue;
+    t.foreignKeys.push(...c.foreignKeys);
+    t.notNull.push(...c.notNull);
+    t.columns.push(...c.columns.filter((x) => !t.columns.includes(x)));
+  }
   for (const m of text.matchAll(UNIQUE_INDEX_RE)) out.find((t) => t.name === lastPart(m[1]))?.uniques.push(idList(m[2]));
   return out;
 }

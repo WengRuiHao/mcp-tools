@@ -84,7 +84,8 @@ function existingSourceProblem(text: string, input: SystemErInput): string[] {
 
 /** 系統 ER 圖文件：全系統所有表（brownfield 含既有表），只畫表名加主鍵與外鍵；brownfield 要標「本次新增」「本次修改」。 */
 export function checkSystemEr(input: SystemErInput): string[] {
-  if (input.sqlTables.length === 0 && !input.noChange) return [];
+  const alteredExisting = input.alteredTables.some((n) => input.existing.some((t) => t.name === n));
+  if (input.sqlTables.length === 0 && !input.noChange && !alteredExisting) return [];
   if (input.noChange && input.existing.length === 0) return input.brownfield && !hasExistingSource(input) ? [noChangeSourceProblem()] : [];
   const file = path.join(input.dir, SYSTEM_ER_PATH);
   if (!existsSync(file)) return [`缺少系統 ER 圖文件 ${SYSTEM_ER_PATH}（畫全系統所有資料表與關聯，格式見資料表結構文件範本）`];

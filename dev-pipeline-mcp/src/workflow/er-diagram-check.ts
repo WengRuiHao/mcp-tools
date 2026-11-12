@@ -44,6 +44,7 @@ function checkAttributes(name: string, attrs: readonly ErAttribute[], t: SqlTabl
   const fkCols = t.foreignKeys.flatMap((f) => f.columns);
   for (const a of attrs) {
     if (!t.columnsPartial && !inList(t.columns, a.name)) out.push(`${where} 的表 ${name} 列了 SQL 沒有的欄位 ${a.name}`);
+    else if (t.columnsPartial && !inList(t.columns, a.name)) out.push(`${where} 的表 ${name} 是只知道部分欄位的既有表，圖上的欄位 ${a.name} 不在它的欄位清單內：請先把 ${a.name} 補進該表文件的「欄位清單」（或「既有資料表」一節的「欄位」欄），或從圖上移除`);
   }
   for (const [cols, key] of [[t.primaryKey, "PK"], [fkCols, "FK"]] as const) {
     for (const c of cols) {

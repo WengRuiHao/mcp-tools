@@ -6,7 +6,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { parseTable } from "./md-table.js";
 import { extractSection } from "./reuse-record-check.js";
-import { parseCreateTables, type SqlForeignKey, type SqlTable } from "./sql-schema-parse.js";
+import { parseCreateTables, type AlterChange, type SqlForeignKey, type SqlTable } from "./sql-schema-parse.js";
 
 export const EXISTING_HEADING = "既有資料表";
 export const EXISTING_HEADER: readonly string[] = ["資料表", "主鍵", "外鍵", "說明"];
@@ -52,11 +52,21 @@ export function scanProjectTables(projectDir: string | null | undefined): SqlTab
 const splitList = (c: string, sep: RegExp): string[] => c.replace(/[`*]/g, "").split(sep).map((x) => x.trim()).filter(Boolean);
 const isNone = (c: string): boolean => /^[\s無无-]*$/.test(c.replace(/[`*]/g, "")) || /^none$/i.test(c.trim());
 
-function parseForeignKeys(cell: string): SqlForeignKey[] {
+/** 外鍵項目尾端可選填的「必選」標記（外鍵欄位為 NOT NULL）：NOT NULL、必選、必填，可加括號。 */
+const REQUIRED_MARK_RE = /\s*[（(]?\s*(?:NOT\s+NULL|必選|必填)\s*[）)]?\s*$/i;
+
+interface ParsedForeignKey {
+  fk: SqlForeignKey;
+  required: boolean;
+}
+
+function parseForeignKeys(cell: string): ParsedForeignKey[] {
   if (isNone(cell)) return [];
-  return splitList(cell, /[；;\n]/).flatMap((item) => {
+  return splitList(cell, /[；;\n]/).flatMap((raw) => {
+    const required = REQUIRED_MARK_RE.test(raw);
+    const item = raw.replace(REQUIRED_MARK_RE, "");
     const m = /^(.+?)\s*(?:→|->)\s*(\w+)\.(.+)$/.exec(item);
-    return m ? [{ columns: splitList(m[1], /[、,，\s]+/), parentTable: m[2], parentColumns: splitList(m[3], /[、,，\s]+/) }] : [];
+    return m ? [{ fk: { columns: splitList(m[1], /[、,，\s]+/), parentTable: m[2], parentColumns: splitList(m[3], /[、,，\s]+/) }, required }] : [];
   });
 }
 
@@ -70,11 +80,32 @@ export function parseExistingSection(text: string): SqlTable[] | null {
   const withColumns = table.header.length === EXISTING_HEADER_WITH_COLUMNS.length;
   return table.rows.map((r) => {
     const primaryKey = isNone(r[1] ?? "") ? [] : splitList(r[1] ?? "", /[、,，\s]+/);
-    const foreignKeys = parseForeignKeys(r[2] ?? "");
+    const parsedFks = parseForeignKeys(r[2] ?? "");
+    const foreignKeys = parsedFks.map((x) => x.fk);
+    const notNull = parsedFks.filter((x) => x.required).flatMap((x) => x.fk.columns);
     const declared = withColumns && !isNone(r[3] ?? "") ? splitList(r[3] ?? "", /[、,，\s]+/) : [];
     const columns = [...new Set([...primaryKey, ...foreignKeys.flatMap((f) => f.columns), ...declared])];
-    return { name: (r[0] ?? "").replace(/[`*]/g, "").trim(), columns, primaryKey, foreignKeys, uniques: [], notNull: [], columnsPartial: true };
-  });
+    return { name: (r[0] ?? "").replace(/[`*]/g, "").trim(), columns, primaryKey, foreignKeys, uniques: [], notNull, columnsPartial: true };
+  }).filter((t) => t.name !== "" && !isNone(t.name));
+}
+
+/** 既有資料表一節是否明確宣告「本次沒有使用任何資料表」：有這一節，且沒有任何資料列（或只有「無」列）。 */
+export function declaresNoTables(section: readonly SqlTable[] | null): boolean {
+  return section !== null && section.length === 0;
+}
+
+/** 把 02-db.sql 的 ALTER TABLE 新增外鍵套到既有表（本次 CREATE TABLE 的表不處理）；既有表查不到時建立只知道外鍵欄位的占位表。回傳新陣列。 */
+export function applyAlterChanges(existing: readonly SqlTable[], changes: readonly AlterChange[], created: readonly string[]): SqlTable[] {
+  const byName = new Map(existing.map((t): [string, SqlTable] => [t.name, t]));
+  const same = (a: SqlForeignKey, b: SqlForeignKey): boolean => a.parentTable === b.parentTable && a.columns.join(",").toLowerCase() === b.columns.join(",").toLowerCase();
+  for (const c of changes) {
+    if (created.includes(c.table) || c.foreignKeys.length === 0) continue;
+    const base = byName.get(c.table) ?? { name: c.table, columns: [], primaryKey: [], foreignKeys: [], uniques: [], notNull: [], columnsPartial: true };
+    const added = c.foreignKeys.filter((f) => !base.foreignKeys.some((x) => same(x, f)));
+    const cols = [...c.foreignKeys.flatMap((f) => f.columns), ...c.columns];
+    byName.set(c.table, { ...base, columns: [...new Set([...base.columns, ...cols])], foreignKeys: [...base.foreignKeys, ...added], notNull: [...new Set([...base.notNull, ...c.notNull])] });
+  }
+  return [...byName.values()];
 }
 
 /** 合併既有資料表：掃描結果為底，既有資料表一節同名時覆蓋；去掉這次 02-db.sql 新建的表（新建者以本次設計為準）。 */
