@@ -25,7 +25,7 @@ export interface Relation {
   basis: string;
 }
 /** 表查詢：回傳欄位與主鍵；查不到回 undefined。 */
-export type TableLookup = (name: string) => { columns: readonly string[]; primaryKey: readonly string[] } | undefined;
+export type TableLookup = (name: string) => { columns: readonly string[]; primaryKey: readonly string[]; columnsPartial?: boolean } | undefined;
 
 const clean = (c: string): string => c.replace(/[`*]/g, "").trim();
 const cols = (c: string): string[] => clean(c).split(/[、,，\s]+/).filter(Boolean);
@@ -48,7 +48,7 @@ export function parseRelations(text: string): Relation[] | null {
 }
 
 const rowText = (r: Relation): string => `${r.child}.${r.childCols.join("、")} → ${r.parent}.${r.parentCols.join("、")}`;
-const hasCols = (info: { columns: readonly string[] } | undefined, wanted: readonly string[]): string[] => (info ? wanted.filter((c) => !info.columns.some((x) => x.toLowerCase() === c.toLowerCase())) : []);
+const hasCols = (info: { columns: readonly string[]; columnsPartial?: boolean } | undefined, wanted: readonly string[]): string[] => (info && !info.columnsPartial ? wanted.filter((c) => !info.columns.some((x) => x.toLowerCase() === c.toLowerCase())) : []);
 
 function checkRow(r: Relation, where: string, docTables: readonly string[], sql: readonly SqlTable[], lookup: TableLookup): string[] {
   const out: string[] = [];

@@ -46,13 +46,13 @@ function embeddedDiagram(text: string, heading: string, where: string, imageName
 }
 
 /** 一份分組文件的模組 ER 圖：圖上的表＝文件內的表，關聯線＝關聯清單內兩端都在文件內的列。 */
-export function checkModuleEr(text: string, rel: string, dir: string, docTables: readonly SqlTable[], relations: readonly Relation[]): string[] {
+export function checkModuleEr(text: string, rel: string, dir: string, docTables: readonly SqlTable[], relations: readonly Relation[], noChange = false): string[] {
   const where = `${rel} 的${MODULE_ER_HEADING}`;
   const problems: string[] = [];
   const src = embeddedDiagram(text, MODULE_ER_HEADING, rel, `${path.posix.basename(rel, ".md")}.png`, dir, problems);
   if (src === null) return problems;
   const inDoc = (n: string): boolean => docTables.some((t) => t.name === n);
-  return [...problems, ...checkErDiagram(src, where, { tables: docTables, relations: expectedRelations(relations, docTables, inDoc) })];
+  return [...problems, ...checkErDiagram(src, where, { tables: docTables, relations: expectedRelations(relations, docTables, inDoc), ...(noChange ? { marks: new Map<string, string>(), noChange } : {}) })];
 }
 
 export interface SystemErInput {
@@ -64,12 +64,17 @@ export interface SystemErInput {
   projectDir: string | null | undefined;
   existing: readonly SqlTable[];
   alteredTables: readonly string[];
+  /** 02-db.sql 只有註解（本次無資料表異動）：表集合為既有資料表，不可有新增／修改標註。 */
+  noChange?: boolean;
 }
 
 /** 既有資料表之間（子表為既有表）的外鍵，系統圖也要畫。 */
-function existingRelations(existing: readonly SqlTable[], inScope: (n: string) => boolean): ExpectedRelation[] {
-  return existing.flatMap((t) => t.foreignKeys.filter((f) => inScope(f.parentTable)).map((f) => ({ parent: f.parentTable, child: t.name, kind: kindOfForeignKey(t, f), required: isRequired(t, f.columns) })));
+function existingRelations(existing: readonly SqlTable[], inScope: (n: string) => boolean, listed: readonly Relation[] = []): ExpectedRelation[] {
+  return existing.flatMap((t) => t.foreignKeys.filter((f) => inScope(f.parentTable) && !listed.some((r) => r.child === t.name && r.parent === f.parentTable)).map((f) => ({ parent: f.parentTable, child: t.name, kind: kindOfForeignKey(t, f), required: isRequired(t, f.columns) })));
 }
+
+const hasExistingSource = (input: SystemErInput): boolean => scanProjectTables(input.projectDir).length > 0 || (existsSync(path.join(input.dir, SYSTEM_ER_PATH)) && parseExistingSection(readFileSync(path.join(input.dir, SYSTEM_ER_PATH), "utf-8")) !== null);
+const noChangeSourceProblem = (): string => `02-db.sql 只有註解（本次無資料表異動），但取不到既有資料表（專案目錄沒有 .sql 腳本）：請在 ${SYSTEM_ER_PATH} 加「## ${EXISTING_HEADING}」表格（表頭：${EXISTING_HEADER.join("｜")}，可加選填「欄位」欄），列出本次用到與全系統的既有表，再依其畫系統 ER 圖，並把用到的既有表整理成分組文件`;
 
 function existingSourceProblem(text: string, input: SystemErInput): string[] {
   const hasSection = parseExistingSection(text) !== null;
@@ -79,7 +84,8 @@ function existingSourceProblem(text: string, input: SystemErInput): string[] {
 
 /** 系統 ER 圖文件：全系統所有表（brownfield 含既有表），只畫表名加主鍵與外鍵；brownfield 要標「本次新增」「本次修改」。 */
 export function checkSystemEr(input: SystemErInput): string[] {
-  if (input.sqlTables.length === 0) return [];
+  if (input.sqlTables.length === 0 && !input.noChange) return [];
+  if (input.noChange && input.existing.length === 0) return input.brownfield && !hasExistingSource(input) ? [noChangeSourceProblem()] : [];
   const file = path.join(input.dir, SYSTEM_ER_PATH);
   if (!existsSync(file)) return [`缺少系統 ER 圖文件 ${SYSTEM_ER_PATH}（畫全系統所有資料表與關聯，格式見資料表結構文件範本）`];
   const text = readFileSync(file, "utf-8");
@@ -89,6 +95,6 @@ export function checkSystemEr(input: SystemErInput): string[] {
   const tables = [...input.sqlTables, ...input.existing];
   const inScope = (n: string): boolean => tables.some((t) => t.name === n);
   const marks = new Map<string, string>(input.brownfield ? [...input.sqlTables.map((t): [string, string] => [t.name, MARK_NEW]), ...input.alteredTables.filter((n) => input.existing.some((t) => t.name === n)).map((n): [string, string] => [n, MARK_MODIFIED])] : []);
-  const relations = [...expectedRelations(input.relations, tables, inScope), ...existingRelations(input.existing, inScope)];
-  return [...problems, ...checkErDiagram(src, `${SYSTEM_ER_PATH} 的${SYSTEM_ER_HEADING}`, { tables, relations, ...(input.brownfield ? { marks } : {}) })];
+  const relations = [...expectedRelations(input.relations, tables, inScope), ...existingRelations(input.existing, inScope, input.relations)];
+  return [...problems, ...checkErDiagram(src, `${SYSTEM_ER_PATH} 的${SYSTEM_ER_HEADING}`, { tables, relations, ...(input.brownfield ? { marks, ...(input.noChange ? { noChange: true } : {}) } : {}) })];
 }

@@ -1,6 +1,6 @@
 // 既有系統（brownfield）的既有資料表來源：
 //  1. 自動：掃描專案目錄內的 .sql 腳本（CREATE TABLE，含欄位層級與表層級外鍵），這是目前流程唯一能自動取得的既有表結構；
-//  2. 手動：TableSchema/system-er.md 的「## 既有資料表」表格（資料表｜主鍵｜外鍵｜說明），DB 設計師查 db_schema 後列出，同名時以此為準。
+//  2. 手動：TableSchema/system-er.md 的「## 既有資料表」表格（資料表｜主鍵｜外鍵｜說明，可加選填「欄位」欄），DB 設計師查 db_schema 後列出，同名時以此為準。
 // 兩者都沒有時，brownfield 的系統 ER 圖無法驗證既有表，交件檢查會要求補上「既有資料表」一節。
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
@@ -10,6 +10,8 @@ import { parseCreateTables, type SqlForeignKey, type SqlTable } from "./sql-sche
 
 export const EXISTING_HEADING = "既有資料表";
 export const EXISTING_HEADER: readonly string[] = ["資料表", "主鍵", "外鍵", "說明"];
+/** 選填「欄位」欄的表頭（逗號或頓號分隔欄位名稱）。 */
+export const EXISTING_HEADER_WITH_COLUMNS: readonly string[] = ["資料表", "主鍵", "外鍵", "欄位", "說明"];
 const SKIP_DIRS = new Set(["node_modules", ".git", ".svn", ".dev-pipeline", ".asana-pipeline", "dist", "build", "target", "out", "bin", "obj", ".idea", ".vscode"]);
 const MAX_FILES = 300;
 const MAX_DEPTH = 8;
@@ -58,16 +60,20 @@ function parseForeignKeys(cell: string): SqlForeignKey[] {
   });
 }
 
-/** 解析系統 ER 圖文件的「既有資料表」一節；沒有這一節回 null（有節但沒有資料列回空陣列）。欄位只知道主鍵與外鍵欄位。 */
+/** 解析系統 ER 圖文件的「既有資料表」一節；沒有這一節回 null（有節但沒有資料列回空陣列）。欄位預設只知道主鍵與外鍵欄位，有選填「欄位」欄時再加上宣告的欄位。 */
 export function parseExistingSection(text: string): SqlTable[] | null {
   const body = extractSection(text, EXISTING_HEADING);
   const table = body === null ? null : parseTable(body);
-  if (table === null || table.header.length !== EXISTING_HEADER.length || table.header.some((h, i) => h.replace(/[`*]/g, "").trim() !== EXISTING_HEADER[i])) return null;
+  if (table === null) return null;
+  const want = [EXISTING_HEADER, EXISTING_HEADER_WITH_COLUMNS].find((w) => w.length === table.header.length && w.every((x, i) => table.header[i].replace(/[`*]/g, "").trim() === x));
+  if (!want) return null;
+  const withColumns = table.header.length === EXISTING_HEADER_WITH_COLUMNS.length;
   return table.rows.map((r) => {
     const primaryKey = isNone(r[1] ?? "") ? [] : splitList(r[1] ?? "", /[、,，\s]+/);
     const foreignKeys = parseForeignKeys(r[2] ?? "");
-    const columns = [...new Set([...primaryKey, ...foreignKeys.flatMap((f) => f.columns)])];
-    return { name: (r[0] ?? "").replace(/[`*]/g, "").trim(), columns, primaryKey, foreignKeys, uniques: [], notNull: [] };
+    const declared = withColumns && !isNone(r[3] ?? "") ? splitList(r[3] ?? "", /[、,，\s]+/) : [];
+    const columns = [...new Set([...primaryKey, ...foreignKeys.flatMap((f) => f.columns), ...declared])];
+    return { name: (r[0] ?? "").replace(/[`*]/g, "").trim(), columns, primaryKey, foreignKeys, uniques: [], notNull: [], columnsPartial: true };
   });
 }
 

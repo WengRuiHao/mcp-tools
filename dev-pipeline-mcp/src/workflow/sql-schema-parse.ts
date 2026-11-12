@@ -18,6 +18,8 @@ export interface SqlTable {
   /** 唯一欄位組：欄位層級 UNIQUE、表層級 UNIQUE（單欄或複合）、CREATE UNIQUE INDEX。 */
   uniques: string[][];
   notNull: string[];
+  /** 只知道部分欄位（「既有資料表」一節宣告的表）：圖上與清單的其他欄位不判為「不存在」。 */
+  columnsPartial?: boolean;
 }
 
 const NON_COLUMN_RE = /^(?:constraint|primary|foreign|unique|key|index|check|fulltext|spatial|exclude|like)\b/i;
@@ -117,6 +119,14 @@ export function parseCreateTables(sql: string): SqlTable[] {
   for (const m of text.matchAll(ALTER_FK_RE)) out.find((t) => t.name === lastPart(m[1]))?.foreignKeys.push({ columns: idList(m[2]), parentTable: lastPart(m[3]), parentColumns: idList(m[4] ?? "") });
   for (const m of text.matchAll(UNIQUE_INDEX_RE)) out.find((t) => t.name === lastPart(m[1]))?.uniques.push(idList(m[2]));
   return out;
+}
+
+export type SqlKind = "blank" | "comment-only" | "statements";
+
+/** 02-db.sql 的內容分類：完全空白、只有註解（無資料表異動）、有任何語句。 */
+export function classifySql(sql: string): SqlKind {
+  if (sql.trim() === "") return "blank";
+  return stripSqlComments(sql).replace(/[;\s]/g, "") === "" ? "comment-only" : "statements";
 }
 
 /** SQL 內有 ALTER TABLE 的表名（去重）；brownfield 系統圖用來判斷「本次修改」。 */

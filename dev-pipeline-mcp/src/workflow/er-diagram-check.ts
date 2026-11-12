@@ -23,6 +23,8 @@ export interface ErScope {
   relations: readonly ExpectedRelation[];
   /** 需要標註的表：表名 → 「本次新增」或「本次修改」（只有 brownfield 系統圖傳入；其餘表不得有標註）。 */
   marks?: ReadonlyMap<string, string>;
+  /** 本次 02-db.sql 無資料表異動（只有註解）：標註違規的訊息改成說明無異動。 */
+  noChange?: boolean;
 }
 
 export const lineText = (e: ExpectedRelation): string => `${e.parent} ${PARENT_SYMBOLS[e.required ? "required" : "optional"]}--${CHILD_SYMBOLS[e.kind] ?? "o{"} ${e.child}`;
@@ -41,7 +43,7 @@ function checkAttributes(name: string, attrs: readonly ErAttribute[], t: SqlTabl
   const out: string[] = [];
   const fkCols = t.foreignKeys.flatMap((f) => f.columns);
   for (const a of attrs) {
-    if (!inList(t.columns, a.name)) out.push(`${where} 的表 ${name} 列了 SQL 沒有的欄位 ${a.name}`);
+    if (!t.columnsPartial && !inList(t.columns, a.name)) out.push(`${where} 的表 ${name} 列了 SQL 沒有的欄位 ${a.name}`);
   }
   for (const [cols, key] of [[t.primaryKey, "PK"], [fkCols, "FK"]] as const) {
     for (const c of cols) {
@@ -54,9 +56,9 @@ function checkAttributes(name: string, attrs: readonly ErAttribute[], t: SqlTabl
   return out;
 }
 
-function checkMarks(name: string, attrs: readonly ErAttribute[], want: string | undefined, where: string): string[] {
+function checkMarks(name: string, attrs: readonly ErAttribute[], want: string | undefined, where: string, noChange = false): string[] {
   const found = [MARK_NEW, MARK_MODIFIED].filter((m) => attrs.some((a) => a.comment.includes(m)));
-  if (want === undefined) return found.length > 0 ? [`${where} 的表 ${name} 不是${found[0]}的表，不可標「${found[0]}」`] : [];
+  if (want === undefined) return found.length > 0 ? [`${where} 的表 ${name} 不是${found[0]}的表，不可標「${found[0]}」${noChange ? "（本次 02-db.sql 沒有任何 CREATE／ALTER，無資料表異動，不可標「本次新增」「本次修改」）" : ""}`] : [];
   if (found.length === 0) return [`${where} 的表 ${name} 要標「${want}」（在該表任一欄位的註解 "…" 寫「${want}」）`];
   return found.length === 1 && found[0] === want ? [] : [`${where} 的表 ${name} 標了「${found.join("、")}」，應為「${want}」`];
 }
@@ -92,7 +94,7 @@ export function checkErDiagram(src: string, where: string, scope: ErScope): stri
     if (key === undefined) continue;
     const attrs = d.entities.get(key) ?? [];
     out.push(...checkAttributes(t.name, attrs, t, where));
-    if (scope.marks) out.push(...checkMarks(t.name, attrs, scope.marks.get(t.name), where));
+    if (scope.marks) out.push(...checkMarks(t.name, attrs, scope.marks.get(t.name), where, scope.noChange));
   }
   const used = new Set<ErLine>();
   scope.relations.forEach((e) => out.push(...matchLine(e, d.lines, used, where)));
