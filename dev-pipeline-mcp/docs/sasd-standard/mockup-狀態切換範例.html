@@ -2,83 +2,238 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<title>我的訂單（狀態示範）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的訂單（查詢與匯出 Excel 狀態示範）</title>
 <style>
 body{margin:0;background:#f5f7fa;color:#1f2937;font:15px/1.6 "Microsoft JhengHei",sans-serif}
 .wrap{max-width:760px;margin:24px auto;background:#fff;border-radius:10px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;color:#475569}
 .msg{display:none;margin:0 0 14px;padding:10px 14px;border-radius:6px;font-size:14px}
 .msg.err{display:block;background:#fef3f2;color:#b42318;border:1px solid #fda29b}
 .msg.info{display:block;background:#eff8ff;color:#175cd3;border:1px solid #84caff}
 h1{font-size:20px;margin:0 0 16px}
-.bar{display:flex;gap:12px;align-items:flex-start;margin-bottom:6px}
-.f{display:flex;flex-direction:column}
-.f label{display:flex;gap:6px;align-items:center}
-input{padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px}
+.bar{display:flex;gap:12px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.f label{display:flex;gap:6px;align-items:center;margin:0}
+input[type=text]{width:116px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font:inherit}
 input.bad{border-color:#d92d20;background:#fffbfa}
-.ferr{color:#d92d20;font-size:12px;margin-top:4px;min-height:16px}
-button{background:#2563eb;color:#fff;border:0;border-radius:6px;padding:8px 16px;cursor:pointer;margin-top:0}
+input:disabled{background:#f1f5f9;color:#94a3b8}
+.ferr{color:#d92d20;font-size:12px;margin-top:4px;min-height:18px}
+button{background:#2563eb;color:#fff;border:0;border-radius:6px;padding:8px 16px;cursor:pointer;font:inherit}
+button.link{background:none;color:#2563eb;padding:0}
 button:disabled{background:#cbd5e1;color:#94a3b8;cursor:not-allowed}
 table{width:100%;border-collapse:collapse;margin-top:10px}
 th,td{padding:8px;border-bottom:1px solid #e5e7eb;text-align:left}
 th{background:#f1f5f9}
-.chg{max-width:760px;margin:0 auto 24px;font-size:13px;color:#475569}
-.chg input{padding:0}
-.chg h2{font-size:15px;margin:8px 0 4px}
-.chg ul{margin:0;padding-left:20px}
-.chg.off .chg-body{display:none}
+td:last-child,th:last-child,td.num,th.num{text-align:right}
+td.guide{text-align:center;color:#64748b;padding:28px 8px}
+/* 以下為說明用區塊，放在頁面卡片外，不屬於正式畫面 */
+.notes{max-width:760px;margin:24px auto 0;padding:12px 24px;background:#f5f3ff;border:1px solid #c4b5fd;border-radius:10px;font-size:13px;box-sizing:border-box}
+.notes h2{font-size:14px;margin:0 0 4px}
+.notes ul{margin:0;padding-left:20px}
+.notes li{margin:2px 0}
+.demo{max-width:760px;margin:0 auto 24px;padding:14px 24px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;font-size:13px;box-sizing:border-box;overflow-wrap:anywhere}
+.demo h2{font-size:14px;margin:0 0 6px}
+.demo .row{margin-top:10px}
+.demo .row>span.t{display:block;margin-bottom:4px}
+.demo .links,.demo .opts{display:flex;flex-wrap:wrap;gap:4px 14px}
+.demo a{color:#2563eb}
+.demo label{display:inline-flex;align-items:center;gap:4px}
+.overlay{display:none;max-width:760px;margin:24px auto;background:#fff;border-radius:10px;padding:24px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
 </style>
 </head>
-<body data-demo-states="normal,loading,success,failed,empty,required,order,range,toomany">
-<div class="wrap">
-  <div id="msg" class="msg"></div>
+<body data-demo-states="initial,normal,loading,success,failed,empty,date-required,date-order,date-range,export-loading,export-success,export-failed,export-empty,export-over-limit,unauth">
+<section id="unauth" class="overlay" role="alert">
+  <p>尚未登入或登入已失效，正在前往登入頁……</p>
+  <p><a href="#initial">（示範）重新登入後回到我的訂單</a></p>
+</section>
+<section class="notes" id="notes" aria-label="本次變更說明">
+  <h2>本次變更說明</h2>
+  <ul>
+    <li>新增：「查詢」按鈕（與「匯出 Excel」並排）</li>
+    <li>新增：「匯出 Excel」按鈕</li>
+    <li>既有行為變更：進入頁面不再自動查詢，改為先顯示「尚未查詢」</li>
+    <li>既有行為變更：改起日或迄日不再自動查詢，改為按「查詢」才查；改日期後列表保留上次查詢結果</li>
+  </ul>
+</section>
+<main class="wrap" id="page">
+  <div class="top"><span>會員：王小明</span><button id="logout" class="link" type="button">登出</button></div>
+  <div id="msg" class="msg" role="status"></div>
   <h1>我的訂單</h1>
   <div class="bar">
-    <div class="f"><label>起 <input id="s" type="date"></label></div>
-    <div class="f"><label>迄 <input id="e" type="date"></label></div>
-    <button id="btn">匯出 Excel</button>
+    <div class="f"><label>起 <input id="s" type="text" inputmode="numeric" maxlength="10" placeholder="年-月-日" autocomplete="off"></label></div>
+    <div class="f"><label>迄 <input id="e" type="text" inputmode="numeric" maxlength="10" placeholder="年-月-日" autocomplete="off"></label></div>
+    <button id="query" type="button">查詢</button>
+    <button id="export" type="button">匯出 Excel</button>
   </div>
-  <div id="ferr" class="ferr"></div>
+  <div id="ferr" class="ferr" role="alert"></div>
   <table>
-    <tr><th>訂單編號</th><th>下單日期</th><th>商品名稱</th><th>數量</th><th>金額</th></tr>
-    <tr><td>A001</td><td>2026-10-03</td><td>咖啡豆</td><td>2</td><td>640</td></tr>
-    <tr><td>A002</td><td>2026-10-12</td><td>濾掛咖啡</td><td>1</td><td>320</td></tr>
+    <thead><tr><th>訂單編號</th><th>下單日期</th><th>商品名稱</th><th class="num">數量</th><th>金額</th></tr></thead>
+    <tbody id="rows"></tbody>
   </table>
-</div>
-<!-- 本次變更說明：放在頁面卡片外，不疊在正式元件上；勾選框可顯示或隱藏，預設顯示 -->
-<aside class="chg" id="chg">
-  <label><input type="checkbox" id="chg-on" checked> 顯示本次變更說明</label>
-  <div class="chg-body">
-    <h2>本次變更說明</h2>
-    <ul>
-      <li>新增：訂單列表上方的日期區間（起、迄）與「匯出 Excel」按鈕</li>
-      <li>新增：日期檢核提示（必填、起日不可晚於迄日、區間不可超過 366 天）</li>
-      <li>既有行為變更：無</li>
-    </ul>
+</main>
+
+<aside class="demo" id="demo">
+  <h2>示範用控制面板</h2>
+  <div class="row"><span class="t">切換狀態：</span>
+    <div class="links">
+      <a href="#initial">initial 尚未查詢</a><a href="#normal">normal 已查詢</a><a href="#loading">loading 查詢處理中</a><a href="#success">success 查詢成功</a><a href="#failed">failed 查詢失敗</a><a href="#empty">empty 區間沒有訂單</a><a href="#date-required">date-required</a><a href="#date-order">date-order</a><a href="#date-range">date-range</a><a href="#export-loading">export-loading</a><a href="#export-success">export-success</a><a href="#export-failed">export-failed</a><a href="#export-empty">export-empty</a><a href="#export-over-limit">export-over-limit</a><a href="#unauth">unauth</a>
+    </div>
   </div>
+  <div class="row"><span class="t">按「查詢」的模擬結果：</span>
+    <div class="opts">
+      <label><input type="radio" name="qsim" value="success" checked> 成功</label>
+      <label><input type="radio" name="qsim" value="failed"> 查詢失敗</label>
+      <label><input type="radio" name="qsim" value="unauth"> 登入失效</label>
+    </div>
+  </div>
+  <div class="row"><span class="t">按「匯出 Excel」的模擬結果：</span>
+    <div class="opts">
+      <label><input type="radio" name="xsim" value="success" checked> 成功</label>
+      <label><input type="radio" name="xsim" value="failed"> 匯出失敗</label>
+      <label><input type="radio" name="xsim" value="over-limit"> 超過 10000 列</label>
+      <label><input type="radio" name="xsim" value="unauth"> 登入失效</label>
+    </div>
+  </div>
+  <div class="row"><div class="opts"><label><input type="checkbox" id="marks" checked> 顯示上方「本次變更說明」</label></div></div>
 </aside>
+
 <script>
-const st = (location.hash || '').replace('#', '');
-const s = document.getElementById('s'), e = document.getElementById('e');
-const msg = document.getElementById('msg'), ferr = document.getElementById('ferr'), btn = document.getElementById('btn');
-s.value = '2026-11-01'; e.value = '2026-11-10';
-function fieldError(text, which) {
-  ferr.textContent = text; btn.disabled = true;
-  (which || [s, e]).forEach(function (x) { x.classList.add('bad'); });
-}
-function banner(kind, text) { msg.className = 'msg ' + kind; msg.textContent = text; }
-if (st === 'loading') { btn.disabled = true; btn.textContent = '處理中…'; banner('info', '資料載入中，請稍候'); }
-if (st === 'success') { banner('info', '匯出完成，檔案已下載'); }
-if (st === 'required') { s.value = ''; fieldError('請選擇日期區間', [s]); }
-if (st === 'order') { s.value = '2026-11-10'; e.value = '2026-11-01'; fieldError('起日不可晚於迄日'); }
-if (st === 'range') { s.value = '2025-01-01'; e.value = '2026-11-10'; fieldError('日期區間不可超過 366 天'); }
-if (st === 'toomany') { banner('err', '資料量過大，請縮小日期區間'); }
-if (st === 'empty') { banner('info', '此區間沒有訂單'); }
-if (st === 'failed') { banner('err', '匯出失敗，請稍後再試'); }
-document.getElementById('chg-on').addEventListener('change', function (ev) {
-  document.getElementById('chg').classList.toggle('off', !ev.target.checked);
-});
-// 網址 #狀態名稱 改變時重新載入，切換到該狀態
-window.addEventListener('hashchange', function () { location.reload(); });
+(function () {
+  var MAX_DAYS = 366;
+  var DEFAULT_START = '2026-11-01', DEFAULT_END = '2026-11-11';
+  var EMPTY_START = '2026-10-01', EMPTY_END = '2026-10-31'; // 這段期間沒有任何訂單
+  var $ = function (id) { return document.getElementById(id); };
+  var startEl = $('s'), endEl = $('e'), msgEl = $('msg'), ferrEl = $('ferr');
+  var qBtn = $('query'), xBtn = $('export'), bodyEl = $('rows');
+  var busy = '', timer = null; // busy: '' | 'query' | 'export'
+  var DATA = [ // 所有狀態共用的同一組訂單資料（訂單編號、下單日期、商品名稱、數量、金額）
+    ['A20261103001', '2026-11-03', '無線滑鼠', 1, 890],
+    ['A20261103001', '2026-11-03', '滑鼠墊', 2, 360],
+    ['A20261106002', '2026-11-06', '機械鍵盤', 1, 2490],
+    ['A20261109003', '2026-11-09', 'USB 集線器', 1, 650],
+    ['A20261110004', '2026-11-10', 'Type-C 充電線', 3, 1170]
+  ];
+
+  function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function inRange(s, e) { return DATA.filter(function (r) { return r[1] >= s && r[1] <= e; }); }
+  function showBanner(kind, text) { msgEl.className = text ? 'msg ' + kind : 'msg'; msgEl.textContent = text; }
+  function showFieldError(text) {
+    ferrEl.textContent = text;
+    startEl.classList.toggle('bad', !!text);
+    endEl.classList.toggle('bad', !!text);
+  }
+  function renderGuide() { // 尚未查詢：不顯示資料列，只有引導文字
+    bodyEl.innerHTML = '';
+    var td = bodyEl.insertRow().insertCell();
+    td.colSpan = 5; td.className = 'guide'; td.textContent = '請選擇日期區間後按「查詢」';
+  }
+  function renderRows(rows) { // 沒有訂單時不顯示任何資料列
+    bodyEl.innerHTML = '';
+    rows.forEach(function (r) {
+      var tr = bodyEl.insertRow();
+      [r[0], r[1], r[2], String(r[3]), fmt(r[4])].forEach(function (t, i) {
+        var c = tr.insertCell(); c.textContent = t; if (i === 3) c.className = 'num';
+      });
+    });
+  }
+  function isDate(v) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+    if (!m) return false;
+    var d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3];
+  }
+  function toDay(v) { var p = v.split('-'); return Date.UTC(+p[0], +p[1] - 1, +p[2]) / 86400000; }
+  function validate() {
+    if (!isDate(startEl.value) || !isDate(endEl.value)) return '請選擇起日與迄日';
+    if (startEl.value > endEl.value) return '起日不可晚於迄日';
+    if (toDay(endEl.value) - toDay(startEl.value) + 1 > MAX_DAYS) return '日期區間不可超過 ' + MAX_DAYS + ' 天';
+    return '';
+  }
+  function syncControls() { // 處理中或日期有誤時，查詢與匯出兩顆都不能按；查詢處理中鎖住日期欄位
+    var bad = !!validate();
+    qBtn.textContent = busy === 'query' ? '處理中…' : '查詢';
+    xBtn.textContent = busy === 'export' ? '處理中…' : '匯出 Excel';
+    qBtn.disabled = xBtn.disabled = !!busy || bad;
+    startEl.disabled = endEl.disabled = busy === 'query';
+  }
+  function onDateChange() { // 只做檢核與按鈕狀態：不查詢、不動列表、不動訊息區
+    showFieldError(validate());
+    syncControls();
+  }
+  function fileName() { return '訂單_' + startEl.value + '_' + endEl.value + '.xlsx'; }
+
+  function finishQuery(result, s, e) {
+    busy = '';
+    if (result === 'unauth') { go('unauth'); return; }
+    syncControls();
+    if (result === 'failed') { showBanner('err', '查詢失敗，請稍後再試'); return; } // 列表維持原內容
+    var rows = inRange(s, e);
+    renderRows(rows);
+    if (rows.length === 0) showBanner('info', '此區間沒有訂單');
+  }
+  function finishExport(result) {
+    busy = '';
+    syncControls();
+    if (result === 'unauth') { go('unauth'); return; }
+    if (result === 'failed') { showBanner('err', '匯出失敗，請稍後再試'); return; }
+    if (result === 'over-limit') { showBanner('err', '匯出筆數超過 10000 列，未產生檔案，請縮小日期區間後再試'); return; }
+    var has = inRange(startEl.value, endEl.value).length > 0; // 匯出依日期欄位目前的值，不要求先查詢
+    showBanner('info', has ? '匯出完成，已下載 ' + fileName() : '此區間沒有訂單，已下載只有標題列的檔案 ' + fileName());
+  }
+  function checked(name) { return document.querySelector('input[name=' + name + ']:checked').value; }
+  qBtn.addEventListener('click', function () {
+    if (busy || validate()) return;
+    showBanner('', '');
+    busy = 'query'; syncControls();
+    var s = startEl.value, e = endEl.value, sim = checked('qsim');
+    timer = setTimeout(function () { finishQuery(sim, s, e); }, 1200);
+  });
+  xBtn.addEventListener('click', function () {
+    if (busy || validate()) return;
+    showBanner('', '');
+    busy = 'export'; syncControls();
+    var sim = checked('xsim');
+    timer = setTimeout(function () { finishExport(sim); }, 1200);
+  });
+  startEl.addEventListener('input', onDateChange);
+  endEl.addEventListener('input', onDateChange);
+  $('logout').addEventListener('click', function () { go('unauth'); });
+  $('marks').addEventListener('change', function () { $('notes').style.display = this.checked ? '' : 'none'; });
+
+  function setDates(s, e) { startEl.value = s; endEl.value = e; onDateChange(); }
+  function reset() {
+    clearTimeout(timer); busy = '';
+    $('page').style.display = ''; $('unauth').style.display = 'none';
+    showBanner('', '');
+    renderGuide();
+    setDates(DEFAULT_START, DEFAULT_END);
+  }
+  function queried(s, e) { renderRows(inRange(s, e)); }
+  function go(name) { if (location.hash === '#' + name) apply(name); else location.hash = '#' + name; }
+  function apply(name) {
+    reset();
+    switch (name) {
+      case 'normal': case 'success': queried(DEFAULT_START, DEFAULT_END); break;
+      case 'loading': busy = 'query'; syncControls(); break;
+      case 'failed': queried(DEFAULT_START, DEFAULT_END); showBanner('err', '查詢失敗，請稍後再試'); break;
+      case 'empty': setDates(EMPTY_START, EMPTY_END); renderRows([]); showBanner('info', '此區間沒有訂單'); break;
+      case 'date-required': setDates('', DEFAULT_END); break;
+      case 'date-order': setDates(DEFAULT_END, DEFAULT_START); break;
+      case 'date-range': setDates('2025-10-01', DEFAULT_END); break;
+      case 'export-loading': busy = 'export'; syncControls(); break;
+      case 'export-success': showBanner('info', '匯出完成，已下載 ' + fileName()); break;
+      case 'export-failed': showBanner('err', '匯出失敗，請稍後再試'); break;
+      case 'export-empty': setDates(EMPTY_START, EMPTY_END);
+        showBanner('info', '此區間沒有訂單，已下載只有標題列的檔案 ' + fileName()); break;
+      case 'export-over-limit': setDates('2025-11-12', DEFAULT_END);
+        showBanner('err', '匯出筆數超過 10000 列，未產生檔案，請縮小日期區間後再試'); break;
+      case 'unauth': $('page').style.display = 'none'; $('unauth').style.display = 'block'; break;
+      default: break; // initial：尚未查詢
+    }
+  }
+  window.addEventListener('hashchange', function () { apply(location.hash.slice(1)); });
+  apply(location.hash.slice(1));
+})();
 </script>
 </body>
 </html>
