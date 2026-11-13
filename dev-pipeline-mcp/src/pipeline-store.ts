@@ -78,6 +78,18 @@ export interface TestEvidenceRecord {
   note: string | null;
 }
 
+/** 一筆使用者決定記錄。ref／title 對應 sa-notes.md 待確認問題的編號與標題（自由決定則沒有）。 */
+export interface DecisionRecord {
+  n: number;
+  at: string;
+  question: string;
+  answer: string;
+  quote: string;
+  source: "single" | "accept_all_suggested";
+  ref?: string;
+  title?: string;
+}
+
 export interface TicketStatus {
   /** 這張票走的 workflow id；缺省（舊票單）或 "asana-ticket" 都代表原本的 8 階段流程。刻意不放進 NEW_STATUS，舊 status.json 讀出再寫回不會多出這個 key。 */
   workflow_id?: string;
@@ -101,6 +113,8 @@ export interface TicketStatus {
   tech_has_candidates?: boolean;
   /** 需求修改歷程（update_requirement 寫入）：時間、使用者原話、舊需求前 200 字摘要。選填，不放進 NEW_STATUS。 */
   requirement_history?: { at: string; quote: string; previous_summary: string }[];
+  /** 使用者決定記錄（record_decision 寫入）：待確認問題或其他決定的答案與使用者原話；同一問題再記會取代舊的。選填，不放進 NEW_STATUS。 */
+  decisions?: DecisionRecord[];
   /** 手動來源逐角色／逐關卡進度（選填，不放進 NEW_STATUS，Asana 票單的 status.json 不會多出這個 key）。 */
   work_item_progress?: WorkItemProgress;
   stage: "new" | "snapshot" | "project_dir_confirmed" | "analyzed" | "sd_drafted" | "implemented" | "verified" | "tested";

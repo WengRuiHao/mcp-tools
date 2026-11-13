@@ -5,6 +5,8 @@ import { loadWorkItem } from "./context.js";
 import { listDeliverables } from "./deliverable-list.js";
 import { existingSummaryFile } from "./final-summary-io.js";
 import type { WorkItemArgs } from "./schema.js";
+import { decisionsOf, uncovered } from "./decisions.js";
+import { readPendingQuestions } from "./sa-notes-questions.js";
 import { escalationsOf } from "./review-escalation.js";
 import { buildView, nextBlock } from "./view.js";
 
@@ -16,6 +18,8 @@ export async function handleGet(a: WorkItemArgs): Promise<ToolReply> {
   const summaryFile = await existingSummaryFile(ctx.dir, s);
   const pending = new Set(v.gates.map((g) => g.gateId));
   const escalations = Object.fromEntries(Object.entries(escalationsOf(s)).filter(([gateId]) => pending.has(gateId)));
+  const decisions = decisionsOf(s);
+  const openQuestions = uncovered(await readPendingQuestions(ctx.dir), decisions);
   return okReply({
     workItemId: ctx.id,
     dir: ctx.dir,
@@ -33,6 +37,8 @@ export async function handleGet(a: WorkItemArgs): Promise<ToolReply> {
     consecutiveFailCount: v.next.consecutiveFailCount,
     ...(s.selected_style ? { selectedStyle: s.selected_style } : {}),
     ...(Object.keys(escalations).length > 0 ? { reviewEscalations: escalations } : {}),
+    ...(decisions.length > 0 ? { decisions: decisions.map((d) => ({ question: d.question, answer: d.answer, quote: d.quote, at: d.at })) } : {}),
+    ...(openQuestions.length > 0 ? { pendingQuestions: openQuestions } : {}),
     ...(summaryFile ? { summaryFile } : {}),
     ...(await listDeliverables(ctx.dir, v.def)),
     ...nextBlock(v),

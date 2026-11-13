@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /** work_item 單一工具的參數：以 action 分派，其餘欄位依動作選填（缺必填欄位由各動作回清楚錯誤）。 */
 
-export const WORK_ITEM_ACTIONS = ["create", "get", "role_prompt", "set_scope", "write", "attach", "render", "done", "confirm", "verdict", "update_requirement"] as const;
+export const WORK_ITEM_ACTIONS = ["create", "get", "role_prompt", "set_scope", "write", "attach", "render", "done", "confirm", "verdict", "update_requirement", "record_decision"] as const;
 export type WorkItemAction = (typeof WORK_ITEM_ACTIONS)[number];
 
 const reasonsShape = {
@@ -19,7 +19,7 @@ const reviewShape = {
 };
 
 export const workItemShape = {
-  action: z.enum(WORK_ITEM_ACTIONS).describe("動作：create｜get｜role_prompt｜set_scope｜write｜attach｜render｜done｜confirm｜verdict｜update_requirement"),
+  action: z.enum(WORK_ITEM_ACTIONS).describe("動作：create｜get｜role_prompt｜set_scope｜write｜attach｜render｜done｜confirm｜verdict｜update_requirement｜record_decision"),
   workItemId: z.string().optional().describe("工作項目編號（wi-YYYYMMDD-NNN）；create 以外都要"),
   projectDir: z.string().optional().describe("create：專案目錄絕對路徑（必須存在）"),
   title: z.string().optional().describe("create：標題"),
@@ -42,7 +42,10 @@ export const workItemShape = {
   gateId: z.string().optional().describe("confirm：關卡 id；verdict：spec-check-verdict｜verdict"),
   decision: z.enum(["confirmed", "rejected"]).optional().describe("confirm：確認或打回"),
   by: z.enum(["human", "agent"]).optional().describe("confirm／verdict：human＝使用者本人說了算；agent＝AI 代為決定：核准只有該關卡解析為 auto 且通過把關才成功；打回（confirm rejected、verdict fail）不受硬性停止限制，最終驗收除外（核准與打回都只能 human）"),
-  reason: z.string().optional().describe("confirm／verdict／update_requirement：理由；by:human 一律必填（至少 2 字，寫使用者原話，不可只是選項代號如 A、1）；by:agent 打回（confirm rejected、verdict fail）必填，寫退回原因；update_requirement 寫使用者要求修改的原話"),
+  reason: z.string().optional().describe("confirm／verdict／update_requirement：理由；by:human 一律必填（至少 2 字，寫使用者原話，不可只是選項代號如 A、1）；by:agent 打回（confirm rejected、verdict fail）必填，寫退回原因；update_requirement 寫使用者要求修改的原話；record_decision 寫使用者做這個決定的原話（必填，同樣不可只是選項代號）"),
+  question: z.string().optional().describe("record_decision：使用者決定的問題，填 sa-notes.md 待確認問題的編號（Q3 或 3）或標題；不在待確認清單的事項可直接寫問題描述"),
+  answer: z.string().optional().describe("record_decision：使用者的決定（除非 acceptAllSuggested）"),
+  acceptAllSuggested: z.boolean().optional().describe("record_decision：使用者說「全部照建議」時為 true，一次接受 sa-notes.md 所有尚無決定記錄的待確認問題（每項記為其建議預設）；reason 仍必填使用者原話；此時不需 question、answer"),
   selected: z.string().optional().describe("confirm：styleSource=new-select 且關卡 mockup-confirm 核准（decision:confirmed）時必填，使用者選定的風格檔名（sa-mockup/ 內的 style-*.html，例如 style-a.html）；其餘 style-*.html 會被移到 sa-mockup/_candidates/。其他情況給了會被拒絕"),
   alsoRewind: z.array(z.string()).optional().describe("confirm（decision:rejected）：一併退回的角色 id 陣列，只能是該關卡之前的角色（例如打回 sa-confirm 時一併退回 baseline-survey 重做 impact.md）；這些角色與其下游都退回未完成並清掉相關確認。沒給＝行為不變"),
   review: z.object(reviewShape).optional().describe("by:agent 核准時必填：審查員申報 {breaksExisting, reviewerUncertain, scopeSplit}，三個都要是布林值；任一為 true 必須在 reasons 附對應理由。判準見 role_prompt roleId=\"reviewer\""),

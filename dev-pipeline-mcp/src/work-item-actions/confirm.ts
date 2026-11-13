@@ -6,6 +6,7 @@ import { applyGateDecision, isProgramCheckGate, isTechConfirmAuto } from "../wor
 import type { WorkflowDefinition } from "../workflow/schema.js";
 import { WorkItemActionError, errorMessage, need, okReply, type ToolReply } from "./common.js";
 import { loadEffectiveDef, loadWorkItem } from "./context.js";
+import { SA_CONFIRM_GATE, requireQuestionsDecided } from "./decisions.js";
 import { FINAL_ACCEPTANCE_GATE, writeFinalSummary } from "./final-summary-io.js";
 import { authorizeDecision, requireAgentRejectReason, requireHumanQuote, requireReviewReasons, withReviewNote } from "./gate-guard.js";
 import { MOCKUP_CONFIRM_GATE, moveLosingCandidates, validateSelected, type MovedCandidate } from "./mockup-select.js";
@@ -69,6 +70,7 @@ export async function handleConfirm(a: WorkItemArgs): Promise<ToolReply> {
   if (isProgramCheckGate(gate.type, resolveConfirmMode(def, gateId).mode)) {
     throw new WorkItemActionError(`關卡「${gateId}」由程式檢查，不需確認：所屬角色 done 且交件檢查通過時會自動通過。若專案要人工把關，請在專案 flow.json 把它的 confirmMode 設成 manual。`);
   }
+  if (gateId === SA_CONFIRM_GATE && by === "agent" && decision === "confirmed") await requireQuestionsDecided(ctx.dir, ctx.status);
   requireHumanQuote(def, gateId, by, a.reason, decision);
   requireAgentRejectReason(gateId, by, decision, a.reason);
   const alsoRewind = [...new Set((a.alsoRewind ?? []).map((x) => x.trim()).filter((x) => x !== ""))];

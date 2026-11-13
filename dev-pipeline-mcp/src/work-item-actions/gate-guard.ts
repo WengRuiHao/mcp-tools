@@ -159,9 +159,9 @@ export function withReviewNote(reason: string | undefined, by: "human" | "agent"
   return reason ? `${reason}（${note}）` : note;
 }
 
-/** 非關卡動作（例如 update_requirement）要求使用者原話：至少 MIN_HUMAN_QUOTE_CHARS 字元，且不可只是選項代號。 */
-export function requireReasonQuote(subject: string, reason: string | undefined): void {
+/** 非關卡動作（update_requirement、record_decision）要求使用者原話：至少 MIN_HUMAN_QUOTE_CHARS 字元，且不可只是選項代號。what 是原話的用途說明。 */
+export function requireReasonQuote(subject: string, reason: string | undefined, what = "使用者要求修改的原話"): void {
   if (isOptionCode(reason)) throw new WorkItemActionError(`${subject}：reason「${(reason ?? "").trim()}」只是選項代號（1～3 個英數字），不是使用者的原話。請引用使用者完整原話當 reason。`);
   if (hasEnoughChars(reason)) return;
-  throw new WorkItemActionError(`${subject}必須附 reason：使用者要求修改的原話（去除空白後至少 ${MIN_HUMAN_QUOTE_CHARS} 個字元），不可自行編寫。`);
+  throw new WorkItemActionError(`${subject}必須附 reason：${what}（去除空白後至少 ${MIN_HUMAN_QUOTE_CHARS} 個字元），不可自行編寫。`);
 }

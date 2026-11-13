@@ -1727,15 +1727,20 @@
  },
  "toolCount": 43,
  "work_item": {
-  "descriptionLength": 1757,
-  "descriptionSha256": "34ed383c0669954fb935186e0d000af77b0c56ea3bc137a9cb81b12a296a3b05",
+  "descriptionLength": 2027,
+  "descriptionSha256": "461ba7c4d02459858ce8c1beb27dbc344286611a40c53b29efce138fad431af4",
   "inputSchema": {
    "$schema": "http://json-schema.org/draft-07/schema#",
    "additionalProperties": false,
    "properties": {
+    "acceptAllSuggested": {
+     "descriptionLength": 114,
+     "descriptionSha256": "a2468fddb53c256015e6ab5bdc679c7a5169d0457df76221b6b145c912b416ba",
+     "type": "boolean"
+    },
     "action": {
-     "descriptionLength": 95,
-     "descriptionSha256": "a829749df76f67be2c9e6bc68739b0a9d58c87dfc110bb35c32893dee27106a7",
+     "descriptionLength": 111,
+     "descriptionSha256": "a5423f6a3317d8393fd169387ddb4cf52d502f72e2124f45b33eea04b6590a89",
      "enum": [
       "create",
       "get",
@@ -1747,7 +1752,8 @@
       "done",
       "confirm",
       "verdict",
-      "update_requirement"
+      "update_requirement",
+      "record_decision"
      ],
      "type": "string"
     },
@@ -1758,6 +1764,11 @@
       "type": "string"
      },
      "type": "array"
+    },
+    "answer": {
+     "descriptionLength": 45,
+     "descriptionSha256": "4abe363619dccf44e12cbe4bbad72b831161b1071b6fcf1e4899ffd57cc0182a",
+     "type": "string"
     },
     "baseline": {
      "descriptionLength": 16,
@@ -1843,9 +1854,14 @@
      "descriptionSha256": "fe9dccbd2b05cc102d8733a5b14a35523bcb4098d19eb7569613a2c9c6bef31b",
      "type": "string"
     },
+    "question": {
+     "descriptionLength": 77,
+     "descriptionSha256": "f5cfc45979be6958b452fc70f27749b16843dbbd9079aa745d547b06925ea395",
+     "type": "string"
+    },
     "reason": {
-     "descriptionLength": 162,
-     "descriptionSha256": "444fa3a35603ef508c1763aae8bb0c40ffd68225b3d3ddaac4ffd581dc7abf12",
+     "descriptionLength": 206,
+     "descriptionSha256": "9cff05366c1c1d1d6f79a6fd569b867b04dcc230a8a75056640c70d072e8c137",
      "type": "string"
     },
     "renewal": {
@@ -1986,7 +2002,7 @@
    ],
    "type": "object"
   },
-  "paramCount": 29
+  "paramCount": 32
  },
  "write_project_file": {
   "descriptionLength": 352,

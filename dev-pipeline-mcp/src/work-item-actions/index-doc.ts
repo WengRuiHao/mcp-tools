@@ -10,6 +10,8 @@ import type { WorkflowDefinition } from "../workflow/schema.js";
 import { isRoleDone } from "../workflow/work-item-progress.js";
 import { errorMessage } from "./common.js";
 import { loadEffectiveDef } from "./context.js";
+import { decisionsOf, uncovered } from "./decisions.js";
+import { readPendingQuestions } from "./sa-notes-questions.js";
 import { escalationsOf } from "./review-escalation.js";
 import { ROLE_LABELS, viewFor } from "./view.js";
 
@@ -103,6 +105,24 @@ function gateSection(status: TicketStatus, def: WorkflowDefinition): string[] {
   return ["## 關卡確認紀錄", "", "只保留各關卡最後一次的決定；「使用者原話」欄是 human 確認時附的原文，agent 則是審查理由。", "", "| 關卡 | 決定 | 誰 | 時間 | 使用者原話／理由 |", "| --- | --- | --- | --- | --- |", ...rows, ""];
 }
 
+/** 使用者決定記錄與尚無記錄的待確認問題；兩者都沒有時不產生章節。 */
+async function decisionSection(dir: string, status: TicketStatus): Promise<string[]> {
+  const ds = decisionsOf(status);
+  const open = uncovered(await readPendingQuestions(dir), ds);
+  if (ds.length === 0 && open.length === 0) return [];
+  return [
+    "## 使用者決定記錄",
+    "",
+    "使用者對待確認問題與其他事項的決定（record_decision 記錄；審查員依此判斷，已記錄的事項不再升級給使用者）。",
+    "",
+    ...(ds.length > 0
+      ? ["| 問題 | 決定 | 使用者原話 | 時間 |", "| --- | --- | --- | --- |", ...ds.map((d) => `| ${cell(d.question)} | ${cell(d.answer)} | ${cell(d.quote)} | ${formatTime(d.at)} |`)]
+      : ["（尚無）"]),
+    ...(open.length > 0 ? ["", `尚無決定記錄的待確認問題：${open.map((q) => cell(`${q.id} ${q.title}`)).join("；")}`] : []),
+    "",
+  ];
+}
+
 /** 純函式的索引全文組裝（IO 結果由呼叫端量測）。 */
 export async function buildIndexDoc(dir: string, status: TicketStatus, def: WorkflowDefinition, overrideApplied = false): Promise<string> {
   const v = viewFor(status, def, overrideApplied);
@@ -117,6 +137,7 @@ export async function buildIndexDoc(dir: string, status: TicketStatus, def: Work
     ...flowTable(rows),
     ...(await focusSection(dir, def, status)),
     ...gateSection(status, def),
+    ...(await decisionSection(dir, status)),
   ].join("\n");
 }
 
