@@ -49,7 +49,7 @@
 | getMemberId | src/auth.js | 新建共用 | 兩支 API 的控制層 | 取得登入會員 id 的固定介面；目前為測試用實作，登入功能由另一支程式提供 |
 | validateRange | src/order-query.js | 新建共用 | 兩支 API 的服務層 | 日期區間驗證（必填、格式、起迄順序、366 天） |
 | isValidDateString、nextDay、diffDays | src/date-utils.js | 新建共用 | validateRange、前端 | 日期字串運算；不使用 src/util.js 的 formatDate（以 UTC 輸出，會讓部分訂單日期差一天） |
-| sendError | src/http-errors.js | 新建共用 | 兩支 API 的控制層 | 統一的 code 與 message 輸出 |
+| sendError | src/http-errors.js | 重用既有 | 兩支 API 的控制層 | 既有統一錯誤輸出工具，兩支 API 的 code 與 message 直接沿用（說明至少 8 字，寫明為什麼適用；位置要是真實檔案、方法名要在檔案內） |
 | findOrderRows | src/repositories/order-repository.js | 新建共用 | 兩支 API 的服務層 | 依會員與日期區間查詢訂單明細 |
 | buildXlsx | src/xlsx-writer.js | 新建專用 | 匯出 API 的服務層 | 組出 Excel 檔，只有匯出使用 |
 

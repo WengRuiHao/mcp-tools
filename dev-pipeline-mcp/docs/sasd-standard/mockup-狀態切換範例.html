@@ -14,7 +14,7 @@ body{margin:0;background:#f5f7fa;color:#1f2937;font:15px/1.6 "Microsoft JhengHei
 h1{font-size:20px;margin:0 0 16px}
 .bar{display:flex;gap:12px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
 .f label{display:flex;gap:6px;align-items:center;margin:0}
-input[type=text]{width:116px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font:inherit}
+input[type=date]{width:150px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font:inherit}
 input.bad{border-color:#d92d20;background:#fffbfa}
 input:disabled{background:#f1f5f9;color:#94a3b8}
 .ferr{color:#d92d20;font-size:12px;margin-top:4px;min-height:18px}
@@ -51,6 +51,7 @@ td.guide{text-align:center;color:#64748b;padding:28px 8px}
   <ul>
     <li>新增：「查詢」按鈕（與「匯出 Excel」並排）</li>
     <li>新增：「匯出 Excel」按鈕</li>
+    <li>日期欄位（起日、迄日）採瀏覽器原生日期選擇器（input type=date），之後 SA 截圖用同一型態</li>
     <li>既有行為變更：進入頁面不再自動查詢，改為先顯示「尚未查詢」</li>
     <li>既有行為變更：改起日或迄日不再自動查詢，改為按「查詢」才查；改日期後列表保留上次查詢結果</li>
   </ul>
@@ -60,8 +61,8 @@ td.guide{text-align:center;color:#64748b;padding:28px 8px}
   <div id="msg" class="msg" role="status"></div>
   <h1>我的訂單</h1>
   <div class="bar">
-    <div class="f"><label>起 <input id="s" type="text" inputmode="numeric" maxlength="10" placeholder="年-月-日" autocomplete="off"></label></div>
-    <div class="f"><label>迄 <input id="e" type="text" inputmode="numeric" maxlength="10" placeholder="年-月-日" autocomplete="off"></label></div>
+    <div class="f"><label>起 <input id="s" type="date"></label></div>
+    <div class="f"><label>迄 <input id="e" type="date"></label></div>
     <button id="query" type="button">查詢</button>
     <button id="export" type="button">匯出 Excel</button>
   </div>

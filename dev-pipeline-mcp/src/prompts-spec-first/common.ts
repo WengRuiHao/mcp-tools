@@ -28,6 +28,13 @@ const SAFETY_BASELINE =
 export const WORK_ITEM_TOOL_HINT =
   "工作項目工具（work_item）：用 get 查下一步與目前輸入、write 寫入產出檔、attach 存放截圖或 mockup、done 交件、confirm／verdict 處理關卡";
 
+/** 所有角色共通的流程通則，附在每份說明的「可用工具」之後。每條一句話，改動前要確認 12 個角色都沒超過長度上限。 */
+export const COMMON_RULES: readonly string[] = [
+  "使用者只回答選項字母（A、AA、1）不算確認，要再問一次並引用完整原話；`by:\"human\"` 的確認與判定一律附使用者原話 `reason`。",
+  "驗證師與規格驗證師要先 `done` 才能 `verdict`；`00-索引.md` 由系統產生，不可手寫；`*.stackdump` 交件前刪掉。",
+  "已 `done` 的角色重寫產出檔後，看 write 回傳的 `recheck.ok` 與 `failures`，修到通過。",
+];
+
 function bulletList(items: readonly string[]): string {
   return items.map((item) => `- ${item}`).join("\n");
 }
@@ -47,6 +54,7 @@ export function renderRolePrompt(sections: RoleSections, options: SpecFirstPromp
     `## 不可以做的事\n${bulletList(sections.forbidden)}`,
     `## 交件之後\n${bulletList(sections.afterSubmit)}`,
     `## 可用工具\n${bulletList(sections.tools)}`,
+    `## 共通規則\n${bulletList(COMMON_RULES)}`,
   ];
   if (options.workItemDir) parts.push(`## 工作項目目錄\n${options.workItemDir}（所有輸入與產出檔案都在這個目錄底下）`);
   if (options.projectGuide) parts.push(`## ${options.projectGuide.title}
