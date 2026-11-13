@@ -19,17 +19,17 @@ export function tableSchemaTemplates() {
   return out;
 }
 
-/** 範本 SQL：與資料表結構文件範本（orders 含 order_items、members）一致。 */
+/** 範本 SQL：與資料表結構文件範本（orders_master 含 orders_detail、members）一致。 */
 export const TEMPLATE_SQL = `CREATE TABLE members (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, created_at TEXT);
-CREATE TABLE IF NOT EXISTS "orders" (
+CREATE TABLE IF NOT EXISTS "orders_master" (
   id INTEGER PRIMARY KEY, /* 主鍵 */
   order_no TEXT UNIQUE,
   member_id INTEGER NOT NULL REFERENCES members(id),
   ordered_at TEXT,
   FOREIGN KEY (member_id) REFERENCES members(id)
 );
-CREATE INDEX idx_orders_member_date ON orders(member_id, ordered_at);
-CREATE TABLE dbo.order_items (id INTEGER PRIMARY KEY, order_id INTEGER NOT NULL, product_name TEXT, quantity INTEGER CHECK (quantity > 0), subtotal INTEGER, CONSTRAINT fk FOREIGN KEY (order_id) REFERENCES orders(id));
+CREATE INDEX idx_orders_member_date ON orders_master(member_id, ordered_at);
+CREATE TABLE dbo.orders_detail (id INTEGER PRIMARY KEY, order_id INTEGER NOT NULL, product_name TEXT, quantity INTEGER CHECK (quantity > 0), subtotal INTEGER, CONSTRAINT fk FOREIGN KEY (order_id) REFERENCES orders_master(id));
 `;
 export const systemErTemplate = () => readStandard("系統ER圖-範本.md");
 
@@ -37,5 +37,5 @@ export const systemErTemplate = () => readStandard("系統ER圖-範本.md");
 export function installSchemaExtras(dir) {
   fs.mkdirSync(path.join(dir, "TableSchema", "er"), { recursive: true });
   fs.writeFileSync(path.join(dir, "TableSchema", "system-er.md"), systemErTemplate());
-  for (const f of ["orders", "members", "system-er"]) fs.copyFileSync(path.join(STANDARD_DIR, "er", `${f}.png`), path.join(dir, "TableSchema", "er", `${f}.png`));
+  for (const f of ["orders_master", "members", "system-er"]) fs.copyFileSync(path.join(STANDARD_DIR, "er", `${f}.png`), path.join(dir, "TableSchema", "er", `${f}.png`));
 }

@@ -26,9 +26,9 @@ const T = () => tableSchemaTemplates();
 const has = (list, re) => list.some((x) => re.test(x));
 /** 只看關聯清單相關的違規（系統 ER 圖等其他檢查另有測試）。 */
 const rl = (list) => list.filter((x) => x.includes("「關聯清單」"));
-const ROW_ORDERS = "| orders | member_id | members | id | 一對多 | 外鍵約束 |";
-const ROW_ITEMS = "| order_items | order_id | orders | id | 一對多 | 外鍵約束 |";
-const withOrders = (fn) => ({ ...T(), orders: fn(T().orders) });
+const ROW_ORDERS = "| orders_master | member_id | members | id | 一對多 | 外鍵約束 |";
+const ROW_ITEMS = "| orders_detail | order_id | orders_master | id | 一對多 | 外鍵約束 |";
+const withOrders = (fn) => ({ ...T(), orders_master: fn(T().orders_master) });
 
 test("範本通過；單表文件的關聯清單可以沒有資料列", () => {
   assert.deepEqual(checkTableSchemas(item(T())), []);
@@ -41,12 +41,12 @@ test("缺關聯清單章節或表頭錯誤", () => {
 
 test("SQL 內的外鍵沒有列在關聯清單：逐一指出（欄位層級與表層級寫法）", () => {
   const r = checkTableSchemas(item(withOrders((t) => t.replace(`${ROW_ORDERS}\n`, "").replace(`${ROW_ITEMS}\n`, ""))));
-  assert.ok(has(r, /缺少外鍵 orders\.member_id → members/));
-  assert.ok(has(r, /缺少外鍵 order_items\.order_id → orders/));
+  assert.ok(has(r, /缺少外鍵 orders_master\.member_id → members/));
+  assert.ok(has(r, /缺少外鍵 orders_detail\.order_id → orders_master/));
 });
 
 test("依據為外鍵約束但 SQL 沒有：擋；改標邏輯關聯可以", () => {
-  const extra = "| order_items | product_name | members | name | 一對多 | 外鍵約束 |";
+  const extra = "| orders_detail | product_name | members | name | 一對多 | 外鍵約束 |";
   assert.ok(has(checkTableSchemas(item(withOrders((t) => `${t}${extra}\n`))), /標示為外鍵約束，但 02-db\.sql 沒有這個外鍵/));
   const logical = extra.replace("外鍵約束", "邏輯關聯");
   assert.deepEqual(rl(checkTableSchemas(item(withOrders((t) => `${t}${logical}\n`)))), []);
@@ -54,9 +54,9 @@ test("依據為外鍵約束但 SQL 沒有：擋；改標邏輯關聯可以", () 
 
 test("關係種類：外鍵欄位 UNIQUE 或主鍵判一對一，否則一對多；與 SQL 不符就擋", () => {
   const sqlOne = SQL.replace("member_id INTEGER NOT NULL REFERENCES", "member_id INTEGER NOT NULL UNIQUE REFERENCES");
-  assert.ok(has(checkTableSchemas(item(T(), sqlOne)), /orders\.member_id → members\.id.*關係應為「一對一」/));
+  assert.ok(has(checkTableSchemas(item(T(), sqlOne)), /orders_master\.member_id → members\.id.*關係應為「一對一」/));
   assert.deepEqual(rl(checkTableSchemas(item(withOrders((t) => t.replace(ROW_ORDERS, ROW_ORDERS.replace("一對多", "一對一"))), sqlOne))), []);
-  assert.ok(has(checkTableSchemas(item(withOrders((t) => t.replace(ROW_ITEMS, ROW_ITEMS.replace("一對多", "一對一"))))), /order_items\.order_id → orders\.id.*關係應為「一對多」/));
+  assert.ok(has(checkTableSchemas(item(withOrders((t) => t.replace(ROW_ITEMS, ROW_ITEMS.replace("一對多", "一對一"))))), /orders_detail\.order_id → orders_master\.id.*關係應為「一對多」/));
   const sqlPk = parseCreateTables("CREATE TABLE a (id INT PRIMARY KEY); CREATE TABLE b (id INT PRIMARY KEY REFERENCES a(id), x INT);");
   assert.equal(kindOfForeignKey(sqlPk[1], sqlPk[1].foreignKeys[0]), "一對一");
   const sqlUq = parseCreateTables("CREATE TABLE a (id INT PRIMARY KEY); CREATE TABLE b (id INT PRIMARY KEY, a_id INT, UNIQUE (a_id), FOREIGN KEY (a_id) REFERENCES a(id));");
@@ -78,21 +78,21 @@ test("關係與依據的值必須合法", () => {
 
 test("邏輯關聯：只檢查格式與表、欄位存在", () => {
   const add = (row) => checkTableSchemas(item(withOrders((t) => `${t}${row}\n`)));
-  assert.ok(has(add("| order_items | no_such | orders | id | 一對多 | 邏輯關聯 |"), /子表欄位 no_such 不存在於 order_items/));
-  assert.ok(has(add("| order_items | product_name | orders | nope | 一對多 | 邏輯關聯 |"), /父表欄位 nope 不存在於 orders/));
-  assert.ok(has(add("| order_items | product_name | ghost | id | 一對多 | 邏輯關聯 |"), /父表 ghost 不存在/));
-  assert.ok(has(add("| members | name | orders | id | 一對多 | 邏輯關聯 |"), /子表 members 不在本文件內/));
+  assert.ok(has(add("| orders_detail | no_such | orders_master | id | 一對多 | 邏輯關聯 |"), /子表欄位 no_such 不存在於 orders_detail/));
+  assert.ok(has(add("| orders_detail | product_name | orders_master | nope | 一對多 | 邏輯關聯 |"), /父表欄位 nope 不存在於 orders_master/));
+  assert.ok(has(add("| orders_detail | product_name | ghost | id | 一對多 | 邏輯關聯 |"), /父表 ghost 不存在/));
+  assert.ok(has(add("| members | name | orders_master | id | 一對多 | 邏輯關聯 |"), /子表 members 不在本文件內/));
 });
 
 test("邏輯關聯可讓文件內的表連通，且會列在邏輯關聯清單", () => {
   const sqlNoFk = SQL.replace(" REFERENCES members(id)", "").replace(",\n  FOREIGN KEY (member_id) REFERENCES members(id)\n", "\n");
-  const both = `${T().orders.replace(`${ROW_ORDERS}\n`, "").replace("| order_items | 訂單明細 |", "| order_items | 訂單明細 |\n| members | 會員 |")}\n## 資料表：members\n\n${T().members.slice(T().members.indexOf("### 欄位清單"))}`;
-  assert.ok(has(checkTableSchemas(item({ orders: both }, sqlNoFk)), /members 與其他表沒有任何關聯/));
-  const linked = both.replace(ROW_ITEMS, `${ROW_ITEMS}\n| orders | member_id | members | id | 一對多 | 邏輯關聯 |`);
-  const dir = item({ orders: linked }, sqlNoFk);
+  const both = `${T().orders_master.replace(`${ROW_ORDERS}\n`, "").replace("| orders_detail | 訂單明細 |", "| orders_detail | 訂單明細 |\n| members | 會員 |")}\n## 資料表：members\n\n${T().members.slice(T().members.indexOf("### 欄位清單"))}`;
+  assert.ok(has(checkTableSchemas(item({ orders_master: both }, sqlNoFk)), /members 與其他表沒有任何關聯/));
+  const linked = both.replace(ROW_ITEMS, `${ROW_ITEMS}\n| orders_master | member_id | members | id | 一對多 | 邏輯關聯 |`);
+  const dir = item({ orders_master: linked }, sqlNoFk);
   const r = checkTableSchemas(dir);
   assert.equal(has(r, /沒有任何關聯/), false, r.join("\n"));
-  assert.deepEqual(listLogicalRelations(dir), ["orders.member_id → members.id（一對多）"]);
+  assert.deepEqual(listLogicalRelations(dir), ["orders_master.member_id → members.id（一對多）"]);
   assert.deepEqual(listLogicalRelations(path.join(root, "nope")), []);
 });
 

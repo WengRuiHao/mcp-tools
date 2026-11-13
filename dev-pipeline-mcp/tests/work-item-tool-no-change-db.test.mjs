@@ -35,7 +35,7 @@ test("brownfield 無異動：缺既有資料表章節、標「本次新增」、
   let r = await done(id);
   assert.equal(r.isError, true);
   assert.ok(dbProblems(r).some((p) => /取不到既有資料表.*## 既有資料表/.test(p)), r.text);
-  writeNoChangeItem(dir, { systemEr: d.systemEr.replace("INTEGER id PK\n    }\n    orders {", 'INTEGER id PK "本次新增"\n    }\n    orders {') });
+  writeNoChangeItem(dir, { systemEr: d.systemEr.replace("INTEGER id PK\n    }\n    orders_master {", 'INTEGER id PK "本次新增"\n    }\n    orders_master {') });
   r = await done(id);
   assert.ok(dbProblems(r).some((p) => /不可標「本次新增」/.test(p)), r.text);
   writeFileSync(path.join(dir, "02-db.sql"), "\n  \n");

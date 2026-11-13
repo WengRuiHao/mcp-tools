@@ -44,13 +44,13 @@ test("mergeExisting：一節覆蓋掃描、排除這次新建的表", () => {
   assert.deepEqual(r.map((x) => [x.name, x.primaryKey[0]]), [["a", "k"]]);
 });
 
-const SQL = "CREATE TABLE orders (id INTEGER PRIMARY KEY, member_id INTEGER NOT NULL REFERENCES members(id));\nCREATE TABLE order_items (id INTEGER PRIMARY KEY, order_id INTEGER, product_name TEXT, quantity INTEGER, subtotal INTEGER, FOREIGN KEY (order_id) REFERENCES orders(id));\n";
+const SQL = "CREATE TABLE orders_master (id INTEGER PRIMARY KEY, member_id INTEGER NOT NULL REFERENCES members(id));\nCREATE TABLE orders_detail (id INTEGER PRIMARY KEY, order_id INTEGER, product_name TEXT, quantity INTEGER, subtotal INTEGER, FOREIGN KEY (order_id) REFERENCES orders_master(id));\n";
 function item(sql, opts) {
   const dir = path.join(root, `w${Math.random().toString(36).slice(2)}`);
   fs.mkdirSync(path.join(dir, "TableSchema"), { recursive: true });
   w(path.join(dir, "02-db.sql"), sql);
-  const orders = tableSchemaTemplates().orders;
-  w(path.join(dir, "TableSchema", "orders.md"), orders);
+  const orders_master = tableSchemaTemplates().orders_master;
+  w(path.join(dir, "TableSchema", "orders_master.md"), orders_master);
   return { dir, ...opts };
 }
 const has = (list, re) => list.some((x) => re.test(x));

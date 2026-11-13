@@ -31,8 +31,8 @@
 | Table | 功能 | 說明 | 結構文件 |
 | --- | --- | --- | --- |
 | members | 會員 | 會員基本資料 | [members 資料表結構](TableSchema/members.md#members) |
-| orders | 訂單主檔 | 訂單編號、所屬會員、下單時間 | [orders 資料表結構](TableSchema/orders.md#orders) |
-| order_items | 訂單明細 | 每項商品的名稱、數量、小計 | [order_items 資料表結構](TableSchema/orders.md#order_items) |
+| orders_master | 訂單主檔 | 訂單編號、所屬會員、下單時間 | [orders_master 資料表結構](TableSchema/orders_master.md#orders_master) |
+| orders_detail | 訂單明細 | 每項商品的名稱、數量、小計 | [orders_detail 資料表結構](TableSchema/orders_master.md#orders_detail) |
 
 ### 2. 前端功能與 API 對應表
 
@@ -90,8 +90,8 @@
 
 | ElementName | ElementType | 必填 | 對應 DB 欄位 | 註解 |
 | --- | --- | --- | --- | --- |
-| start | string | Y | orders.ordered_at | 起日，YYYY-MM-DD；缺少回 DATE_REQUIRED |
-| end | string | Y | orders.ordered_at | 迄日，YYYY-MM-DD，包含當天 |
+| start | string | Y | orders_master.ordered_at | 起日，YYYY-MM-DD；缺少回 DATE_REQUIRED |
+| end | string | Y | orders_master.ordered_at | 迄日，YYYY-MM-DD，包含當天 |
 
 #### 業務邏輯
 1. 先確認登入，未登入回 401。
@@ -129,8 +129,8 @@
 
 | ElementName | ElementType | 必填 | 對應 DB 欄位 | 註解 |
 | --- | --- | --- | --- | --- |
-| start | string | Y | orders.ordered_at | 起日，YYYY-MM-DD |
-| end | string | Y | orders.ordered_at | 迄日，YYYY-MM-DD，包含當天 |
+| start | string | Y | orders_master.ordered_at | 起日，YYYY-MM-DD |
+| end | string | Y | orders_master.ordered_at | 迄日，YYYY-MM-DD，包含當天 |
 
 #### 業務邏輯
 1. 登入與日期驗證同「查詢訂單列表」。

@@ -15,7 +15,7 @@ test("範本中的版本管控歷程全部合格（SA、SD、兩份資料表文�
   assert.deepEqual(checkVersionHistory(SA_TEMPLATE(), "SA"), []);
   assert.deepEqual(checkVersionHistory(SD_TEMPLATE(), "SD"), []);
   for (const [name, text] of Object.entries(tableSchemaTemplates())) assert.deepEqual(checkVersionHistory(text, name), [], name);
-  assert.deepEqual(Object.keys(tableSchemaTemplates()), ["orders", "members"]);
+  assert.deepEqual(Object.keys(tableSchemaTemplates()), ["orders_master", "members"]);
 });
 
 test("單列初版與 1.0、1.1 遞增都合格", () => {

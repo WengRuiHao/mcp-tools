@@ -91,17 +91,17 @@ test("使用資料表：連結缺、格式錯、錨點錯、檔案或小節不�
   assert.ok(has(checkSdStructure(mut(L, "members 資料表結構")), /members）的結構文件要用相對路徑連結/));
   assert.ok(has(checkSdStructure(mut("(TableSchema/members.md#members)", "(TableSchema/members.md)")), /格式不對，必須是 TableSchema\/<文件>\.md#members/));
   assert.ok(has(checkSdStructure(mut("(TableSchema/members.md#members)", "(https://x.example/members.md)")), /格式不對/));
-  assert.ok(has(checkSdStructure(mut("(TableSchema/members.md#members)", "(TableSchema/members.md#orders)")), /錨點 #orders 必須是 #members/));
+  assert.ok(has(checkSdStructure(mut("(TableSchema/members.md#members)", "(TableSchema/members.md#orders_master)")), /錨點 #orders_master 必須是 #members/));
   const dir = itemWithSchemas();
   assert.deepEqual(checkSdStructure(T(), dir), []);
-  fs.rmSync(path.join(dir, "TableSchema", "orders.md"));
+  fs.rmSync(path.join(dir, "TableSchema", "orders_master.md"));
   const r = checkSdStructure(T(), dir);
   assert.equal(r.length, 2);
-  assert.match(r[0], /orders）連到的 TableSchema\/orders\.md 不存在/);
+  assert.match(r[0], /orders_master）連到的 TableSchema\/orders_master\.md 不存在/);
   const dir2 = itemWithSchemas();
-  const f = path.join(dir2, "TableSchema", "orders.md");
-  fs.writeFileSync(f, fs.readFileSync(f, "utf-8").replace("## 資料表：order_items", "## 資料表：other"));
-  assert.match(checkSdStructure(T(), dir2).join("\n"), /order_items）連到的 TableSchema\/orders\.md 沒有「## 資料表：order_items」小節/);
+  const f = path.join(dir2, "TableSchema", "orders_master.md");
+  fs.writeFileSync(f, fs.readFileSync(f, "utf-8").replace("## 資料表：orders_detail", "## 資料表：other"));
+  assert.match(checkSdStructure(T(), dir2).join("\n"), /orders_detail）連到的 TableSchema\/orders_master\.md 沒有「## 資料表：orders_detail」小節/);
 });
 
 test("沒有動資料庫（工作項目沒有 TableSchema）：使用資料表可以沒有列，其他情況仍要有列", () => {

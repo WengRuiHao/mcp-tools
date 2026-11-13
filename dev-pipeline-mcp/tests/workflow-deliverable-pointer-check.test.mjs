@@ -70,7 +70,7 @@ test("suppress：SA／SD 標準檢查已回報的內部檔名不重複判定", a
 test("ER 圖 PNG：只允許 TableSchema/er/ 的固定位置，範本（含系統 ER 圖）合格", async () => {
   const schemas = { ...tableSchemaTemplates(), "system-er": systemErTemplate() };
   assert.deepEqual(checkDeliverablePointers(await makeDir({ schemas }), def, { only: ["table-schema"] }), []);
-  const bad = (ref) => makeDir({ schemas: { orders: tableSchemaTemplates().orders.replace("er/orders.png", ref) } }).then((d) => checkDeliverablePointers(d, def, { only: ["table-schema"] }));
+  const bad = (ref) => makeDir({ schemas: { orders_master: tableSchemaTemplates().orders_master.replace("er/orders_master.png", ref) } }).then((d) => checkDeliverablePointers(d, def, { only: ["table-schema"] }));
   for (const ref of ["er/x.jpg", "https://example.com/er/a.png", "../other/er/a.png", "er/sub/a.png", "../flow.mmd", "er/%E4%B8%AD.png", "/er/a.png"]) {
     const r = await bad(ref);
     assert.ok(r.some((v) => v.includes("圖片") && v.includes(ref)), ref);

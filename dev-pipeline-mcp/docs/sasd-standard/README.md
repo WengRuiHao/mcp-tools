@@ -7,9 +7,9 @@
 |---|---|
 | SA-範本.md、SA-範本.docx | SA（客戶版）的樣子；docx 是由 md 轉出的 Word 版 |
 | SD-範本.md | SD（自足版）的樣子 |
-| 資料表結構文件-範本.md | 資料表結構文件（分組：有關聯的表同一份，單獨的表各一份；內含 orders 加 order_items 同組、members 單表兩份文件） |
+| 資料表結構文件-範本.md | 資料表結構文件（分組：有關聯的表同一份，單獨的表各一份；內含 orders_master 加 orders_detail 同組、members 單表兩份文件） |
 | 系統ER圖-範本.md | 系統 ER 圖文件（TableSchema/system-er.md）的樣子 |
-| er/ | 範本引用的 ER 圖 PNG（模組圖 orders.png、members.png，系統圖 system-er.png；路徑相對於文件）。由範本文件內的 Mermaid erDiagram 原始碼以 mermaid（npm，本機 mermaid.min.js）在 Edge 無頭模式實際渲染後截圖，是 Mermaid 實際轉出；members.png 是單表文件的模組 ER 圖，只有 members 一張表、沒有關聯線 |
+| er/ | 範本引用的 ER 圖 PNG（模組圖 orders_master.png、members.png，系統圖 system-er.png；路徑相對於文件）。由範本文件內的 Mermaid erDiagram 原始碼以 mermaid（npm，本機 mermaid.min.js）在 Edge 無頭模式實際渲染後截圖，是 Mermaid 實際轉出；members.png 是單表文件的模組 ER 圖，只有 members 一張表、沒有關聯線 |
 | mockup-狀態切換範例.html | 可切換狀態的 mockup 範例（「查詢」與「匯出 Excel」並排、進頁面與改日期不自動查詢；含卡片外的「本次變更說明」與示範控制面板，日期欄位用固定「年-月-日」格式的文字欄位），所有狀態共用同一組日期（預設 2026-11-01～2026-11-11）與同一組訂單資料；用網址 #狀態名稱 切換 |
 | sa-images/ | 範本引用的 13 張畫面截圖（尚未查詢、已查詢、查詢處理中、日期三種檢核、查詢失敗、查詢沒有訂單、匯出處理中、匯出成功、匯出沒有訂單、匯出超過 10000 列、匯出失敗）。由 mockup 以 Edge 無頭模式只截 #page 正式畫面區域（不含說明與示範面板，2 倍解析度），路徑相對於文件 |
 | tools/md2docx.py | md 轉 Word 的原型（python-docx，支援圖片、表格、標題） |
@@ -46,7 +46,7 @@ SD 的「使用資料表」連結寫成 `TableSchema/<文件>.md#<表名>`，錨
 ### ER 圖
 - 模組 ER 圖：每份文件一張，畫該文件內的表、全部主鍵與外鍵欄位（標 PK、FK，其他欄位可列可不列）與關聯線。
 - 系統 ER 圖：`TableSchema/system-er.md`（含版本管控歷程與「## 系統 ER 圖」，PNG 為 `er/system-er.png`），畫全系統所有表與全部關聯，只列表名加主鍵與外鍵。既有系統含既有的表，本次新建的表在欄位註解標「本次新增」，ALTER 的既有表標「本次修改」。既有表自動取自專案內 .sql 腳本；掃不到時在 system-er.md 加「## 既有資料表」表格（資料表｜主鍵｜外鍵｜說明，可在說明前加選填的「欄位」欄，欄位用頓號或逗號分隔；有填欄位時欄位清單必須涵蓋，沒填只要求主鍵與外鍵欄位；NOT NULL 未知，關聯一律視為可選）。
-- 關係符號：父表側外鍵欄位全 NOT NULL 為必選 `||`、否則可選 `|o`；子表側一對多 `o{`、一對一 `o|`；父表在左，例如 `orders ||--o{ order_items`。
+- 關係符號：父表側外鍵欄位全 NOT NULL 為必選 `||`、否則可選 `|o`；子表側一對多 `o{`、一對一 `o|`；父表在左，例如 `orders_master ||--o{ orders_detail`。
 - 無異動模式：既有系統只讀既有表、沒有任何新增或修改時，`02-db.sql` 只寫註解（聲明本次無資料庫異動與理由，不可留空，不可含 CREATE／ALTER／DROP；不可用 IF NOT EXISTS 重寫既有表）。此時表集合是「既有資料表」（專案 .sql 掃描，或 system-er.md 的「## 既有資料表」章節，並存以章節為準）：用到的既有表整理成分組文件（版本管控歷程、欄位清單、各規格使用欄位對照、關聯清單、模組 ER 圖照常），系統 ER 圖畫全系統既有表；既有表宣告的外鍵視同 SQL 外鍵（子表在文件內就要列在關聯清單，依據「外鍵約束」）；任何地方都不可標「本次新增」「本次修改」。
 - 圖上的表必須等於範圍內的表、關聯線與關聯清單一一對應、圖上的欄位必須存在於 SQL。欄位完整性由欄位清單負責，ER 圖只負責表與關聯。
 - PNG 放 `TableSchema/er/`，用 `work_item render`（kind=mermaid，src 為文件）轉出，或用 `attach destDir=er` 手動存放。

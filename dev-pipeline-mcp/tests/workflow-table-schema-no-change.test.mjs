@@ -16,7 +16,7 @@ let n = 0;
 const run = (over = {}, opts = { baseline: "brownfield" }) => checkTableSchemas(writeNoChangeItem(path.join(root, `w${n++}`), over), opts);
 const has = (list, re) => list.some((x) => re.test(x));
 const D = () => noChangeDocs();
-const OLD_SECTION = "## 既有資料表\n\n| 資料表 | 主鍵 | 外鍵 | 說明 |\n| --- | --- | --- | --- |\n| members | id | 無 | x |\n| orders | id | member_id→members.id | x |\n| order_items | id | order_id→orders.id | x |\n";
+const OLD_SECTION = "## 既有資料表\n\n| 資料表 | 主鍵 | 外鍵 | 說明 |\n| --- | --- | --- | --- |\n| members | id | 無 | x |\n| orders_master | id | member_id→members.id | x |\n| orders_detail | id | order_id→orders_master.id | x |\n";
 
 test("classifySql：空白、只有註解、有語句", () => {
   assert.equal(classifySql(" \n"), "blank");
@@ -42,7 +42,7 @@ test("沒有專案 .sql 也沒有既有資料表章節：要求補章節", () =>
 test("既有表來源可以是專案 .sql 掃描（不寫章節）", () => {
   const proj = path.join(root, "proj-sql");
   fs.mkdirSync(proj, { recursive: true });
-  fs.writeFileSync(path.join(proj, "schema.sql"), "CREATE TABLE members (id INTEGER PRIMARY KEY, name TEXT, created_at TEXT);\nCREATE TABLE orders (id INTEGER PRIMARY KEY, order_no TEXT, member_id INTEGER REFERENCES members(id), ordered_at TEXT);\nCREATE TABLE order_items (id INTEGER PRIMARY KEY, order_id INTEGER REFERENCES orders(id), product_name TEXT, quantity INTEGER, subtotal INTEGER);");
+  fs.writeFileSync(path.join(proj, "schema.sql"), "CREATE TABLE members (id INTEGER PRIMARY KEY, name TEXT, created_at TEXT);\nCREATE TABLE orders_master (id INTEGER PRIMARY KEY, order_no TEXT, member_id INTEGER REFERENCES members(id), ordered_at TEXT);\nCREATE TABLE orders_detail (id INTEGER PRIMARY KEY, order_id INTEGER REFERENCES orders_master(id), product_name TEXT, quantity INTEGER, subtotal INTEGER);");
   assert.deepEqual(run({ systemEr: D().systemEr.replace(EXISTING_SECTION, "") }, { baseline: "brownfield", projectDir: proj }), []);
 });
 
@@ -58,55 +58,55 @@ test("文件內的表不在 SQL ∪ 既有資料表集合內", () => {
 });
 
 test("無 DDL 卻標「本次新增」「本次修改」：系統圖與模組圖都擋", () => {
-  const sysNew = D().systemEr.replace("INTEGER id PK\n    }\n    orders {", 'INTEGER id PK "本次新增"\n    }\n    orders {');
+  const sysNew = D().systemEr.replace("INTEGER id PK\n    }\n    orders_master {", 'INTEGER id PK "本次新增"\n    }\n    orders_master {');
   assert.ok(has(run({ systemEr: sysNew }), /system-er\.md.*members 不是本次新增的表.*無資料表異動/));
-  const modMod = D().orders.replace("INTEGER member_id FK", 'INTEGER member_id FK "本次修改"');
-  assert.ok(has(run({ orders: modMod }), /orders\.md 的模組 ER 圖 的表 orders 不是本次修改的表.*不可標/));
+  const modMod = D().orders_master.replace("INTEGER member_id FK", 'INTEGER member_id FK "本次修改"');
+  assert.ok(has(run({ orders_master: modMod }), /orders_master\.md 的模組 ER 圖 的表 orders_master 不是本次修改的表.*不可標/));
 });
 
 test("既有表宣告的外鍵未出現在關聯清單（或依據不是外鍵約束）", () => {
-  const r = run({ orders: D().orders.replace("| orders | member_id | members | id | 一對多 | 外鍵約束 |\n", "") });
-  assert.ok(has(r, /缺少外鍵 orders\.member_id → members/), r.join("\n"));
-  const logical = D().orders.replace("| orders | member_id | members | id | 一對多 | 外鍵約束 |", "| orders | member_id | members | id | 一對多 | 邏輯關聯 |");
-  assert.ok(has(run({ orders: logical }), /缺少外鍵 orders\.member_id → members/));
+  const r = run({ orders_master: D().orders_master.replace("| orders_master | member_id | members | id | 一對多 | 外鍵約束 |\n", "") });
+  assert.ok(has(r, /缺少外鍵 orders_master\.member_id → members/), r.join("\n"));
+  const logical = D().orders_master.replace("| orders_master | member_id | members | id | 一對多 | 外鍵約束 |", "| orders_master | member_id | members | id | 一對多 | 邏輯關聯 |");
+  assert.ok(has(run({ orders_master: logical }), /缺少外鍵 orders_master\.member_id → members/));
 });
 
 test("關聯清單的外鍵約束與既有表宣告對不上", () => {
-  const r = run({ orders: D().orders.replace("| order_items | order_id | orders | id | 一對多 | 外鍵約束 |", "| order_items | product_name | orders | id | 一對多 | 外鍵約束 |") });
+  const r = run({ orders_master: D().orders_master.replace("| orders_detail | order_id | orders_master | id | 一對多 | 外鍵約束 |", "| orders_detail | product_name | orders_master | id | 一對多 | 外鍵約束 |") });
   assert.ok(has(r, /標示為外鍵約束，但 02-db\.sql 沒有這個外鍵/), r.join("\n"));
 });
 
 test("既有表有填欄位但欄位清單漏欄位；沒填欄位只要求 PK 與 FK", () => {
-  const dropped = D().orders.replace(/\| 4 \| ordered_at[^\n]*\n/, "");
-  const r = run({ orders: dropped });
-  assert.ok(has(r, /資料表：orders」「欄位清單」缺少 既有資料表宣告.*欄位：ordered_at/), r.join("\n"));
+  const dropped = D().orders_master.replace(/\| 4 \| ordered_at[^\n]*\n/, "");
+  const r = run({ orders_master: dropped });
+  assert.ok(has(r, /資料表：orders_master」「欄位清單」缺少 既有資料表宣告.*欄位：ordered_at/), r.join("\n"));
   const noCols = D().systemEr.replace(EXISTING_SECTION, OLD_SECTION);
-  assert.deepEqual(run({ orders: dropped, systemEr: noCols }), []);
-  const lostFk = D().orders.replace(/\| 3 \| member_id[^\n]*\n/, "");
-  assert.ok(has(run({ orders: lostFk, systemEr: noCols }), /缺少 既有資料表宣告.*欄位：member_id/));
+  assert.deepEqual(run({ orders_master: dropped, systemEr: noCols }), []);
+  const lostFk = D().orders_master.replace(/\| 3 \| member_id[^\n]*\n/, "");
+  assert.ok(has(run({ orders_master: lostFk, systemEr: noCols }), /缺少 既有資料表宣告.*欄位：member_id/));
 });
 
 test("ER 圖多表或缺表、缺關聯線、符號不符（NOT NULL 未知一律可選）", () => {
-  const extra = D().orders.replace("    order_items {", "    ghost {\n        INTEGER id PK\n    }\n    order_items {");
-  assert.ok(has(run({ orders: extra }), /orders\.md 的模組 ER 圖 多了範圍外的資料表：ghost/));
-  const lack = D().systemEr.replace(/    order_items \{\n[^}]*\}\n/, "").replace(/    orders \|o--o\{ order_items[^\n]*\n/, "");
+  const extra = D().orders_master.replace("    orders_detail {", "    ghost {\n        INTEGER id PK\n    }\n    orders_detail {");
+  assert.ok(has(run({ orders_master: extra }), /orders_master\.md 的模組 ER 圖 多了範圍外的資料表：ghost/));
+  const lack = D().systemEr.replace(/    orders_detail \{\n[^}]*\}\n/, "").replace(/    orders_master \|o--o\{ orders_detail[^\n]*\n/, "");
   const rl = run({ systemEr: lack });
-  assert.ok(has(rl, /system-er\.md 的系統 ER 圖 缺少資料表：order_items/), rl.join("\n"));
-  const noLine = D().orders.replace(/    orders \|o--o\{ order_items[^\n]*\n/, "");
-  assert.ok(has(run({ orders: noLine }), /缺少關聯線 orders→order_items/));
-  const required = D().orders.replace("orders |o--o{ order_items", "orders ||--o{ order_items");
-  assert.ok(has(run({ orders: required }), /符號與關聯清單不一致.*orders \|o--o\{ order_items/));
+  assert.ok(has(rl, /system-er\.md 的系統 ER 圖 缺少資料表：orders_detail/), rl.join("\n"));
+  const noLine = D().orders_master.replace(/    orders_master \|o--o\{ orders_detail[^\n]*\n/, "");
+  assert.ok(has(run({ orders_master: noLine }), /缺少關聯線 orders_master→orders_detail/));
+  const required = D().orders_master.replace("orders_master |o--o{ orders_detail", "orders_master ||--o{ orders_detail");
+  assert.ok(has(run({ orders_master: required }), /符號與關聯清單不一致.*orders_master \|o--o\{ orders_detail/));
 });
 
 test("系統圖有多的關聯線、缺關聯線", () => {
-  const stray = D().systemEr.replace("    members {", "    order_items |o--o{ members : x\n    members {");
+  const stray = D().systemEr.replace("    members {", "    orders_detail |o--o{ members : x\n    members {");
   assert.ok(has(run({ systemEr: stray }), /沒有對應的關聯清單項目|缺少關聯線/));
-  const missing = D().systemEr.replace(/    members \|o--o\{ orders[^\n]*\n/, "");
-  assert.ok(has(run({ systemEr: missing }), /缺少關聯線 members→orders/));
+  const missing = D().systemEr.replace(/    members \|o--o\{ orders_master[^\n]*\n/, "");
+  assert.ok(has(run({ systemEr: missing }), /缺少關聯線 members→orders_master/));
 });
 
 test("用到既有表卻沒有任何分組文件；缺系統 ER 圖文件", () => {
-  const r = run({ orders: null, members: null });
+  const r = run({ orders_master: null, members: null });
   assert.ok(has(r, /沒有任何分組文件.*TableSchema\/<主表名>\.md/), r.join("\n"));
   const dir = writeNoChangeItem(path.join(root, `w${n++}`));
   fs.rmSync(path.join(dir, "TableSchema", "system-er.md"));
@@ -114,11 +114,11 @@ test("用到既有表卻沒有任何分組文件；缺系統 ER 圖文件", () =
 });
 
 test("既有表在多份文件重複、缺版本管控歷程仍照一般規則", () => {
-  const o = D().orders;
-  const dup = `${D().members}\n${o.slice(o.indexOf("## 資料表：orders"), o.indexOf("## 資料表：order_items"))}`;
-  assert.ok(has(run({ members: dup }), /資料表 orders 同時出現在多份文件/));
+  const o = D().orders_master;
+  const dup = `${D().members}\n${o.slice(o.indexOf("## 資料表：orders_master"), o.indexOf("## 資料表：orders_detail"))}`;
+  assert.ok(has(run({ members: dup }), /資料表 orders_master 同時出現在多份文件/));
   const bad = o.replace(/## 版本管控歷程[\s\S]*?(?=## 模組 ER 圖)/, "");
-  assert.ok(has(run({ orders: bad }), /orders\.md 缺少「## 版本管控歷程」/));
+  assert.ok(has(run({ orders_master: bad }), /orders_master\.md 缺少「## 版本管控歷程」/));
 });
 
 test("greenfield 的註解 SQL 沒有既有表：文件的表視為不存在", () => {
@@ -126,7 +126,7 @@ test("greenfield 的註解 SQL 沒有既有表：文件的表視為不存在", (
 });
 
 test("一般有 DDL：文件內的表既不在 CREATE TABLE 也不是既有表仍擋（問題 52：既有表可收進分組文件）", () => {
-  const ghost = D().orders.replace("## 資料表：orders", "## 資料表：ghost").replace("| orders | 訂單主檔 |", "| ghost | 訂單主檔 |");
-  const r = run({ sql: "CREATE TABLE members (id INTEGER PRIMARY KEY, name TEXT, created_at TEXT);\n", orders: ghost });
+  const ghost = D().orders_master.replace("## 資料表：orders_master", "## 資料表：ghost").replace("| orders_master | 訂單主檔 |", "| ghost | 訂單主檔 |");
+  const r = run({ sql: "CREATE TABLE members (id INTEGER PRIMARY KEY, name TEXT, created_at TEXT);\n", orders_master: ghost });
   assert.ok(has(r, /ghost 不在 02-db\.sql 的 CREATE TABLE 內，也不是既有資料表/), r.join("\n"));
 });

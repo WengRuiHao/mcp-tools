@@ -42,33 +42,33 @@ test("範本（含系統 ER 圖與 PNG）全部合格", () => {
 });
 
 const scope = (names, rels = []) => ({ tables: tables.filter((t) => names.includes(t.name)), relations: rels });
-const REL = { parent: "orders", child: "order_items", kind: "一對多", required: true };
+const REL = { parent: "orders_master", child: "orders_detail", kind: "一對多", required: true };
 
 test("checkErDiagram：表集合必須相等（缺表、多表）", () => {
-  const src = "erDiagram\n  orders {\n    INTEGER id PK\n    INTEGER member_id FK\n  }\n  ghost {\n    INT id PK\n  }\n";
-  const r = checkErDiagram(src, "圖A", scope(["orders", "order_items"]));
-  assert.ok(has(r, /圖A 缺少資料表：order_items/));
+  const src = "erDiagram\n  orders_master {\n    INTEGER id PK\n    INTEGER member_id FK\n  }\n  ghost {\n    INT id PK\n  }\n";
+  const r = checkErDiagram(src, "圖A", scope(["orders_master", "orders_detail"]));
+  assert.ok(has(r, /圖A 缺少資料表：orders_detail/));
   assert.ok(has(r, /圖A 多了範圍外的資料表：ghost/));
 });
 
 test("checkErDiagram：PK／FK 必須列出並標註；憑空欄位與錯標被擋；其他欄位可不列", () => {
-  const ok = "erDiagram\n  order_items {\n    INTEGER id PK\n    INTEGER order_id FK\n  }\n";
-  assert.deepEqual(checkErDiagram(ok, "圖", scope(["order_items"])), []);
-  assert.ok(has(checkErDiagram("erDiagram\n  order_items {\n    INTEGER id PK\n  }\n", "圖", scope(["order_items"])), /表 order_items 缺少外鍵欄位 order_id/));
-  assert.ok(has(checkErDiagram("erDiagram\n  order_items {\n    INTEGER id\n    INTEGER order_id FK\n  }\n", "圖", scope(["order_items"])), /欄位 id 是主鍵，要標註 PK/));
-  assert.ok(has(checkErDiagram("erDiagram\n  order_items {\n    INTEGER id PK\n    INTEGER order_id FK\n    TEXT nope\n  }\n", "圖", scope(["order_items"])), /列了 SQL 沒有的欄位 nope/));
-  assert.ok(has(checkErDiagram("erDiagram\n  order_items {\n    INTEGER id PK\n    INTEGER order_id FK\n    TEXT product_name PK\n  }\n", "圖", scope(["order_items"])), /product_name 標註了 PK，但 SQL 裡它不是主鍵/));
+  const ok = "erDiagram\n  orders_detail {\n    INTEGER id PK\n    INTEGER order_id FK\n  }\n";
+  assert.deepEqual(checkErDiagram(ok, "圖", scope(["orders_detail"])), []);
+  assert.ok(has(checkErDiagram("erDiagram\n  orders_detail {\n    INTEGER id PK\n  }\n", "圖", scope(["orders_detail"])), /表 orders_detail 缺少外鍵欄位 order_id/));
+  assert.ok(has(checkErDiagram("erDiagram\n  orders_detail {\n    INTEGER id\n    INTEGER order_id FK\n  }\n", "圖", scope(["orders_detail"])), /欄位 id 是主鍵，要標註 PK/));
+  assert.ok(has(checkErDiagram("erDiagram\n  orders_detail {\n    INTEGER id PK\n    INTEGER order_id FK\n    TEXT nope\n  }\n", "圖", scope(["orders_detail"])), /列了 SQL 沒有的欄位 nope/));
+  assert.ok(has(checkErDiagram("erDiagram\n  orders_detail {\n    INTEGER id PK\n    INTEGER order_id FK\n    TEXT product_name PK\n  }\n", "圖", scope(["orders_detail"])), /product_name 標註了 PK，但 SQL 裡它不是主鍵/));
 });
 
 test("checkErDiagram：關聯線要與關聯一一對應（缺線、多線、方向、符號）", () => {
-  const ents = "  orders {\n    INTEGER id PK\n    INTEGER member_id FK\n  }\n  order_items {\n    INTEGER id PK\n    INTEGER order_id FK\n  }\n";
-  const sc = scope(["orders", "order_items"], [REL]);
-  assert.equal(lineText(REL), "orders ||--o{ order_items");
-  assert.deepEqual(checkErDiagram(`erDiagram\n  orders ||--o{ order_items : "x"\n${ents}`, "圖", sc), []);
-  assert.ok(has(checkErDiagram(`erDiagram\n${ents}`, "圖", sc), /缺少關聯線 orders→order_items.*orders \|\|--o\{ order_items/));
-  assert.ok(has(checkErDiagram(`erDiagram\n  order_items }o--|| orders : "x"\n${ents}`, "圖", sc), /方向相反/));
-  assert.ok(has(checkErDiagram(`erDiagram\n  orders |o--o| order_items : "x"\n${ents}`, "圖", sc), /第 2 行的關聯線 orders \|o--o\| order_items 符號與關聯清單不一致.*必選、一對多/));
-  assert.ok(has(checkErDiagram(`erDiagram\n  orders ||--o{ order_items : "x"\n  order_items ||--o{ orders : "y"\n${ents}`, "圖", sc), /沒有對應的關聯清單項目/));
+  const ents = "  orders_master {\n    INTEGER id PK\n    INTEGER member_id FK\n  }\n  orders_detail {\n    INTEGER id PK\n    INTEGER order_id FK\n  }\n";
+  const sc = scope(["orders_master", "orders_detail"], [REL]);
+  assert.equal(lineText(REL), "orders_master ||--o{ orders_detail");
+  assert.deepEqual(checkErDiagram(`erDiagram\n  orders_master ||--o{ orders_detail : "x"\n${ents}`, "圖", sc), []);
+  assert.ok(has(checkErDiagram(`erDiagram\n${ents}`, "圖", sc), /缺少關聯線 orders_master→orders_detail.*orders_master \|\|--o\{ orders_detail/));
+  assert.ok(has(checkErDiagram(`erDiagram\n  orders_detail }o--|| orders_master : "x"\n${ents}`, "圖", sc), /方向相反/));
+  assert.ok(has(checkErDiagram(`erDiagram\n  orders_master |o--o| orders_detail : "x"\n${ents}`, "圖", sc), /第 2 行的關聯線 orders_master \|o--o\| orders_detail 符號與關聯清單不一致.*必選、一對多/));
+  assert.ok(has(checkErDiagram(`erDiagram\n  orders_master ||--o{ orders_detail : "x"\n  orders_detail ||--o{ orders_master : "y"\n${ents}`, "圖", sc), /沒有對應的關聯清單項目/));
 });
 
 test("符號對應：必選 ||、可選 |o；一對多 o{、一對一 o|", () => {
@@ -89,54 +89,54 @@ const modify = (dir, file, fn) => {
 
 test("模組 ER 圖：缺章節、缺圖片、PNG 壞檔、圖與關聯不符，訊息指出文件與圖", () => {
   let dir = item();
-  modify(dir, "orders.md", (t) => t.replace("## 模組 ER 圖", "## 圖"));
-  assert.ok(has(checkTableSchemas(dir), /TableSchema\/orders\.md 缺少「## 模組 ER 圖」一節/));
+  modify(dir, "orders_master.md", (t) => t.replace("## 模組 ER 圖", "## 圖"));
+  assert.ok(has(checkTableSchemas(dir), /TableSchema\/orders_master\.md 缺少「## 模組 ER 圖」一節/));
   dir = item();
-  modify(dir, "orders.md", (t) => t.replace("![訂單模組 ER 圖](er/orders.png)", ""));
-  assert.ok(has(checkTableSchemas(dir), /orders\.md「模組 ER 圖」要用圖片引用轉出的 PNG：!\[說明\]\(er\/orders\.png\)/));
+  modify(dir, "orders_master.md", (t) => t.replace("![訂單模組 ER 圖](er/orders_master.png)", ""));
+  assert.ok(has(checkTableSchemas(dir), /orders_master\.md「模組 ER 圖」要用圖片引用轉出的 PNG：!\[說明\]\(er\/orders_master\.png\)/));
   dir = item();
-  fs.writeFileSync(path.join(dir, "TableSchema", "er", "orders.png"), "not a png");
-  assert.ok(has(checkTableSchemas(dir), /er\/orders\.png 不存在或不是有效的 PNG/));
+  fs.writeFileSync(path.join(dir, "TableSchema", "er", "orders_master.png"), "not a png");
+  assert.ok(has(checkTableSchemas(dir), /er\/orders_master\.png 不存在或不是有效的 PNG/));
   dir = item();
-  modify(dir, "orders.md", (t) => t.replace('orders ||--o{ order_items : "一張訂單有多筆明細"', ""));
-  assert.ok(has(checkTableSchemas(dir), /orders\.md 的模組 ER 圖 缺少關聯線 orders→order_items/));
+  modify(dir, "orders_master.md", (t) => t.replace('orders_master ||--o{ orders_detail : "一張訂單有多筆明細"', ""));
+  assert.ok(has(checkTableSchemas(dir), /orders_master\.md 的模組 ER 圖 缺少關聯線 orders_master→orders_detail/));
   dir = item();
-  modify(dir, "orders.md", (t) => t.replace("INTEGER order_id FK", "INTEGER order_id"));
-  assert.ok(has(checkTableSchemas(dir), /orders\.md 的模組 ER 圖 的表 order_items 的欄位 order_id 是外鍵，要標註 FK/));
+  modify(dir, "orders_master.md", (t) => t.replace("INTEGER order_id FK", "INTEGER order_id"));
+  assert.ok(has(checkTableSchemas(dir), /orders_master\.md 的模組 ER 圖 的表 orders_detail 的欄位 order_id 是外鍵，要標註 FK/));
 });
 
 test("系統 ER 圖：缺文件、缺圖、表集合與關聯線不符", () => {
   let dir = item();
   fs.rmSync(path.join(dir, "TableSchema", "system-er.md"));
   assert.ok(has(checkTableSchemas(dir), /缺少系統 ER 圖文件 TableSchema\/system-er\.md/));
-  dir = item({ system: systemErTemplate().replace("    order_items {\n        INTEGER id PK\n        INTEGER order_id FK\n    }\n", "") });
-  assert.ok(has(checkTableSchemas(dir), /system-er\.md 的系統 ER 圖 的表 order_items 缺少主鍵欄位 id/));
-  dir = item({ system: systemErTemplate().replace('    members ||--o{ orders : "一位會員有多張訂單"\n', "") });
-  assert.ok(has(checkTableSchemas(dir), /system-er\.md 的系統 ER 圖 缺少關聯線 members→orders/));
+  dir = item({ system: systemErTemplate().replace("    orders_detail {\n        INTEGER id PK\n        INTEGER order_id FK\n    }\n", "") });
+  assert.ok(has(checkTableSchemas(dir), /system-er\.md 的系統 ER 圖 的表 orders_detail 缺少主鍵欄位 id/));
+  dir = item({ system: systemErTemplate().replace('    members ||--o{ orders_master : "一位會員有多張訂單"\n', "") });
+  assert.ok(has(checkTableSchemas(dir), /system-er\.md 的系統 ER 圖 缺少關聯線 members→orders_master/));
   dir = item({ system: systemErTemplate().replace("![系統 ER 圖](er/system-er.png)", "![x](er/other.png)") });
   assert.ok(has(checkTableSchemas(dir), /系統 ER 圖」要用圖片引用轉出的 PNG/));
   dir = item({ system: systemErTemplate().replace("## 版本管控歷程", "## 歷程") });
   assert.ok(has(checkTableSchemas(dir), /system-er\.md 缺少「## 版本管控歷程」/));
 });
 
-const BROWN_SQL = "CREATE TABLE orders (id INTEGER PRIMARY KEY, member_id INTEGER NOT NULL REFERENCES members(id));\nALTER TABLE members ADD COLUMN phone TEXT;\n";
+const BROWN_SQL = "CREATE TABLE orders_master (id INTEGER PRIMARY KEY, member_id INTEGER NOT NULL REFERENCES members(id));\nALTER TABLE members ADD COLUMN phone TEXT;\n";
 const EXISTING = "## 既有資料表\n\n| 資料表 | 主鍵 | 外鍵 | 說明 |\n| --- | --- | --- | --- |\n| members | id | 無 | db_schema 查得 |\n| coupons | id | member_id→members.id | db_schema 查得 |\n\n";
 const fence = "```";
-const brownSystem = (orders, members, coupons, extra = "") => `${systemErTemplate().split("## 系統 ER 圖")[0]}${EXISTING}## 系統 ER 圖\n\n${fence}mermaid\nerDiagram\n    members ||--o{ orders : "x"\n    members |o--o{ coupons : "y"\n    members {\n        INTEGER id PK ${members}\n    }\n    orders {\n        INTEGER id PK ${orders}\n        INTEGER member_id FK\n    }\n    coupons {\n        INTEGER id PK ${coupons}\n        INTEGER member_id FK\n    }\n${extra}${fence}\n\n![系統 ER 圖](er/system-er.png)\n`;
+const brownSystem = (orders_master, members, coupons, extra = "") => `${systemErTemplate().split("## 系統 ER 圖")[0]}${EXISTING}## 系統 ER 圖\n\n${fence}mermaid\nerDiagram\n    members ||--o{ orders_master : "x"\n    members |o--o{ coupons : "y"\n    members {\n        INTEGER id PK ${members}\n    }\n    orders_master {\n        INTEGER id PK ${orders_master}\n        INTEGER member_id FK\n    }\n    coupons {\n        INTEGER id PK ${coupons}\n        INTEGER member_id FK\n    }\n${extra}${fence}\n\n![系統 ER 圖](er/system-er.png)\n`;
 
 function brownItem(system) {
-  const dir = item({ sql: BROWN_SQL, docs: { orders: brownOrders(), members: undefined }, system });
+  const dir = item({ sql: BROWN_SQL, docs: { orders_master: brownOrders(), members: undefined }, system });
   return dir;
 }
 function brownOrders() {
-  const t = T().orders;
-  const cut = t.indexOf("## 資料表：order_items");
+  const t = T().orders_master;
+  const cut = t.indexOf("## 資料表：orders_detail");
   const rel = t.indexOf("## 關聯清單");
   return `${t.slice(0, cut)}${t.slice(rel)}`
-    .replace("| order_items | 訂單明細 |\n", "")
-    .replace(/\| order_items \| order_id[^\n]*\n/, "")
-    .replace(/    orders \|\|--o\{ order_items[^\n]*\n/, "")
-    .replace(/    order_items \{[\s\S]*?    \}\n/, "")
+    .replace("| orders_detail | 訂單明細 |\n", "")
+    .replace(/\| orders_detail \| order_id[^\n]*\n/, "")
+    .replace(/    orders_master \|\|--o\{ orders_detail[^\n]*\n/, "")
+    .replace(/    orders_detail \{[\s\S]*?    \}\n/, "")
     .replace("### 索引", "### 索引");
 }
 
@@ -145,7 +145,7 @@ test("brownfield：系統圖含既有表，本次新增與本次修改要標註�
   const dir = brownItem(good);
   const r = checkTableSchemas(dir, { baseline: "brownfield" });
   assert.deepEqual(r.filter((x) => x.includes("system-er.md")), [], r.join("\n"));
-  assert.ok(has(checkTableSchemas(brownItem(brownSystem("", '"本次修改"', "")), { baseline: "brownfield" }), /表 orders 要標「本次新增」/));
+  assert.ok(has(checkTableSchemas(brownItem(brownSystem("", '"本次修改"', "")), { baseline: "brownfield" }), /表 orders_master 要標「本次新增」/));
   assert.ok(has(checkTableSchemas(brownItem(brownSystem('"本次新增"', "", "")), { baseline: "brownfield" }), /表 members 要標「本次修改」/));
   assert.ok(has(checkTableSchemas(brownItem(brownSystem('"本次新增"', '"本次修改"', '"本次新增"')), { baseline: "brownfield" }), /表 coupons 不是本次新增的表，不可標「本次新增」/));
 });

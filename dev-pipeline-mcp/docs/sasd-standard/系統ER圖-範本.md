@@ -12,16 +12,16 @@
 
 ```mermaid
 erDiagram
-    members ||--o{ orders : "一位會員有多張訂單"
-    orders ||--o{ order_items : "一張訂單有多筆明細"
+    members ||--o{ orders_master : "一位會員有多張訂單"
+    orders_master ||--o{ orders_detail : "一張訂單有多筆明細"
     members {
         INTEGER id PK
     }
-    orders {
+    orders_master {
         INTEGER id PK
         INTEGER member_id FK
     }
-    order_items {
+    orders_detail {
         INTEGER id PK
         INTEGER order_id FK
     }
