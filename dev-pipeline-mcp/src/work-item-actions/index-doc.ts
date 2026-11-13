@@ -11,6 +11,7 @@ import { isRoleDone } from "../workflow/work-item-progress.js";
 import { errorMessage } from "./common.js";
 import { loadEffectiveDef } from "./context.js";
 import { decisionsOf, uncovered } from "./decisions.js";
+import { staleUpstreamNote } from "./stale-upstream.js";
 import { readPendingQuestions } from "./sa-notes-questions.js";
 import { escalationsOf } from "./review-escalation.js";
 import { ROLE_LABELS, viewFor } from "./view.js";
@@ -123,6 +124,11 @@ async function decisionSection(dir: string, status: TicketStatus): Promise<strin
   ];
 }
 
+async function staleSection(dir: string, status: TicketStatus): Promise<string[]> {
+  const note = await staleUpstreamNote(dir, status);
+  return note ? ["## 上游文件可能過期", "", note, ""] : [];
+}
+
 /** 純函式的索引全文組裝（IO 結果由呼叫端量測）。 */
 export async function buildIndexDoc(dir: string, status: TicketStatus, def: WorkflowDefinition, overrideApplied = false): Promise<string> {
   const v = viewFor(status, def, overrideApplied);
@@ -138,6 +144,7 @@ export async function buildIndexDoc(dir: string, status: TicketStatus, def: Work
     ...(await focusSection(dir, def, status)),
     ...gateSection(status, def),
     ...(await decisionSection(dir, status)),
+    ...(await staleSection(dir, status)),
   ].join("\n");
 }
 

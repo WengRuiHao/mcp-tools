@@ -31,7 +31,7 @@ export const WORK_ITEM_TOOL_HINT =
 /** 所有角色共通的流程通則，附在每份說明的「可用工具」之後。每條一句話，改動前要確認 12 個角色都沒超過長度上限。 */
 export const COMMON_RULES: readonly string[] = [
   "使用者只回答選項字母（A、AA、1）不算確認，要再問一次並引用完整原話；`by:\"human\"` 的確認與判定一律附使用者原話 `reason`。",
-  "驗證師與規格驗證師要先 `done` 才能 `verdict`；`00-索引.md` 由系統產生，不可手寫；`*.stackdump` 交件前刪掉。",
+  "驗證師與規格驗證師要先 `done` 才能 `verdict`；`00-索引.md` 由系統產生，不可手寫；`*.stackdump` 交件前刪掉；寫腳本用 Write 工具，不用 Bash heredoc（會當機）。",
   "已 `done` 的角色重寫產出檔後，看 write 回傳的 `recheck.ok` 與 `failures`，修到通過。",
 ];
 

@@ -1727,8 +1727,8 @@
  },
  "toolCount": 43,
  "work_item": {
-  "descriptionLength": 2027,
-  "descriptionSha256": "461ba7c4d02459858ce8c1beb27dbc344286611a40c53b29efce138fad431af4",
+  "descriptionLength": 2137,
+  "descriptionSha256": "581a3e5a216a6de7db98ec70bdc1ed81e79e01aaa4366de739920d0bd97de6b4",
   "inputSchema": {
    "$schema": "http://json-schema.org/draft-07/schema#",
    "additionalProperties": false,
@@ -1739,8 +1739,8 @@
      "type": "boolean"
     },
     "action": {
-     "descriptionLength": 111,
-     "descriptionSha256": "a5423f6a3317d8393fd169387ddb4cf52d502f72e2124f45b33eea04b6590a89",
+     "descriptionLength": 120,
+     "descriptionSha256": "3cfd2f87a054be137ff25a8bf89816ef81dd78781792b0d52789561473a88709",
      "enum": [
       "create",
       "get",
@@ -1753,7 +1753,8 @@
       "confirm",
       "verdict",
       "update_requirement",
-      "record_decision"
+      "record_decision",
+      "template"
      ],
      "type": "string"
     },
@@ -1986,6 +1987,18 @@
      ],
      "type": "string"
     },
+    "template": {
+     "descriptionLength": 119,
+     "descriptionSha256": "ef277b5edbc30cf2553f678aa82e7aa565bcb3dacf613e6f2e18fc88756f1391",
+     "enum": [
+      "sa",
+      "sd",
+      "table-schema",
+      "system-er",
+      "mockup-states"
+     ],
+     "type": "string"
+    },
     "title": {
      "descriptionLength": 9,
      "descriptionSha256": "b743241ce84381809033659d1dd61328c72244746214ea1ae34567b188fadd1d",
@@ -2002,7 +2015,7 @@
    ],
    "type": "object"
   },
-  "paramCount": 32
+  "paramCount": 33
  },
  "write_project_file": {
   "descriptionLength": 352,

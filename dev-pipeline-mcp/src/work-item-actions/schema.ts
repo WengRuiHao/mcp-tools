@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /** work_item 單一工具的參數：以 action 分派，其餘欄位依動作選填（缺必填欄位由各動作回清楚錯誤）。 */
 
-export const WORK_ITEM_ACTIONS = ["create", "get", "role_prompt", "set_scope", "write", "attach", "render", "done", "confirm", "verdict", "update_requirement", "record_decision"] as const;
+export const WORK_ITEM_ACTIONS = ["create", "get", "role_prompt", "set_scope", "write", "attach", "render", "done", "confirm", "verdict", "update_requirement", "record_decision", "template"] as const;
 export type WorkItemAction = (typeof WORK_ITEM_ACTIONS)[number];
 
 const reasonsShape = {
@@ -19,7 +19,7 @@ const reviewShape = {
 };
 
 export const workItemShape = {
-  action: z.enum(WORK_ITEM_ACTIONS).describe("動作：create｜get｜role_prompt｜set_scope｜write｜attach｜render｜done｜confirm｜verdict｜update_requirement｜record_decision"),
+  action: z.enum(WORK_ITEM_ACTIONS).describe("動作：create｜get｜role_prompt｜set_scope｜write｜attach｜render｜done｜confirm｜verdict｜update_requirement｜record_decision｜template"),
   workItemId: z.string().optional().describe("工作項目編號（wi-YYYYMMDD-NNN）；create 以外都要"),
   projectDir: z.string().optional().describe("create：專案目錄絕對路徑（必須存在）"),
   title: z.string().optional().describe("create：標題"),
@@ -30,6 +30,7 @@ export const workItemShape = {
   styleSource: z.enum(["existing", "redesign", "new-guided", "new-select"]).optional().describe("create／set_scope：畫面風格來源 existing沿用現有｜redesign換新（既有系統）；new-guided全新有規範｜new-select全新待選（全新系統）；mockup 確認後鎖定。create 沒給時依預設值規則決定，翻新案必須明確給"),
   techSource: z.enum(["existing", "change", "new-guided", "new-select"]).optional().describe("create／set_scope：技術來源 existing沿用現有｜change換技術（既有系統）；new-guided全新有規範｜new-select全新待選（全新系統）；技術確認後鎖定。翻新案必須明確給"),
   renewal: z.boolean().optional().describe("create：是否翻新案（預設 false）；翻新案不替使用者猜風格與技術，styleSource 與 techSource 都必須明確給"),
+  template: z.enum(["sa", "sd", "table-schema", "system-er", "mockup-states"]).optional().describe("template：要取的範本（sa＝客戶版 SA｜sd＝後端規格｜table-schema＝資料表結構文件｜system-er＝系統 ER 圖｜mockup-states＝mockup 狀態切換範例 HTML）；不需 workItemId"),
   roleId: z.string().optional().describe("role_prompt／done：角色 id（例如 sa-analyst）"),
   filename: z.string().optional().describe("write：產出檔名（只能是流程定義的產出檔，例如 01-sa.md）"),
   content: z.string().optional().describe("write：檔案內容（上限 512KB）"),

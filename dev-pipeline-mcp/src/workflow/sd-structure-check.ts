@@ -104,7 +104,7 @@ function sectionTable(body: string, idx: number, out: string[], allowEmpty: bool
   const { name, header } = SD_SPEC_SECTIONS[idx];
   const table = parseTable(body);
   if (table === null || !sameHeader(table.header, header)) {
-    out.push(`${SD_FILE_NAME}「${name}」必須是表格，表頭固定為：${header.join("｜")}`);
+    out.push(`${SD_FILE_NAME}「${name}」必須是表格，表頭固定為：${header.join("｜")}（範例：| ${header.join(" | ")} |）；可用 work_item action=template template=sd 取範本`);
     return null;
   }
   if (table.rows.length === 0 && !allowEmpty) out.push(`${SD_FILE_NAME}「${name}」至少要有一列`);

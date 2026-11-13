@@ -6,6 +6,7 @@ import { listDeliverables } from "./deliverable-list.js";
 import { existingSummaryFile } from "./final-summary-io.js";
 import type { WorkItemArgs } from "./schema.js";
 import { decisionsOf, uncovered } from "./decisions.js";
+import { staleUpstreamNote } from "./stale-upstream.js";
 import { readPendingQuestions } from "./sa-notes-questions.js";
 import { escalationsOf } from "./review-escalation.js";
 import { buildView, nextBlock } from "./view.js";
@@ -20,6 +21,7 @@ export async function handleGet(a: WorkItemArgs): Promise<ToolReply> {
   const escalations = Object.fromEntries(Object.entries(escalationsOf(s)).filter(([gateId]) => pending.has(gateId)));
   const decisions = decisionsOf(s);
   const openQuestions = uncovered(await readPendingQuestions(ctx.dir), decisions);
+  const staleNote = await staleUpstreamNote(ctx.dir, s);
   return okReply({
     workItemId: ctx.id,
     dir: ctx.dir,
@@ -39,6 +41,7 @@ export async function handleGet(a: WorkItemArgs): Promise<ToolReply> {
     ...(Object.keys(escalations).length > 0 ? { reviewEscalations: escalations } : {}),
     ...(decisions.length > 0 ? { decisions: decisions.map((d) => ({ question: d.question, answer: d.answer, quote: d.quote, at: d.at })) } : {}),
     ...(openQuestions.length > 0 ? { pendingQuestions: openQuestions } : {}),
+    ...(staleNote ? { upstreamMayBeStale: staleNote } : {}),
     ...(summaryFile ? { summaryFile } : {}),
     ...(await listDeliverables(ctx.dir, v.def)),
     ...nextBlock(v),

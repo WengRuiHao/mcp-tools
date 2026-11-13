@@ -19,10 +19,13 @@ export function writableFilenames(): string[] {
 /** 資料表結構文件：TableSchema/<主表名>.md（名稱限英數字與底線），另加固定檔名的系統 ER 圖 TableSchema/system-er.md（含連字號，不會與表名衝突）。 */
 export const TABLE_SCHEMA_FILE_RE = /^TableSchema\/(?:[A-Za-z0-9_]+|system-er)\.md$/;
 
+const MOCKUP_OR_IMAGE_RE = /^sa-mockup[\\/]|\.(?:html?|css|js|png|jpe?g|webp)$/i;
+
 export async function handleWrite(a: WorkItemArgs): Promise<ToolReply> {
   const { workItemId, filename } = need("write", a, ["workItemId", "filename"]);
   if (typeof a.content !== "string") throw new WorkItemActionError("action=write 缺少必填參數：content");
   const allowed = writableFilenames();
+  if (!allowed.includes(filename) && !TABLE_SCHEMA_FILE_RE.test(filename) && MOCKUP_OR_IMAGE_RE.test(filename)) throw new WorkItemActionError(`write 不接受「${filename}」（mockup 與圖片不走 write）：請改用 attach destDir=sa-mockup（mockup 的 html／css／js／圖片；srcPath 為來源檔絕對路徑、name 為存檔檔名）；畫面截圖用 destDir=sa-images。`);
   if (!allowed.includes(filename) && !TABLE_SCHEMA_FILE_RE.test(filename)) throw new WorkItemActionError(`不允許寫入「${filename}」：只能寫流程定義的產出檔（${allowed.join("、")}），或資料表結構文件 TableSchema/<名稱>.md（名稱限英數字與底線）或系統 ER 圖 TableSchema/system-er.md。圖片請用 attach，不可帶路徑。`);
   const bytes = Buffer.byteLength(a.content, "utf-8");
   if (bytes > MAX_WRITE_BYTES) throw new WorkItemActionError(`content 太大（${bytes} bytes），上限 ${MAX_WRITE_BYTES} bytes。`);

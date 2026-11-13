@@ -12,6 +12,7 @@ import { handleRolePrompt } from "./work-item-actions/role-prompt.js";
 import { workItemShape, type WorkItemArgs } from "./work-item-actions/schema.js";
 import { handleSetScope } from "./work-item-actions/set-scope.js";
 import { handleUpdateRequirement } from "./work-item-actions/update-requirement.js";
+import { handleTemplate } from "./work-item-actions/template.js";
 import { handleVerdict } from "./work-item-actions/verdict.js";
 import { handleWrite } from "./work-item-actions/write.js";
 
@@ -29,6 +30,7 @@ const WORK_ITEM_DESCRIPTION =
   "- verdict：規格驗證／驗證判定（gateId=spec-check-verdict｜verdict、result、rootCause、by、review；by:\"human\" 與 AI 判不通過都要附 reason；spec-check-verdict 的 rootCause=sa-text 只退回 SA 與規格驗證師）。\n" +
   "- update_requirement：修改需求（workItemId、requirement＝新需求全文、reason＝使用者原話、by:\"human\"）；更新 item.md 並記錄修改歷程，列出已完成的角色，不自動退回任何角色（要重做請用 confirm 打回搭配 alsoRewind）。\n" +
   "- record_decision：記錄使用者的決定（workItemId、question＝sa-notes.md 待確認問題的編號或標題、answer、reason＝使用者原話、by:\"human\"）；使用者說「全部照建議」用 acceptAllSuggested:true（不需 question、answer，reason 仍要附原話）一次接受所有尚無記錄的待確認問題。sa-notes.md 還有沒決定記錄的待確認問題時，sa-confirm 不可由 AI 核准；已記錄的決定會出現在 get、審查員說明書與 00-索引.md。\n" +
+  "- template：取範本全文（template＝sa｜sd｜table-schema｜system-er｜mockup-states，不需 workItemId）；角色說明提到「範本」時用它取，不要找專案裡的檔案。\n" +
   "Asana 票單不可用本工具，請用既有 Asana 工具。錯誤一律回 isError。";
 
 async function dispatch(a: WorkItemArgs, renderer: Renderer): Promise<ToolReply> {
@@ -39,6 +41,8 @@ async function dispatch(a: WorkItemArgs, renderer: Renderer): Promise<ToolReply>
       return handleGet(a);
     case "role_prompt":
       return handleRolePrompt(a);
+    case "template":
+      return handleTemplate(a);
     case "set_scope":
       return handleSetScope(a);
     case "write":

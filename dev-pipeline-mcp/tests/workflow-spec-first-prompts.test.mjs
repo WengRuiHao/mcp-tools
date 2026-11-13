@@ -66,7 +66,7 @@ test("baseline-survey：盤點「## 現有技術棧」；mockup-designer 的風�
 
 test("mockup-designer：可操作原型、五種狀態、#狀態名稱 切換、data-demo-states、不連外網、可互相跳轉、交件說明", () => {
   const t = getSpecFirstRolePrompt("mockup-designer");
-  for (const k of ["可操作原型", "單一 HTML", "原生 HTML／CSS／JS", "不連外網", "http:// 或 https://", "每個使用者動作都要能點", "表單要有驗證與錯誤提示", "正常、載入中、成功、失敗、沒有資料", "#狀態名稱", "mockup-狀態切換範例.html", "data-demo-states", "互相跳轉", "每個畫面", "每個可操作元素", "所有狀態名稱", "mockup 檢查"]) assert.ok(t.includes(k), k);
+  for (const k of ["可操作原型", "單一 HTML", "原生 HTML／CSS／JS", "不連外網", "http:// 或 https://", "每個使用者動作都要能點", "表單要有驗證與錯誤提示", "正常、載入中、成功、失敗、沒有資料", "#狀態名稱", "template=mockup-states", "data-demo-states", "互相跳轉", "每個畫面", "每個可操作元素", "所有狀態名稱", "mockup 檢查"]) assert.ok(t.includes(k), k);
 });
 
 test("mockup-designer：標示規則、版面規則、控制面板、驗證紀錄", () => {
@@ -82,7 +82,7 @@ test("mockup-designer：只畫 mockup、放 sa-mockup/、不寫規格、等使�
 
 test("sa-analyst：新標準（客戶版、章節結構、版本管控歷程、表格、提示截圖、sa-notes.md、不再有功能標題與純後端）", () => {
   const t = getSpecFirstRolePrompt("sa-analyst");
-  for (const k of ["SA-範本.md", "客戶版", "客戶看得懂", "基本資料表", "## 版本管控歷程", "版次｜發行日期｜修訂說明｜修訂單位｜修訂人員", "功能目的 → 畫面 → 操作說明", "一律用表格", "編號清單", "前端檢核", "後端回應", "欄位下方", "訊息區", "sa-images/", "![說明](sa-images/", "不要用文字表格代替截圖", "sa-notes.md", "待確認問題", "需求規定／已確認／建議預設", "不可自行訂", "不可在定稿後把截圖換成實際系統畫面"]) assert.ok(t.includes(k), k);
+  for (const k of ["template=sa", "客戶版", "客戶看得懂", "基本資料表", "## 版本管控歷程", "版次｜發行日期｜修訂說明｜修訂單位｜修訂人員", "功能目的 → 畫面 → 操作說明", "一律用表格", "編號清單", "前端檢核", "後端回應", "欄位下方", "訊息區", "sa-images/", "![說明](sa-images/", "不要用文字表格代替截圖", "sa-notes.md", "待確認問題", "需求規定／已確認／建議預設", "不可自行訂", "不可在定稿後把截圖換成實際系統畫面"]) assert.ok(t.includes(k), k);
   assert.ok(!t.includes("## 功能：") && !t.includes("使用的共用畫面元件") && !t.includes("放「## 依據附錄」"));
 });
 
@@ -96,7 +96,7 @@ test("S14 sa-analyst：禁用詞與內部檔名清單、翻新案依據只放 sa
 
 test("db-designer：分組文件、每表小節、關聯清單、模組與系統 ER 圖、PNG 轉圖、brownfield 標註、版本管控歷程、不指向內部過程檔", () => {
   const t = getSpecFirstRolePrompt("db-designer");
-  for (const k of ["TableSchema/<主表名>.md", "資料表結構文件-範本.md", "有外鍵關聯且屬同一業務主題", "不要把整個系統塞進一份", "## 本文件包含的資料表", "## 版本管控歷程", "## 模組 ER 圖", "## 資料表：<表名>", "### 欄位清單", "# ｜欄位｜型別｜PK｜說明", "### 索引", "### 各規格使用欄位對照", "相對路徑連結", "## 關聯清單", "子表｜子表欄位｜父表｜父表欄位｜關係｜依據", "外鍵約束", "邏輯關聯", "一對多", "一對一", "必選", "可選", "||--o{", "o|", "|o", "TableSchema/system-er.md", "er/system-er.png", "本次新增", "本次修改", "## 既有資料表", "db_schema", "render", "destDir=er", "新增一列", "不指向 02-db.sql、02-db.md", "資料表結構文件檢查", "欄位完整性由各表的欄位清單負責", "邏輯關聯的真偽由規格驗證師判斷"]) assert.ok(t.includes(k), k);
+  for (const k of ["TableSchema/<主表名>.md", "template=table-schema", "有外鍵關聯且屬同一業務主題", "不要把整個系統塞進一份", "## 本文件包含的資料表", "## 版本管控歷程", "## 模組 ER 圖", "## 資料表：<表名>", "### 欄位清單", "# ｜欄位｜型別｜PK｜說明", "### 索引", "### 各規格使用欄位對照", "相對路徑連結", "## 關聯清單", "子表｜子表欄位｜父表｜父表欄位｜關係｜依據", "外鍵約束", "邏輯關聯", "一對多", "一對一", "必選", "可選", "||--o{", "o|", "|o", "TableSchema/system-er.md", "er/system-er.png", "本次新增", "本次修改", "## 既有資料表", "db_schema", "render", "destDir=er", "新增一列", "不指向 02-db.sql、02-db.md", "資料表結構文件檢查", "欄位完整性由各表的欄位清單負責", "邏輯關聯的真偽由規格驗證師判斷"]) assert.ok(t.includes(k), k);
 });
 
 test("db-designer：破壞性語句與回滾", () => {

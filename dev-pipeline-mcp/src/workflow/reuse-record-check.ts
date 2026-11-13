@@ -50,6 +50,9 @@ export function checkReuseRecord(text: string, fileName: string): string[] {
   });
 }
 
+/** 擋回訊息附的固定格式範例（隱藏格式：「，」緊接「未找到」；表格也逐列檢查）。 */
+export const REUSABLE_LIST_EXAMPLE = "每項二選一：有找到寫檔案位置與用途（例：「src/utils/date.js 的 formatDate：日期格式化」）；沒找到固定寫成「已搜尋：<關鍵字>，未找到」（例：「已搜尋：匯出 Excel，未找到」，逗號後直接接「未找到」；列在表格內也是逐列檢查）";
+
 const NOT_FOUND_RE = /已搜尋[：:]\s*[^，,]+[，,]\s*未找到/;
 const FILE_LOCATION_RE = /[\w\-./\\]+\.[A-Za-z][A-Za-z0-9]{0,7}\b|[\w\-.]+[/\\][\w\-./\\]+/;
 const LIST_ITEM_RE = /^\s*(?:[-*+]|\d+[.)])\s+(.*)$/;
@@ -69,9 +72,9 @@ export function checkImpactReuseList(text: string, fileName = "impact.md"): stri
   const body = extractSection(text, REUSABLE_LIST_HEADING);
   if (body === null) return [`${fileName} 缺少「## ${REUSABLE_LIST_HEADING}」一節`];
   if (body.trim() === "") return [`${fileName}「${REUSABLE_LIST_HEADING}」是空的`];
-  if (isOnlyNone(body)) return [`${fileName}「${REUSABLE_LIST_HEADING}」不能只寫「無」；沒找到要寫「已搜尋：<關鍵字>，未找到」`];
+  if (isOnlyNone(body)) return [`${fileName}「${REUSABLE_LIST_HEADING}」不能只寫「無」；沒找到要寫「已搜尋：<關鍵字>，未找到」。${REUSABLE_LIST_EXAMPLE}`];
   const entries = listEntries(body);
-  if (entries.length === 0) return [`${fileName}「${REUSABLE_LIST_HEADING}」請用條列或表格逐項列出（每項要有檔案位置，或寫「已搜尋：<關鍵字>，未找到」）`];
-  return entries.flatMap((e, i) => (FILE_LOCATION_RE.test(e) || NOT_FOUND_RE.test(e) ? [] : [`${fileName}「${REUSABLE_LIST_HEADING}」第 ${i + 1} 項沒有檔案位置，也沒有「已搜尋：<關鍵字>，未找到」字樣：${e.slice(0, 30)}`]));
+  if (entries.length === 0) return [`${fileName}「${REUSABLE_LIST_HEADING}」請用條列或表格逐項列出（每項要有檔案位置，或寫「已搜尋：<關鍵字>，未找到」）。${REUSABLE_LIST_EXAMPLE}`];
+  return entries.flatMap((e, i) => (FILE_LOCATION_RE.test(e) || NOT_FOUND_RE.test(e) ? [] : [`${fileName}「${REUSABLE_LIST_HEADING}」第 ${i + 1} 項沒有檔案位置，也沒有「已搜尋：<關鍵字>，未找到」字樣：${e.slice(0, 30)}。${REUSABLE_LIST_EXAMPLE}`]));
 }
 

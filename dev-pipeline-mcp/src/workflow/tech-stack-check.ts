@@ -15,6 +15,8 @@ export const TECH_STACK_FILE = "tech-stack.md";
 export const BASELINE_FILE = "baseline.md";
 export const MIN_CANDIDATES = 2;
 const NOT_APPLICABLE = "不適用";
+/** 擋回訊息附的固定列名範例（列名比對以第一欄為準）。 */
+export const TECH_STACK_EXAMPLE = `列名固定：${["前端語言","前端框架","前端元件庫","後端語言","後端框架","資料庫種類","資料庫版本","建置與測試工具","主要版本"].join("、")}；範例列「| 前端框架 | 不適用 |」，不適用要寫「${NOT_APPLICABLE}」並在選擇理由說明`;
 
 /** 技術棧表格必須列出的項目；match 以第一欄（去掉空白與括號）判斷這一列是不是該項目。 */
 interface RequiredItem {
@@ -43,13 +45,13 @@ const isBlank = (body: string | null): boolean => body === null || body.trim() =
 
 function checkStackTable(body: string): { problems: string[]; usesNotApplicable: boolean } {
   const rows = tableDataRows(body);
-  if (rows === null) return { problems: [`${TECH_STACK_FILE}「${TECH_STACK_HEADING}」必須是 markdown 表格（表頭＋分隔列＋資料列），每列「項目｜內容」`], usesNotApplicable: false };
+  if (rows === null) return { problems: [`${TECH_STACK_FILE}「${TECH_STACK_HEADING}」必須是 markdown 表格（表頭＋分隔列＋資料列），每列「項目｜內容」。${TECH_STACK_EXAMPLE}`], usesNotApplicable: false };
   const problems: string[] = [];
   let usesNotApplicable = false;
   for (const item of REQUIRED_ITEMS) {
     const hit = rows.filter((r) => item.match(normLabel(r[0] ?? "")));
     if (hit.length === 0) {
-      problems.push(`${TECH_STACK_FILE}「${TECH_STACK_HEADING}」表格缺少「${item.label}」這一列`);
+      problems.push(`${TECH_STACK_FILE}「${TECH_STACK_HEADING}」表格缺少「${item.label}」這一列（${TECH_STACK_EXAMPLE}）`);
       continue;
     }
     for (const r of hit) {
