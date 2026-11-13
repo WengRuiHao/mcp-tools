@@ -113,11 +113,11 @@ async function checkReuse(dir: string, roleId: string, def: WorkflowDefinition):
 }
 
 /** SD 新標準檢查（含 TableSchema 連結的檔案存在檢查）。 */
-async function checkSd(dir: string, def: WorkflowDefinition): Promise<string[]> {
+async function checkSd(dir: string, def: WorkflowDefinition, projectDir: string | null | undefined): Promise<string[]> {
   const file = def.artifacts.find((a) => a.id === "sd")?.file;
   if (!file) return [];
   try {
-    return checkSdStructure(await readFile(path.join(dir, file), "utf-8"), dir).map((v) => `SD 標準檢查未通過：${v}`);
+    return checkSdStructure(await readFile(path.join(dir, file), "utf-8"), dir, projectDir).map((v) => `SD 標準檢查未通過：${v}`);
   } catch {
     return []; // 檔案缺漏已由一般交件檢查回報
   }
@@ -178,6 +178,8 @@ export interface DeliverableContext {
   projectDir?: string | null | undefined;
   /** 既有系統才需要既有資料表。 */
   baseline?: string | undefined;
+  /** 全新待選風格已確認選定的風格檔名（mockup-confirm 目前是核准狀態才有值）。 */
+  selectedStyle?: string | undefined;
 }
 
 export async function checkDeliverables(dir: string, roleId: string, def: WorkflowDefinition, ctx: DeliverableContext = {}): Promise<string[]> {
@@ -200,10 +202,10 @@ export async function checkDeliverables(dir: string, roleId: string, def: Workfl
   }
   if (roleId === "sa-analyst") problems.push(...(await checkSa(dir)));
   if (roleId === "db-designer") problems.push(...checkTableSchemas(dir, { baseline: ctx.baseline, projectDir: ctx.projectDir }).map((v) => `資料表結構文件檢查未通過：${v}`));
-  if (roleId === "mockup-designer") problems.push(...checkMockupDir(dir).map((v) => `mockup 檢查未通過：${v}`));
+  if (roleId === "mockup-designer") problems.push(...checkMockupDir(dir, { selectedStyle: ctx.selectedStyle }).map((v) => `mockup 檢查未通過：${v}`));
   if (roleId === "flow-analyst") problems.push(...checkMermaidFile(dir).map((v) => `流程圖（flow.mmd）格式檢查未通過：${v}`));
   if (roleId === "tester") problems.push(...(await checkTest(dir)));
-  if (roleId === "sd-analyst") problems.push(...(await checkSd(dir, def)));
+  if (roleId === "sd-analyst") problems.push(...(await checkSd(dir, def, ctx.projectDir)));
   if (roleId === "backend-engineer") problems.push(...(await checkLayers(dir, def, ctx.projectDir)));
   problems.push(...checkPointers(dir, roleId, def));
   problems.push(...(await checkReuse(dir, roleId, def)));

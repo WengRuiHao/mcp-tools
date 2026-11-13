@@ -26,6 +26,10 @@ const CHECK_NAMES: Readonly<Record<string, string>> = {
   "implementation-content": "checkReuseRecord",
   "test-evidence": "checkTestEvidence",
 };
+/** 已選定的風格：只有 new-select 且 mockup-confirm 目前是核准狀態才算（被退回或重做後視為尚未選定）。 */
+export const effectiveSelectedStyle = (s: TicketStatus): string | undefined =>
+  s.style_source === "new-select" && s.work_item_progress?.gates["mockup-confirm"]?.decision === "confirmed" ? s.selected_style : undefined;
+
 const TECH_AUTO_REASON = "技術來源為沿用現有，只記錄不需確認";
 
 /** 角色 done（交件檢查已全部通過）後，把掛在它後面、由程式檢查的 content／evidence 關卡記為 passed（by:"agent"）。尚未到達的多角色關卡留待最後一個角色。 */
@@ -62,7 +66,7 @@ export async function handleDone(a: WorkItemArgs): Promise<ToolReply> {
   const ctx = await loadWorkItem(workItemId);
   const { def, overrideApplied } = await loadEffectiveDef(ctx.status);
   assertAvailable(ctx.status, def, overrideApplied, roleId);
-  const basic = await checkDeliverables(ctx.dir, roleId, def, { techSource: ctx.status.tech_source, projectDir: ctx.status.project_dir, baseline: ctx.status.baseline });
+  const basic = await checkDeliverables(ctx.dir, roleId, def, { techSource: ctx.status.tech_source, projectDir: ctx.status.project_dir, baseline: ctx.status.baseline, selectedStyle: effectiveSelectedStyle(ctx.status) });
   const problems = basic.length > 0 ? basic : await checkDuplicatesOnDone(ctx.dir, ctx.status.project_dir, roleId, def);
   if (problems.length > 0) throw new WorkItemActionError(`交件檢查未通過，角色「${roleId}」未標記完成：${problems.join("；")}`, { problems });
   const warnings: string[] = [];

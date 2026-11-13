@@ -3,7 +3,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
-import { setupEnv, fulfil, runUntil, CLEAN_REVIEW, VALID_SD } from "./helpers/work-item-env.mjs";
+import { writeExistingUtil, setupEnv, fulfil, runUntil, CLEAN_REVIEW, VALID_SD } from "./helpers/work-item-env.mjs";
 
 const env = await setupEnv("wi-gates-");
 after(() => env.cleanup());
@@ -12,7 +12,7 @@ const verdict = (id, gateId, extra) => env.call({ action: "verdict", workItemId:
 const gateDecision = async (id, gateId) => (await env.store.readStatus(id)).work_item_progress?.gates[gateId];
 
 test("manual 關卡（mockup-confirm）agent 代確認被拒、不寫入；human 可確認", async () => {
-  const { id, dir } = await env.create();
+  const { id, dir } = await env.create({ styleSource: "new-guided" });
   await runUntil(env, id, dir, "mockup-confirm");
   const r = await confirm(id, "mockup-confirm", "agent", { review: CLEAN_REVIEW });
   assert.equal(r.isError, true);
@@ -28,9 +28,10 @@ test("auto 關卡：agent 需完整審查申報；申報不完整或任一硬停
   assert.equal((await confirm(id, "sa-confirm", "agent")).isError, true);
   assert.equal((await confirm(id, "sa-confirm", "agent", { review: { breaksExisting: false } })).isError, true);
   for (const k of ["breaksExisting", "reviewerUncertain", "scopeSplit"]) {
-    const r = await confirm(id, "sa-confirm", "agent", { review: { ...CLEAN_REVIEW, [k]: true } });
+    const r = await confirm(id, "sa-confirm", "agent", { review: { ...CLEAN_REVIEW, [k]: true, reasons: { [k]: "審查員申報的測試理由" } } });
     assert.equal(r.isError, true, k);
     assert.ok(r.json.hardStop || r.json.reason, k);
+    assert.notEqual(r.json.reason, "review-reason-missing", k);
   }
   assert.equal(await gateDecision(id, "sa-confirm"), undefined);
   const ok = await confirm(id, "sa-confirm", "agent", { review: CLEAN_REVIEW, reason: "審查通過" });
@@ -56,6 +57,7 @@ test("destructive-db：SQL 含 DROP 時 agent 無法確認 db-flow-confirm，hum
 test("sensitive-data：關卡相關產出含密碼時 agent 被拒", async () => {
   const { id, dir } = await env.create();
   await runUntil(env, id, dir, "sd-analyst");
+  await writeExistingUtil(env.projectDir);
   await writeFile(path.join(dir, "03-sd.md"), `${VALID_SD}\n連線 password=hunter2secret\n`);
   assert.equal((await env.call({ action: "done", workItemId: id, roleId: "sd-analyst" })).isError, false);
   const r = await confirm(id, "sd-confirm", "agent", { review: CLEAN_REVIEW });

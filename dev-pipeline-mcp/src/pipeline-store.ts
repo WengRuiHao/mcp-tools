@@ -89,6 +89,10 @@ export interface TicketStatus {
   has_db?: boolean;
   /** 畫面風格來源（mockup 確認前可改）。沿用現有／換新／全新有規範／全新待選；同樣刻意不放進 NEW_STATUS。 */
   style_source?: "existing" | "redesign" | "new-guided" | "new-select";
+  /** 全新待選風格（new-select）在 mockup-confirm 確認時使用者選定的風格檔名（sa-mockup/ 內的 style-*.html）；其餘候選移到 sa-mockup/_candidates/。選填，不放進 NEW_STATUS。 */
+  selected_style?: string;
+  /** AI 審查員核准被升級給使用者的紀錄（關卡 id → 申報項目與理由）；關卡有了決定就清除。選填，不放進 NEW_STATUS。 */
+  review_escalations?: Record<string, { at: string; declared: string[]; reasons: string }>;
   /** 技術來源（技術確認前可改）。沿用現有／換技術／全新有規範／全新待選；同樣刻意不放進 NEW_STATUS。 */
   tech_source?: "existing" | "change" | "new-guided" | "new-select";
   /** 建立時存下的 workflow 階段順序與角色清單快照，日後內建定義改了不影響進行中的項目。 */

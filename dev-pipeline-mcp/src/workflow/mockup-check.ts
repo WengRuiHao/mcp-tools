@@ -5,6 +5,10 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 export const MOCKUP_DIR = "sa-mockup";
+/** 落選的風格候選檔移到這個子資料夾（以 _ 開頭的資料夾不納入檢查）。 */
+export const CANDIDATES_DIR = "_candidates";
+/** 風格候選檔檔名（sa-mockup/ 主目錄內）。 */
+export const STYLE_FILE_RE = /^style-[^/\\]+\.html$/i;
 export const MOCKUP_MAX_BYTES = 512 * 1024;
 export const DEMO_STATES_ATTR = "data-demo-states";
 /** 五種必備狀態與容許的名稱寫法（比對時忽略大小寫、底線與連字號）。 */
@@ -77,7 +81,9 @@ function listHtml(dir: string): string[] {
   const walk = (d: string): void => {
     for (const e of readdirSync(d, { withFileTypes: true })) {
       const full = path.join(d, e.name);
-      if (e.isDirectory()) walk(full);
+      if (e.isDirectory()) {
+        if (!e.name.startsWith("_")) walk(full);
+      }
       else if (e.isFile() && /\.html?$/i.test(e.name)) out.push(full);
     }
   };
@@ -128,8 +134,23 @@ export function checkMockupHtml(html: string, name: string, where?: { htmlPath: 
   return out;
 }
 
-/** 檢查工作項目目錄下的 sa-mockup/；資料夾不存在由一般交件檢查回報，這裡回空陣列。 */
-export function checkMockupDir(workItemDir: string): string[] {
+export interface MockupDirOptions {
+  /** 全新待選風格已選定時的檔名：主目錄只能留下這個風格檔（其他畫面檔不受限）。 */
+  selectedStyle?: string | undefined;
+}
+
+/** 已選定風格後的主目錄規則：style-*.html 只能是被選中的那個。 */
+function checkSelectedStyle(root: string, selected: string): string[] {
+  const styles = readdirSync(root, { withFileTypes: true }).filter((e) => e.isFile() && STYLE_FILE_RE.test(e.name)).map((e) => e.name);
+  const out: string[] = [];
+  if (!styles.includes(selected)) out.push(`${MOCKUP_DIR}/ 找不到使用者已選定的風格檔 ${selected}`);
+  const extra = styles.filter((n) => n !== selected);
+  if (extra.length > 0) out.push(`${MOCKUP_DIR}/ 已選定風格 ${selected}，主目錄不可再有其他風格候選檔（${extra.join("、")}）；落選的請移到 ${MOCKUP_DIR}/${CANDIDATES_DIR}/`);
+  return out;
+}
+
+/** 檢查工作項目目錄下的 sa-mockup/（略過 _ 開頭的子資料夾）；資料夾不存在由一般交件檢查回報，這裡回空陣列。 */
+export function checkMockupDir(workItemDir: string, opts: MockupDirOptions = {}): string[] {
   const root = path.join(workItemDir, MOCKUP_DIR);
   try {
     if (!statSync(root).isDirectory()) return [];
@@ -138,9 +159,10 @@ export function checkMockupDir(workItemDir: string): string[] {
   }
   const files = listHtml(root);
   if (files.length === 0) return [`${MOCKUP_DIR}/ 內至少要有一個 html 檔`];
-  return files.flatMap((f) => {
+  const selectedProblems = opts.selectedStyle ? checkSelectedStyle(root, opts.selectedStyle) : [];
+  return [...selectedProblems, ...files.flatMap((f) => {
     const rel = path.relative(workItemDir, f).split(path.sep).join("/");
     const html = readFileSync(f, "utf-8");
     return checkMockupHtml(html, rel, { htmlPath: f, root });
-  });
+  })];
 }

@@ -5,6 +5,7 @@ import { loadWorkItem } from "./context.js";
 import { listDeliverables } from "./deliverable-list.js";
 import { existingSummaryFile } from "./final-summary-io.js";
 import type { WorkItemArgs } from "./schema.js";
+import { escalationsOf } from "./review-escalation.js";
 import { buildView, nextBlock } from "./view.js";
 
 export async function handleGet(a: WorkItemArgs): Promise<ToolReply> {
@@ -13,6 +14,8 @@ export async function handleGet(a: WorkItemArgs): Promise<ToolReply> {
   const v = await buildView(ctx);
   const s = ctx.status;
   const summaryFile = await existingSummaryFile(ctx.dir, s);
+  const pending = new Set(v.gates.map((g) => g.gateId));
+  const escalations = Object.fromEntries(Object.entries(escalationsOf(s)).filter(([gateId]) => pending.has(gateId)));
   return okReply({
     workItemId: ctx.id,
     dir: ctx.dir,
@@ -28,6 +31,8 @@ export async function handleGet(a: WorkItemArgs): Promise<ToolReply> {
     flowOverrideApplied: v.overrideApplied,
     doneRoles: v.next.doneRoles,
     consecutiveFailCount: v.next.consecutiveFailCount,
+    ...(s.selected_style ? { selectedStyle: s.selected_style } : {}),
+    ...(Object.keys(escalations).length > 0 ? { reviewEscalations: escalations } : {}),
     ...(summaryFile ? { summaryFile } : {}),
     ...(await listDeliverables(ctx.dir, v.def)),
     ...nextBlock(v),

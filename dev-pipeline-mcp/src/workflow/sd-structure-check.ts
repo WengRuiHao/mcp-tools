@@ -1,5 +1,5 @@
 // SD 新標準檢查（取代舊 C3「重用與共用設計」標題檢查）。格式以 docs/sasd-standard/SD-範本.md 為準。
-// 純文字檢查，回傳違規逐項說明（空陣列＝合格）；帶 workItemDir 時另檢查「使用資料表」連結的 TableSchema 檔案存在。
+// 純文字檢查，回傳違規逐項說明（空陣列＝合格）；帶 workItemDir 時另檢查「使用資料表」連結的 TableSchema 檔案存在；帶 projectDir 時再核對重用既有與對應 DB 欄位。
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { headingMatches } from "./heading-match.js";
@@ -9,6 +9,7 @@ import { extractSection } from "./reuse-record-check.js";
 import { eachLine, listHeadings } from "./sa-image-check.js";
 import { META_SENTENCES, termRe } from "./sa-standard-check.js";
 import { checkSdApis, parseSdApis, splitCommonMethods } from "./sd-api-parse.js";
+import { checkInputDbColumns, checkReuseExistingRows } from "./sd-reuse-check.js";
 import { TABLE_SCHEMA_DIR } from "./table-schema-check.js";
 import { hasTableSection } from "./table-schema-doc.js";
 import { checkVersionHistory } from "./version-history-check.js";
@@ -174,7 +175,7 @@ function checkWording(text: string): string[] {
 }
 
 /** 檢查 03-sd.md 全文是否符合 SD 新標準；workItemDir 有帶才檢查 TableSchema 檔案是否存在。 */
-export function checkSdStructure(text: string, workItemDir?: string): string[] {
+export function checkSdStructure(text: string, workItemDir?: string, projectDir?: string | null): string[] {
   const out = [...checkBasicInfo(text), ...checkVersionHistory(text, SD_FILE_NAME), ...checkTopOrder(text)];
   const secs = specSections(text, out);
   // 沒有動資料庫的工作項目（TableSchema/ 內沒有任何結構文件）：使用資料表可以沒有資料列，表頭仍要在
@@ -185,5 +186,10 @@ export function checkSdStructure(text: string, workItemDir?: string): string[] {
   if (rows[3]) checkResponses(rows[3], out);
   const apis = parseSdApis(text);
   if (apis) out.push(...checkSdApis(apis, known, SD_FILE_NAME));
+  // 事實核對（重用既有的檔案與方法、INPUT 對應 DB 欄位）需要專案目錄；沒有就略過
+  if (projectDir) {
+    if (rows[2]) out.push(...checkReuseExistingRows(rows[2], projectDir, SD_FILE_NAME));
+    if (apis && workItemDir !== undefined) out.push(...checkInputDbColumns(apis, workItemDir, projectDir, SD_FILE_NAME));
+  }
   return [...out, ...checkWording(text)];
 }

@@ -43,7 +43,7 @@ test("硬停點由使用者核准：human 仍須附原話", async () => {
 });
 
 test("人工關卡（mockup-confirm）原本就要原話，行為不變", async () => {
-  const { id, dir } = await env.create();
+  const { id, dir } = await env.create({ styleSource: "new-guided" });
   await runUntil(env, id, dir, "mockup-confirm");
   assert.equal((await confirm(id, "mockup-confirm", "confirmed")).isError, true);
   assert.equal((await confirm(id, "mockup-confirm", "confirmed", { reason: "使用者說確認" })).isError, false);

@@ -10,6 +10,7 @@ import type { WorkflowDefinition } from "../workflow/schema.js";
 import { isRoleDone } from "../workflow/work-item-progress.js";
 import { errorMessage } from "./common.js";
 import { loadEffectiveDef } from "./context.js";
+import { escalationsOf } from "./review-escalation.js";
 import { ROLE_LABELS, viewFor } from "./view.js";
 
 /**
@@ -91,9 +92,13 @@ function gateSection(status: TicketStatus, def: WorkflowDefinition): string[] {
   const gates = status.work_item_progress?.gates ?? {};
   const rows = resolved.gates.map((g) => {
     const r = gates[g.id];
-    if (!r) return `| ${cell(gateLabel(g.id))} | 尚無紀錄 | | | |`;
+    if (!r) {
+      const esc = escalationsOf(status)[g.id];
+      return `| ${cell(gateLabel(g.id))} | 尚無紀錄 | | | ${esc ? cell(`AI 審查員已升級給使用者（申報 ${esc.declared.join("、")}）：${esc.reasons}`) : ""} |`;
+    }
+    const styleNote = g.id === "mockup-confirm" && r.decision === "confirmed" && status.selected_style ? `（選定風格：${status.selected_style}）` : "";
     const who = r.by === "human" ? "human（使用者本人）" : `agent（${deciderText(r)}）`;
-    return `| ${cell(gateLabel(g.id))} | ${decisionText(r.decision)} | ${who} | ${formatTime(r.at)} | ${cell(r.reason ?? "")} |`;
+    return `| ${cell(gateLabel(g.id))} | ${decisionText(r.decision)} | ${who} | ${formatTime(r.at)} | ${cell(`${r.reason ?? ""}${styleNote}`)} |`;
   });
   return ["## 關卡確認紀錄", "", "只保留各關卡最後一次的決定；「使用者原話」欄是 human 確認時附的原文，agent 則是審查理由。", "", "| 關卡 | 決定 | 誰 | 時間 | 使用者原話／理由 |", "| --- | --- | --- | --- | --- |", ...rows, ""];
 }

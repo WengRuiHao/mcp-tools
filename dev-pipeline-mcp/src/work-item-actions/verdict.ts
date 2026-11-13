@@ -7,7 +7,9 @@ import { WorkItemActionError, need, okReply, type ToolReply } from "./common.js"
 import { doneRoleIds } from "./confirm.js";
 import { loadEffectiveDef, loadWorkItem } from "./context.js";
 import { parseVerdictFile } from "./deliverables.js";
-import { authorizeDecision, requireAgentRejectReason, requireHumanQuote, withReviewNote } from "./gate-guard.js";
+import { authorizeDecision, requireAgentRejectReason, requireHumanQuote, requireReviewReasons, withReviewNote } from "./gate-guard.js";
+import { recordEscalation, withoutEscalation } from "./review-escalation.js";
+import type { TicketStatus } from "../pipeline-store.js";
 import type { WorkItemArgs } from "./schema.js";
 import { refreshIndexDoc } from "./index-doc.js";
 import { nextBlock, viewFor } from "./view.js";
@@ -40,23 +42,30 @@ export async function handleVerdict(a: WorkItemArgs): Promise<ToolReply> {
   if (def.gates.find((g) => g.id === gateId)?.type !== "verdict") throw new WorkItemActionError(`關卡「${gateId}」不是判定關卡。`);
   requireHumanQuote(def, gateId, by, a.reason, result === "pass" ? "pass" : "fail");
   requireAgentRejectReason(gateId, by, result === "pass" ? "confirmed" : "rejected", a.reason, "verdict");
+  if (result === "pass") requireReviewReasons(by, a.review);
   const reason = withReviewNote(a.reason, by, a.review);
   let failInfo: Record<string, unknown> = {};
   let rewound: string[] = [];
-  const updated = await updateStatus(ctx.id, async (s) => {
-    await authorizeDecision({ dir: ctx.dir, status: s }, def, gateId, by, a.review, result === "fail");
-    if (by === "agent") await assertMatchesReport(ctx.dir, def, gateId, result, a.rootCause?.trim());
-    if (result === "pass") {
-      const r = applyGateDecision(s, gateId, { decision: "passed", by, ...(reason !== undefined ? { reason } : {}) }, { def });
+  let updated: TicketStatus;
+  try {
+    updated = await updateStatus(ctx.id, async (s) => {
+      await authorizeDecision({ dir: ctx.dir, status: s }, def, gateId, by, a.review, result === "fail");
+      if (by === "agent") await assertMatchesReport(ctx.dir, def, gateId, result, a.rootCause?.trim());
+      if (result === "pass") {
+        const r = applyGateDecision(s, gateId, { decision: "passed", by, ...(reason !== undefined ? { reason } : {}) }, { def });
+        if (!r.ok) throw new WorkItemActionError(r.error);
+        return withoutEscalation(r.status, gateId);
+      }
+      const r = applyVerdictFail(s, gateId, (a.rootCause ?? "").trim(), { def, by, ...(reason !== undefined ? { reason } : {}) });
       if (!r.ok) throw new WorkItemActionError(r.error);
-      return r.status;
-    }
-    const r = applyVerdictFail(s, gateId, (a.rootCause ?? "").trim(), { def, by, ...(reason !== undefined ? { reason } : {}) });
-    if (!r.ok) throw new WorkItemActionError(r.error);
-    failInfo = { routedTo: r.routedTo, rewound: r.rewound, consecutiveFailCount: r.consecutiveFailCount, requireManual: r.requireManual, ...(r.hardStop ? { hardStop: r.hardStop } : {}) };
-    rewound = doneRoleIds(s).filter((id) => !doneRoleIds(r.status).includes(id));
-    return r.status;
-  });
+      failInfo = { routedTo: r.routedTo, rewound: r.rewound, consecutiveFailCount: r.consecutiveFailCount, requireManual: r.requireManual, ...(r.hardStop ? { hardStop: r.hardStop } : {}) };
+      rewound = doneRoleIds(s).filter((id) => !doneRoleIds(r.status).includes(id));
+      return withoutEscalation(r.status, gateId);
+    });
+  } catch (e) {
+    if (by === "agent" && result === "pass" && e instanceof WorkItemActionError) await recordEscalation(ctx.id, gateId, a.review);
+    throw e;
+  }
   const extra = result === "fail" ? { ...failInfo, rewoundRoles: rewound } : {};
   const indexWarning = await refreshIndexDoc({ dir: ctx.dir, status: updated }, { def, overrideApplied });
   return okReply({ workItemId: ctx.id, gateId, result, by, ...extra, ...(indexWarning ? { indexWarning } : {}), ...nextBlock(viewFor(updated, def, overrideApplied)) });

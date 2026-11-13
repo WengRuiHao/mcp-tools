@@ -8,7 +8,7 @@ after(() => env.cleanup());
 const confirm = (id, reason) => env.call({ action: "confirm", workItemId: id, gateId: "mockup-confirm", decision: "confirmed", by: "human", reason });
 
 async function ready() {
-  const { id, dir } = await env.create();
+  const { id, dir } = await env.create({ styleSource: "new-guided" });
   await runUntil(env, id, dir, "mockup-confirm");
   return id;
 }

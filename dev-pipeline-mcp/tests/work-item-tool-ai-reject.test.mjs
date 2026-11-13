@@ -13,9 +13,9 @@ const doneRoles = async (id) => (await env.store.readStatus(id)).work_item_progr
 
 /** 各硬性停止的設定方式：回傳要附的 review（breaks-existing 等靠申報），其餘靠改檔或狀態。sa-confirm 的 agent 核准在這些條件下都會被擋。 */
 const HARD_STOPS = {
-  "breaks-existing": async () => ({ ...CLEAN_REVIEW, breaksExisting: true }),
-  "reviewer-uncertain": async () => ({ ...CLEAN_REVIEW, reviewerUncertain: true }),
-  "scope-split": async () => ({ ...CLEAN_REVIEW, scopeSplit: true }),
+  "breaks-existing": async () => ({ ...CLEAN_REVIEW, breaksExisting: true, reasons: { breaksExisting: "移除了既有的自動查詢" } }),
+  "reviewer-uncertain": async () => ({ ...CLEAN_REVIEW, reviewerUncertain: true, reasons: { reviewerUncertain: "SA 與 impact 互相矛盾" } }),
+  "scope-split": async () => ({ ...CLEAN_REVIEW, scopeSplit: true, reasons: { scopeSplit: "模組切分使用者尚未決定" } }),
   "destructive-db": async (_id, dir) => { await writeFile(path.join(dir, "02-db.sql"), "DROP TABLE users;"); return CLEAN_REVIEW; },
   "sensitive-data": async (_id, dir) => { await writeFile(path.join(dir, "sa-notes.md"), "連線 password=hunter2secret\n"); return CLEAN_REVIEW; },
   "consecutive-fail-3": async (id) => { await env.store.updateStatus(id, (s) => ({ ...s, consecutive_fail_count: 3 })); return CLEAN_REVIEW; },
@@ -84,7 +84,7 @@ test("verdict：連續失敗已達 3 次，AI 判 pass 被擋、判 fail 通過�
 });
 
 test("人工關卡（mockup-confirm）：AI 不可核准，但可打回並退回 mockup 設計師", async () => {
-  const { id, dir } = await env.create();
+  const { id, dir } = await env.create({ styleSource: "new-guided" });
   await runUntil(env, id, dir, "mockup-confirm");
   assert.equal((await confirm(id, "mockup-confirm", "agent", { rest: { review: CLEAN_REVIEW, reason: "看起來可以" } })).isError, true);
   const r = await confirm(id, "mockup-confirm", "agent", { decision: "rejected", rest: { reason: "缺少失敗狀態的畫面" } });
@@ -119,7 +119,7 @@ test("final-acceptance：AI 核准與打回都被擋（含乾淨申報與理由�
 });
 
 test("人工確認仍需使用者原話（≥2 字）；AI 打回不影響人工路徑", async () => {
-  const { id, dir } = await env.create();
+  const { id, dir } = await env.create({ styleSource: "new-guided" });
   await runUntil(env, id, dir, "mockup-confirm");
   assert.equal((await confirm(id, "mockup-confirm", "human", {})).isError, true);
   assert.equal((await confirm(id, "mockup-confirm", "human", { rest: { reason: "好" } })).isError, true);

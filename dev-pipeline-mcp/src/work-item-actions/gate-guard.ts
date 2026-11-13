@@ -62,10 +62,15 @@ export async function authorizeDecision(
   }
   const ticket = { workflow_id: SPEC_FIRST_ID, project_dir: ctx.status.project_dir, consecutive_fail_count: ctx.status.consecutive_fail_count };
   const first = await evaluateAgentConfirmation(ticket, gateId, review, def);
-  if (!first.ok) throw new WorkItemActionError(first.message, { reason: first.reason, hardStop: first.hardStop });
+  if (!first.ok) {
+    const why = reviewReasonText(review);
+    throw new WorkItemActionError(`${first.message}${why ? `審查員申報理由：${why}。` : ""}`, { reason: first.reason, hardStop: first.hardStop, ...(why ? { reviewReasons: why } : {}) });
+  }
   const d = decideGate(def, gateId, ctx.status, await gateSignals(ctx.dir, def, gateId, ctx.status, review));
   if (d.mode !== "auto") {
-    throw new WorkItemActionError(`關卡「${gateId}」此次需人工確認，agent 不可代為決定（reason: ${d.reason}${d.hardStop ? `，hardStop: ${d.hardStop}` : ""}）。請由使用者本人確認。`, {
+    const why = reviewReasonText(review);
+    throw new WorkItemActionError(`關卡「${gateId}」此次需人工確認，agent 不可代為決定（reason: ${d.reason}${d.hardStop ? `，hardStop: ${d.hardStop}` : ""}）。請由使用者本人確認。${why ? `審查員申報理由：${why}。` : ""}`, {
+      ...(why ? { reviewReasons: why } : {}),
       reason: d.reason,
       ...(d.hardStop ? { hardStop: d.hardStop } : {}),
     });
@@ -115,11 +120,42 @@ export function requireAgentRejectReason(gateId: string, by: "human" | "agent", 
   throw new WorkItemActionError(`AI ${via === "verdict" ? "判定不通過" : "打回"}關卡「${gateId}」必須附 reason（至少 ${MIN_HUMAN_QUOTE_CHARS} 個字元），說明退回的理由。`);
 }
 
-/** 把審查員申報寫進理由，留下可稽核的紀錄。 */
+/** 審查申報理由：去除空白後至少幾個字元。 */
+export const MIN_REVIEW_REASON_CHARS = 4;
+export const REVIEW_KEYS = ["breaksExisting", "reviewerUncertain", "scopeSplit"] as const;
+
+const asRecord = (v: unknown): Record<string, unknown> => (typeof v === "object" && v !== null ? (v as Record<string, unknown>) : {});
+const reasonOf = (review: unknown, key: string): string => {
+  const v = asRecord(asRecord(review).reasons)[key];
+  return typeof v === "string" ? v.trim() : "";
+};
+
+/** 審查申報為 true 的項目與其理由（理由沒給為空字串）。 */
+export function declaredReasons(review: unknown): { key: string; reason: string }[] {
+  const r = asRecord(review);
+  return REVIEW_KEYS.filter((k) => r[k] === true).map((key) => ({ key, reason: reasonOf(review, key) }));
+}
+
+/** by:"agent" 核准時：申報為 true 的項目都要附理由（去空白後至少 MIN_REVIEW_REASON_CHARS 字元），缺了就拒絕並指出哪一項。 */
+export function requireReviewReasons(by: "human" | "agent", review: unknown): void {
+  if (by !== "agent") return;
+  const missing = declaredReasons(review).filter((d) => d.reason.replace(/\s/g, "").length < MIN_REVIEW_REASON_CHARS).map((d) => d.key);
+  if (missing.length === 0) return;
+  throw new WorkItemActionError(`審查申報 ${missing.join("、")} 為 true，必須在 review.reasons 對應鍵附一句理由（去除空白後至少 ${MIN_REVIEW_REASON_CHARS} 個字元），讓使用者看得出為何被升級，例如 review.reasons.${missing[0]}="…"。判準見 work_item role_prompt roleId="reviewer"。`, { reason: "review-reason-missing", missingReasons: missing });
+}
+
+/** 申報理由的一行文字（只列為 true 或有附理由的項目）；沒有則為 undefined。 */
+export function reviewReasonText(review: unknown): string | undefined {
+  const parts = REVIEW_KEYS.flatMap((k) => (reasonOf(review, k) !== "" ? [`${k}＝${reasonOf(review, k)}`] : []));
+  return parts.length > 0 ? parts.join("；") : undefined;
+}
+
+/** 把審查員申報（含理由）寫進理由，留下可稽核的紀錄。 */
 export function withReviewNote(reason: string | undefined, by: "human" | "agent", review: unknown): string | undefined {
   if (by !== "agent" || typeof review !== "object" || review === null) return reason;
   const r = review as Record<string, unknown>;
-  const note = `審查申報 breaksExisting=${String(r.breaksExisting)}、reviewerUncertain=${String(r.reviewerUncertain)}、scopeSplit=${String(r.scopeSplit)}`;
+  const why = reviewReasonText(review);
+  const note = `審查申報 breaksExisting=${String(r.breaksExisting)}、reviewerUncertain=${String(r.reviewerUncertain)}、scopeSplit=${String(r.scopeSplit)}${why ? `；申報理由：${why}` : ""}`;
   return reason ? `${reason}（${note}）` : note;
 }
 

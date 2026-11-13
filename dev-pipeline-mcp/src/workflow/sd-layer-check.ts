@@ -13,7 +13,7 @@ export const IMPL_LAYER_HEADER: readonly string[] = ["API", ...LAYER_NAMES];
 
 const clean = (c: string): string => c.replace(/[`*]/g, "").trim();
 const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const hasWord = (text: string, word: string): boolean => new RegExp(`(?<![\\w$])${escapeRe(word)}(?![\\w$])`).test(text);
+export const hasWord = (text: string, word: string): boolean => new RegExp(`(?<![\\w$])${escapeRe(word)}(?![\\w$])`).test(text);
 
 /** SD 宣告得出的三層（格式不對的層由 sd-structure-check 回報，這裡略過）。 */
 function declaredLayers(api: SdApi): { layer: string; decl: LayerDecl }[] {
@@ -23,7 +23,7 @@ function declaredLayers(api: SdApi): { layer: string; decl: LayerDecl }[] {
   });
 }
 
-function insideProject(projectDir: string, file: string): string | null {
+export function insideProject(projectDir: string, file: string): string | null {
   const base = path.resolve(projectDir);
   const full = path.resolve(base, file);
   const rel = path.relative(base, full);

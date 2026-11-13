@@ -65,7 +65,7 @@ test("無法寫索引（路徑被資料夾佔用）：write 與 done 仍成功�
 });
 
 test("使用者原話含直線與換行：表格不會被撐壞", async () => {
-  const { id, dir } = await env.create();
+  const { id, dir } = await env.create({ styleSource: "new-guided" });
   await runUntil(env, id, dir, "mockup-confirm");
   const r = await env.call({ action: "confirm", workItemId: id, gateId: "mockup-confirm", decision: "confirmed", by: "human", reason: "確認 | 沒問題\n換行" });
   assert.equal(r.isError, false);

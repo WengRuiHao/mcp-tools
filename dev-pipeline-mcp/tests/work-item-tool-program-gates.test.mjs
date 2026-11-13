@@ -55,7 +55,7 @@ test("A1：flow.json 把 test-evidence 覆寫成 manual 時不自動通過，要
 });
 
 test("A2：manual 關卡（mockup-confirm、final-acceptance）human 必附 ≥2 字原話；空白不算字數", async () => {
-  const { id, dir } = await env.create();
+  const { id, dir } = await env.create({ styleSource: "new-guided" });
   await runUntil(env, id, dir, "mockup-confirm");
   for (const reason of [undefined, "", "   ", "好", " 好 ", "o "]) {
     const r = await confirm(id, "mockup-confirm", { by: "human", ...(reason !== undefined ? { reason } : {}) });
@@ -70,7 +70,7 @@ test("A2：manual 關卡（mockup-confirm、final-acceptance）human 必附 ≥2
 });
 
 test("A2：2 個字元的原話（確認、同意）通過，前後空白不算字數", async () => {
-  const { id, dir } = await env.create();
+  const { id, dir } = await env.create({ styleSource: "new-guided" });
   await runUntil(env, id, dir, "mockup-confirm");
   assert.equal((await confirm(id, "mockup-confirm", { by: "human", reason: " 確 認 " })).isError, false);
   await runUntil(env, id, dir, "final-acceptance-none");

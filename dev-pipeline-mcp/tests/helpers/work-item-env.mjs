@@ -18,6 +18,11 @@ export async function writeLayerFiles(projectDir) {
   await mkdir(path.join(projectDir, "src", "api"), { recursive: true });
   for (const [f, m] of [["login-controller", "login"], ["login-service", "login"], ["login-repository", "findAccount"]]) await writeFile(path.join(projectDir, "src", "api", `${f}.js`), `export function ${m}() {}\n`);
 }
+/** VALID_SD「重用既有」列指向的既有程式（SD 交件會核對檔案與方法真的存在）。 */
+export async function writeExistingUtil(projectDir) {
+  await mkdir(path.join(projectDir, "src", "main"), { recursive: true });
+  await writeFile(path.join(projectDir, "src", "main", "ExcelUtil.java"), "public class ExcelUtil { public static void write() {} }" + String.fromCharCode(10));
+}
 /** 對應預設 02-db.sql（CREATE TABLE t (id INT)）的合格資料表結構文件。 */
 export const VALID_TABLE_SCHEMA = [
   "# t 資料表結構", "", "## 本文件包含的資料表", "", "| 資料表 | 說明 |", "| --- | --- |", "| t | 帳號 |", "",
@@ -51,7 +56,7 @@ export const VALID_SD = [
   "## 目錄", "", "一、規格說明", "二、API 說明", "",
   "## 規格說明", "", "### 1. 使用資料表", "", "| Table | 功能 | 說明 | 結構文件 |", "| --- | --- | --- | --- |", "| t | 帳號 | 帳號資料 | [t 資料表結構](TableSchema/t.md#t) |", "",
   "### 2. 前端功能與 API 對應表", "", "| 前端功能 | 觸發時機 | 呼叫的 API | 成功時 | 失敗時 | 前端位置 |", "| --- | --- | --- | --- | --- | --- |", "| 登入 | 按下登入 | 登入 `POST /api/login` | 進入首頁 | 訊息區顯示錯誤 | src/ui/login-page.js |", "",
-  "### 3. 共用方法清單", "", "| 共用方法 | 位置 | 類型 | 被誰使用 | 說明 |", "| --- | --- | --- | --- | --- |", "| ExcelUtil | src/main/ExcelUtil.java | 重用既有 | 登入 API 的服務層 | 既有工具 |", "",
+  "### 3. 共用方法清單", "", "| 共用方法 | 位置 | 類型 | 被誰使用 | 說明 |", "| --- | --- | --- | --- | --- |", "| ExcelUtil | src/main/ExcelUtil.java | 重用既有 | 登入 API 的服務層 | 既有 Excel 匯出工具，登入紀錄下載時直接沿用 |", "",
   "### 4. 共用回應與錯誤碼", "", "| HTTP | code | message | 說明 | 檢核位置 | 前端提示位置 |", "| --- | --- | --- | --- | --- | --- |", "| 401 | LOGIN_FAILED | 帳號或密碼錯誤 | 驗證失敗 | 僅後端 | 訊息區 |", "",
   "## API 說明", "", "### 1. 登入", "", "**URL:** /api/login", "", "**METHOD:** POST", "", "**Controller:** src/api/login-controller.js ── login()", "", "**Service:** src/api/login-service.js ── login()", "", "**Repository:** src/api/login-repository.js ── findAccount()", "", "**使用的共用方法:** ExcelUtil", "",
   "#### INPUT", "", "| ElementName | ElementType | 必填 | 對應 DB 欄位 | 註解 |", "| --- | --- | --- | --- | --- |", "| account | string | Y | t.id | 帳號 |", "",
@@ -98,7 +103,10 @@ export async function fulfil(dir, roleId, opts = {}) {
     "sa-analyst": async () => { await w("01-sa.md", VALID_SA); await w("sa-notes.md", "## 待確認問題\n- 無\n"); await writeFile(path.join(dir, "sa-images", "a.png"), PNG); },
     "db-designer": async () => { await w("02-db.sql", opts.sql ?? "CREATE TABLE t (id INT PRIMARY KEY);"); await w("TableSchema/t.md", VALID_TABLE_SCHEMA); await w("TableSchema/system-er.md", VALID_SYSTEM_ER); await w("TableSchema/er/t.png", PNG); await w("TableSchema/er/system-er.png", PNG); },
     "flow-analyst": async () => { await w("flow.mmd", "graph TD\nA-->B"); await writeFile(path.join(dir, "flow.png"), PNG); },
-    "sd-analyst": () => w("03-sd.md", VALID_SD),
+    "sd-analyst": async () => {
+      await writeExistingUtil(JSON.parse(await readFile(path.join(dir, "status.json"), "utf-8")).project_dir);
+      await w("03-sd.md", VALID_SD);
+    },
     "spec-verifier": () => w("spec-check.md", opts.verdictText ?? "PASS\n對照表"),
     "frontend-engineer": () => w("impl-fe.md", `FE\n${REUSE_RECORD_OK}${CHANGED_FILES_FE}`),
     "backend-engineer": async () => { await writeLayerFiles(JSON.parse(await readFile(path.join(dir, "status.json"), "utf-8")).project_dir); await w("impl-be.md", `BE\n${IMPL_LAYERS_OK}${REUSE_RECORD_OK}${CHANGED_FILES_BE}`); },
@@ -109,6 +117,13 @@ export async function fulfil(dir, roleId, opts = {}) {
     },
   };
   await files[roleId]();
+}
+
+/** 全新待選風格（new-select）確認 mockup-confirm 要帶 selected：補一個風格檔並回傳參數；其他風格來源回空物件。 */
+export async function selectedStyleArgs(dir) {
+  if (JSON.parse(await readFile(path.join(dir, "status.json"), "utf-8")).style_source !== "new-select") return {};
+  await writeFile(path.join(dir, "sa-mockup", "style-a.html"), VALID_MOCKUP);
+  return { selected: "style-a.html" };
 }
 
 const STEPS = [
@@ -134,7 +149,8 @@ export async function runUntil(env, id, dir, stopBefore) {
     } else if (kind === "verdict") {
       r = await env.call({ action: "verdict", workItemId: id, gateId: label, result: "pass", by: "agent", review: CLEAN_REVIEW });
     } else {
-      r = await env.call({ action: "confirm", workItemId: id, gateId: label, decision: "confirmed", by: kind, ...(kind === "agent" ? { review: CLEAN_REVIEW } : { reason: "使用者說確認" }) });
+      const selected = label === "mockup-confirm" ? await selectedStyleArgs(dir) : {};
+      r = await env.call({ action: "confirm", workItemId: id, gateId: label, decision: "confirmed", by: kind, ...selected, ...(kind === "agent" ? { review: CLEAN_REVIEW } : { reason: "使用者說確認" }) });
     }
     if (r.isError) throw new Error(`推進到 ${label} 失敗：${r.text}`);
     env.cursor.set(id, i + 1);

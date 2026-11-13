@@ -135,7 +135,7 @@ export function loadExistingTables(workItemDir: string, sqlTables: readonly SqlT
 }
 
 /** 欄位清單表格內列出的欄位名（章節缺少或表頭不符回空陣列；格式問題由 checkColumnList 回報）。 */
-function listedColumns(sectionBody: string): string[] {
+export function listedColumns(sectionBody: string): string[] {
   const body = extractSection(sectionBody, COLUMN_LIST_HEADING);
   const table = body === null ? null : parseTable(body);
   if (table === null || !sameHeader(table.header, COLUMN_LIST_HEADER)) return [];

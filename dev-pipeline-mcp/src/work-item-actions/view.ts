@@ -46,9 +46,9 @@ export function describeGate(g: PendingGate): GateView {
     const why = g.hardStop ? `（觸發硬停點 ${g.hardStop}，核准必須由使用者處理；AI 發現問題仍可用 by="agent"、decision="rejected"、reason 打回）` : "";
     return { ...base, waitingFor: "user", howTo: `等使用者本人確認${why}：使用者說確認或打回後，用 confirm（gateId="${g.gateId}"、by="human"）。` };
   }
-  if (g.type === "verdict") return { ...base, waitingFor: "ai-review", howTo: `由獨立審查員（不是作者）審查，再用 verdict（gateId="${g.gateId}"、result、by="agent"、review）裁決；不通過要帶 rootCause。` };
-  if (g.type === "confirmation") return { ...base, waitingFor: "ai-review", howTo: `由獨立審查員（不是作者）審查，再用 confirm（gateId="${g.gateId}"、by="agent"、review）代為確認；硬停點命中時 AI 不可核准，改由使用者確認；發現問題時 AI 可用 confirm（decision="rejected"、by="agent"、reason 必填）打回，退回上一個工作階段。` };
-  return { ...base, waitingFor: "ai-review", howTo: `由獨立審查員（不是作者）審查，再用 confirm（gateId="${g.gateId}"、by="agent"、review）代為確認。` };
+  if (g.type === "verdict") return { ...base, waitingFor: "ai-review", howTo: `先用 role_prompt（roleId="reviewer"）讀審查員說明書，由獨立審查員（不是作者）審查，再用 verdict（gateId="${g.gateId}"、result、by="agent"、review）裁決；不通過要帶 rootCause。` };
+  if (g.type === "confirmation") return { ...base, waitingFor: "ai-review", howTo: `先用 role_prompt（roleId="reviewer"）讀審查員說明書，由獨立審查員（不是作者）審查，再用 confirm（gateId="${g.gateId}"、by="agent"、review，申報為 true 的項目要在 review.reasons 附理由）代為確認；硬停點命中時 AI 不可核准，改由使用者確認；發現問題時 AI 可用 confirm（decision="rejected"、by="agent"、reason 必填）打回，退回上一個工作階段。` };
+  return { ...base, waitingFor: "ai-review", howTo: `先用 role_prompt（roleId="reviewer"）讀審查員說明書，由獨立審查員（不是作者）審查，再用 confirm（gateId="${g.gateId}"、by="agent"、review，申報為 true 的項目要在 review.reasons 附理由）代為確認。` };
 }
 
 const waitText = (x: GateView): string => (x.gateId === TECH_CONFIRM_GATE && x.waitingFor === "user" ? "等使用者確認技術棧，AI 不可代確認" : WAIT_TEXT[x.waitingFor]);

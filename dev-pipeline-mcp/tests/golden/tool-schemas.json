@@ -1727,8 +1727,8 @@
  },
  "toolCount": 43,
  "work_item": {
-  "descriptionLength": 1515,
-  "descriptionSha256": "5a4f6d5cb2e5cb1a57ac4948fab025b14d8204efbd08794cc5366f0c495dd50e",
+  "descriptionLength": 1757,
+  "descriptionSha256": "34ed383c0669954fb935186e0d000af77b0c56ea3bc137a9cb81b12a296a3b05",
   "inputSchema": {
    "$schema": "http://json-schema.org/draft-07/schema#",
    "additionalProperties": false,
@@ -1869,13 +1869,36 @@
     },
     "review": {
      "additionalProperties": false,
-     "descriptionLength": 75,
-     "descriptionSha256": "06ea37c87300a0a85d84c31b45b3a79a7686e8780bcf1e6f3b811103fc46c298",
+     "descriptionLength": 138,
+     "descriptionSha256": "23ae5cd4be0cc40446837a4defd1faa6190ad5362ac763c517097c52e38f156d",
      "properties": {
       "breaksExisting": {
        "descriptionLength": 15,
        "descriptionSha256": "cb26fbcfd328d53f447b6af4f7a77881b8b84e75c7a58ea40f585fb9aded8852",
        "type": "boolean"
+      },
+      "reasons": {
+       "additionalProperties": false,
+       "descriptionLength": 95,
+       "descriptionSha256": "4c8a5c61c25b62c7b60b669baa629c1a2f84bf695e4df686e81fe4fee6bedc45",
+       "properties": {
+        "breaksExisting": {
+         "descriptionLength": 40,
+         "descriptionSha256": "257f7668252a113f27cb319a3253a0fa7a7c7fba10d2619dc6d53fd771cb7bfd",
+         "type": "string"
+        },
+        "reviewerUncertain": {
+         "descriptionLength": 43,
+         "descriptionSha256": "6b6ea8a46731738be1e4f453dd6db6e4bd3b1412bed8ececc9b0c3aa32e19277",
+         "type": "string"
+        },
+        "scopeSplit": {
+         "descriptionLength": 36,
+         "descriptionSha256": "4769e93e34a9cacb8f20eb7f8eb2abff407703df9cd4766968033786a5969f6d",
+         "type": "string"
+        }
+       },
+       "type": "object"
       },
       "reviewerUncertain": {
        "descriptionLength": 18,
@@ -1908,6 +1931,11 @@
       "backend",
       "both"
      ],
+     "type": "string"
+    },
+    "selected": {
+     "descriptionLength": 185,
+     "descriptionSha256": "f485bc0e8b63ef26050edd815fc8a9551843c7a1c8219b165704c528c049bf47",
      "type": "string"
     },
     "src": {
@@ -1958,7 +1986,7 @@
    ],
    "type": "object"
   },
-  "paramCount": 28
+  "paramCount": 29
  },
  "write_project_file": {
   "descriptionLength": 352,
