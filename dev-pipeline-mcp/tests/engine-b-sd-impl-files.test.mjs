@@ -3,12 +3,12 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
-import { setupEnv, runUntil, fulfil, VALID_SD, REUSE_RECORD_OK, IMPL_LAYERS_OK } from "./helpers/work-item-env.mjs";
+import { setupEnv, runUntil, fulfil, VALID_SD, REUSE_RECORD_OK, FE_SELF_CHECK_OK, IMPL_LAYERS_OK } from "./helpers/work-item-env.mjs";
 import { compareSdWithImpl } from "../dist/workflow/sd-impl-files-check.js";
 
 const env = await setupEnv("wi-eng-b-sdimpl-");
 after(() => env.cleanup());
-const impl = (files) => `說明\n${REUSE_RECORD_OK}## 改動檔案\n${files.map((f) => `- ${f}`).join("\n")}\n`;
+const impl = (files) => `說明\n${REUSE_RECORD_OK}${FE_SELF_CHECK_OK}## 改動檔案\n${files.map((f) => `- ${f}`).join("\n")}\n`;
 
 test("單元：前端位置一致、無差異回空；impl 沒有改動檔案清單時跳過", () => {
   assert.deepEqual(compareSdWithImpl(VALID_SD, impl(["src/ui/login-page.js"]), "frontend"), []);

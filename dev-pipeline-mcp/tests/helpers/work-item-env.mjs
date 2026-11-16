@@ -8,6 +8,7 @@ import path from "node:path";
 export const CLEAN_REVIEW = { breaksExisting: false, reviewerUncertain: false, scopeSplit: false };
 export const REUSABLE_LIST_OK = "影響\n## 可重用清單\n- ExcelUtil：src/main/ExcelUtil.java\n- 已搜尋：日期轉換，未找到\n";
 export const REUSE_RECORD_OK = "## 重用檢查紀錄\n| 搜尋關鍵字 | 找到的候選 | 決定 | 理由 |\n| --- | --- | --- | --- |\n| exportExcel | ExcelUtil.write | 重用 | |\n";
+export const FE_SELF_CHECK_OK = "## 交稿前自檢\n| 項目 | 結果 | 說明 |\n| --- | --- | --- |\n" + ["文字去空白", "數值顯示", "狀態不誤清", "標籤用詞", "共用歸屬", "測試", "實機畫面"].map((n) => `| ${n} | 已做 | 完成 |\n`).join("");
 /** 專案目錄是暫存空目錄（非版本控制），所以實作說明要自己列出「## 改動檔案」；列的檔案不存在也算有清單。 */
 export const CHANGED_FILES_FE = "## 改動檔案\n- src/ui/login-page.js\n";
 export const CHANGED_FILES_BE = "## 改動檔案\n- src/api/login-service.js\n";
@@ -118,7 +119,7 @@ export async function fulfil(dir, roleId, opts = {}) {
       await w("03-sd.md", VALID_SD);
     },
     "spec-verifier": () => w("spec-check.md", opts.verdictText ?? "PASS\n對照表"),
-    "frontend-engineer": () => w("impl-fe.md", `FE\n${REUSE_RECORD_OK}${CHANGED_FILES_FE}`),
+    "frontend-engineer": () => w("impl-fe.md", `FE\n${REUSE_RECORD_OK}${FE_SELF_CHECK_OK}${CHANGED_FILES_FE}`),
     "backend-engineer": async () => { await writeLayerFiles(JSON.parse(await readFile(path.join(dir, "status.json"), "utf-8")).project_dir); await w("impl-be.md", `BE\n${IMPL_LAYERS_OK}${REUSE_RECORD_OK}${CHANGED_FILES_BE}`); },
     verifier: () => w("verify.md", opts.verdictText ?? "PASS\n"),
     tester: async () => {

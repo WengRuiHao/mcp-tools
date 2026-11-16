@@ -3,7 +3,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { setupEnv, runUntil, REUSE_RECORD_OK, IMPL_LAYERS_OK, writeLayerFiles } from "./helpers/work-item-env.mjs";
+import { setupEnv, runUntil, REUSE_RECORD_OK, FE_SELF_CHECK_OK, IMPL_LAYERS_OK, writeLayerFiles } from "./helpers/work-item-env.mjs";
 
 const env = await setupEnv("wi-dup-");
 after(() => env.cleanup());
@@ -11,7 +11,7 @@ const done = (id, roleId) => env.call({ action: "done", workItemId: id, roleId }
 const lines = (n, tag) => Array.from({ length: n }, (_, i) => `  const value_${tag}_${i} = computeSomething(${tag}Input, ${i}) + offsetValue_${i};`);
 const js = (body) => ["function demo() {", ...body, "}", ""].join("\n");
 const put = async (rel, text) => { await mkdir(path.dirname(path.join(env.projectDir, rel)), { recursive: true }); await writeFile(path.join(env.projectDir, rel), text); };
-const impl = (dir, extra) => writeFile(path.join(dir, "impl-fe.md"), `FE\n${REUSE_RECORD_OK}${extra}`);
+const impl = (dir, extra) => writeFile(path.join(dir, "impl-fe.md"), `FE\n${REUSE_RECORD_OK}${FE_SELF_CHECK_OK}${extra}`);
 const WAIVER_HEAD = "## 重複豁免\n| 檔案 | 相似檔案 | 理由 |\n| --- | --- | --- |\n";
 
 async function setup() {

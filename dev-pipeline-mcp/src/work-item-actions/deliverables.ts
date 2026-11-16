@@ -3,6 +3,7 @@ import path from "node:path";
 import { describeRootCauses } from "../workflow/builtin/spec-first.js";
 import type { WorkflowDefinition } from "../workflow/schema.js";
 import { checkDeliverablePointers } from "../workflow/deliverable-pointer-check.js";
+import { checkFeSelfCheck } from "../workflow/fe-self-check.js";
 import { SA_INTERNAL_TERMS, SD_INTERNAL_TERMS } from "../workflow/internal-files.js";
 import { checkMermaidFile } from "../workflow/mermaid-check.js";
 import { checkMockupDir } from "../workflow/mockup-check.js";
@@ -97,7 +98,7 @@ async function checkTest(dir: string): Promise<string[]> {
 /** 角色交件時要檢查內容的產出檔（artifact id）與對應的重用防線檢查（C1、C2）。 */
 const REUSE_CHECKS: Readonly<Record<string, { artifact: string; check: (text: string, fileName: string) => string[] }>> = {
   "baseline-survey": { artifact: "impact", check: checkImpactReuseList },
-  "frontend-engineer": { artifact: "impl-fe", check: checkReuseRecord },
+  "frontend-engineer": { artifact: "impl-fe", check: (text, fileName) => [...checkReuseRecord(text, fileName), ...checkFeSelfCheck(text, fileName)] },
   "backend-engineer": { artifact: "impl-be", check: checkReuseRecord },
 };
 

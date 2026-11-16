@@ -51,6 +51,10 @@ test("done frontend-engineer／backend-engineer：缺重用檢查紀錄或決定
   assert.ok(bad.json.problems.some((p) => p.includes("不合法")));
   assert.ok(bad.json.problems.some((p) => p.includes("搜尋關鍵字空白")));
   assert.ok(bad.json.problems.some((p) => p.includes("理由必填")));
+  await writeFile(path.join(dir, "impl-fe.md"), `FE\n${REUSE_RECORD_OK}## 改動檔案\n- src/ui/login-page.js\n`);
+  const noSelf = await done(id, "frontend-engineer");
+  assert.equal(noSelf.isError, true);
+  assert.ok(noSelf.json.problems.some((p) => p.includes("缺少「## 交稿前自檢」") && p.includes("| 項目 | 結果 | 說明 |")));
   await fulfil(dir, "frontend-engineer");
   assert.equal((await done(id, "frontend-engineer")).isError, false);
   await writeFile(path.join(dir, "impl-be.md"), `BE
