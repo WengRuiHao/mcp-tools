@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { makeTmpDir, removeDir } from "./helpers/support.mjs";
 import { noChangeDocs, writeNoChangeItem, EXISTING_SECTION } from "./helpers/no-change-fixture.mjs";
+import { splitErInline } from "./helpers/sasd-standard.mjs";
 
 const { checkTableSchemas } = await import("../dist/workflow/table-schema-check.js");
 const { parseAlterChanges, parseCreateTables } = await import("../dist/workflow/sql-schema-parse.js");
@@ -113,6 +114,7 @@ const tagsItem = (over) => {
   const dir = writeNoChangeItem(path.join(root, `w${n++}`), { sql: TAGS_SQL, systemEr: tagsSystem(), ...over });
   fs.writeFileSync(path.join(dir, "TableSchema", "tags.md"), tagsDoc());
   fs.copyFileSync(path.join(dir, "TableSchema", "er", "members.png"), path.join(dir, "TableSchema", "er", "tags.png"));
+  splitErInline(dir);
   return dir;
 };
 

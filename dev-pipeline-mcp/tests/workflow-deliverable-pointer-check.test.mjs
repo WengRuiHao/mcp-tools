@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { SA_TEMPLATE, SD_TEMPLATE, tableSchemaTemplates, systemErTemplate } from "./helpers/sasd-standard.mjs";
+import { SA_TEMPLATE, SD_TEMPLATE, tableSchemaTemplates, systemErTemplate, splitErInline } from "./helpers/sasd-standard.mjs";
 import { setupEnv, runUntil, fulfil } from "./helpers/work-item-env.mjs";
 
 const { checkDeliverablePointers } = await import("../dist/workflow/deliverable-pointer-check.js");
@@ -21,6 +21,7 @@ async function makeDir({ sa = SA_TEMPLATE(), sd = SD_TEMPLATE(), schemas = table
   await writeFile(path.join(dir, "03-sd.md"), sd);
   await mkdir(path.join(dir, "TableSchema"));
   for (const [name, text] of Object.entries(schemas)) await writeFile(path.join(dir, "TableSchema", `${name}.md`), text);
+  splitErInline(dir);
   return dir;
 }
 

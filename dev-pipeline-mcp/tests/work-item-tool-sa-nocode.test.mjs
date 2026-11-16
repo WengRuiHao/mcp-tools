@@ -9,7 +9,7 @@ const env = await setupEnv("wi-sanocode-");
 after(() => env.cleanup());
 const done = (id) => env.call({ action: "done", workItemId: id, roleId: "sa-analyst" });
 
-test("done sa-analyst：含程式碼區塊或 SQL 被擋，修正後通過；mermaid 放行", async () => {
+test("done sa-analyst：含程式碼區塊或 SQL 被擋，修正後通過；含 mermaid 也被擋", async () => {
   const { id, dir } = await env.create();
   await runUntil(env, id, dir, "sa-analyst");
   await fulfil(dir, "sa-analyst");
@@ -23,6 +23,10 @@ test("done sa-analyst：含程式碼區塊或 SQL 被擋，修正後通過；mer
   assert.ok(nc.some((p) => p.includes(`第 ${base + 1} 行`) && p.includes("程式碼區塊")));
   assert.ok(nc.some((p) => p.includes(`第 ${base + 4} 行`) && p.includes("SQL")));
   await writeFile(sa, VALID_SA + "\n```mermaid\nflowchart TD\nA-->B\n```\n");
+  const mm = await done(id);
+  assert.equal(mm.isError, true);
+  assert.ok(mm.json.problems.some((p) => p.includes("SA 不寫程式檢查未通過") && p.includes("mermaid")));
+  await writeFile(sa, VALID_SA);
   assert.equal((await done(id)).isError, false);
 });
 

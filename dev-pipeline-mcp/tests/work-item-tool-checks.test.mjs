@@ -9,18 +9,18 @@ const env = await setupEnv("wi-checks-");
 after(() => env.cleanup());
 const done = (id, roleId) => env.call({ action: "done", workItemId: id, roleId });
 
-test("done flow-analyst：flow.mmd 格式不合（無圖類型、script、括號）逐項回報，修正後通過", async () => {
+test("done sd-analyst：flow.mmd 格式不合（無圖類型、script、括號）逐項回報，修正後通過", async () => {
   const { id, dir } = await env.create();
-  await runUntil(env, id, dir, "flow-analyst");
-  await fulfil(dir, "flow-analyst");
+  await runUntil(env, id, dir, "sd-analyst");
+  await fulfil(dir, "sd-analyst");
   await writeFile(path.join(dir, "flow.mmd"), "A[<script>x</script>-->B\n");
-  const bad = await done(id, "flow-analyst");
+  const bad = await done(id, "sd-analyst");
   assert.equal(bad.isError, true);
   assert.ok(bad.json.problems.some((p) => p.includes("圖類型")));
   assert.ok(bad.json.problems.some((p) => p.includes("<script")));
   assert.ok(bad.json.problems.some((p) => p.includes("括號")));
   await writeFile(path.join(dir, "flow.mmd"), "flowchart TD\nA[開始]-->B[結束]\n");
-  assert.equal((await done(id, "flow-analyst")).isError, false);
+  assert.equal((await done(id, "sd-analyst")).isError, false);
 });
 
 test("done tester：缺白箱／黑箱、項目缺圖、圖不存在逐項回報，修正後通過並自動通過 test-evidence", async () => {

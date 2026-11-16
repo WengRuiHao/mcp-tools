@@ -15,10 +15,10 @@ const must = (r) => {
   return r.status;
 };
 const gate = (s, g, decision, by = "agent") => must(applyGateDecision(s, g, { decision, by }));
-const ALL = ["sa-analyst", "db-designer", "flow-analyst", "sd-analyst", "spec-verifier", "frontend-engineer", "backend-engineer", "verifier"];
+const ALL = ["sa-analyst", "db-designer", "sd-analyst", "spec-verifier", "frontend-engineer", "backend-engineer", "verifier"];
 const AFTER_GATES = {
   "sa-analyst": [["sa-content-check", "passed"], ["sa-confirm", "confirmed"]],
-  "flow-analyst": [["db-flow-confirm", "confirmed"]],
+  "db-designer": [["db-flow-confirm", "confirmed"]],
   "sd-analyst": [["sd-confirm", "confirmed"]],
   "spec-verifier": [["spec-check-verdict", "passed"]],
   "backend-engineer": [["implementation-content", "passed"]],
@@ -48,8 +48,7 @@ test("verdict FAIL 各 rootCause：退回目標與倒回範圍（下游清除、
   const cases = {
     sa: ["sa-analyst", ALL],
     db: ["db-designer", ALL.slice(1)],
-    flow: ["flow-analyst", ALL.slice(2)],
-    sd: ["sd-analyst", ALL.slice(3)],
+    sd: ["sd-analyst", ALL.slice(2)],
     fe: ["frontend-engineer", ["frontend-engineer", "verifier"]],
     be: ["backend-engineer", ["backend-engineer", "verifier"]],
   };
@@ -78,7 +77,7 @@ test("上游關卡決定保留、下游關卡決定清除", () => {
 
 test("spec-check-verdict 的 FAIL、不合法 rootCause、被略過的角色", () => {
   let s = mk();
-  for (const id of ["sa-analyst", "db-designer", "flow-analyst", "sd-analyst", "spec-verifier"]) s = must(applyRoleDone(s, id));
+  for (const id of ["sa-analyst", "db-designer", "sd-analyst", "spec-verifier"]) s = must(applyRoleDone(s, id));
   assert.equal(applyVerdictFail(s, "spec-check-verdict", "fe").ok, false);
   assert.match(applyVerdictFail(s, "spec-check-verdict", "toString").error, /routeOnFail/);
   assert.equal(applyVerdictFail(s, "spec-check-verdict", "db").routedTo, "db-designer");

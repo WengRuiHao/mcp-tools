@@ -47,6 +47,12 @@ export function pruneToSnapshot(def: WorkflowDefinition, snapshot: Pick<Workflow
   return { ...def, roles, gates, artifacts };
 }
 
+/** 舊版面（快照含已併入 SD 的 flow-analyst）的工作項目：ER 圖 Mermaid 內嵌在文件、SD 沒有「流程圖」章節，新舊格式都收。 */
+export function isLegacyLayout(status: Pick<TicketStatus, "workflow_snapshot">): boolean {
+  const roles = status.workflow_snapshot?.roles;
+  return Array.isArray(roles) && roles.some((r) => r.id === "flow-analyst");
+}
+
 export function builtinDefinition(): WorkflowDefinition {
   const def = getBuiltinWorkflow(SPEC_FIRST_ID);
   if (!def) throw new WorkItemActionError(`找不到內建 workflow「${SPEC_FIRST_ID}」`);

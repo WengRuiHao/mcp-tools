@@ -11,6 +11,8 @@ export const TEMPLATE_FILES = {
   "table-schema": "資料表結構文件-範本.md",
   "system-er": "系統ER圖-範本.md",
   "mockup-states": "mockup-狀態切換範例.html",
+  "er-source": "er-src/orders_master.mmd",
+  "system-er-source": "er-src/system-er.mmd",
 } as const;
 export type TemplateName = keyof typeof TEMPLATE_FILES;
 export const TEMPLATE_NAMES = Object.keys(TEMPLATE_FILES) as TemplateName[];

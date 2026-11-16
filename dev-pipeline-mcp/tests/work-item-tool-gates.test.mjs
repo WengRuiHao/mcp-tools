@@ -3,7 +3,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
-import { writeExistingUtil, setupEnv, fulfil, runUntil, CLEAN_REVIEW, VALID_SD } from "./helpers/work-item-env.mjs";
+import { writeExistingUtil, writeFlowFiles, setupEnv, fulfil, runUntil, CLEAN_REVIEW, VALID_SD } from "./helpers/work-item-env.mjs";
 
 const env = await setupEnv("wi-gates-");
 after(() => env.cleanup());
@@ -46,8 +46,6 @@ test("destructive-db：SQL 含 DROP 時 agent 無法確認 db-flow-confirm，hum
   await runUntil(env, id, dir, "db-designer");
   await fulfil(dir, "db-designer", { sql: "DROP TABLE users; CREATE TABLE t (id INT PRIMARY KEY);" });
   assert.equal((await env.call({ action: "done", workItemId: id, roleId: "db-designer" })).isError, false);
-  await fulfil(dir, "flow-analyst");
-  await env.call({ action: "done", workItemId: id, roleId: "flow-analyst" });
   const r = await confirm(id, "db-flow-confirm", "agent", { review: CLEAN_REVIEW });
   assert.equal(r.isError, true);
   assert.equal(r.json.hardStop, "destructive-db");
@@ -58,6 +56,7 @@ test("sensitive-data：關卡相關產出含密碼時 agent 被拒", async () =>
   const { id, dir } = await env.create();
   await runUntil(env, id, dir, "sd-analyst");
   await writeExistingUtil(env.projectDir);
+  await writeFlowFiles(dir);
   await writeFile(path.join(dir, "03-sd.md"), `${VALID_SD}\n連線 password=hunter2secret\n`);
   assert.equal((await env.call({ action: "done", workItemId: id, roleId: "sd-analyst" })).isError, false);
   const r = await confirm(id, "sd-confirm", "agent", { review: CLEAN_REVIEW });

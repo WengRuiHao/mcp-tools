@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpDir, removeDir } from "./helpers/support.mjs";
-import { SD_TEMPLATE, tableSchemaTemplates } from "./helpers/sasd-standard.mjs";
+import { SD_TEMPLATE, tableSchemaTemplates, installFlowImage } from "./helpers/sasd-standard.mjs";
 
 const { checkSdStructure, SD_TYPE_DECISIONS } = await import("../dist/workflow/sd-structure-check.js");
 const { parseSdApis } = await import("../dist/workflow/sd-api-parse.js");
@@ -24,6 +24,7 @@ function itemWithSchemas() {
   const dir = path.join(root, `w${fs.readdirSync(root).length}`);
   fs.mkdirSync(path.join(dir, "TableSchema"), { recursive: true });
   for (const [name, text] of Object.entries(tableSchemaTemplates())) fs.writeFileSync(path.join(dir, "TableSchema", `${name}.md`), text);
+  installFlowImage(dir);
   return dir;
 }
 
@@ -68,7 +69,7 @@ test("規格說明四節：缺節與順序", () => {
   const t = T();
   const a = t.indexOf("### 3. 共用方法清單");
   const b = t.indexOf("### 4. 共用回應與錯誤碼");
-  const c = t.indexOf("## API 說明");
+  const c = t.indexOf("## 流程圖");
   const swapped = t.slice(0, a) + t.slice(b, c) + t.slice(a, b) + t.slice(c);
   assert.ok(has(checkSdStructure(swapped), /順序不對/));
 });
@@ -108,6 +109,7 @@ test("沒有動資料庫（工作項目沒有 TableSchema）：使用資料表�
   const noRows = T().replace(/(\| Table \| 功能[^\n]*\n\| ---[^\n]*\n)(\|[^\n]*\n)+/, "$1");
   const emptyDir = path.join(root, "nodb");
   fs.mkdirSync(emptyDir, { recursive: true });
+  installFlowImage(emptyDir);
   assert.deepEqual(checkSdStructure(noRows, emptyDir), []);
   assert.ok(has(checkSdStructure(noRows), /「使用資料表」至少要有一列/));
   assert.ok(has(checkSdStructure(noRows, itemWithSchemas()), /「使用資料表」至少要有一列/));

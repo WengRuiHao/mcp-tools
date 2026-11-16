@@ -1,4 +1,4 @@
-// S14：SA 不寫程式檢查。01-sa.md 不可有程式碼區塊（mermaid 流程圖除外）與明顯的 SQL 語句。
+// S14：SA 不寫程式檢查。01-sa.md 不可有程式碼區塊（含 mermaid：圖一律用 sa-images 截圖；舊版面 legacy 工作項目的 mermaid 流程圖例外）與明顯的 SQL 語句。
 // 資料表／類別名稱難以自動判斷，交給 SA 提示詞與規格驗證師。沒有任何章節例外（翻新案的程式依據放內部檔 sa-notes.md，不放 SA）。
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -34,7 +34,7 @@ const shorten = (text: string): string => {
   return t.length <= SNIPPET_MAX ? t : `${t.slice(0, SNIPPET_MAX - 1)}…`;
 };
 
-export function checkSaNoCode(workItemDir: string): SaNoCodeResult {
+export function checkSaNoCode(workItemDir: string, opts: { legacy?: boolean } = {}): SaNoCodeResult {
   const saPath = path.join(workItemDir, SA_FILE_NAME);
   if (!existsSync(saPath)) {
     return { ok: false, violations: [{ line: 0, reason: `找不到 ${SA_FILE_NAME}，無法檢查 SA 是否含程式碼`, snippet: "" }] };
@@ -47,8 +47,8 @@ export function checkSaNoCode(workItemDir: string): SaNoCodeResult {
       if (hit) violations.push({ line: lineNo, reason: `出現 SQL 語句（${hit.label}），SQL 屬於 SD 與 DB 設計，SA 請改用業務語言描述`, snippet: shorten(line) });
     },
     (info, lineNo, opening) => {
-      if (!opening || info.split(/\s+/)[0].toLowerCase() === ALLOWED_FENCE_LANG) return;
-      violations.push({ line: lineNo, reason: "出現程式碼區塊（僅 mermaid 流程圖允許），請改用業務語言描述；程式依據放內部檔 sa-notes.md", snippet: shorten(`\`\`\`${info}`) });
+      if (!opening || (opts.legacy === true && info.split(/\s+/)[0].toLowerCase() === ALLOWED_FENCE_LANG)) return;
+      violations.push({ line: lineNo, reason: "出現程式碼區塊（含 mermaid：SA 的圖一律用 sa-images/ 的截圖），請改用業務語言描述或截圖；程式依據放內部檔 sa-notes.md", snippet: shorten(`\`\`\`${info}`) });
     },
   );
   return { ok: violations.length === 0, violations };

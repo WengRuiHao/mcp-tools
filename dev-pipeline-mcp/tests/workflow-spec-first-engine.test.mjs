@@ -39,7 +39,10 @@ test("both + hasDb + brownfield：角色依序推進，關卡未過前擋住後�
   s = ok(ok(s, "sa-content-check", "passed", "agent"), "sa-confirm", "confirmed", "agent");
   assert.deepEqual(avail(s), ["db-designer"]);
   s = done(s, "db-designer");
-  assert.deepEqual(avail(s), ["flow-analyst"]);
+  assert.deepEqual(avail(s), []);
+  assert.deepEqual(next(s).pendingGates.map((g) => g.gateId), ["db-flow-confirm"]);
+  s = ok(s, "db-flow-confirm", "confirmed", "agent");
+  assert.deepEqual(avail(s), ["sd-analyst"]);
 });
 
 test("greenfield 略過 baseline-survey；backend 略過 mockup 與前端；無 DB 略過 db-designer", () => {
@@ -47,9 +50,9 @@ test("greenfield 略過 baseline-survey；backend 略過 mockup 與前端；無 
   assert.deepEqual(avail(s), ["tech-selector"]);
   s = ok(done(s, "tech-selector"), "tech-confirm");
   assert.deepEqual(avail(s), ["sa-analyst"]);
-  assert.deepEqual(ids({ baseline: "greenfield", scope: "backend", has_db: false }), ["tech-selector", "sa-analyst", "flow-analyst", "sd-analyst", "spec-verifier", "backend-engineer", "verifier", "tester"]);
+  assert.deepEqual(ids({ baseline: "greenfield", scope: "backend", has_db: false }), ["tech-selector", "sa-analyst", "sd-analyst", "spec-verifier", "backend-engineer", "verifier", "tester"]);
   s = ok(ok(done(s, "sa-analyst"), "sa-content-check", "passed", "agent"), "sa-confirm", "confirmed", "agent");
-  assert.deepEqual(avail(s), ["flow-analyst"]);
+  assert.deepEqual(avail(s), ["sd-analyst"]);
 });
 
 test("各 scope 與 hasDb 的角色集合", () => {
@@ -67,7 +70,7 @@ test("前後端平行；兩者都完成才輪到 verifier", () => {
   s = ok(done(s, "tech-selector"), "tech-confirm");
   s = ok(done(s, "mockup-designer"), "mockup-confirm");
   s = ok(ok(done(s, "sa-analyst"), "sa-content-check", "passed", "agent"), "sa-confirm", "confirmed", "agent");
-  s = ok(done(s, "db-designer", "flow-analyst"), "db-flow-confirm", "confirmed", "agent");
+  s = ok(done(s, "db-designer"), "db-flow-confirm", "confirmed", "agent");
   s = ok(done(s, "sd-analyst"), "sd-confirm", "confirmed", "agent");
   s = ok(done(s, "spec-verifier"), "spec-check-verdict", "passed", "agent");
   assert.deepEqual(avail(s), ["frontend-engineer", "backend-engineer"]);
@@ -89,7 +92,6 @@ test("全部完成後停在 locked 的 final-acceptance，只能 human", () => {
   let s = mk({ scope: "backend", has_db: false, baseline: "greenfield" });
   s = ok(done(s, "tech-selector"), "tech-confirm");
   s = ok(ok(done(s, "sa-analyst"), "sa-content-check", "passed", "agent"), "sa-confirm", "confirmed", "agent");
-  s = ok(done(s, "flow-analyst"), "db-flow-confirm", "confirmed", "agent");
   s = ok(done(s, "sd-analyst"), "sd-confirm", "confirmed", "agent");
   s = ok(done(s, "spec-verifier"), "spec-check-verdict", "passed", "agent");
   s = ok(done(s, "backend-engineer"), "implementation-content", "passed", "agent");

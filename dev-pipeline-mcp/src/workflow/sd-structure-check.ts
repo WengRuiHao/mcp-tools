@@ -1,12 +1,13 @@
 // SD 新標準檢查（取代舊 C3「重用與共用設計」標題檢查）。格式以 docs/sasd-standard/SD-範本.md 為準。
 // 純文字檢查，回傳違規逐項說明（空陣列＝合格）；帶 workItemDir 時另檢查「使用資料表」連結的 TableSchema 檔案存在；帶 projectDir 時再核對重用既有與對應 DB 欄位。
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { isPng } from "./er-docs-check.js";
 import { headingMatches } from "./heading-match.js";
 import { SD_INTERNAL_TERMS } from "./internal-files.js";
 import { parseTable } from "./md-table.js";
 import { extractSection } from "./reuse-record-check.js";
-import { eachLine, listHeadings } from "./sa-image-check.js";
+import { eachLine, IMAGE_RE, listHeadings } from "./sa-image-check.js";
 import { META_SENTENCES, termRe } from "./sa-standard-check.js";
 import { checkSdApis, parseSdApis, splitCommonMethods } from "./sd-api-parse.js";
 import { checkInputDbColumns, checkReuseExistingRows } from "./sd-reuse-check.js";
@@ -30,7 +31,12 @@ export const SD_TYPE_DECISIONS: Readonly<Record<string, readonly string[]>> = {
   新建專用: ["新建"],
 };
 const REASON_REQUIRED_TYPES: readonly string[] = ["新建共用", "新建專用"];
-const TOP_SECTIONS: readonly string[] = ["版本管控歷程", "目錄", "規格說明", "API說明"];
+const TOP_SECTIONS: readonly string[] = ["版本管控歷程", "目錄", "規格說明", "流程圖", "API說明"];
+/** 舊版面（legacy）的 SD 沒有「流程圖」章節。 */
+const LEGACY_TOP_SECTIONS: readonly string[] = TOP_SECTIONS.filter((n) => n !== "流程圖");
+export const FLOW_IMAGE_FILE = "flow.png";
+export const FLOW_SOURCE_FILE = "flow.mmd";
+const FLOW_STALE_TOLERANCE_MS = 1000;
 /** 不確定寫法（SD 的每一項都要寫定案）。 */
 export const UNCERTAIN_TERMS: readonly string[] = ["選用", "視情況", "可能", "或許", "也許", "酌情", "視需要", "必要時", "看情況", "待定", "暫定", "TBD"];
 /** 內部過程檔名，不可出現在正式交付物。 */
@@ -64,14 +70,15 @@ function checkBasicInfo(text: string): string[] {
   return out;
 }
 
-function checkTopOrder(text: string): string[] {
+function checkTopOrder(text: string, legacy: boolean): string[] {
   const heads = listHeadings(text).filter((h) => h.level === 2);
   const out: string[] = [];
   let last = 0;
-  for (const name of TOP_SECTIONS) {
+  const names = legacy && !heads.some((h) => headingMatches(noSpace(h.title), "流程圖")) ? LEGACY_TOP_SECTIONS : TOP_SECTIONS;
+  for (const name of names) {
     const h = heads.find((x) => headingMatches(noSpace(x.title), name));
-    if (!h) out.push(`${SD_FILE_NAME} 缺少必備章節「## ${name}」（順序：基本資料表→${TOP_SECTIONS.join("→")}）`);
-    else if (h.line < last) out.push(`${SD_FILE_NAME} 章節「${name}」順序不對，要依序是：${TOP_SECTIONS.join("→")}`);
+    if (!h) out.push(`${SD_FILE_NAME} 缺少必備章節「## ${name}」（順序：基本資料表→${names.join("→")}）`);
+    else if (h.line < last) out.push(`${SD_FILE_NAME} 章節「${name}」順序不對，要依序是：${names.join("→")}`);
     else last = h.line;
   }
   const toc = extractSection(text, "目錄");
@@ -174,9 +181,28 @@ function checkWording(text: string): string[] {
   return out;
 }
 
-/** 檢查 03-sd.md 全文是否符合 SD 新標準；workItemDir 有帶才檢查 TableSchema 檔案是否存在。 */
-export function checkSdStructure(text: string, workItemDir?: string, projectDir?: string | null): string[] {
-  const out = [...checkBasicInfo(text), ...checkVersionHistory(text, SD_FILE_NAME), ...checkTopOrder(text)];
+/** 「## 流程圖」：只放 flow.png 的圖片引用加文字說明（不放 mermaid）；帶 workItemDir 時 flow.png 要存在、是有效 PNG，且不比來源 flow.mmd 舊。舊版面（legacy）沒有此章節時略過。 */
+function checkFlowSection(text: string, workItemDir: string | undefined, legacy: boolean): string[] {
+  const body = extractSection(text, "流程圖");
+  if (body === null) return [];
+  const out: string[] = [];
+  const refs = [...body.matchAll(IMAGE_RE)].map((m) => m[1].replace(/^\.\//, ""));
+  if (!refs.includes(FLOW_IMAGE_FILE)) out.push(`${SD_FILE_NAME}「流程圖」要用圖片引用轉出的流程圖：![流程圖](${FLOW_IMAGE_FILE})`);
+  const prose = body.split(/\r\n|\r|\n/).filter((l) => l.trim() !== "" && !/^\s*!\[/.test(l) && !/^\s*```/.test(l));
+  if (prose.length === 0) out.push(`${SD_FILE_NAME}「流程圖」圖片之外要有一段文字說明這張圖的主要流程與分支`);
+  if (workItemDir !== undefined && refs.includes(FLOW_IMAGE_FILE)) {
+    const png = path.join(workItemDir, FLOW_IMAGE_FILE);
+    const src = path.join(workItemDir, FLOW_SOURCE_FILE);
+    if (!isPng(png)) out.push(`${SD_FILE_NAME}「流程圖」引用的 ${FLOW_IMAGE_FILE} 不存在或不是有效的 PNG（用 work_item render kind=mermaid src=${FLOW_SOURCE_FILE} out=${FLOW_IMAGE_FILE} 轉圖，或 attach destDir=flow）`);
+    else if (existsSync(src) && statSync(png).mtimeMs + FLOW_STALE_TOLERANCE_MS < statSync(src).mtimeMs) out.push(`${SD_FILE_NAME}「流程圖」的 ${FLOW_IMAGE_FILE} 比來源 ${FLOW_SOURCE_FILE} 舊，來源改過後請重新轉圖`);
+  }
+  return legacy && out.length === 0 ? [] : out;
+}
+
+/** 檢查 03-sd.md 全文是否符合 SD 新標準；workItemDir 有帶才檢查 TableSchema 檔案與流程圖圖片是否存在。legacy＝舊版面工作項目（沒有「流程圖」章節也接受）。 */
+export function checkSdStructure(text: string, workItemDir?: string, projectDir?: string | null, opts: { legacy?: boolean } = {}): string[] {
+  const legacy = opts.legacy === true;
+  const out = [...checkBasicInfo(text), ...checkVersionHistory(text, SD_FILE_NAME), ...checkTopOrder(text, legacy), ...checkFlowSection(text, workItemDir, legacy)];
   const secs = specSections(text, out);
   // 沒有動資料庫的工作項目（TableSchema/ 內沒有任何結構文件）：使用資料表可以沒有資料列，表頭仍要在
   const noDb = workItemDir !== undefined && !hasTableSchemas(workItemDir);

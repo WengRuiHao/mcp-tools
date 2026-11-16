@@ -31,13 +31,18 @@ test("程式碼區塊被擋（``` 與 ~~~，含語言標記）", () => {
   }
 });
 
-test("mermaid 區塊放行（含大小寫與附加屬性）", () => {
-  assert.equal(check("## 功能：a\n```mermaid\nflowchart TD\nA-->B\n```\n").ok, true);
-  assert.equal(check("```Mermaid title\nA-->B\n```\n").ok, true);
+test("mermaid 區塊也被擋（SA 的圖一律用 sa-images 截圖，含大小寫與附加屬性）", () => {
+  const r = check("## 功能：a\n```mermaid\nflowchart TD\nA-->B\n```\n");
+  assert.equal(r.ok, false);
+  assert.match(r.violations[0].reason, /mermaid/);
+  assert.equal(check("```Mermaid title\nA-->B\n```\n").ok, false);
 });
 
-test("mermaid 與一般區塊混用：只擋一般區塊", () => {
-  const r = check("```mermaid\nA-->B\n```\n文字\n```sql\nx\n```\n");
+test("legacy（舊版面工作項目）：mermaid 區塊放行，與一般區塊混用只擋一般區塊", () => {
+  const legacy = (sa) => checkSaNoCode(item(sa), { legacy: true });
+  assert.equal(legacy("## 功能：a\n```mermaid\nflowchart TD\nA-->B\n```\n").ok, true);
+  assert.equal(legacy("```Mermaid title\nA-->B\n```\n").ok, true);
+  const r = legacy("```mermaid\nA-->B\n```\n文字\n```sql\nx\n```\n");
   assert.equal(r.violations.length, 1);
   assert.equal(r.violations[0].line, 5);
 });

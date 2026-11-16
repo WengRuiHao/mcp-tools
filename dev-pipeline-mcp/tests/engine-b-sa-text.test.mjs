@@ -39,7 +39,7 @@ test("sa-text：只退回 SA 與規格驗證師，DB／流程／SD 的完成與�
   assert.deepEqual([...r.json.rewound].sort(), ["sa-analyst", "spec-verifier"]);
   assert.deepEqual([...r.json.rewoundRoles].sort(), ["sa-analyst", "spec-verifier"]);
   const p = await progress(id);
-  for (const role of ["db-designer", "flow-analyst", "sd-analyst"]) assert.equal(p.roles[role].done, true, role);
+  for (const role of ["db-designer", "sd-analyst"]) assert.equal(p.roles[role].done, true, role);
   for (const gate of ["db-flow-confirm", "sd-confirm"]) assert.equal(p.gates[gate].decision, "confirmed", gate);
   assert.equal(p.gates["sa-confirm"], undefined);
   assert.equal(p.gates["sa-content-check"], undefined);
@@ -61,12 +61,12 @@ test("sa-text 之後重做 SA、SA 確認，規格驗證師可再做（流程可
   assert.deepEqual(c.json.nextRoles.map((n) => n.roleId), ["spec-verifier"]);
 });
 
-test("rootCause=sa 行為不變：連鎖退回 SA、DB、流程、SD、規格驗證", async () => {
+test("rootCause=sa 行為不變：連鎖退回 SA、DB、SD、規格驗證", async () => {
   const { id, dir } = await env.create();
   await runUntil(env, id, dir, "spec-check-verdict");
   const r = await failSpec(id, "sa");
   assert.equal(r.isError, false, r.text);
-  assert.deepEqual([...r.json.rewoundRoles].sort(), ["db-designer", "flow-analyst", "sa-analyst", "sd-analyst", "spec-verifier"]);
+  assert.deepEqual([...r.json.rewoundRoles].sort(), ["db-designer", "sa-analyst", "sd-analyst", "spec-verifier"]);
   const p = await progress(id);
   assert.equal(p.roles["db-designer"], undefined);
   assert.equal(p.gates["sd-confirm"], undefined);

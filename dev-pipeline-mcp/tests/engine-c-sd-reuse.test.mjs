@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { VALID_SD, VALID_TABLE_SCHEMA, setupEnv, runUntil, fulfil } from "./helpers/work-item-env.mjs";
+import { VALID_SD, VALID_TABLE_SCHEMA, setupEnv, runUntil, fulfil, writeFlowFiles } from "./helpers/work-item-env.mjs";
 import { checkSdStructure } from "../dist/workflow/sd-structure-check.js";
 import { dbColumnRefs } from "../dist/workflow/sd-reuse-check.js";
 
@@ -16,6 +16,7 @@ before(async () => {
   await mkdir(path.join(wi, "TableSchema"), { recursive: true });
   await writeFile(path.join(wi, "TableSchema", "t.md"), VALID_TABLE_SCHEMA);
   await writeFile(path.join(wi, "02-db.sql"), "CREATE TABLE t (id INT PRIMARY KEY);");
+  await writeFlowFiles(wi);
   await mkdir(path.join(proj, "src", "main"), { recursive: true });
   await writeFile(path.join(proj, "src", "main", "ExcelUtil.java"), "public class ExcelUtil { public static void write() {} }");
   await mkdir(path.join(proj, "db"), { recursive: true });

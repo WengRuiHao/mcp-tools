@@ -30,12 +30,12 @@ export const VALID_TABLE_SCHEMA = [
   "## 資料表：t", "", "### 欄位清單", "", "| # | 欄位 | 型別 | PK | 說明 |", "|:-:|---|---|:-:|---|", "| 1 | id | INT | ✓ | 編號 |", "",
   "### 各規格使用欄位對照", "", "| 規格 | 使用欄位 |", "| --- | --- |", "| [登入](../03-sd.md) | id |", "",
   "## 關聯清單", "", "| 子表 | 子表欄位 | 父表 | 父表欄位 | 關係 | 依據 |", "| --- | --- | --- | --- | --- | --- |", "",
-  "## 模組 ER 圖", "", "```mermaid", "erDiagram", "    t {", "        INT id PK", "    }", "```", "", "![t 模組 ER 圖](er/t.png)", "",
+  "## 模組 ER 圖", "", "![t 模組 ER 圖](er/t.png)", "",
 ].join("\n");
 /** 對應 VALID_TABLE_SCHEMA 的系統 ER 圖文件。 */
 export const VALID_SYSTEM_ER = [
   "# 系統 ER 圖", "", "## 版本管控歷程", "", "| 版次 | 發行日期 | 修訂說明 | 修訂單位 | 修訂人員 |", "| --- | --- | --- | --- | --- |", "| 1.0 | 2026/11/10 | 初版 | 示範團隊 | 系統分析師 |", "",
-  "## 系統 ER 圖", "", "```mermaid", "erDiagram", "    t {", "        INT id PK", "    }", "```", "", "![系統 ER 圖](er/system-er.png)", "",
+  "## 系統 ER 圖", "", "![系統 ER 圖](er/system-er.png)", "",
 ].join("\n");
 /** 通過 mockup 檢查的精簡可操作原型。 */
 export const VALID_MOCKUP = `<!doctype html><html><body data-demo-states="normal,loading,success,failed,empty"><h2>本次變更說明</h2><p>無既有行為變更</p><button id="b">登入</button><script>document.getElementById("b").addEventListener("click", function () {});</script></body></html>`;
@@ -53,15 +53,23 @@ export const VALID_SA = [
 export const VALID_SD = [
   "| 程式代號 | login | 使用技術 | Node.js |", "| --- | --- | --- | --- |", "| 程式名稱 | 登入 | 系統分析者 | 系統分析師 |", "| 上層程式名稱 | 會員中心 | 程式設計者 |  |", "| 程式類別 | 查詢 | 審查者 |  |", "",
   "## 版本管控歷程", "", "| 版次 | 發行日期 | 修訂說明 | 修訂單位 | 修訂人員 |", "| --- | --- | --- | --- | --- |", "| 0.1 | 2026/11/10 | 初版 | 示範團隊 | 系統分析師 |", "",
-  "## 目錄", "", "一、規格說明", "二、API 說明", "",
+  "## 目錄", "", "一、規格說明", "二、流程圖", "三、API 說明", "",
   "## 規格說明", "", "### 1. 使用資料表", "", "| Table | 功能 | 說明 | 結構文件 |", "| --- | --- | --- | --- |", "| t | 帳號 | 帳號資料 | [t 資料表結構](TableSchema/t.md#t) |", "",
   "### 2. 前端功能與 API 對應表", "", "| 前端功能 | 觸發時機 | 呼叫的 API | 成功時 | 失敗時 | 前端位置 |", "| --- | --- | --- | --- | --- | --- |", "| 登入 | 按下登入 | 登入 `POST /api/login` | 進入首頁 | 訊息區顯示錯誤 | src/ui/login-page.js |", "",
   "### 3. 共用方法清單", "", "| 共用方法 | 位置 | 類型 | 被誰使用 | 說明 |", "| --- | --- | --- | --- | --- |", "| ExcelUtil | src/main/ExcelUtil.java | 重用既有 | 登入 API 的服務層 | 既有 Excel 匯出工具，登入紀錄下載時直接沿用 |", "",
   "### 4. 共用回應與錯誤碼", "", "| HTTP | code | message | 說明 | 檢核位置 | 前端提示位置 |", "| --- | --- | --- | --- | --- | --- |", "| 401 | LOGIN_FAILED | 帳號或密碼錯誤 | 驗證失敗 | 僅後端 | 訊息區 |", "",
+  "## 流程圖", "", "![登入流程圖](flow.png)", "", "會員輸入帳號密碼後由後端查詢帳號，不存在回 401，存在則登入成功。", "",
   "## API 說明", "", "### 1. 登入", "", "**URL:** /api/login", "", "**METHOD:** POST", "", "**Controller:** src/api/login-controller.js ── login()", "", "**Service:** src/api/login-service.js ── login()", "", "**Repository:** src/api/login-repository.js ── findAccount()", "", "**使用的共用方法:** ExcelUtil", "",
   "#### INPUT", "", "| ElementName | ElementType | 必填 | 對應 DB 欄位 | 註解 |", "| --- | --- | --- | --- | --- |", "| account | string | Y | t.id | 帳號 |", "",
   "#### 業務邏輯", "1. 依帳號查詢，不存在回 401。", "", "#### OUTPUT", "HTTP 200，登入結果。", "",
 ].join("\n");
+/** 寫入流程圖來源 flow.mmd 與有效的 flow.png（SD 的「## 流程圖」引用它）。 */
+export async function writeFlowFiles(dir) {
+  await writeFile(path.join(dir, "flow.mmd"), "graph TD\nA-->B");
+  await writeFile(path.join(dir, "flow.png"), Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"));
+}
+/** ER 圖 Mermaid 來源（TableSchema/_src/*.mmd）。 */
+export const ER_SRC = ["erDiagram", "    t {", "        INT id PK", "    }", ""].join("\n");
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 
 export async function setupEnv(prefix, { renderer } = {}) {
@@ -101,10 +109,12 @@ export async function fulfil(dir, roleId, opts = {}) {
     "tech-selector": async () => w("tech-stack.md", techStackFor(JSON.parse(await readFile(path.join(dir, "status.json"), "utf-8")).tech_source)),
     "mockup-designer": () => w("sa-mockup/index.html", VALID_MOCKUP),
     "sa-analyst": async () => { await w("01-sa.md", VALID_SA); await w("sa-notes.md", "## 待確認問題\n- 無\n"); await writeFile(path.join(dir, "sa-images", "a.png"), PNG); },
-    "db-designer": async () => { await w("02-db.sql", opts.sql ?? "CREATE TABLE t (id INT PRIMARY KEY);"); await w("TableSchema/t.md", VALID_TABLE_SCHEMA); await w("TableSchema/system-er.md", VALID_SYSTEM_ER); await w("TableSchema/er/t.png", PNG); await w("TableSchema/er/system-er.png", PNG); },
+    "db-designer": async () => { await w("02-db.sql", opts.sql ?? "CREATE TABLE t (id INT PRIMARY KEY);"); await w("TableSchema/t.md", VALID_TABLE_SCHEMA); await w("TableSchema/system-er.md", VALID_SYSTEM_ER); await w("TableSchema/_src/t.mmd", ER_SRC); await w("TableSchema/_src/system-er.mmd", ER_SRC); await w("TableSchema/er/t.png", PNG); await w("TableSchema/er/system-er.png", PNG); },
     "flow-analyst": async () => { await w("flow.mmd", "graph TD\nA-->B"); await writeFile(path.join(dir, "flow.png"), PNG); },
     "sd-analyst": async () => {
       await writeExistingUtil(JSON.parse(await readFile(path.join(dir, "status.json"), "utf-8")).project_dir);
+      await w("flow.mmd", "graph TD\nA-->B");
+      await writeFile(path.join(dir, "flow.png"), PNG);
       await w("03-sd.md", VALID_SD);
     },
     "spec-verifier": () => w("spec-check.md", opts.verdictText ?? "PASS\n對照表"),
@@ -127,7 +137,7 @@ export async function selectedStyleArgs(dir) {
 }
 
 const STEPS = [
-  ["tech-selector"], ["tech-confirm", "human"], ["mockup-designer"], ["mockup-confirm", "human"], ["sa-analyst"], ["sa-confirm", "agent"], ["db-designer"], ["flow-analyst"],
+  ["tech-selector"], ["tech-confirm", "human"], ["mockup-designer"], ["mockup-confirm", "human"], ["sa-analyst"], ["sa-confirm", "agent"], ["db-designer"],
   ["db-flow-confirm", "agent"], ["sd-analyst"], ["sd-confirm", "agent"], ["spec-verifier"], ["spec-check-verdict", "verdict"],
   ["frontend-engineer"], ["backend-engineer"], ["verifier"], ["verdict", "verdict"], ["tester"],
 ];

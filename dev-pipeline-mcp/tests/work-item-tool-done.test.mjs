@@ -3,7 +3,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { setupEnv, fulfil, runUntil } from "./helpers/work-item-env.mjs";
+import { setupEnv, fulfil, runUntil, writeFlowFiles } from "./helpers/work-item-env.mjs";
 
 const env = await setupEnv("wi-done-");
 after(() => env.cleanup());
@@ -56,18 +56,20 @@ test("done sa-analyst：01-sa.md 不存在轉成失敗訊息；沒有任何圖�
   assert.ok(ok.json.waitingGates.some((g) => g.gateId === "sa-confirm"));
 });
 
-test("done flow-analyst：必須有 flow.mmd 與非空 flow.png", async () => {
-  const { id, dir } = await env.create({ hasDb: false });
-  await runUntil(env, id, dir, "db-designer");
-  await fulfil(dir, "flow-analyst");
+test("done sd-analyst：必須有 flow.mmd 與非空、有效的 flow.png", async () => {
+  const { id, dir } = await env.create();
+  await runUntil(env, id, dir, "sd-analyst");
+  await fulfil(dir, "sd-analyst");
   await rm(path.join(dir, "flow.png"));
-  const noPng = await done(id, "flow-analyst");
+  const noPng = await done(id, "sd-analyst");
   assert.equal(noPng.isError, true);
   assert.match(noPng.json.message, /flow\.png/);
   await writeFile(path.join(dir, "flow.png"), "");
-  assert.equal((await done(id, "flow-analyst")).isError, true);
+  assert.equal((await done(id, "sd-analyst")).isError, true);
   await writeFile(path.join(dir, "flow.png"), "x");
-  assert.equal((await done(id, "flow-analyst")).isError, false);
+  assert.equal((await done(id, "sd-analyst")).isError, true, "不是有效的 PNG");
+  await writeFlowFiles(dir);
+  assert.equal((await done(id, "sd-analyst")).isError, false);
 });
 
 test("done spec-verifier：第一行必須 PASS／FAIL，FAIL 要有合法 rootCause", async () => {

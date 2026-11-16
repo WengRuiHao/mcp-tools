@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpDir, removeDir } from "./helpers/support.mjs";
-import { tableSchemaTemplates, TEMPLATE_SQL, installSchemaExtras, systemErTemplate } from "./helpers/sasd-standard.mjs";
+import { tableSchemaTemplates, TEMPLATE_SQL, installSchemaExtras, systemErTemplate, splitErInline } from "./helpers/sasd-standard.mjs";
 
 const { parseErDiagram } = await import("../dist/workflow/er-parse.js");
 const { checkErDiagram, lineText } = await import("../dist/workflow/er-diagram-check.js");
@@ -24,6 +24,7 @@ function item(opts = {}) {
   for (const [k, v] of Object.entries({ ...T(), ...(opts.docs ?? {}) }).filter(([, x]) => x !== undefined)) fs.writeFileSync(path.join(dir, "TableSchema", `${k}.md`), v);
   installSchemaExtras(dir);
   if (opts.system) fs.writeFileSync(path.join(dir, "TableSchema", "system-er.md"), opts.system);
+  splitErInline(dir);
   return dir;
 }
 
@@ -98,10 +99,10 @@ test("模組 ER 圖：缺章節、缺圖片、PNG 壞檔、圖與關聯不符，
   fs.writeFileSync(path.join(dir, "TableSchema", "er", "orders_master.png"), "not a png");
   assert.ok(has(checkTableSchemas(dir), /er\/orders_master\.png 不存在或不是有效的 PNG/));
   dir = item();
-  modify(dir, "orders_master.md", (t) => t.replace('orders_master ||--o{ orders_detail : "一張訂單有多筆明細"', ""));
+  modify(dir, "_src/orders_master.mmd", (t) => t.replace('orders_master ||--o{ orders_detail : "一張訂單有多筆明細"', ""));
   assert.ok(has(checkTableSchemas(dir), /orders_master\.md 的模組 ER 圖 缺少關聯線 orders_master→orders_detail/));
   dir = item();
-  modify(dir, "orders_master.md", (t) => t.replace("INTEGER order_id FK", "INTEGER order_id"));
+  modify(dir, "_src/orders_master.mmd", (t) => t.replace("INTEGER order_id FK", "INTEGER order_id"));
   assert.ok(has(checkTableSchemas(dir), /orders_master\.md 的模組 ER 圖 的表 orders_detail 的欄位 order_id 是外鍵，要標註 FK/));
 });
 

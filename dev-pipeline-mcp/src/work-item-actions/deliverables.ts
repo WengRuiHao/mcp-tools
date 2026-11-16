@@ -62,7 +62,7 @@ async function checkVerdictFile(file: string, routeOnFail: Record<string, string
   return [];
 }
 
-async function checkSa(dir: string): Promise<string[]> {
+async function checkSa(dir: string, legacy: boolean): Promise<string[]> {
   if ((await sizeOf(path.join(dir, SA_FILE_NAME))) === null) return [`缺少 ${SA_FILE_NAME}，無法檢查 SA 截圖`];
   const problems: string[] = [];
   try {
@@ -72,7 +72,7 @@ async function checkSa(dir: string): Promise<string[]> {
     problems.push(`SA 截圖檢查失敗：${e instanceof Error ? e.message : String(e)}`);
   }
   try {
-    const n = checkSaNoCode(dir);
+    const n = checkSaNoCode(dir, { legacy });
     if (!n.ok) problems.push(...n.violations.map((v) => `SA 不寫程式檢查未通過：${v.line ? `（第 ${v.line} 行）` : ""}${v.reason}${v.snippet ? `：${v.snippet}` : ""}`));
   } catch (e) {
     problems.push(`SA 不寫程式檢查失敗：${e instanceof Error ? e.message : String(e)}`);
@@ -113,11 +113,11 @@ async function checkReuse(dir: string, roleId: string, def: WorkflowDefinition):
 }
 
 /** SD 新標準檢查（含 TableSchema 連結的檔案存在檢查）。 */
-async function checkSd(dir: string, def: WorkflowDefinition, projectDir: string | null | undefined): Promise<string[]> {
+async function checkSd(dir: string, def: WorkflowDefinition, projectDir: string | null | undefined, legacy: boolean): Promise<string[]> {
   const file = def.artifacts.find((a) => a.id === "sd")?.file;
   if (!file) return [];
   try {
-    return checkSdStructure(await readFile(path.join(dir, file), "utf-8"), dir, projectDir).map((v) => `SD 標準檢查未通過：${v}`);
+    return checkSdStructure(await readFile(path.join(dir, file), "utf-8"), dir, projectDir, { legacy }).map((v) => `SD 標準檢查未通過：${v}`);
   } catch {
     return []; // 檔案缺漏已由一般交件檢查回報
   }
@@ -162,11 +162,11 @@ const POINTER_SCOPE: Readonly<Record<string, { only?: string[]; suppress?: Recor
   tester: {},
 };
 
-function checkPointers(dir: string, roleId: string, def: WorkflowDefinition): string[] {
+function checkPointers(dir: string, roleId: string, def: WorkflowDefinition, legacy: boolean): string[] {
   const scope = POINTER_SCOPE[roleId];
   if (!scope) return [];
   try {
-    return checkDeliverablePointers(dir, def, scope).map((v) => `交付物引用檢查未通過：${v}`);
+    return checkDeliverablePointers(dir, def, { ...scope, allowMermaid: legacy }).map((v) => `交付物引用檢查未通過：${v}`);
   } catch (e) {
     return [`交付物引用檢查失敗：${e instanceof Error ? e.message : String(e)}`];
   }
@@ -180,6 +180,8 @@ export interface DeliverableContext {
   baseline?: string | undefined;
   /** 全新待選風格已確認選定的風格檔名（mockup-confirm 目前是核准狀態才有值）。 */
   selectedStyle?: string | undefined;
+  /** 舊版面工作項目（快照含 flow-analyst）：ER 圖 Mermaid 內嵌文件、SD 沒有流程圖章節、SA 可含 mermaid，新舊格式都收。 */
+  legacy?: boolean | undefined;
 }
 
 export async function checkDeliverables(dir: string, roleId: string, def: WorkflowDefinition, ctx: DeliverableContext = {}): Promise<string[]> {
@@ -200,14 +202,14 @@ export async function checkDeliverables(dir: string, roleId: string, def: Workfl
     }
     if (art.render && !((await sizeOf(path.join(dir, art.render))) ?? 0)) problems.push(`缺少圖片 ${art.render}（必須存在且非空；用 attach 或 render 產生）`);
   }
-  if (roleId === "sa-analyst") problems.push(...(await checkSa(dir)));
-  if (roleId === "db-designer") problems.push(...checkTableSchemas(dir, { baseline: ctx.baseline, projectDir: ctx.projectDir }).map((v) => `資料表結構文件檢查未通過：${v}`));
+  if (roleId === "sa-analyst") problems.push(...(await checkSa(dir, ctx.legacy === true)));
+  if (roleId === "db-designer") problems.push(...checkTableSchemas(dir, { baseline: ctx.baseline, projectDir: ctx.projectDir, legacy: ctx.legacy }).map((v) => `資料表結構文件檢查未通過：${v}`));
   if (roleId === "mockup-designer") problems.push(...checkMockupDir(dir, { selectedStyle: ctx.selectedStyle }).map((v) => `mockup 檢查未通過：${v}`));
-  if (roleId === "flow-analyst") problems.push(...checkMermaidFile(dir).map((v) => `流程圖（flow.mmd）格式檢查未通過：${v}`));
+  if (roleId === "sd-analyst") problems.push(...checkMermaidFile(dir).map((v) => `流程圖（flow.mmd）格式檢查未通過：${v}`));
   if (roleId === "tester") problems.push(...(await checkTest(dir)));
-  if (roleId === "sd-analyst") problems.push(...(await checkSd(dir, def, ctx.projectDir)));
+  if (roleId === "sd-analyst") problems.push(...(await checkSd(dir, def, ctx.projectDir, ctx.legacy === true)));
   if (roleId === "backend-engineer") problems.push(...(await checkLayers(dir, def, ctx.projectDir)));
-  problems.push(...checkPointers(dir, roleId, def));
+  problems.push(...checkPointers(dir, roleId, def, ctx.legacy === true));
   problems.push(...(await checkReuse(dir, roleId, def)));
   if (roleId === "baseline-survey" || roleId === "tech-selector") problems.push(...(await checkTech(dir, roleId, ctx.techSource)));
   return problems;

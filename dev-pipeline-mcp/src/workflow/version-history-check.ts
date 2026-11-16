@@ -61,3 +61,12 @@ export function checkVersionHistory(text: string, fileName = "文件"): string[]
   });
   return problems;
 }
+
+/** 版本管控歷程表最後一列的版次（例如 0.2）；缺章節、缺表格或版次格式不對回 null。 */
+export function latestVersion(text: string): string | null {
+  const body = extractSection(text, VERSION_HISTORY_HEADING);
+  const table = body === null ? null : parseTable(body);
+  const last = table?.rows[table.rows.length - 1];
+  const v = last ? clean(last[0] ?? "") : "";
+  return VERSION_RE.test(v) ? v : null;
+}

@@ -1,0 +1,11 @@
+erDiagram
+    orders_master ||--o{ orders_detail : "一張訂單有多筆明細"
+    orders_master {
+        INTEGER id PK
+        INTEGER member_id FK
+        TEXT order_no "訂單編號"
+    }
+    orders_detail {
+        INTEGER id PK
+        INTEGER order_id FK
+    }

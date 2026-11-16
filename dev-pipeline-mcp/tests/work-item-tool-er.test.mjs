@@ -42,26 +42,30 @@ test("attach destDir=er：存進 TableSchema/er/，name 必填且限 ASCII 檔�
   assert.equal(existsSync(path.join(path.dirname(dir), "x.png")), false);
 });
 
-test("render mermaid：src 為 TableSchema 內的 md 時取出唯一的 Mermaid 區塊轉圖，暫存檔轉完即刪", async () => {
-  const fence = "```";
-  await mkdir(path.join(dir, "TableSchema"), { recursive: true });
-  writeFileSync(path.join(dir, "TableSchema", "orders.md"), `# x\n\n${fence}mermaid\nerDiagram\n  a {\n    INT id PK\n  }\n${fence}\n`);
-  const r = await call({ action: "render", kind: "mermaid", src: "TableSchema/orders.md", out: "TableSchema/er/orders.png" });
+test("write：ER 圖來源 TableSchema/_src/<名稱>.mmd 可寫（名稱限英數字與底線，或 system-er）；render 以它為來源轉到 er/ 同名 PNG", async () => {
+  const src = ["erDiagram", "  a {", "    INT id PK", "  }", ""].join("\n");
+  assert.equal((await call({ action: "write", filename: "TableSchema/_src/orders.mmd", content: src })).isError, false);
+  assert.equal((await call({ action: "write", filename: "TableSchema/_src/system-er.mmd", content: src })).isError, false);
+  for (const f of ["TableSchema/_src/a-b.mmd", "TableSchema/_src/../x.mmd", "TableSchema/_src/sub/a.mmd", "TableSchema/_src/orders.md", "_src/orders.mmd"]) {
+    assert.equal((await call({ action: "write", filename: f, content: src })).isError, true, f);
+  }
+  const r = await call({ action: "render", kind: "mermaid", src: "TableSchema/_src/orders.mmd", out: "TableSchema/er/orders.png" });
   assert.equal(r.isError, false, r.text);
   assert.equal(r.json.ok, true);
   assert.match(seen.at(-1).text, /^erDiagram/);
-  assert.match(seen.at(-1).src, /^TableSchema\/er\/\.render-[0-9a-f]+\.mmd$/);
-  assert.equal(readdirSync(path.join(dir, "TableSchema", "er")).some((f) => f.startsWith(".render-")), false);
+  assert.equal(seen.at(-1).src, "TableSchema/_src/orders.mmd");
+  assert.equal(seen.at(-1).out, "TableSchema/er/orders.png");
 });
 
-test("render mermaid：md 來源的限制（out 位置、沒有或多個區塊、檔案不存在、非白名單的 md）", async () => {
-  const fence = "```";
-  assert.equal((await call({ action: "render", kind: "mermaid", src: "TableSchema/orders.md", out: "flow.png" })).isError, true);
-  assert.equal((await call({ action: "render", kind: "mermaid", src: "TableSchema/orders.md", out: "TableSchema/er/../x.png" })).isError, true);
-  assert.equal((await call({ action: "render", kind: "mermaid", src: "TableSchema/none.md", out: "TableSchema/er/none.png" })).isError, true);
-  writeFileSync(path.join(dir, "TableSchema", "two.md"), `${fence}mermaid\nerDiagram\n${fence}\n${fence}mermaid\nerDiagram\n${fence}\n`);
-  assert.equal((await call({ action: "render", kind: "mermaid", src: "TableSchema/two.md", out: "TableSchema/er/two.png" })).isError, true);
+test("render mermaid：ER 來源的限制（out 要與來源同名且在 er/、不再接受資料表結構文件 .md 當來源）", async () => {
   const before = seen.length;
+  assert.equal((await call({ action: "render", kind: "mermaid", src: "TableSchema/_src/orders.mmd", out: "flow.png" })).isError, true);
+  assert.equal((await call({ action: "render", kind: "mermaid", src: "TableSchema/_src/orders.mmd", out: "TableSchema/er/other.png" })).isError, true);
+  assert.equal((await call({ action: "render", kind: "mermaid", src: "TableSchema/_src/orders.mmd", out: "TableSchema/er/../x.png" })).isError, true);
+  const md = await call({ action: "render", kind: "mermaid", src: "TableSchema/orders.md", out: "TableSchema/er/orders.png" });
+  assert.equal(md.isError, true);
+  assert.match(md.text, /TableSchema\/_src/);
+  assert.equal(seen.length, before);
   const r = await call({ action: "render", kind: "mermaid", src: "01-sa.md", out: "flow.png" });
   assert.equal(r.isError, true);
   assert.equal(seen.length, before);

@@ -9,7 +9,9 @@
 | SD-範本.md | SD（自足版）的樣子 |
 | 資料表結構文件-範本.md | 資料表結構文件（分組：有關聯的表同一份，單獨的表各一份；內含 orders_master 加 orders_detail 同組、members 單表兩份文件） |
 | 系統ER圖-範本.md | 系統 ER 圖文件（TableSchema/system-er.md）的樣子 |
-| er/ | 範本引用的 ER 圖 PNG（模組圖 orders_master.png、members.png，系統圖 system-er.png；路徑相對於文件）。由範本文件內的 Mermaid erDiagram 原始碼以 mermaid（npm，本機 mermaid.min.js）在 Edge 無頭模式實際渲染後截圖，是 Mermaid 實際轉出；members.png 是單表文件的模組 ER 圖，只有 members 一張表、沒有關聯線 |
+| er/ | 範本引用的 ER 圖 PNG（模組圖 orders_master.png、members.png，系統圖 system-er.png；路徑相對於文件）。由 er-src/ 的 Mermaid erDiagram 來源以 mermaid（npm，本機 mermaid.min.js）實際渲染後截圖，是 Mermaid 實際轉出；members.png 是單表文件的模組 ER 圖，只有 members 一張表、沒有關聯線 |
+| er-src/ | ER 圖的 Mermaid 來源（orders_master.mmd、members.mmd、system-er.mmd）：內部檔，不交付、不放進任何文件；work_item action=template template=er-source／system-er-source 可取得 |
+| flow.mmd、flow.png | SD 範本的流程圖：flow.mmd 是 Mermaid 來源（內部檔），flow.png 是轉出的圖片，SD 的「## 流程圖」只引用 flow.png |
 | mockup-狀態切換範例.html | 可切換狀態的 mockup 範例（「查詢」與「匯出 Excel」並排、進頁面與改日期不自動查詢；含卡片外的「本次變更說明」與示範控制面板，日期欄位用固定「年-月-日」格式的文字欄位），所有狀態共用同一組日期（預設 2026-11-01～2026-11-11）與同一組訂單資料；用網址 #狀態名稱 切換 |
 | sa-images/ | 範本引用的 13 張畫面截圖（尚未查詢、已查詢、查詢處理中、日期三種檢核、查詢失敗、查詢沒有訂單、匯出處理中、匯出成功、匯出沒有訂單、匯出超過 10000 列、匯出失敗）。由 mockup 以 Edge 無頭模式只截 #page 正式畫面區域（不含說明與示範面板，2 倍解析度），路徑相對於文件 |
 | tools/md2docx.py | md 轉 Word 的原型（python-docx，支援圖片、表格、標題） |
@@ -23,12 +25,12 @@
 6. 交付格式為 Word（由 md 轉出，圖片嵌入）。
 
 ## SD 標準
-1. 依 MCP 既有 SD 範本：程式基本資料表、版本管控歷程、目錄、規格說明、API 說明。
-2. 章節順序：使用資料表 → 前端功能與 API 對應表 → 共用方法清單（共用方法、位置、類型、被誰使用、說明）→ 共用回應與錯誤碼（含「檢核位置」與「前端提示位置」）→ API 說明。
+1. 依 MCP 既有 SD 範本：程式基本資料表、版本管控歷程、目錄、規格說明、流程圖、API 說明。
+2. 章節順序：使用資料表 → 前端功能與 API 對應表 → 共用方法清單（共用方法、位置、類型、被誰使用、說明）→ 共用回應與錯誤碼（含「檢核位置」與「前端提示位置」）→ 流程圖 → API 說明。
 3. 每個 API 標明控制層、服務層、查詢層的檔案與方法，以及使用的共用方法；不需要獨立的分層對照表。
 4. 不可指向內部過程檔案，不可有「選用」這類不確定寫法，不可有說明本文件用途的句子。
 5. 資料表欄位不放在 SD，使用資料表只放連結；結構另外寫成資料表結構文件。
-6. 交付格式為 md。
+6. 交付格式為 md；文件內不放 mermaid，圖一律用圖片引用。流程圖併入 SD：SD 分析師先寫內部檔 flow.mmd，轉成 flow.png，SD 的「## 流程圖」只放 `![流程圖](flow.png)` 加一段文字說明（flow.png 要存在、是有效 PNG、不比 flow.mmd 舊）。交付給客戶時用 `work_item action=deliver` 輸出客戶命名的副本（`<標題>_系統分析書_v<版次>`、`<標題>_系統設計書_v<版次>`）；SD 轉 Word 由人工負責。
 7. SD 的位置欄要與實作一致：工程師 done 後若系統警告實作位置與 SD 有出入，要更新 SD 的位置欄，或在實作說明（impl-fe.md、impl-be.md）寫明偏離的原因；實作說明的「## 改動檔案」要如實列出，驗證師會參考這些警告。
 
 ## 資料表結構文件標準
@@ -37,7 +39,7 @@
 文件結構（依序）：
 1. 標題與「## 本文件包含的資料表」（資料表｜說明；第一列是主表，檔名即主表名）。
 2. 「## 版本管控歷程」：整份只寫一次；任何內容（表、欄位、索引、關聯、ER 圖）變動就新增一列。
-3. 「## 模組 ER 圖」：Mermaid erDiagram 加轉出的 PNG（`er/<文件名>.png`，相對於文件）。
+3. 「## 模組 ER 圖」：只放轉出的 PNG 引用（`![說明](er/<文件名>.png)`，相對於文件），不放 mermaid；Mermaid 來源寫在內部檔 `TableSchema/_src/<文件名>.mmd`。
 4. 每張表一節「## 資料表：<表名>」：「### 欄位清單」（涵蓋 SQL 全部欄位）、有索引時「### 索引」、「### 各規格使用欄位對照」。
 5. 「## 關聯清單」：表頭固定「子表｜子表欄位｜父表｜父表欄位｜關係｜依據」。依據只能是「外鍵約束」（必須與 SQL 的外鍵一一對得上）或「邏輯關聯」（沒有外鍵約束但程式實際當關聯用；程式只驗格式與表、欄位存在，真偽由規格驗證師對照程式碼確認）。關係只能是「一對多」「一對一」：外鍵欄位剛好是 UNIQUE 或主鍵為一對一，否則一對多。
 
@@ -49,10 +51,10 @@ SD 的「使用資料表」連結寫成 `TableSchema/<文件>.md#<表名>`，錨
 - 關係符號：父表側外鍵欄位全 NOT NULL 為必選 `||`、否則可選 `|o`；子表側一對多 `o{`、一對一 `o|`；父表在左，例如 `orders_master ||--o{ orders_detail`。
 - 無異動模式：既有系統只讀既有表、沒有任何新增或修改時，`02-db.sql` 只寫註解（聲明本次無資料庫異動與理由，不可留空，不可含 CREATE／ALTER／DROP；不可用 IF NOT EXISTS 重寫既有表）。此時表集合是「既有資料表」（專案 .sql 掃描，或 system-er.md 的「## 既有資料表」章節，並存以章節為準）：用到的既有表整理成分組文件（版本管控歷程、欄位清單、各規格使用欄位對照、關聯清單、模組 ER 圖照常），系統 ER 圖畫全系統既有表；既有表宣告的外鍵視同 SQL 外鍵（子表在文件內就要列在關聯清單，依據「外鍵約束」）；任何地方都不可標「本次新增」「本次修改」。
 - 圖上的表必須等於範圍內的表、關聯線與關聯清單一一對應、圖上的欄位必須存在於 SQL。欄位完整性由欄位清單負責，ER 圖只負責表與關聯。
-- PNG 放 `TableSchema/er/`，用 `work_item render`（kind=mermaid，src 為文件）轉出，或用 `attach destDir=er` 手動存放。
+- Mermaid 來源寫在 `TableSchema/_src/<名稱>.mmd`（`work_item write`，系統圖為 system-er.mmd）；PNG 放 `TableSchema/er/`，用 `work_item render`（kind=mermaid，src 為 `TableSchema/_src/<名稱>.mmd`，out 為 `TableSchema/er/<同名>.png`）轉出，或用 `attach destDir=er` 手動存放；來源改過後圖片要重新轉（圖片比來源舊會被擋）。舊版面（快照含 flow-analyst）的工作項目仍接受內嵌 mermaid 的舊格式。
 
 ## 通用原則
-- 正式交付物（SA、SD、資料表結構與 ER 圖、流程圖）必須自足：不指向內部過程檔案，圖片路徑為相對於文件的固定位置。
+- 正式交付物（SA、SD、資料表結構與 ER 圖、流程圖）必須自足：全部不放 mermaid，圖一律用圖片（SA 只用 sa-images/ 截圖）：不指向內部過程檔案，圖片路徑為相對於文件的固定位置。
 - 內部過程檔案（SQL 設計說明、規格驗證報告、審查報告、實作說明等）不交付。
 - `00-索引.md` 由系統產生，不可手寫，也不是任何角色的交件；指令當機留下的 `*.stackdump` 要在交件前刪掉（系統 done 與最終驗收會警告）。
 

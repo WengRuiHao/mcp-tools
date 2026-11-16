@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /** work_item 單一工具的參數：以 action 分派，其餘欄位依動作選填（缺必填欄位由各動作回清楚錯誤）。 */
 
-export const WORK_ITEM_ACTIONS = ["create", "get", "role_prompt", "set_scope", "write", "attach", "render", "done", "confirm", "verdict", "update_requirement", "record_decision", "template"] as const;
+export const WORK_ITEM_ACTIONS = ["create", "get", "role_prompt", "set_scope", "write", "attach", "render", "done", "confirm", "verdict", "update_requirement", "record_decision", "template", "deliver"] as const;
 export type WorkItemAction = (typeof WORK_ITEM_ACTIONS)[number];
 
 const reasonsShape = {
@@ -19,7 +19,7 @@ const reviewShape = {
 };
 
 export const workItemShape = {
-  action: z.enum(WORK_ITEM_ACTIONS).describe("動作：create｜get｜role_prompt｜set_scope｜write｜attach｜render｜done｜confirm｜verdict｜update_requirement｜record_decision｜template"),
+  action: z.enum(WORK_ITEM_ACTIONS).describe("動作：create｜get｜role_prompt｜set_scope｜write｜attach｜render｜done｜confirm｜verdict｜update_requirement｜record_decision｜template｜deliver"),
   workItemId: z.string().optional().describe("工作項目編號（wi-YYYYMMDD-NNN）；create 以外都要"),
   projectDir: z.string().optional().describe("create：專案目錄絕對路徑（必須存在）"),
   title: z.string().optional().describe("create：標題"),
@@ -30,14 +30,15 @@ export const workItemShape = {
   styleSource: z.enum(["existing", "redesign", "new-guided", "new-select"]).optional().describe("create／set_scope：畫面風格來源 existing沿用現有｜redesign換新（既有系統）；new-guided全新有規範｜new-select全新待選（全新系統）；mockup 確認後鎖定。create 沒給時依預設值規則決定，翻新案必須明確給"),
   techSource: z.enum(["existing", "change", "new-guided", "new-select"]).optional().describe("create／set_scope：技術來源 existing沿用現有｜change換技術（既有系統）；new-guided全新有規範｜new-select全新待選（全新系統）；技術確認後鎖定。翻新案必須明確給"),
   renewal: z.boolean().optional().describe("create：是否翻新案（預設 false）；翻新案不替使用者猜風格與技術，styleSource 與 techSource 都必須明確給"),
-  template: z.enum(["sa", "sd", "table-schema", "system-er", "mockup-states"]).optional().describe("template：要取的範本（sa＝客戶版 SA｜sd＝後端規格｜table-schema＝資料表結構文件｜system-er＝系統 ER 圖｜mockup-states＝mockup 狀態切換範例 HTML）；不需 workItemId"),
+  template: z.enum(["sa", "sd", "table-schema", "system-er", "mockup-states", "er-source", "system-er-source"]).optional().describe("template：要取的範本（sa＝客戶版 SA｜sd＝後端規格｜table-schema＝資料表結構文件｜system-er＝系統 ER 圖｜mockup-states＝mockup 狀態切換範例 HTML｜er-source＝模組 ER 圖 Mermaid 來源｜system-er-source＝系統 ER 圖 Mermaid 來源）；不需 workItemId"),
+  target: z.enum(["sa", "sd", "all"]).optional().describe("deliver：要輸出的交付文件（sa＝系統分析書｜sd＝系統設計書｜all＝兩者，預設）；輸出客戶命名的副本到 deliverables/"),
   roleId: z.string().optional().describe("role_prompt／done：角色 id（例如 sa-analyst）"),
   filename: z.string().optional().describe("write：產出檔名（只能是流程定義的產出檔，例如 01-sa.md）"),
   content: z.string().optional().describe("write：檔案內容（上限 512KB）"),
   srcPath: z.string().optional().describe("attach：來源檔絕對路徑（必須存在且為檔案）"),
   destDir: z.enum(["sa-mockup", "sa-images", "evidence", "flow", "er"]).optional().describe("attach：目的位置；flow＝根目錄的 flow.png；er＝TableSchema/er/ 的 ER 圖 PNG（name 必填，例如 orders.png）"),
   name: z.string().optional().describe("attach：存檔檔名（選填，預設沿用來源檔名；會淨化）"),
-  kind: z.enum(["html", "mermaid", "docx"]).optional().describe("render：html（mockup 轉 PNG）｜mermaid（流程圖轉 PNG；src 也可以是 TableSchema/ 內的 .md，轉出其中的 ER 圖，out 限 TableSchema/er/<名稱>.png）｜docx（01-sa.md 轉 01-sa.docx，不需 src／out）"),
+  kind: z.enum(["html", "mermaid", "docx"]).optional().describe("render：html（mockup 轉 PNG）｜mermaid（流程圖轉 PNG；ER 圖來源是 TableSchema/_src/<名稱>.mmd，out 限 TableSchema/er/<同名>.png）｜docx（01-sa.md 轉 01-sa.docx，不需 src／out）"),
   src: z.string().optional().describe("render：輸入檔，相對於工作項目目錄"),
   out: z.string().optional().describe("render：輸出 PNG，相對於工作項目目錄"),
   gateId: z.string().optional().describe("confirm：關卡 id；verdict：spec-check-verdict｜verdict"),
@@ -51,7 +52,7 @@ export const workItemShape = {
   alsoRewind: z.array(z.string()).optional().describe("confirm（decision:rejected）：一併退回的角色 id 陣列，只能是該關卡之前的角色（例如打回 sa-confirm 時一併退回 baseline-survey 重做 impact.md）；這些角色與其下游都退回未完成並清掉相關確認。沒給＝行為不變"),
   review: z.object(reviewShape).optional().describe("by:agent 核准時必填：審查員申報 {breaksExisting, reviewerUncertain, scopeSplit}，三個都要是布林值；任一為 true 必須在 reasons 附對應理由。判準見 role_prompt roleId=\"reviewer\""),
   result: z.enum(["pass", "fail"]).optional().describe("verdict：通過或不通過"),
-  rootCause: z.string().optional().describe("verdict fail：根因（該關卡 routeOnFail 的 key，例如 sa、sa-text、db、flow、sd、fe、be）；spec-check-verdict 的 sa-text＝SA 文字／截圖用字修正，只退回 SA 與規格驗證師，不影響 DB／流程／SD"),
+  rootCause: z.string().optional().describe("verdict fail：根因（該關卡 routeOnFail 的 key，例如 sa、sa-text、db、sd、fe、be）；spec-check-verdict 的 sa-text＝SA 文字／截圖用字修正，只退回 SA 與規格驗證師，不影響 DB／SD"),
 };
 
 export type WorkItemArgs = z.infer<z.ZodObject<typeof workItemShape>>;

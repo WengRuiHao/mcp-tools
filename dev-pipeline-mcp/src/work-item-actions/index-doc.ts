@@ -1,4 +1,4 @@
-import { stat, writeFile } from "node:fs/promises";
+import { readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { TicketStatus } from "../pipeline-store.js";
 import { buildWhenContext } from "../work-item-store.js";
@@ -30,13 +30,15 @@ const ROLE_PURPOSE: Readonly<Record<string, string>> = {
   "sa-analyst": "撰寫給客戶看的需求說明（SA）",
   "db-designer": "設計資料表結構與 SQL（無異動時內容很少）",
   "flow-analyst": "畫出流程圖",
-  "sd-analyst": "撰寫給工程師實作用的設計規格（SD）",
-  "spec-verifier": "比對 SA、DB、流程、SD 是否一致",
+  "sd-analyst": "撰寫給工程師實作用的設計規格（SD，含流程圖）",
+  "spec-verifier": "比對 SA、DB、SD（含流程圖）是否一致",
   "frontend-engineer": "前端實作並記錄改動",
   "backend-engineer": "後端實作並記錄改動",
   verifier: "驗證實作是否符合規格",
   tester: "實際測試並留下測試證據",
 };
+/** deliver 動作輸出客戶命名副本的資料夾。 */
+export const DELIVERABLES_DIR = "deliverables";
 const NOT_STARTED = "未開始";
 const FOCUS_TAG = "給人看的重點檔";
 const INTERNAL_TAG = "內部過程檔（給後面角色用，可以不看）";
@@ -124,6 +126,23 @@ async function decisionSection(dir: string, status: TicketStatus): Promise<strin
   ];
 }
 
+/** deliverables/ 內已輸出的客戶命名副本（work_item action=deliver 產生）；沒有時不產生章節。 */
+async function deliveredSection(dir: string): Promise<string[]> {
+  const files = await deliveredFiles(dir);
+  if (files.length === 0) return [];
+  return ["## 已交付的客戶命名文件", "", "work_item action=deliver 輸出的副本（內部檔名不變，這裡是給客戶的命名）。", "", ...files.map((f) => `- ${link(f)}`), ""];
+}
+
+/** deliverables/ 頂層的 md／docx 檔（相對工作項目目錄）；資料夾不存在回空陣列。 */
+export async function deliveredFiles(dir: string): Promise<string[]> {
+  try {
+    const entries = await readdir(path.join(dir, DELIVERABLES_DIR), { withFileTypes: true });
+    return entries.filter((e) => e.isFile() && /\.(md|docx)$/i.test(e.name)).map((e) => `${DELIVERABLES_DIR}/${e.name}`).sort();
+  } catch {
+    return [];
+  }
+}
+
 async function staleSection(dir: string, status: TicketStatus): Promise<string[]> {
   const note = await staleUpstreamNote(dir, status);
   return note ? ["## 上游文件可能過期", "", note, ""] : [];
@@ -142,6 +161,7 @@ export async function buildIndexDoc(dir: string, status: TicketStatus, def: Work
     "",
     ...flowTable(rows),
     ...(await focusSection(dir, def, status)),
+    ...(await deliveredSection(dir)),
     ...gateSection(status, def),
     ...(await decisionSection(dir, status)),
     ...(await staleSection(dir, status)),

@@ -5,6 +5,7 @@ import { WorkItemActionError, errorMessage, errorReply, type ToolReply } from ".
 import { handleConfirm } from "./work-item-actions/confirm.js";
 import { handleRecordDecision } from "./work-item-actions/decisions.js";
 import { handleCreate } from "./work-item-actions/create.js";
+import { handleDeliver } from "./work-item-actions/deliver.js";
 import { handleDone } from "./work-item-actions/done.js";
 import { handleGet } from "./work-item-actions/get.js";
 import { handleRender } from "./work-item-actions/render.js";
@@ -24,13 +25,14 @@ const WORK_ITEM_DESCRIPTION =
   "- set_scope：改 scope／hasDb（SA 確認後鎖定）、styleSource（mockup 確認後鎖定）、techSource（技術確認後鎖定）。\n" +
   "- write：寫入產出檔（filename 限流程定義的產出檔，content 上限 512KB；不會自動完成）。\n" +
   "- attach：把截圖或 mockup 檔存進工作項目（srcPath 絕對路徑、destDir：sa-mockup｜sa-images｜evidence｜flow｜er；er 存 TableSchema/er/，name 必填）。AI 用自己的瀏覽器工具截好圖後用它存放。\n" +
-  "- render：選用的內建產圖（kind=html｜mermaid，src、out）；不可用會回 ok:false 與 hint，改走 attach。kind=docx 把 01-sa.md 轉成 01-sa.docx（不需 src、out；SA 的 Word 只能由它產生，SA 交件時也會自動轉）。\n" +
+  "- render：選用的內建產圖（kind=html｜mermaid，src、out；ER 圖來源是 TableSchema/_src/<名稱>.mmd，out 為 TableSchema/er/<同名>.png）；不可用會回 ok:false 與 hint，改走 attach。kind=docx 把 01-sa.md 轉成 01-sa.docx（不需 src、out；SA 的 Word 只能由它產生，SA 交件時也會自動轉）。\n" +
   "- done：交件（roleId）；會檢查產出檔、SA 截圖、flow.png、PASS／FAIL 報告格式，不合格不標記完成。\n" +
   "- confirm：確認關卡（gateId、decision、by；by:\"human\" 一律要附 reason＝使用者原話；打回時可用 alsoRewind 指定一併退回該關卡之前的角色）。by:\"human\" 只能在使用者本人明確說確認時使用，AI 不可冒用；by:\"agent\" 核准只有該關卡為 auto 且審查申報（review）通過才成功（review 任一申報為 true 必須在 review.reasons 附理由；判準見 role_prompt roleId=\"reviewer\"），硬性停止時 AI 不可核准；styleSource=new-select 核准 mockup-confirm 時必須用 selected 指定選定的風格檔（sa-mockup/ 內 style-*.html），其餘候選會移到 sa-mockup/_candidates/；AI 可用 decision:\"rejected\"（reason 必填）打回，不受硬性停止限制；final-acceptance 核准與打回都只能 human，manual 關卡 AI 不可核准。\n" +
   "- verdict：規格驗證／驗證判定（gateId=spec-check-verdict｜verdict、result、rootCause、by、review；by:\"human\" 與 AI 判不通過都要附 reason；spec-check-verdict 的 rootCause=sa-text 只退回 SA 與規格驗證師）。\n" +
   "- update_requirement：修改需求（workItemId、requirement＝新需求全文、reason＝使用者原話、by:\"human\"）；更新 item.md 並記錄修改歷程，列出已完成的角色，不自動退回任何角色（要重做請用 confirm 打回搭配 alsoRewind）。\n" +
   "- record_decision：記錄使用者的決定（workItemId、question＝sa-notes.md 待確認問題的編號或標題、answer、reason＝使用者原話、by:\"human\"）；使用者說「全部照建議」用 acceptAllSuggested:true（不需 question、answer，reason 仍要附原話）一次接受所有尚無記錄的待確認問題。sa-notes.md 還有沒決定記錄的待確認問題時，sa-confirm 不可由 AI 核准；已記錄的決定會出現在 get、審查員說明書與 00-索引.md。\n" +
-  "- template：取範本全文（template＝sa｜sd｜table-schema｜system-er｜mockup-states，不需 workItemId）；角色說明提到「範本」時用它取，不要找專案裡的檔案。\n" +
+  "- template：取範本全文（template＝sa｜sd｜table-schema｜system-er｜mockup-states｜er-source｜system-er-source，不需 workItemId）；角色說明提到「範本」時用它取，不要找專案裡的檔案。\n" +
+  "- deliver：把交付物輸出成客戶命名的副本到 deliverables/（workItemId、target＝sa｜sd｜all，預設 all）：「<標題>_系統分析書_v<版次>」「<標題>_系統設計書_v<版次>」，圖片一併複製並改寫引用；需產出角色已 done 且對應確認關卡已通過；SD 轉 Word 由人工負責。\n" +
   "Asana 票單不可用本工具，請用既有 Asana 工具。錯誤一律回 isError。";
 
 async function dispatch(a: WorkItemArgs, renderer: Renderer): Promise<ToolReply> {
@@ -61,6 +63,8 @@ async function dispatch(a: WorkItemArgs, renderer: Renderer): Promise<ToolReply>
       return handleUpdateRequirement(a);
     case "record_decision":
       return handleRecordDecision(a);
+    case "deliver":
+      return handleDeliver(a);
   }
 }
 

@@ -124,6 +124,8 @@ export interface SchemaCheckOptions {
   baseline?: string | undefined;
   /** 掃描既有 DB 腳本用的專案目錄。 */
   projectDir?: string | null | undefined;
+  /** 舊格式工作項目（ER 圖 Mermaid 內嵌在文件章節）仍接受。 */
+  legacy?: boolean | undefined;
 }
 
 /** 既有資料表（僅 brownfield）：專案 .sql 掃描，加上 system-er.md「既有資料表」一節。 */
@@ -180,7 +182,7 @@ export function checkTableSchemas(workItemDir: string, opts: SchemaCheckOptions 
     const r = checkDocStructure(text, rel, known, noChange, created);
     const rels = checkRelationList(text, rel, r.tables, known, lookup);
     allRelations.push(...rels.relations);
-    problems.push(...checkModuleEr(text, rel, workItemDir, knownEr.filter((t) => r.tables.includes(t.name)), rels.relations, noChange));
+    problems.push(...checkModuleEr(text, rel, workItemDir, knownEr.filter((t) => r.tables.includes(t.name)), rels.relations, noChange, opts.legacy === true));
     problems.push(...r.problems, ...rels.problems, ...checkConnected(r.tables, known, rel, rels.relations.map((x): [string, string] => [x.child, x.parent])));
     for (const n of new Set(r.tables)) owner.set(n, [...(owner.get(n) ?? []), rel]);
   }
@@ -192,6 +194,6 @@ export function checkTableSchemas(workItemDir: string, opts: SchemaCheckOptions 
   for (const [n, owners] of owner) if (!created.includes(n) && owners.length > 1) problems.push(`資料表 ${n} 同時出現在多份文件（${owners.join("、")}），每張表只能在一份文件的一個小節`);
   const alteredFk = [...new Set(parseAlterChanges(sqlText).map((c) => c.table))].filter((n) => !created.includes(n) && existing.some((t) => t.name === n));
   for (const n of alteredFk) if (!owner.has(n)) problems.push(`${DB_SQL_FILE} 以 ALTER TABLE 對既有資料表 ${n} 新增了外鍵，${n} 要整理進 ${TABLE_SCHEMA_DIR}/ 的分組文件（「## 資料表：${n}」），並在該文件的「關聯清單」與系統 ER 圖列出新外鍵`);
-  problems.push(...checkSystemEr({ dir: workItemDir, sqlTables, sqlText, relations: allRelations, brownfield: opts.baseline === "brownfield", projectDir: opts.projectDir, existing: existing.map(withListed), alteredTables: parseAlteredTables(sqlText), noChange }));
+  problems.push(...checkSystemEr({ dir: workItemDir, sqlTables, sqlText, relations: allRelations, brownfield: opts.baseline === "brownfield", projectDir: opts.projectDir, existing: existing.map(withListed), alteredTables: parseAlteredTables(sqlText), noChange, legacy: opts.legacy === true }));
   return problems;
 }

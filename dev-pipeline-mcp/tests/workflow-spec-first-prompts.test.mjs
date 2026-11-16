@@ -9,8 +9,9 @@ const fileOf = (id) => wf.artifacts.find((a) => a.id === id).file;
 const j = (...parts) => parts.join("");
 const FORBIDDEN = [j("UEC", "-F"), j("電子", "發票"), j("ofe", "invoice"), j("SC", "SB"), j("上海", "商銀"), j("Alv", "en"), j("高", "銀"), j("sow", "ffd"), j("社家", "署"), j("boke", "ps"), j("KS", "BS")];
 
-test("12 個角色都能取得，且與 builtin 角色 id 完全一致", () => {
-  assert.equal(SPEC_FIRST_ROLE_IDS.length, 12);
+test("11 個角色都能取得，且與 builtin 角色 id 完全一致（flow-analyst 已併入 sd-analyst）", () => {
+  assert.equal(SPEC_FIRST_ROLE_IDS.length, 11);
+  assert.ok(!SPEC_FIRST_ROLE_IDS.includes("flow-analyst"));
   assert.deepEqual([...SPEC_FIRST_ROLE_IDS].sort(), wf.roles.map((r) => r.id).sort());
   for (const id of SPEC_FIRST_ROLE_IDS) assert.ok(getSpecFirstRolePrompt(id).length > 0, id);
 });
@@ -104,22 +105,24 @@ test("db-designer：破壞性語句與回滾", () => {
   for (const k of ["02-db.sql", "02-db.md", "DROP", "TRUNCATE", "WHERE", "ALTER", "回滾", "強制人工確認"]) assert.ok(t.includes(k), k);
 });
 
-test("flow-analyst：必須附 flow.png", () => {
-  const t = getSpecFirstRolePrompt("flow-analyst");
-  assert.ok(t.includes("flow.mmd") && t.includes("flow.png") && t.includes("必須附上"));
+test("sd-analyst：流程圖併入 SD，必須附 flow.png、SD 內只放圖片引用", () => {
+  const t = getSpecFirstRolePrompt("sd-analyst");
+  assert.ok(t.includes("flow.mmd") && t.includes("flow.png") && t.includes("必須附上") && t.includes("## 流程圖") && t.includes("不放 mermaid"));
+  assert.throws(() => getSpecFirstRolePrompt("flow-analyst"), /未知的規格先行角色/);
 });
 
 test("spec-verifier：只看規格、PASS／FAIL 與四個 rootCause", () => {
   const t = getSpecFirstRolePrompt("spec-verifier");
   assert.ok(t.includes("PASS") && t.includes("FAIL") && t.includes("rootCause") && t.includes("sa-images/"));
-  for (const v of ["sa", "db", "flow", "sd"]) assert.ok(t.includes(v), v);
+  for (const v of ["sa", "db", "sd"]) assert.ok(t.includes(v), v);
+  assert.ok(!t.includes("sa、db、flow"));
   assert.ok(t.includes("不可閱讀或引用程式碼"));
 });
 
 test("verifier：六個 rootCause 值", () => {
   const t = getSpecFirstRolePrompt("verifier");
   assert.ok(t.includes("PASS") && t.includes("rootCause"));
-  for (const v of ["sa、db、flow、sd、fe、be"]) assert.ok(t.includes(v), v);
+  for (const v of ["sa、db、sd、fe、be"]) assert.ok(t.includes(v), v);
 });
 
 test("tester：先白箱後黑箱、截圖存 evidence/、最終驗收由使用者本人、AI 不能代確認", () => {

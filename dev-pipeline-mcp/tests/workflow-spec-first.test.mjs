@@ -35,8 +35,7 @@ test("規格驗證關卡：非 locked、預設 auto，FAIL 的 rootCause 目標�
   const d = buildSpecFirstWorkflow();
   const g = d.gates.find((x) => x.after === "spec-verifier");
   assert.deepEqual([g.type, g.confirmMode, Boolean(g.locked)], ["verdict", "auto", false]);
-  assert.deepEqual(Object.keys(g.routeOnFail).sort(), ["db", "flow", "sa", "sa-text", "sd"]);
-  assert.equal(g.routeOnFail.flow, "flow-analyst");
+  assert.deepEqual(Object.keys(g.routeOnFail).sort(), ["db", "sa", "sa-text", "sd"]);
   const roleIds = new Set(ids(d.roles));
   for (const t of Object.values(g.routeOnFail)) assert.ok(roleIds.has(t), t);
   assert.deepEqual(g.routeOnFail, SPEC_CHECK_ROUTES);
@@ -97,7 +96,7 @@ test("resolve 後 sa-content-check 仍在，stage 順序不受內容關卡影響
   const d = buildSpecFirstWorkflow();
   const r = resolveWorkflow(d, ALL_SCOPE);
   assert.ok(r.gates.some((g) => g.id === "sa-content-check"));
-  assert.equal(ids(r.roles).length, 12);
+  assert.equal(ids(r.roles).length, 11);
 });
 
 test("sa-content-check 描述：至少一張畫面圖、所有圖片引用有效、提示狀態附圖、取自已確認 mockup，check id 不變", () => {
@@ -150,7 +149,7 @@ test("範圍條件：hasFrontend／hasBackend／hasDb 決定角色是否出現�
   const got = ids(pureBackend.roles);
   for (const gone of ["mockup-designer", "frontend-engineer", "db-designer", "baseline-survey"]) assert.ok(!got.includes(gone), gone);
   assert.deepEqual(pureBackend.roles.find((r) => r.id === "sa-analyst").dependsOn, ["tech-selector"]);
-  assert.deepEqual(pureBackend.roles.find((r) => r.id === "flow-analyst").dependsOn, ["sa-analyst"]);
+  assert.deepEqual(pureBackend.roles.find((r) => r.id === "sd-analyst").dependsOn, ["sa-analyst"]);
   assert.deepEqual(pureBackend.roles.find((r) => r.id === "verifier").dependsOn, ["backend-engineer"]);
   assert.ok(!pureBackend.gates.some((g) => g.id === "mockup-confirm"));
   const pureFrontend = ids(resolveWorkflow(d, { baseline: "greenfield", hasFrontend: "true", hasBackend: "false", hasDb: "false" }).roles);
@@ -203,11 +202,11 @@ test("final-acceptance（locked）在任何 signals 與 auto 預設下都不可�
   }
 });
 
-test("verdict 關卡退回目標：flow→flow-analyst 且所有目標角色存在", () => {
+test("verdict 關卡退回目標：流程圖錯誤歸 sd（flow-analyst 已併入 sd-analyst），所有目標角色存在", () => {
   const d = buildSpecFirstWorkflow();
   const roleIds = new Set(ids(d.roles));
   const verdict = d.gates.find((g) => g.id === "verdict");
-  assert.deepEqual(verdict.routeOnFail, { sa: "sa-analyst", db: "db-designer", flow: "flow-analyst", sd: "sd-analyst", fe: "frontend-engineer", be: "backend-engineer" });
+  assert.deepEqual(verdict.routeOnFail, { sa: "sa-analyst", db: "db-designer", sd: "sd-analyst", fe: "frontend-engineer", be: "backend-engineer" });
   for (const g of d.gates) for (const t of Object.values(g.routeOnFail ?? {})) assert.ok(roleIds.has(t), `${g.id}:${t}`);
 });
 

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpDir, removeDir } from "./helpers/support.mjs";
-import { tableSchemaTemplates, TEMPLATE_SQL, installSchemaExtras } from "./helpers/sasd-standard.mjs";
+import { tableSchemaTemplates, TEMPLATE_SQL, installSchemaExtras, splitErInline } from "./helpers/sasd-standard.mjs";
 
 const { checkTableSchemas, checkTableSection, parseCreateTables } = await import("../dist/workflow/table-schema-check.js");
 const root = makeTmpDir("dpm-tschema-");
@@ -21,6 +21,7 @@ function item(schemas, sql = SQL) {
   fs.writeFileSync(path.join(dir, "02-db.sql"), sql);
   installSchemaExtras(dir);
   for (const [name, text] of Object.entries(schemas)) fs.writeFileSync(path.join(dir, "TableSchema", `${name}.md`), text);
+  splitErInline(dir);
   return dir;
 }
 const T = () => tableSchemaTemplates();

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpDir, removeDir } from "./helpers/support.mjs";
-import { tableSchemaTemplates } from "./helpers/sasd-standard.mjs";
+import { tableSchemaTemplates, splitErInline } from "./helpers/sasd-standard.mjs";
 
 const { scanProjectTables, parseExistingSection, mergeExisting } = await import("../dist/workflow/existing-tables.js");
 const { checkTableSchemas } = await import("../dist/workflow/table-schema-check.js");
@@ -51,6 +51,7 @@ function item(sql, opts) {
   w(path.join(dir, "02-db.sql"), sql);
   const orders_master = tableSchemaTemplates().orders_master;
   w(path.join(dir, "TableSchema", "orders_master.md"), orders_master);
+  splitErInline(dir);
   return { dir, ...opts };
 }
 const has = (list, re) => list.some((x) => re.test(x));

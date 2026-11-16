@@ -10,21 +10,4 @@
 
 ## 系統 ER 圖
 
-```mermaid
-erDiagram
-    members ||--o{ orders_master : "一位會員有多張訂單"
-    orders_master ||--o{ orders_detail : "一張訂單有多筆明細"
-    members {
-        INTEGER id PK
-    }
-    orders_master {
-        INTEGER id PK
-        INTEGER member_id FK
-    }
-    orders_detail {
-        INTEGER id PK
-        INTEGER order_id FK
-    }
-```
-
 ![系統 ER 圖](er/system-er.png)

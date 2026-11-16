@@ -6,7 +6,7 @@ import { TECH_CONFIRM_GATE } from "../work-item-sources.js";
 import { applyGateDecision, applyRoleDone, isProgramCheckGate, isTechConfirmAuto } from "../workflow/spec-first-engine.js";
 import type { WorkflowDefinition } from "../workflow/schema.js";
 import { WorkItemActionError, need, okReply, type ToolReply } from "./common.js";
-import { loadEffectiveDef, loadWorkItem } from "./context.js";
+import { isLegacyLayout, loadEffectiveDef, loadWorkItem } from "./context.js";
 import { convertSaToDocx } from "../export/sa-docx.js";
 import { listLogicalRelations } from "../workflow/table-schema-check.js";
 import { checkDeliverables } from "./deliverables.js";
@@ -66,7 +66,7 @@ export async function handleDone(a: WorkItemArgs): Promise<ToolReply> {
   const ctx = await loadWorkItem(workItemId);
   const { def, overrideApplied } = await loadEffectiveDef(ctx.status);
   assertAvailable(ctx.status, def, overrideApplied, roleId);
-  const basic = await checkDeliverables(ctx.dir, roleId, def, { techSource: ctx.status.tech_source, projectDir: ctx.status.project_dir, baseline: ctx.status.baseline, selectedStyle: effectiveSelectedStyle(ctx.status) });
+  const basic = await checkDeliverables(ctx.dir, roleId, def, { techSource: ctx.status.tech_source, projectDir: ctx.status.project_dir, baseline: ctx.status.baseline, selectedStyle: effectiveSelectedStyle(ctx.status), legacy: isLegacyLayout(ctx.status) });
   const problems = basic.length > 0 ? basic : await checkDuplicatesOnDone(ctx.dir, ctx.status.project_dir, roleId, def);
   if (problems.length > 0) throw new WorkItemActionError(`交件檢查未通過，角色「${roleId}」未標記完成：${problems.join("；")}`, { problems });
   const warnings: string[] = [];

@@ -1,6 +1,7 @@
 import type { WorkflowDefinition } from "../workflow/schema.js";
 import type { TicketStatus } from "../pipeline-store.js";
 import { isRoleDone } from "../workflow/work-item-progress.js";
+import { isLegacyLayout } from "./context.js";
 import { checkDeliverables } from "./deliverables.js";
 
 /** 角色已 done 後重寫它的產出檔：重跑與 done 相同的交件內容檢查（checkDeliverables），結果附在 write 回傳。 */
@@ -37,7 +38,7 @@ export async function recheckAfterWrite(dir: string, status: TicketStatus, def: 
   const failures: string[] = [];
   for (const roleId of roles) {
     try {
-      const problems = await checkDeliverables(dir, roleId, def, { techSource: status.tech_source, projectDir: status.project_dir, baseline: status.baseline });
+      const problems = await checkDeliverables(dir, roleId, def, { techSource: status.tech_source, projectDir: status.project_dir, baseline: status.baseline, legacy: isLegacyLayout(status) });
       failures.push(...problems.map((p) => (roles.length > 1 ? `[${roleId}] ${p}` : p)));
     } catch (e) {
       failures.push(`[${roleId}] 重新檢查時發生錯誤：${e instanceof Error ? e.message : String(e)}`);

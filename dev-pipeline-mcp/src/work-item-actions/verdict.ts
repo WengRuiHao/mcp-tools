@@ -36,7 +36,7 @@ async function assertMatchesReport(dir: string, def: WorkflowDefinition, gateId:
 export async function handleVerdict(a: WorkItemArgs): Promise<ToolReply> {
   const { workItemId, gateId, result, by } = need("verdict", a, ["workItemId", "gateId", "result", "by"]);
   if (!VERDICT_GATES.includes(gateId)) throw new WorkItemActionError(`verdict 只接受關卡：${VERDICT_GATES.join("、")}`);
-  if (result === "fail" && !a.rootCause?.trim()) throw new WorkItemActionError("result=fail 必須帶 rootCause（該關卡 routeOnFail 的 key；spec-check-verdict 可用：sa、sa-text、db、flow、sd，sa-text＝SA 文字／截圖用字修正，只退回 SA 與規格驗證師）。");
+  if (result === "fail" && !a.rootCause?.trim()) throw new WorkItemActionError("result=fail 必須帶 rootCause（該關卡 routeOnFail 的 key；spec-check-verdict 可用：sa、sa-text、db、sd，sa-text＝SA 文字／截圖用字修正，只退回 SA 與規格驗證師）。");
   const ctx = await loadWorkItem(workItemId);
   const { def, overrideApplied } = await loadEffectiveDef(ctx.status);
   if (def.gates.find((g) => g.id === gateId)?.type !== "verdict") throw new WorkItemActionError(`關卡「${gateId}」不是判定關卡。`);

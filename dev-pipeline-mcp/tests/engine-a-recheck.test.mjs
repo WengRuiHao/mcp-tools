@@ -42,7 +42,7 @@ test("已 done 角色的附屬輸出（sa-notes.md）重寫也會重跑；未 do
 
 test("已 done 的 db-designer 重寫 TableSchema 文件：重跑資料表結構檢查", async () => {
   const { id, dir } = await env.create();
-  await runUntil(env, id, dir, "flow-analyst");
+  await runUntil(env, id, dir, "sd-analyst");
   const r = await write(id, "TableSchema/t.md", "# 壞掉的文件\n");
   assert.equal(r.isError, false);
   assert.equal(r.json.recheck.ok, false);

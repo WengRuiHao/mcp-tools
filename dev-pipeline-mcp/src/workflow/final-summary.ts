@@ -50,7 +50,7 @@ export const GATE_LABELS: Readonly<Record<string, string>> = {
   "mockup-confirm": "mockup 確認",
   "sa-content-check": "SA 內容檢查",
   "sa-confirm": "SA 確認",
-  "db-flow-confirm": "DB 與流程圖確認",
+  "db-flow-confirm": "DB 確認",
   "sd-confirm": "SD 確認",
   "spec-check-verdict": "規格驗證判定",
   "implementation-content": "實作內容檢查",

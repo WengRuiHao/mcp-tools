@@ -2,7 +2,7 @@
 // 既有表的 NOT NULL 資訊未知，關聯一律視為可選：模組與系統 ER 圖的 `||--o{` 改為 `|o--o{`。
 import fs from "node:fs";
 import path from "node:path";
-import { tableSchemaTemplates, systemErTemplate, installSchemaExtras } from "./sasd-standard.mjs";
+import { tableSchemaTemplates, systemErTemplate, installSchemaExtras, splitErInline } from "./sasd-standard.mjs";
 
 export const NO_CHANGE_SQL = "-- 本次沒有資料庫異動：只讀既有表 members、orders_master、orders_detail\n-- 刻意不含任何 CREATE / ALTER / DROP\n";
 export const EXISTING_SECTION = [
@@ -27,5 +27,6 @@ export function writeNoChangeItem(dir, over = {}) {
   installSchemaExtras(dir);
   fs.writeFileSync(path.join(dir, "TableSchema", "system-er.md"), d.systemEr);
   for (const n of ["orders_master", "members"]) if (d[n] !== null) fs.writeFileSync(path.join(dir, "TableSchema", `${n}.md`), d[n]);
+  splitErInline(dir);
   return dir;
 }

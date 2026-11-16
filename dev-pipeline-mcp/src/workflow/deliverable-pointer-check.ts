@@ -20,6 +20,8 @@ export interface PointerCheckOptions {
   only?: readonly string[];
   /** 依檔名指定要略過的內部檔名（該檔的標準檢查已回報）。 */
   suppress?: Readonly<Record<string, readonly string[]>>;
+  /** 舊格式工作項目（ER 圖 Mermaid 內嵌在文件）：允許文件內有 mermaid 區塊。 */
+  allowMermaid?: boolean;
 }
 
 /** 圖片引用是否為允許的正式交付物：解析成相對工作項目根目錄後必須在 sa-images/ 底下，或就是 flow.png，或是 TableSchema/er/ 底下的 ER 圖 PNG。回傳違規原因，合法回 null。 */
@@ -37,9 +39,12 @@ function imageProblem(mdRel: string, ref: string): string | null {
   return resolved === FLOW_IMAGE || resolved.startsWith(`${SA_IMAGES_DIR}/`) || ER_IMAGE_RE.test(resolved) ? null : "不是正式交付物";
 }
 
-function checkOneFile(dir: string, rel: string, skipTerms: readonly string[]): string[] {
+function checkOneFile(dir: string, rel: string, skipTerms: readonly string[], allowMermaid: boolean): string[] {
   const out: string[] = [];
   const text = readFileSync(path.join(dir, rel), "utf-8");
+  const onFence = (info: string, lineNo: number, opening: boolean): void => {
+    if (opening && !allowMermaid && info.split(/\s+/)[0].toLowerCase() === "mermaid") out.push(`${rel} 第 ${lineNo} 行有 mermaid 程式碼區塊：交付文件不放 mermaid，圖一律用圖片引用（來源寫在內部檔 flow.mmd 或 TableSchema/_src/）`);
+  };
   eachLine(text, (line, lineNo) => {
     let rest = line;
     for (const m of line.matchAll(IMAGE_RE)) {
@@ -53,10 +58,10 @@ function checkOneFile(dir: string, rel: string, skipTerms: readonly string[]): s
       if (skipTerms.includes(t.term) || !t.re.test(rest)) continue;
       out.push(`${rel} 第 ${lineNo} 行引用了內部檔「${t.term}」（內部過程檔不交付，正式交付物不可連結或提及）：${shorten(line)}`);
     }
-  });
+  }, onFence);
   return out;
 }
 
 export function checkDeliverablePointers(dir: string, def: WorkflowDefinition, opts: PointerCheckOptions = {}): string[] {
-  return expandMarkdownFiles(dir, deliverablePaths(def, opts.only)).flatMap((rel) => checkOneFile(dir, rel, opts.suppress?.[path.posix.basename(rel)] ?? []));
+  return expandMarkdownFiles(dir, deliverablePaths(def, opts.only)).flatMap((rel) => checkOneFile(dir, rel, opts.suppress?.[path.posix.basename(rel)] ?? [], opts.allowMermaid === true));
 }
