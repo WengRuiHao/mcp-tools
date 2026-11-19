@@ -1,6 +1,7 @@
 import { lstat, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { resolveArtifactPath } from "../pipeline-store.js";
+import { resolveArtifactPath, updateStatus } from "../pipeline-store.js";
+import { hashRoleOutputs } from "./deliverable-hash.js";
 import { WorkItemActionError, errorMessage, need, okReply, type ToolReply } from "./common.js";
 import { builtinDefinition, loadEffectiveDef, loadWorkItem } from "./context.js";
 import { refreshIndexDoc } from "./index-doc.js";
@@ -45,6 +46,7 @@ export async function handleWrite(a: WorkItemArgs): Promise<ToolReply> {
     throw new WorkItemActionError(`寫入失敗：${errorMessage(e)}`);
   }
   const recheck = await tryRecheck(ctx.dir, ctx.status, filename);
+  if (recheck?.ok) await recordHashes(ctx.id, ctx.dir, ctx.status, recheck.roles);
   const indexWarning = await refreshIndexDoc(ctx);
   return okReply({
     workItemId: ctx.id,
@@ -57,6 +59,17 @@ export async function handleWrite(a: WorkItemArgs): Promise<ToolReply> {
 }
 
 const recheckWarning = (r: RecheckResult): string => `警告：角色「${r.roles.join("、")}」已經 done，但重寫後的內容檢查未通過（${r.failures.length} 項，見 recheck.failures）。檔案已寫入，請修正後再 write 一次直到 recheck.ok 為 true。`;
+
+/** write 後重檢通過：把受影響角色的產出檔雜湊記回 status，done 時才知道檔案沒被外部改動。記錄失敗不影響 write。 */
+async function recordHashes(id: string, dir: string, status: Parameters<typeof recheckAfterWrite>[1], roles: string[]): Promise<void> {
+  try {
+    const { def } = await loadEffectiveDef(status);
+    const entries = await Promise.all(roles.map(async (r) => [r, await hashRoleOutputs(dir, def, r)] as const));
+    await updateStatus(id, (s) => ({ ...s, deliverable_hashes: { ...(s.deliverable_hashes ?? {}), ...Object.fromEntries(entries) } }));
+  } catch {
+    // 沒記到雜湊只會讓下次 done 多重檢一次
+  }
+}
 
 /** 已 done 的角色重寫產出檔：重跑交件內容檢查。流程定義載入失敗時略過（write 本身不受影響）。 */
 async function tryRecheck(dir: string, status: Parameters<typeof recheckAfterWrite>[1], filename: string): Promise<RecheckResult | undefined> {

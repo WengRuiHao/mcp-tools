@@ -117,6 +117,8 @@ export interface TicketStatus {
   decisions?: DecisionRecord[];
   /** 手動來源逐角色／逐關卡進度（選填，不放進 NEW_STATUS，Asana 票單的 status.json 不會多出這個 key）。 */
   work_item_progress?: WorkItemProgress;
+  /** 角色 done／write 通過檢查時記下的文字產出檔 SHA-256（角色 id → 相對路徑 → 雜湊），done 時用來偵測沒經過 write 的外部改檔（問題 80）。選填，不放進 NEW_STATUS。 */
+  deliverable_hashes?: Record<string, Record<string, string>>;
   stage: "new" | "snapshot" | "project_dir_confirmed" | "analyzed" | "sd_drafted" | "implemented" | "verified" | "tested";
   project_dir: string | null;
   /** 這張票所屬的 Asana 專案「全名稱」（未消毒過的原始字串）。get_ticket_snapshot 時自動記錄，供任何單張票的狀態異動事後局部重建 PENDING_HUMAN_ACTIONS.html 用（見 syncPendingActionsReport/listTicketsUnderProject），不需要呼叫端每次額外傳遞或記得重新呼叫 list_pending_tickets。 */

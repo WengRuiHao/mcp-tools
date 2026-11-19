@@ -10,6 +10,7 @@ import { isLegacyLayout, loadEffectiveDef, loadWorkItem } from "./context.js";
 import { convertSaToDocx } from "../export/sa-docx.js";
 import { listLogicalRelations } from "../workflow/table-schema-check.js";
 import { checkDeliverables } from "./deliverables.js";
+import { hashRoleOutputs, recheckChangedRoles } from "./deliverable-hash.js";
 import { checkDuplicatesOnDone } from "./dup-check.js";
 import { refreshIndexDoc } from "./index-doc.js";
 import { checkFlowCoversSa } from "../workflow/flow-covers-sa-check.js";
@@ -70,6 +71,9 @@ export async function handleDone(a: WorkItemArgs): Promise<ToolReply> {
   const basic = await checkDeliverables(ctx.dir, roleId, def, { techSource: ctx.status.tech_source, projectDir: ctx.status.project_dir, baseline: ctx.status.baseline, selectedStyle: effectiveSelectedStyle(ctx.status), legacy: isLegacyLayout(ctx.status) });
   const problems = basic.length > 0 ? basic : await checkDuplicatesOnDone(ctx.dir, ctx.status.project_dir, roleId, def);
   if (problems.length > 0) throw new WorkItemActionError(`交件檢查未通過，角色「${roleId}」未標記完成：${problems.join("；")}`, { problems });
+  const upstream = await recheckChangedRoles(ctx.dir, ctx.status, def, roleId, effectiveSelectedStyle(ctx.status));
+  if (upstream.problems.length > 0) throw new WorkItemActionError(`交件檢查未通過，角色「${roleId}」未標記完成：${upstream.problems.join("；")}`, { problems: upstream.problems });
+  const ownHashes = await hashRoleOutputs(ctx.dir, def, roleId);
   const warnings: string[] = [];
   if (roleId === "sa-analyst") {
     const docx = await convertSaToDocx(ctx.dir);
@@ -85,7 +89,7 @@ export async function handleDone(a: WorkItemArgs): Promise<ToolReply> {
     assertAvailable(s, def, overrideApplied, roleId);
     const r = applyRoleDone(techCandidates === undefined ? s : { ...s, tech_has_candidates: techCandidates }, roleId, { def });
     if (!r.ok) throw new WorkItemActionError(r.error);
-    return passProgramGates(r.status, def, roleId);
+    return passProgramGates({ ...r.status, deliverable_hashes: { ...(s.deliverable_hashes ?? {}), ...upstream.hashes, [roleId]: ownHashes } }, def, roleId);
   });
   warnings.push(...(await sdImplWarnings(ctx.dir, roleId, def)));
   if (roleId === "sd-analyst" || roleId === "flow-analyst") warnings.push(...checkFlowCoversSa(ctx.dir));
