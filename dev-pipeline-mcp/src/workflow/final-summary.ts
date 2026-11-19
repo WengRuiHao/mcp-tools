@@ -134,17 +134,39 @@ function rejectionLines(i: FinalSummaryInput): string[] {
   });
 }
 
+/** 完整退回歷程（status 的 rejections，依發生順序）：每次一行並附各關卡次數；舊工作項目沒有歷程時回傳 null，由呼叫端退回只看各關卡最後決定的舊寫法。 */
+function historyLines(i: FinalSummaryInput): string[] | null {
+  const list = i.progress?.rejections;
+  if (!list || list.length === 0) return null;
+  const known = new Map(i.gates.map((g) => [g.id, g]));
+  const counts = new Map<string, number>();
+  const lines = list.map((r, n) => {
+    counts.set(r.gate, (counts.get(r.gate) ?? 0) + 1);
+    const g = known.get(r.gate);
+    const who = r.by === "human" ? "使用者本人" : "AI／程式";
+    const route = r.rootCause && g?.routeOnFail?.[r.rootCause] ? `｜退回到角色「${g.routeOnFail[r.rootCause]}」` : "";
+    const cause = r.rootCause ? `｜原因分類：${oneLine(r.rootCause)}` : "";
+    const reason = r.reason ? `｜${r.by === "human" ? "使用者原話" : "理由"}：${oneLine(r.reason)}` : "";
+    return `${n + 1}. ${gateLabel(r.gate)}：退回（${who}、${formatTime(r.at)}）${cause}${reason}${route}`;
+  });
+  const total = `共 ${list.length} 次（${[...counts].map(([id, c]) => `${gateLabel(id)} ${c} 次`).join("、")}）`;
+  return [total, ...lines];
+}
+
 function hardStopSection(i: FinalSummaryInput): string[] {
   const failCount = Number.isFinite(i.consecutiveFailCount) ? i.consecutiveFailCount : 0;
-  const rejected = rejectionLines(i);
+  const history = historyLines(i);
+  const rejected = history ?? rejectionLines(i);
   const hit = failCount >= HARD_STOP_FAIL_COUNT;
   return [
     "## 三、硬停點與退回紀錄",
     "",
     `- 目前連續失敗次數：${failCount}（判定通過後會歸零，歷次累計沒有另外記錄）`,
     `- 是否碰到硬停點：${hit ? `有，連續失敗達 ${HARD_STOP_FAIL_COUNT} 次，後續確認必須由使用者本人處理` : NO_RECORD}`,
-    "- 退回紀錄（只保留各關卡最後一次決定，已被後來通過的決定取代的退回不會留下）：" + (rejected.length === 0 ? NO_RECORD : ""),
-    ...rejected,
+    history
+      ? `- 退回紀錄（完整歷程，含已被後來通過取代的退回）：${rejected[0]}`
+      : "- 退回紀錄（此工作項目沒有完整歷程，只保留各關卡最後一次決定，已被後來通過的決定取代的退回不會留下）：" + (rejected.length === 0 ? NO_RECORD : ""),
+    ...(history ? rejected.slice(1) : rejected),
     "",
   ];
 }

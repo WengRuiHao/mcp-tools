@@ -70,7 +70,7 @@ export function checkDocStructure(text: string, rel: string, sqlTables: readonly
   for (const s of sections) {
     const t = sqlTables.find((x) => x.name === s.table);
     const fromExisting = noChange || (created !== undefined && !created.includes(s.table));
-    if (!t) problems.push(noChange ? `${rel} 的資料表 ${s.table} 不在既有資料表內（${DB_SQL_FILE} 只有註解、無 CREATE TABLE）：只能寫既有的表；請確認表名，或在 ${SYSTEM_ER_PATH_HINT} 的「## ${EXISTING_HEADING}」補上這張表` : `${rel} 的資料表 ${s.table} 不在 ${DB_SQL_FILE} 的 CREATE TABLE 內，也不是既有資料表（既有表要在 ${SYSTEM_ER_PATH_HINT} 的「## ${EXISTING_HEADING}」列出，或在專案 .sql 腳本內）`);
+    if (!t) problems.push(noChange ? `${rel} 的資料表 ${s.table} 不在既有資料表內（${DB_SQL_FILE} 只有註解、無 CREATE TABLE）：只能寫既有的表；請確認表名。若既有系統的表結構寫在程式碼內嵌字串（例如 src/db.js 的 SCHEMA）而不在 .sql，程式掃不到，請在 ${SYSTEM_ER_PATH_HINT} 的「## ${EXISTING_HEADING}」補上這張表，並在說明欄註明來源檔` : `${rel} 的資料表 ${s.table} 不在 ${DB_SQL_FILE} 的 CREATE TABLE 內，也不是既有資料表（既有表要在 ${SYSTEM_ER_PATH_HINT} 的「## ${EXISTING_HEADING}」列出，或在專案 .sql 腳本內）`);
     else problems.push(...checkTableSection(s.body, `${rel}「資料表：${s.table}」`, t.columns, fromExisting ? "既有資料表宣告（主鍵、外鍵與「欄位」欄）中" : undefined));
   }
   return { problems, tables: names };

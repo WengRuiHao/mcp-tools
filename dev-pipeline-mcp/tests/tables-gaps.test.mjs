@@ -167,3 +167,10 @@ test("54 正向：圖上欄位只出現在文件欄位清單（既有資料表�
   const OLD = "## 既有資料表\n\n| 資料表 | 主鍵 | 外鍵 | 說明 |\n| --- | --- | --- | --- |\n| members | id | 無 | x |\n| orders_master | id | member_id→members.id | x |\n| orders_detail | id | order_id→orders_master.id | x |\n";
   assert.deepEqual(run({ systemEr: D().systemEr.replace(EXISTING_SECTION, OLD) }), []);
 });
+
+test("81 內嵌 schema：既有系統表結構在 JS 內嵌字串、掃不到 .sql 時，擋回訊息指明交法（補章節並註明來源檔），且仍不放行", () => {
+  const p = run({ orders_master: null, members: null, systemEr: D().systemEr.replace(EXISTING_SECTION, "") });
+  assert.ok(has(p, /取不到既有資料表/));
+  assert.ok(has(p, /src\/db\.js/));
+  assert.ok(has(p, /來源檔/));
+});

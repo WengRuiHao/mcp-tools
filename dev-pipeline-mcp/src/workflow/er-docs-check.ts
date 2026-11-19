@@ -95,12 +95,12 @@ function existingRelations(existing: readonly SqlTable[], inScope: (n: string) =
 }
 
 const hasExistingSource = (input: SystemErInput): boolean => scanProjectTables(input.projectDir).length > 0 || (existsSync(path.join(input.dir, SYSTEM_ER_PATH)) && parseExistingSection(readFileSync(path.join(input.dir, SYSTEM_ER_PATH), "utf-8")) !== null);
-const noChangeSourceProblem = (): string => `02-db.sql 只有註解（本次無資料表異動），但取不到既有資料表（專案目錄沒有 .sql 腳本）：請在 ${SYSTEM_ER_PATH} 加「## ${EXISTING_HEADING}」表格（表頭：${EXISTING_HEADER.join("｜")}，可加選填「欄位」欄），列出本次用到與全系統的既有表，再依其畫系統 ER 圖，並把用到的既有表整理成分組文件`;
+const noChangeSourceProblem = (): string => `02-db.sql 只有註解（本次無資料表異動），但取不到既有資料表（專案目錄掃不到 .sql 腳本；表結構若寫在程式碼內嵌字串，例如 src/db.js 的 SCHEMA，程式不會解析）：請在 ${SYSTEM_ER_PATH} 加「## ${EXISTING_HEADING}」表格（表頭：${EXISTING_HEADER.join("｜")}，可加選填「欄位」欄），列出本次用到與全系統的既有表，再依其畫系統 ER 圖，並把用到的既有表整理成分組文件`;
 
 function existingSourceProblem(text: string, input: SystemErInput): string[] {
   const hasSection = parseExistingSection(text) !== null;
   if (!input.brownfield || hasSection || scanProjectTables(input.projectDir).length > 0) return [];
-  return [`${SYSTEM_ER_PATH} 既有系統取不到既有資料表（專案目錄沒有 .sql 腳本）：請查 db_schema，在文件加「## ${EXISTING_HEADING}」表格（表頭：${EXISTING_HEADER.join("｜")}；外鍵格式「欄位→父表.欄位」，多筆用「；」，沒有填「無」；確實沒有既有表就只留表頭）`];
+  return [`${SYSTEM_ER_PATH} 既有系統取不到既有資料表（專案目錄掃不到 .sql 腳本；表結構若寫在程式碼內嵌字串，例如 src/db.js 的 SCHEMA，程式不會解析）：請查 db_schema 或讀該內嵌定義，在文件加「## ${EXISTING_HEADING}」表格（表頭：${EXISTING_HEADER.join("｜")}；說明欄註明來源檔；外鍵格式「欄位→父表.欄位」，多筆用「；」，沒有填「無」；確實沒有既有表就只留表頭）`];
 }
 
 /** 系統 ER 圖文件：全系統所有表（brownfield 含既有表），只畫表名加主鍵與外鍵；brownfield 要標「本次新增」「本次修改」。 */
