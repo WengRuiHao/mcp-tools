@@ -39,6 +39,11 @@ test("沒有專案 .sql 也沒有既有資料表章節：要求補章節", () =>
   assert.ok(has(r, /只有註解（本次無資料表異動），但取不到既有資料表.*## 既有資料表/), r.join("\n"));
 });
 
+test("取不到既有表的擋回訊息：提示內嵌 schema（如 src/db.js 的 SCHEMA）要補章節並註明來源檔", () => {
+  const r = run({ systemEr: D().systemEr.replace(EXISTING_SECTION, "") });
+  assert.ok(has(r, /src\/db\.js 的 SCHEMA.*## 既有資料表/), r.join("\n"));
+});
+
 test("既有表來源可以是專案 .sql 掃描（不寫章節）", () => {
   const proj = path.join(root, "proj-sql");
   fs.mkdirSync(proj, { recursive: true });

@@ -5,7 +5,7 @@ import { resolveWorkflow } from "./resolve.js";
 import type { GateDef, WorkflowDefinition } from "./schema.js";
 import { getBuiltinWorkflow } from "./stage-order.js";
 import { describeRootCauses } from "./builtin/spec-first.js";
-import { EMPTY_PROGRESS, isRoleDone, roleAndDownstream, type GateDecider, type GateDecisionValue, type WorkItemProgress } from "./work-item-progress.js";
+import { appendRejection, EMPTY_PROGRESS, isRoleDone, roleAndDownstream, type GateDecider, type GateDecisionValue, type WorkItemProgress } from "./work-item-progress.js";
 
 /** spec-first 的狀態轉移（純函式、不改傳入物件）。錯誤以 { ok:false } 回傳，不拋例外。 */
 
@@ -39,7 +39,7 @@ function rewind(p: WorkItemProgress, def: WorkflowDefinition, roleIds: ReadonlyS
   const roles = Object.fromEntries(Object.entries(p.roles).filter(([id]) => !roleIds.has(id)));
   const stale = new Set(def.gates.filter((g) => afterIds(g).some((a) => roleIds.has(a))).map((g) => g.id));
   const gates = Object.fromEntries(Object.entries(p.gates).filter(([id]) => !stale.has(id)));
-  return { roles, gates };
+  return { roles, gates, ...(p.rejections ? { rejections: p.rejections } : {}) };
 }
 
 /** 關卡是否已到達：它掛的啟用角色全部 done。 */
@@ -81,7 +81,7 @@ export function applyRoleDone(status: TicketStatus, roleId: string, opts: ApplyO
   const p = progressOf(status);
   const stale = new Set(d.gates.filter((g) => afterIds(g).includes(roleId)).map((g) => g.id));
   const gates = Object.fromEntries(Object.entries(p.gates).filter(([id]) => !stale.has(id)));
-  return { ok: true, status: withProgress(status, { roles: { ...p.roles, [roleId]: { done: true, at: nowOf(opts) } }, gates }) };
+  return { ok: true, status: withProgress(status, { ...p, roles: { ...p.roles, [roleId]: { done: true, at: nowOf(opts) } }, gates }) };
 }
 
 const DECISIONS_BY_TYPE: Record<GateDef["type"], readonly GateDecisionValue[]> = {
@@ -116,7 +116,8 @@ export function applyGateDecision(status: TicketStatus, gateId: string, input: G
     if (err) return fail(err);
   }
   const base = bad ? rewind(p, d, new Set([...afterIds(gate), ...extra].flatMap((a) => [...roleAndDownstream(d.roles, a)]))) : p;
-  const next = withProgress(status, { ...base, gates: { ...base.gates, [gateId]: record } });
+  const rejections = bad ? { rejections: appendRejection(p, { gate: gateId, by: input.by, at: record.at, ...(input.reason !== undefined ? { reason: input.reason } : {}) }) } : {};
+  const next = withProgress(status, { ...base, ...rejections, gates: { ...base.gates, [gateId]: record } });
   const resetFail = gate.type === "verdict" && input.decision === "passed";
   return { ok: true, status: resetFail ? { ...next, consecutive_fail_count: 0 } : next };
 }
@@ -145,10 +146,11 @@ export function applyVerdictFail(status: TicketStatus, gateId: string, rootCause
   const base = rewind(progressOf(status), d, scope);
   const count = (Number.isFinite(status.consecutive_fail_count) ? status.consecutive_fail_count : 0) + 1;
   const record = { decision: "failed" as const, by: opts.by ?? ("agent" as const), at: nowOf(opts), rootCause, ...(opts.reason !== undefined ? { reason: opts.reason } : {}) };
+  const rejection = { gate: gateId, by: record.by, at: record.at, rootCause, ...(opts.reason !== undefined ? { reason: opts.reason } : {}) };
   const requireManual = count >= CONSECUTIVE_FAIL_LIMIT;
   return {
     ok: true,
-    status: { ...withProgress(status, { ...base, gates: { ...base.gates, [gateId]: record } }), consecutive_fail_count: count },
+    status: { ...withProgress(status, { ...base, rejections: appendRejection(progressOf(status), rejection), gates: { ...base.gates, [gateId]: record } }), consecutive_fail_count: count },
     routedTo: target,
     rewound: d.roles.map((r) => r.id).filter((id) => scope.has(id)),
     consecutiveFailCount: count,

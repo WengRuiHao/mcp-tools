@@ -18,9 +18,24 @@ export interface GateRecord {
   rootCause?: string;
 }
 
+/** 一次退回（confirm rejected 或 verdict／檢查 failed）的歷程紀錄；gates 只留各關卡最後一次決定，退回歷程另存這裡，只增不減（選填，舊工作項目沒有）。 */
+export interface RejectionRecord {
+  gate: string;
+  by: GateDecider;
+  at: string;
+  reason?: string;
+  rootCause?: string;
+}
+
 export interface WorkItemProgress {
   roles: Record<string, RoleProgress>;
   gates: Record<string, GateRecord>;
+  rejections?: RejectionRecord[];
+}
+
+/** 追加一筆退回歷程，回傳新陣列（不改原陣列）。 */
+export function appendRejection(p: WorkItemProgress, r: RejectionRecord): RejectionRecord[] {
+  return [...(p.rejections ?? []), r];
 }
 
 export const EMPTY_PROGRESS: WorkItemProgress = { roles: {}, gates: {} };
