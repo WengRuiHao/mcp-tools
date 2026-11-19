@@ -6,6 +6,9 @@ import { mod, makeTmp, cleanup, write, codeLines, jsFile } from "./helpers/dup-h
 
 const { detectDuplicates } = mod;
 const shared = codeLines(10, "k");
+// 效能測試用：把牆鐘預算放到極大，讓「掃描是否完整」不受機器忙碌影響（問題 78）；
+// 「大量檔案不會卡死」改由 CPU 時間斷言（不受排程延遲影響）與預設預算檢查共同保證。
+const NO_WALL_CLOCK_BUDGET_MS = 10 * 60 * 1000;
 
 async function dupAgainst(root, otherRel, options) {
   write(root, "new.js", jsFile(shared));
@@ -98,7 +101,7 @@ test("效能：數百個合成檔案在 2 秒內完成", async () => {
     let r;
     for (let k = 0; k < 3; k++) {
       const c0 = process.cpuUsage();
-      r = await detectDuplicates({ projectDir: root, changedFiles: ["src/changed.js"] });
+      r = await detectDuplicates({ projectDir: root, changedFiles: ["src/changed.js"], options: { timeoutMs: NO_WALL_CLOCK_BUDGET_MS } });
       const c = process.cpuUsage(c0);
       ms = Math.min(ms, Math.round((c.user + c.system) / 1000));
     }
@@ -107,4 +110,11 @@ test("效能：數百個合成檔案在 2 秒內完成", async () => {
     assert.equal(r.scannedFiles, 401);
     assert.equal(r.blocking, true);
   } finally { cleanup(root); }
+});
+
+test("預設設有有限且合理的時間預算與檔數上限（防卡死護欄，不靠牆鐘量測）", () => {
+  const d = mod.DEFAULT_DUP_OPTIONS ?? null;
+  assert.ok(d, "index 應匯出 DEFAULT_DUP_OPTIONS");
+  assert.ok(Number.isFinite(d.timeoutMs) && d.timeoutMs > 0 && d.timeoutMs <= 60000, `timeoutMs=${d.timeoutMs}`);
+  assert.ok(Number.isFinite(d.maxFiles) && d.maxFiles > 0, `maxFiles=${d.maxFiles}`);
 });
