@@ -13,6 +13,16 @@ after(() => env.cleanup());
 const NOTES_H3 = "## 待確認問題\n\n### Q1 10000 列上限是否含標題列\n不含。\n建議預設：不含標題列\n\n### Q2 單日區間是否允許\n建議預設：允許\n\n## 現況依據\n- 其他\n";
 const rec = (id, extra = {}) => env.call({ action: "record_decision", workItemId: id, question: "Q1", answer: "不含標題列", reason: "使用者說就照你建議的", by: "human", ...extra });
 const agentConfirm = (id) => env.call({ action: "confirm", workItemId: id, gateId: "sa-confirm", decision: "confirmed", by: "agent", reason: "審查通過", review: CLEAN_REVIEW });
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** 決定記錄之後讓 SA 重新交件：AI 打回 sa-confirm → SA 再 done（模擬 SA 把決定寫回正文）。 */
+const redeliverSa = async (id) => {
+  await sleep(10);
+  const rej = await env.call({ action: "confirm", workItemId: id, gateId: "sa-confirm", decision: "rejected", by: "agent", reason: "決定尚未寫進 01-sa.md" });
+  assert.equal(rej.isError, false, rej.text);
+  await sleep(10);
+  const done = await env.call({ action: "done", workItemId: id, roleId: "sa-analyst" });
+  assert.equal(done.isError, false, done.text);
+};
 const atSaConfirm = async (notes) => {
   const { id, dir } = await env.create();
   await runUntil(env, id, dir, "sa-confirm");
@@ -81,6 +91,7 @@ test("逐項決定後才可核准；同題再記取代舊決定；get 與索引�
   const idx = await readFile(path.join(dir, "00-索引.md"), "utf-8");
   assert.match(idx, /使用者決定記錄/);
   assert.match(idx, /使用者說單日可以/);
+  await redeliverSa(id);
   const ok = await agentConfirm(id);
   assert.equal(ok.isError, false, ok.text);
 });
@@ -94,6 +105,7 @@ test("acceptAllSuggested：一次接受全部未決項、reason 必填原話；�
   assert.equal(r.json.recorded.length, 2);
   assert.equal(r.json.recorded[0].answer, "不含標題列");
   assert.equal(r.json.withoutExplicitSuggestion, undefined);
+  await redeliverSa(id);
   assert.equal((await agentConfirm(id)).isError, false);
   const again = await env.call({ action: "record_decision", workItemId: id, acceptAllSuggested: true, by: "human", reason: "全部照建議" });
   assert.equal(again.isError, true);
@@ -107,7 +119,58 @@ test("相容：沒有待確認項（- 無）的舊式工作項目照舊由 AI �
   const free = await rec(id, { question: "sd-confirm 的 A2、B2", answer: "採 A2 與 B2", reason: "使用者說就選 A2 跟 B2" });
   assert.equal(free.isError, false, free.text);
   assert.equal(free.json.recorded[0].ref, undefined);
+  await redeliverSa(id);
   assert.equal((await agentConfirm(id)).isError, false);
+});
+
+test("決定記錄在 SA 交件之後：AI 不可核准、get 與審查員提示明示未反映；SA 重新交件後放行；human 核准不受限", async () => {
+  const { id } = await atSaConfirm(NOTES_H3);
+  assert.equal((await env.call({ action: "get", workItemId: id })).json.decisionsNotReflected, undefined);
+  await sleep(10);
+  assert.equal((await env.call({ action: "record_decision", workItemId: id, acceptAllSuggested: true, by: "human", reason: "全部照建議" })).isError, false);
+  const r = await agentConfirm(id);
+  assert.equal(r.isError, true);
+  assert.equal(r.json.reason, "decisions-not-reflected");
+  assert.match(r.json.message, /有 2 項決定尚未反映到 SA/);
+  assert.match(r.json.message, /退回 SA 分析師/);
+  assert.equal(r.json.unreflectedDecisions.length, 2);
+  const g = (await env.call({ action: "get", workItemId: id })).json;
+  assert.equal(g.decisionsNotReflected.count, 2);
+  assert.match(g.decisionsNotReflected.note, /有 2 項決定尚未反映到 SA/);
+  const rp = (await env.call({ action: "role_prompt", workItemId: id, roleId: "reviewer" })).json.prompt;
+  assert.match(rp, /有 2 項決定尚未反映到 SA/);
+  await redeliverSa(id);
+  assert.equal((await env.call({ action: "get", workItemId: id })).json.decisionsNotReflected, undefined);
+  assert.doesNotMatch((await env.call({ action: "role_prompt", workItemId: id, roleId: "reviewer" })).json.prompt, /尚未反映到 SA/);
+  assert.equal((await agentConfirm(id)).isError, false);
+});
+
+test("決定在 SA 交件之後只擋 AI：human 核准不受限；SA 退回中（未 done）或舊工作項目沒有 SA 完成記錄時不擋", async () => {
+  const { id } = await atSaConfirm(NOTES_H3);
+  await sleep(10);
+  await env.call({ action: "record_decision", workItemId: id, acceptAllSuggested: true, by: "human", reason: "全部照建議" });
+  const h = await env.call({ action: "confirm", workItemId: id, gateId: "sa-confirm", decision: "confirmed", by: "human", reason: "使用者說確認" });
+  assert.equal(h.isError, false, h.text);
+  const { decisionsAfterSa } = await import("../dist/work-item-actions/decisions.js");
+  const dec = [{ n: 1, at: "2026-01-02T00:00:00.000Z", question: "q", answer: "a", quote: "原話", source: "single" }];
+  const base = { decisions: dec };
+  assert.equal(decisionsAfterSa(base).length, 0, "沒有進度記錄（舊工作項目）");
+  const roles = (done, at) => ({ ...base, work_item_progress: { roles: { "sa-analyst": { done, at } }, gates: {} } });
+  assert.equal(decisionsAfterSa(roles(false, "2026-01-01T00:00:00.000Z")).length, 0, "SA 被退回中");
+  assert.equal(decisionsAfterSa(roles(true, "不是時間")).length, 0, "時間無法解析");
+  assert.equal(decisionsAfterSa(roles(true, "2026-01-01T00:00:00.000Z")).length, 1);
+  assert.equal(decisionsAfterSa(roles(true, "2026-01-03T00:00:00.000Z")).length, 0, "決定早於 SA 交件");
+});
+
+test("SA 分析師提示：有決定記錄時附上必須寫進正文的提醒；沒有時不變", async () => {
+  const { id } = await atSaConfirm();
+  const before = (await env.call({ action: "role_prompt", workItemId: id, roleId: "sa-analyst" })).json.prompt;
+  assert.doesNotMatch(before, /使用者已做的決定/);
+  await rec(id, { question: "自由決定", answer: "採方案甲", reason: "使用者說採方案甲" });
+  const after2 = (await env.call({ action: "role_prompt", workItemId: id, roleId: "sa-analyst" })).json.prompt;
+  assert.match(after2, /使用者已做的決定（交件前必做）/);
+  assert.match(after2, /自由決定 → 採方案甲/);
+  assert.ok(after2.startsWith(before));
 });
 
 test("審查員說明書：無記錄時原文不變；有記錄時附決定與未決項；說明書寫明已記錄決定不申報", async () => {
