@@ -1,4 +1,4 @@
-import { WORK_ITEM_TOOL_HINT, type RoleSections } from "./common.js";
+import { NO_DESKTOP_CAPTURE_RULE, SCRIPT_RUN_RULE, WORK_ITEM_TOOL_HINT, type RoleSections } from "./common.js";
 
 const READ_TOOLS = "read_project_file、list_project_dir、search_project_text（唯讀探索專案程式碼）";
 
@@ -42,7 +42,7 @@ export const MOCKUP_DESIGNER: RoleSections = {
     "交件說明列出每個畫面（檔名與對應功能）、每個可操作元素、所有狀態名稱、日期控制項型態與風格依據；最後必須有「驗證紀錄」：實測了哪些狀態與動作、結果；沒有瀏覽器工具就明講未實測。",
     "00-索引.md 由系統產生，不要手寫。當機留下的 *.stackdump 交件前刪掉（系統 done 與最終驗收會警告）。已 done 後重寫產出檔，看 write 回傳的 recheck.ok 與 failures，不合格修到通過。",
   ],
-  forbidden: ["不寫規格（需求分析、欄位定義是 SA 分析師的工作）。", "畫面資料一律是假資料，不寫後端邏輯或資料庫操作。", "不做只能看不能點的頁面。", "使用者確認之前，不可先動手寫 SA。", "不可自行更換 tech-stack.md 已確認的語言、框架、元件庫。"],
+  forbidden: ["不寫規格（需求分析、欄位定義是 SA 分析師的工作）。", "畫面資料一律是假資料，不寫後端邏輯或資料庫操作。", "不做只能看不能點的頁面。", "使用者確認之前，不可先動手寫 SA。", "不可自行更換 tech-stack.md 已確認的語言、框架、元件庫。", SCRIPT_RUN_RULE, NO_DESKTOP_CAPTURE_RULE],
   afterSubmit: ["先過程式的「mockup 檢查」，沒過會直接退回並告訴你哪裡錯。", "再等「mockup 確認」關卡：由使用者本人確認畫面方向（人工確認，不是 AI 審查）；「全新待選」時這一關同時是選風格。", "使用者要求修改就退回你重做；確認後才輪到 SA 分析師。"],
   tools: ["write_project_file（只限寫入 sa-mockup/）", "瀏覽器工具（自行開啟 HTML、切換狀態、點操作檢查）", WORK_ITEM_TOOL_HINT],
 };
