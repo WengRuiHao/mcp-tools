@@ -28,10 +28,15 @@ const SAFETY_BASELINE =
 export const WORK_ITEM_TOOL_HINT =
   "工作項目工具（work_item）：用 get 查下一步與目前輸入、write 寫入產出檔、attach 存放截圖或 mockup、done 交件、confirm／verdict 處理關卡";
 
+/** 會跑腳本或截圖的角色共用：腳本要設逾時並收尾，截圖不拍桌面。 */
+export const SCRIPT_RUN_RULE =
+  "跑 node／playwright 腳本一律用 timeout 包住；腳本結尾先寫出結果，再關閉 browser 與 server（否則行程不會結束）。";
+export const NO_DESKTOP_CAPTURE_RULE = "不可螢幕擷取桌面或與專案無關的視窗，截圖只拍瀏覽器頁面。";
+
 /** 所有角色共通的流程通則，附在每份說明的「可用工具」之後。每條一句話，改動前要確認 12 個角色都沒超過長度上限。 */
 export const COMMON_RULES: readonly string[] = [
   "使用者只回答選項字母（A、AA、1）不算確認，要再問一次並引用完整原話；`by:\"human\"` 的確認與判定一律附使用者原話 `reason`。",
-  "驗證師與規格驗證師要先 `done` 才能 `verdict`；`00-索引.md` 由系統產生，不可手寫；`*.stackdump` 交件前刪掉；寫腳本用 Write 工具，不用 Bash heredoc（會當機）。",
+  "驗證師與規格驗證師要先 `done` 才能 `verdict`；`00-索引.md` 由系統產生，不可手寫；`*.stackdump` 交件前刪掉；寫檔用 Write／Edit，不用 Bash heredoc 或 PowerShell here-string（會當機）。",
   "已 `done` 的角色重寫產出檔後，看 write 回傳的 `recheck.ok` 與 `failures`，修到通過。",
 ];
 

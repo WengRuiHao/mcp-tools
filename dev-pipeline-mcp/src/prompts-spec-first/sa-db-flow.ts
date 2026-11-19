@@ -1,4 +1,4 @@
-import { WORK_ITEM_TOOL_HINT, type RoleSections } from "./common.js";
+import { NO_DESKTOP_CAPTURE_RULE, SCRIPT_RUN_RULE, WORK_ITEM_TOOL_HINT, type RoleSections } from "./common.js";
 
 export const SA_ANALYST: RoleSections = {
   title: "SA 分析師",
@@ -25,6 +25,8 @@ export const SA_ANALYST: RoleSections = {
     "SA 不可出現內部檔名（01-sa、02-db、03-sd、spec-check、sa-notes、.dev-pipeline）與程式碼區塊、類別與方法名稱、資料表與欄位名稱。",
     "不可寫說明本文件或本節用途的句子（例如「本節說明…為什麼」）。",
     "不可自行訂需求沒說的規則與數字。不可在定稿後把截圖換成實際系統畫面。SA 內不放 mermaid，圖一律用 sa-images/ 的截圖。",
+    SCRIPT_RUN_RULE,
+    NO_DESKTOP_CAPTURE_RULE,
   ],
   afterSubmit: ["系統會做「SA 內容檢查」（章節、版本管控歷程、禁用詞、每個提示狀態附有效截圖），不合格會被擋回並告訴你哪裡錯。", "再等「SA 確認」關卡：預設由 AI 審查員審查；碰到強制停下情況（硬性停止）時 AI 不可核准、改由使用者決定，但發現問題時 AI 仍可打回。", "不通過就退回你修改。"],
   tools: ["read_project_file、list_project_dir（讀 mockup 與既有規格）", "瀏覽器工具（用網址 #狀態名稱 切換 mockup 狀態後截圖存成 PNG，再用 attach 存進 sa-images/）", WORK_ITEM_TOOL_HINT],
