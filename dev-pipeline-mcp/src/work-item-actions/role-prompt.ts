@@ -3,7 +3,7 @@ import { getSpecFirstRolePrompt } from "../prompts-spec-first.js";
 import { loadProjectFlowOverride } from "../workflow/load.js";
 import { WorkItemActionError, errorMessage, need, okReply, type ToolReply } from "./common.js";
 import { loadWorkItem } from "./context.js";
-import { decisionsOf, decisionsPromptSection, uncovered } from "./decisions.js";
+import { SA_ROLE_ID, decisionsAfterSa, decisionsOf, decisionsPromptSection, saDecisionsPromptSection, uncovered } from "./decisions.js";
 import { readPendingQuestions } from "./sa-notes-questions.js";
 import type { WorkItemArgs } from "./schema.js";
 
@@ -12,7 +12,7 @@ export async function handleRolePrompt(a: WorkItemArgs): Promise<ToolReply> {
   const ctx = await loadWorkItem(workItemId);
   // 審查員不是流程角色（不在角色清單、不計入驗收），只有說明書；不附專案角色補充說明
   if (roleId === REVIEWER_ROLE_ID) {
-    const section = decisionsPromptSection(decisionsOf(ctx.status), uncovered(await readPendingQuestions(ctx.dir), decisionsOf(ctx.status)));
+    const section = decisionsPromptSection(decisionsOf(ctx.status), uncovered(await readPendingQuestions(ctx.dir), decisionsOf(ctx.status)), decisionsAfterSa(ctx.status).length);
     return okReply({ workItemId: ctx.id, roleId, hasProjectRoleNotes: false, hasProjectGuide: false, prompt: section ? `${REVIEWER_PROMPT}\n${section}\n` : REVIEWER_PROMPT });
   }
   let projectNotes: string | undefined;
@@ -32,6 +32,10 @@ export async function handleRolePrompt(a: WorkItemArgs): Promise<ToolReply> {
     prompt = getSpecFirstRolePrompt(roleId, { workItemDir: ctx.dir, ...(projectNotes ? { roleNotes: projectNotes } : {}), ...(projectGuide ? { projectGuide } : {}) });
   } catch (e) {
     throw new WorkItemActionError(errorMessage(e));
+  }
+  if (roleId === SA_ROLE_ID) {
+    const saSection = saDecisionsPromptSection(decisionsOf(ctx.status));
+    if (saSection) prompt = `${prompt}\n${saSection}\n`;
   }
   return okReply({ workItemId: ctx.id, roleId, hasProjectRoleNotes: projectNotes !== undefined, hasProjectGuide: projectGuide !== undefined, prompt });
 }
