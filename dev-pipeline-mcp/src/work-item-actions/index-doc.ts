@@ -26,6 +26,8 @@ export { INDEX_DOC_FILE };
 const ROLE_PURPOSE: Readonly<Record<string, string>> = {
   "baseline-survey": "盤點既有系統現況並分析影響範圍、列出可重用清單",
   "tech-selector": "決定本次採用的技術棧",
+  "arch-pre": "高風險全新系統：決定資料庫、MQ、快取與一致性模型（寫 architecture.md）",
+  "arch-post": "高風險既有系統：檢查現有架構撐得住嗎、要不要加 MQ 或快取（寫 architecture.md）",
   "mockup-designer": "做可操作的畫面原型供使用者確認",
   "sa-analyst": "撰寫給客戶看的需求說明（SA）",
   "db-designer": "設計資料表結構與 SQL（無異動時內容很少）",

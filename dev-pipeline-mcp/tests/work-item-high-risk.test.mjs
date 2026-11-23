@@ -131,12 +131,10 @@ test("highRisk：擋回訊息的列名範例不再列出資料庫種類與版本
 });
 
 test("工具：highRisk 工作項目的 tech-selector 交件，沒有資料庫列也通過；一般工作項目仍被擋", async () => {
-  const { fulfil, CLEAN_REVIEW } = await import("./helpers/work-item-env.mjs");
   const make = async (extra) => {
     const c = await env.call(createArgs({ techSource: "new-guided", styleSource: "new-guided", ...extra }));
     return { id: c.json.workItemId, dir: c.json.dir };
   };
-  assert.ok(typeof fulfil === "function" && CLEAN_REVIEW);
   const hi = await make({ highRisk: true });
   const lo = await make({});
   const { writeFile } = await import("node:fs/promises");
@@ -145,7 +143,9 @@ test("工具：highRisk 工作項目的 tech-selector 交件，沒有資料庫�
   const rHi = await env.call({ action: "done", workItemId: hi.id, roleId: "tech-selector" });
   const rLo = await env.call({ action: "done", workItemId: lo.id, roleId: "tech-selector" });
   const text = (r) => JSON.stringify(r.json);
+  assert.equal(rHi.isError, false, text(rHi).slice(0, 400));
   assert.ok(!text(rHi).includes("資料庫種類"), text(rHi).slice(0, 300));
+  assert.equal(rLo.isError, true);
   assert.ok(text(rLo).includes("資料庫種類"), text(rLo).slice(0, 300));
 });
 

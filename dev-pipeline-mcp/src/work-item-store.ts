@@ -152,6 +152,23 @@ export function isSaConfirmed(status: TicketStatus): boolean {
   return saAt >= 0 && order.indexOf(status.stage) > saAt;
 }
 
+/**
+ * 開關高風險的前置檢查：快照要有對應的架構角色（舊工作項目沒有就不能開）；該架構角色與依賴它的角色（SA、DB、SD）都還沒完成，
+ * 否則架構會變成事後補的（例如全新系統的 arch-pre 必須在 SA 之前）。狀態沒變就不檢查。
+ */
+function assertHighRiskChangeAllowed(id: string, status: TicketStatus, next: boolean): void {
+  if ((status.high_risk === true) === next) return;
+  const roles = status.workflow_snapshot?.roles ?? [];
+  const archId = (status.baseline ?? "brownfield") === "greenfield" ? "arch-pre" : "arch-post";
+  if (!roles.some((r) => r.id === archId)) {
+    if (next) throw new Error(`${id} 建立時的流程不含架構角色，不能改成高風險；請建立新的工作項目並在建立時就開 highRisk`);
+    return;
+  }
+  const involved = [archId, ...roles.filter((r) => r.dependsOn.includes(archId)).map((r) => r.id)];
+  const done = involved.find((r) => status.work_item_progress?.roles[r]?.done === true);
+  if (done) throw new Error(`${done} 已完成，不能再改高風險設定（架構角色必須排在它之前）；要改請先打回 ${done}`);
+}
+
 /** 修改範圍、DB 設定與兩個來源。scope／hasDb 在 SA 確認後鎖定；styleSource 在 mockup 確認後鎖定；techSource 在技術確認後鎖定。任一欄位被拒絕就全部不寫入。 */
 export async function updateWorkItemScope(id: string, patch: { scope?: WorkItemScope; hasDb?: boolean; highRisk?: boolean } & SourcePatch): Promise<TicketStatus> {
   if (patch.scope === undefined && patch.hasDb === undefined && patch.highRisk === undefined && patch.styleSource === undefined && patch.techSource === undefined) {
@@ -163,6 +180,7 @@ export async function updateWorkItemScope(id: string, patch: { scope?: WorkItemS
   return updateStatus(id, (status) => {
     if (!status.workflow_snapshot) throw new Error(`${id} 不是手動來源工作項目，不能修改範圍`);
     if ((patch.scope !== undefined || patch.hasDb !== undefined || patch.highRisk !== undefined) && isSaConfirmed(status)) throw new Error(SA_CONFIRM_LOCKED_MESSAGE);
+    if (patch.highRisk !== undefined) assertHighRiskChangeAllowed(id, status, patch.highRisk);
     const sources = applySourcePatch(status, patch);
     // 關掉 highRisk 時整個 key 拿掉（不留 false），讓狀態檔回到沒開過的樣子
     const { high_risk: previousHighRisk, ...rest } = status;

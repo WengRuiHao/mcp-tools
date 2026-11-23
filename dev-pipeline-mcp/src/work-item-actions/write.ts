@@ -1,6 +1,8 @@
 import { lstat, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { resolveArtifactPath, updateStatus } from "../pipeline-store.js";
+import { buildWhenContext } from "../work-item-store.js";
+import { highRiskOnlyFiles, withoutHiddenHighRiskArtifacts } from "../workflow/high-risk-hidden.js";
 import { hashRoleOutputs } from "./deliverable-hash.js";
 import { WorkItemActionError, errorMessage, need, okReply, type ToolReply } from "./common.js";
 import { builtinDefinition, loadEffectiveDef, loadWorkItem } from "./context.js";
@@ -13,7 +15,9 @@ const TEXT_EXTENSIONS = new Set([".md", ".sql", ".mmd"]);
 
 /** 流程定義的文字產出檔名白名單（不含資料夾與 render 出來的圖片）。 */
 export function writableFilenames(): string[] {
-  const names = builtinDefinition().artifacts.flatMap((a) => [a.file, ...(a.attachments ?? [])]);
+  const def = builtinDefinition();
+  const hrOnly = highRiskOnlyFiles(def); // 高風險專屬的產出檔（architecture.md）不列在一般清單，只有高風險工作項目才能寫
+  const names = def.artifacts.flatMap((a) => [a.file, ...(a.attachments ?? [])]).filter((n) => !hrOnly.has(n));
   return names.filter((n) => !n.endsWith("/") && TEXT_EXTENSIONS.has(path.extname(n).toLowerCase()));
 }
 
@@ -29,11 +33,18 @@ export async function handleWrite(a: WorkItemArgs): Promise<ToolReply> {
   const { workItemId, filename } = need("write", a, ["workItemId", "filename"]);
   if (typeof a.content !== "string") throw new WorkItemActionError("action=write 缺少必填參數：content");
   const allowed = writableFilenames();
+  const hrOnly = highRiskOnlyFiles(builtinDefinition());
+  const isHighRiskFile = hrOnly.has(filename);
   if (!allowed.includes(filename) && !TABLE_SCHEMA_FILE_RE.test(filename) && !ER_SRC_FILE_RE.test(filename) && MOCKUP_OR_IMAGE_RE.test(filename)) throw new WorkItemActionError(`write 不接受「${filename}」（mockup 與圖片不走 write）：請改用 attach destDir=sa-mockup（mockup 的 html／css／js／圖片；srcPath 為來源檔絕對路徑、name 為存檔檔名）；畫面截圖用 destDir=sa-images。`);
-  if (!allowed.includes(filename) && !TABLE_SCHEMA_FILE_RE.test(filename) && !ER_SRC_FILE_RE.test(filename)) throw new WorkItemActionError(`不允許寫入「${filename}」：只能寫流程定義的產出檔（${allowed.join("、")}），或資料表結構文件 TableSchema/<名稱>.md（名稱限英數字與底線）或系統 ER 圖 TableSchema/system-er.md，或 ER 圖 Mermaid 來源 TableSchema/_src/<名稱>.mmd（系統圖為 system-er.mmd）。圖片請用 attach，不可帶路徑。`);
+  const reject = (): WorkItemActionError => new WorkItemActionError(`不允許寫入「${filename}」：只能寫流程定義的產出檔（${allowed.join("、")}），或資料表結構文件 TableSchema/<名稱>.md（名稱限英數字與底線）或系統 ER 圖 TableSchema/system-er.md，或 ER 圖 Mermaid 來源 TableSchema/_src/<名稱>.mmd（系統圖為 system-er.mmd）。圖片請用 attach，不可帶路徑。`);
+  if (!allowed.includes(filename) && !isHighRiskFile && !TABLE_SCHEMA_FILE_RE.test(filename) && !ER_SRC_FILE_RE.test(filename)) throw reject();
   const bytes = Buffer.byteLength(a.content, "utf-8");
   if (bytes > MAX_WRITE_BYTES) throw new WorkItemActionError(`content 太大（${bytes} bytes），上限 ${MAX_WRITE_BYTES} bytes。`);
   const ctx = await loadWorkItem(workItemId);
+  if (isHighRiskFile) {
+    const visible = withoutHiddenHighRiskArtifacts(builtinDefinition(), buildWhenContext(ctx.status));
+    if (!visible.artifacts.some((a) => a.file === filename || (a.attachments ?? []).includes(filename))) throw reject(); // 一般需求不能寫高風險專屬檔
+  }
   try {
     const full = resolveArtifactPath(ctx.dir, filename);
     await mkdir(path.dirname(full), { recursive: true });

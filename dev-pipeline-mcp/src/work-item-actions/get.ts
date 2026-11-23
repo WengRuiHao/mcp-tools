@@ -1,4 +1,5 @@
-import { isSaConfirmed } from "../work-item-store.js";
+import { buildWhenContext, isSaConfirmed } from "../work-item-store.js";
+import { withoutHiddenHighRiskArtifacts } from "../workflow/high-risk-hidden.js";
 import { isStyleSourceLocked, isTechSourceLocked } from "../work-item-sources.js";
 import { need, okReply, type ToolReply } from "./common.js";
 import { loadWorkItem } from "./context.js";
@@ -49,7 +50,7 @@ export async function handleGet(a: WorkItemArgs): Promise<ToolReply> {
     ...(staleNote ? { upstreamMayBeStale: staleNote } : {}),
     ...(delivered.length > 0 ? { deliveredFiles: delivered } : {}),
     ...(summaryFile ? { summaryFile } : {}),
-    ...(await listDeliverables(ctx.dir, v.def)),
+    ...(await listDeliverables(ctx.dir, withoutHiddenHighRiskArtifacts(v.def, buildWhenContext(s)))),
     ...nextBlock(v),
   });
 }

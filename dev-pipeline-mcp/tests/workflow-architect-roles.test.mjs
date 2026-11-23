@@ -90,4 +90,87 @@ test("工具：一般工作項目不能對 arch-pre 交件（角色未啟用）"
   await writeFile(path.join(c.dir, "architecture.md"), "x");
   const dn = await env.call({ action: "done", workItemId: c.workItemId, roleId: "arch-pre" });
   assert.equal(dn.isError, true);
+  assert.match(dn.json.message, /被略過|尚未輪到/, "要因為角色未啟用而被拒，不是別的原因");
+});
+
+// ---- 審查後補強：一般需求不可外洩 arch 內容；舊快照與中途開啟的保護；顯示名稱 ----
+const { readFile } = await import("node:fs/promises");
+const { runUntil } = await import("./helpers/work-item-env.mjs");
+const { checkAlsoRewind } = await import("../dist/workflow/spec-first-apply.js");
+const { internalPaths } = await import("../dist/workflow/deliverable-files.js");
+const { withoutHiddenHighRiskArtifacts } = await import("../dist/workflow/high-risk-hidden.js");
+const { ROLE_LABELS } = await import("../dist/work-item-actions/view.js");
+const { GATE_LABELS } = await import("../dist/workflow/final-summary.js");
+const has = (list, f) => list.some((x) => x.path === f);
+
+test("一般需求：get 的內部檔清單不含 architecture.md；高風險才有", async () => {
+  const lo = await create({});
+  const hi = await create({ highRisk: true });
+  const gLo = (await env.call({ action: "get", workItemId: lo.workItemId })).json;
+  const gHi = (await env.call({ action: "get", workItemId: hi.workItemId })).json;
+  assert.ok(!has(gLo.internalFiles, "architecture.md"), "一般需求不該列出 architecture.md");
+  assert.ok(has(gHi.internalFiles, "architecture.md"), "高風險需求應列出 architecture.md");
+});
+
+test("一般需求：內部檔清單（交付摘要用）依狀態過濾，不含 architecture.md", () => {
+  const ctxLo = buildWhenContext({ baseline: "greenfield", scope: "both", has_db: true });
+  const ctxHi = buildWhenContext({ baseline: "greenfield", scope: "both", has_db: true, high_risk: true });
+  assert.ok(!internalPaths(withoutHiddenHighRiskArtifacts(def, ctxLo)).includes("architecture.md"));
+  assert.ok(internalPaths(withoutHiddenHighRiskArtifacts(def, ctxHi)).includes("architecture.md"));
+  assert.ok(internalPaths(withoutHiddenHighRiskArtifacts(def, ctxLo)).includes("baseline.md"), "既有的內部檔行為不變（greenfield 仍列 baseline.md）");
+});
+
+test("write：一般需求不能寫 architecture.md，拒絕訊息也不列它；高風險可以寫", async () => {
+  const lo = await create({});
+  const hi = await create({ highRisk: true });
+  const rLo = await env.call({ action: "write", workItemId: lo.workItemId, filename: "architecture.md", content: "x" });
+  assert.equal(rLo.isError, true);
+  assert.match(rLo.json.message, /不允許寫入/);
+  const bad = await env.call({ action: "write", workItemId: lo.workItemId, filename: "nope.md", content: "x" });
+  assert.ok(!bad.json.message.includes("architecture.md"), "拒絕訊息不該列出 architecture.md");
+  const rHi = await env.call({ action: "write", workItemId: hi.workItemId, filename: "architecture.md", content: "## 架構來源\n全新決策\n" });
+  assert.equal(rHi.isError, false, JSON.stringify(rHi.json));
+});
+
+test("alsoRewind 的錯誤訊息：一般需求不列出 arch 角色", () => {
+  const gate = def.gates.find((g) => g.id === "sa-confirm");
+  const msg = checkAlsoRewind({ baseline: "greenfield", scope: "both", has_db: true }, def, gate, ["sd-analyst"]);
+  assert.ok(msg && !msg.includes("arch-"), msg);
+  const hi = checkAlsoRewind({ baseline: "greenfield", scope: "both", has_db: true, high_risk: true }, def, gate, ["sd-analyst"]);
+  assert.ok(hi && hi.includes("arch-pre"), hi);
+});
+
+test("舊快照（沒有 arch 角色）不能開高風險", async () => {
+  const c = await create({});
+  const file = path.join(c.dir, "status.json");
+  const status = JSON.parse(await readFile(file, "utf-8"));
+  status.workflow_snapshot.roles = status.workflow_snapshot.roles.filter((r) => !r.id.startsWith("arch-"));
+  status.workflow_snapshot.stage_order = status.workflow_snapshot.stage_order.filter((id) => !id.startsWith("arch-"));
+  await writeFile(file, JSON.stringify(status, null, 2));
+  const r = await env.call({ action: "set_scope", workItemId: c.workItemId, highRisk: true });
+  assert.equal(r.isError, true);
+  assert.match(r.json.message, /不含架構角色/);
+});
+
+test("SA 已完成後不能開高風險（arch-pre 必須在 SA 之前）；SA 完成前可以", async () => {
+  const early = await create({});
+  assert.equal((await env.call({ action: "set_scope", workItemId: early.workItemId, highRisk: true })).isError, false);
+  const c = await create({});
+  await runUntil(env, c.workItemId, c.dir, "sa-confirm");
+  const r = await env.call({ action: "set_scope", workItemId: c.workItemId, highRisk: true });
+  assert.equal(r.isError, true);
+  assert.match(r.json.message, /sa-analyst.*已完成/);
+});
+
+test("架構角色與關卡有顯示名稱", () => {
+  assert.ok(ROLE_LABELS["arch-pre"] && ROLE_LABELS["arch-post"]);
+  assert.ok(GATE_LABELS["arch-confirm"]);
+});
+
+test("高風險：00-索引.md 對 arch-pre 有用途說明", async () => {
+  const hi = await create({ highRisk: true });
+  const index = await readFile(path.join(hi.dir, "00-索引.md"), "utf-8");
+  const row = index.split("\n").find((l) => l.includes("arch-pre"));
+  assert.ok(row, "索引應有 arch-pre 這一列");
+  assert.ok(!row.includes("無說明"), row);
 });

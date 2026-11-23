@@ -3,6 +3,7 @@ import path from "node:path";
 import type { TicketStatus } from "../pipeline-store.js";
 import { buildWhenContext } from "../work-item-store.js";
 import { deliverablePaths, internalPaths } from "../workflow/deliverable-files.js";
+import { withoutHiddenHighRiskArtifacts } from "../workflow/high-risk-hidden.js";
 import { FINAL_SUMMARY_FILE, artifactPaths, buildFinalSummary, buildFinalSummaryBrief, type FileFact, type FinalSummaryInput } from "../workflow/final-summary.js";
 import { resolveWorkflow } from "../workflow/resolve.js";
 import type { WorkflowDefinition } from "../workflow/schema.js";
@@ -39,7 +40,7 @@ async function collectInput(dir: string, status: TicketStatus, def: WorkflowDefi
   const artifacts = def.artifacts.filter((a) => activeOutputs.has(a.id));
   const createdAt = await stat(path.join(dir, "item.md")).then((s) => s.mtime.toISOString(), () => undefined);
   const delivered = deliverablePaths(def);
-  const internal = internalPaths(def);
+  const internal = internalPaths(withoutHiddenHighRiskArtifacts(def, buildWhenContext(status)));
   const files = await Promise.all([...new Set([...artifactPaths(artifacts), ...delivered, ...internal])].map((p) => measure(dir, p)));
   return {
     workItemId: id,

@@ -1,5 +1,6 @@
 import type { TicketStatus } from "../pipeline-store.js";
 import { buildWhenContext } from "../work-item-store.js";
+import { hiddenHighRiskRoleIds } from "./high-risk-hidden.js";
 import { CONSECUTIVE_FAIL_LIMIT } from "./enforce.js";
 import { resolveWorkflow } from "./resolve.js";
 import type { GateDef, WorkflowDefinition } from "./schema.js";
@@ -33,10 +34,7 @@ const withProgress = (s: TicketStatus, p: WorkItemProgress): TicketStatus => ({ 
 const defOf = (o: ApplyOptions): WorkflowDefinition => o.def ?? (getBuiltinWorkflow("spec-first") as WorkflowDefinition);
 const nowOf = (o: ApplyOptions): string => o.now ?? new Date().toISOString();
 /** 只在高風險才啟用、目前卻沒啟用的角色（arch-pre／arch-post）：一般需求的回覆不可出現它們。 */
-const hiddenHighRiskRoles = (s: TicketStatus, d: WorkflowDefinition): Set<string> => {
-  const active = activeIds(s, d);
-  return new Set(d.roles.filter((r) => r.when?.includes("highRisk") === true && !active.has(r.id)).map((r) => r.id));
-};
+const hiddenHighRiskRoles = (s: TicketStatus, d: WorkflowDefinition): Set<string> => hiddenHighRiskRoleIds(d, buildWhenContext(s));
 
 const activeIds = (s: TicketStatus, d: WorkflowDefinition): Set<string> => new Set(resolveWorkflow(d, buildWhenContext(s)).roles.map((r) => r.id));
 
@@ -69,7 +67,8 @@ function ancestorsOf(roles: WorkflowDefinition["roles"], ids: readonly string[])
 
 /** 驗證 alsoRewind：角色必須存在、在目前範圍啟用，且是該關卡之前（上游）的角色。回傳錯誤訊息或 null。 */
 export function checkAlsoRewind(status: TicketStatus, d: WorkflowDefinition, gate: GateDef, alsoRewind: readonly string[]): string | null {
-  const upstream = ancestorsOf(d.roles, afterIds(gate));
+  const hidden = hiddenHighRiskRoles(status, d);
+  const upstream = new Set([...ancestorsOf(d.roles, afterIds(gate))].filter((id) => !hidden.has(id)));
   const active = activeIds(status, d);
   for (const id of alsoRewind) {
     if (!d.roles.some((r) => r.id === id)) return `alsoRewind 的角色「${id}」不存在於流程定義`;
