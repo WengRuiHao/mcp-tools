@@ -172,3 +172,13 @@ test("角色說明：highRisk 的 sd-analyst 附加「上線與回滾」段落�
   assert.match(pHi.json.prompt, /高風險需求：SD 要有「上線與回滾」章節/);
   assert.ok(!pLo.json.prompt.includes("上線與回滾"));
 });
+
+test("角色說明：highRisk 的 sa-analyst、tester、sd-analyst 附加追溯矩陣說明；一般需求不附加", async () => {
+  const hi = (await env.call(createArgs({ highRisk: true }))).json.workItemId;
+  const lo = (await env.call(createArgs({}))).json.workItemId;
+  const get = async (id, roleId) => (await env.call({ action: "role_prompt", workItemId: id, roleId })).json.prompt;
+  assert.match(await get(hi, "sa-analyst"), /需求編號/);
+  assert.match(await get(hi, "tester"), /對應需求/);
+  assert.match(await get(hi, "sd-analyst"), /追溯矩陣/);
+  for (const r of ["sa-analyst", "tester", "sd-analyst"]) assert.ok(!(await get(lo, r)).includes("追溯矩陣") && !(await get(lo, r)).includes("高風險需求"), r);
+});

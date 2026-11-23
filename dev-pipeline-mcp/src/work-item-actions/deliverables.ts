@@ -13,6 +13,7 @@ import { checkSaNoCode } from "../workflow/sa-no-code-check.js";
 import { checkSaStandard } from "../workflow/sa-standard-check.js";
 import { checkSdLayers } from "../workflow/sd-layer-check.js";
 import { checkSdRollout } from "../workflow/sd-rollout-check.js";
+import { checkSaRequirementIds, checkSdTraceability, parseSaRequirementIds } from "../workflow/traceability-check.js";
 import { checkSdStructure, hasTableSchemas } from "../workflow/sd-structure-check.js";
 import { checkTableSchemas } from "../workflow/table-schema-check.js";
 import { checkBaselineTechStack, checkTechStack, TECH_STACK_FILE, BASELINE_FILE } from "../workflow/tech-stack-check.js";
@@ -64,7 +65,7 @@ async function checkVerdictFile(file: string, routeOnFail: Record<string, string
   return [];
 }
 
-async function checkSa(dir: string, legacy: boolean): Promise<string[]> {
+async function checkSa(dir: string, legacy: boolean, highRisk: boolean): Promise<string[]> {
   if ((await sizeOf(path.join(dir, SA_FILE_NAME))) === null) return [`缺少 ${SA_FILE_NAME}，無法檢查 SA 截圖`];
   const problems: string[] = [];
   try {
@@ -80,7 +81,9 @@ async function checkSa(dir: string, legacy: boolean): Promise<string[]> {
     problems.push(`SA 不寫程式檢查失敗：${e instanceof Error ? e.message : String(e)}`);
   }
   try {
-    problems.push(...checkSaStandard(await readFile(path.join(dir, SA_FILE_NAME), "utf-8")).map((v) => `SA 標準檢查未通過：${v}`));
+    const saText = await readFile(path.join(dir, SA_FILE_NAME), "utf-8");
+    problems.push(...checkSaStandard(saText).map((v) => `SA 標準檢查未通過：${v}`));
+    if (highRisk) problems.push(...checkSaRequirementIds(saText).map((v) => `SA 需求編號檢查未通過：${v}`));
   } catch (e) {
     problems.push(`SA 標準檢查失敗：${e instanceof Error ? e.message : String(e)}`);
   }
@@ -121,7 +124,10 @@ async function checkSd(dir: string, def: WorkflowDefinition, projectDir: string 
   try {
     const text = await readFile(path.join(dir, file), "utf-8");
     const rollout = highRisk ? checkSdRollout(text, { needsDbRollback: hasTableSchemas(dir) }).map((v) => `SD 上線與回滾檢查未通過：${v}`) : [];
-    return [...checkSdStructure(text, dir, projectDir, { legacy }).map((v) => `SD 標準檢查未通過：${v}`), ...rollout];
+    // 追溯矩陣：SA 沒有需求編號時略過（由 SA 檢查回報）
+    const saText = highRisk ? await readOptional(path.join(dir, SA_FILE_NAME)) : undefined;
+    const trace = saText === undefined ? [] : checkSdTraceability(text, parseSaRequirementIds(saText).ids).map((v) => `SD 追溯檢查未通過：${v}`);
+    return [...checkSdStructure(text, dir, projectDir, { legacy }).map((v) => `SD 標準檢查未通過：${v}`), ...rollout, ...trace];
   } catch {
     return []; // 檔案缺漏已由一般交件檢查回報
   }
@@ -208,7 +214,7 @@ export async function checkDeliverables(dir: string, roleId: string, def: Workfl
     }
     if (art.render && !((await sizeOf(path.join(dir, art.render))) ?? 0)) problems.push(`缺少圖片 ${art.render}（必須存在且非空；用 attach 或 render 產生）`);
   }
-  if (roleId === "sa-analyst") problems.push(...(await checkSa(dir, ctx.legacy === true)));
+  if (roleId === "sa-analyst") problems.push(...(await checkSa(dir, ctx.legacy === true, ctx.highRisk === true)));
   if (roleId === "db-designer") problems.push(...checkTableSchemas(dir, { baseline: ctx.baseline, projectDir: ctx.projectDir, legacy: ctx.legacy }).map((v) => `資料表結構文件檢查未通過：${v}`));
   if (roleId === "mockup-designer") problems.push(...checkMockupDir(dir, { selectedStyle: ctx.selectedStyle }).map((v) => `mockup 檢查未通過：${v}`));
   if (roleId === "sd-analyst") problems.push(...checkMermaidFile(dir).map((v) => `流程圖（flow.mmd）格式檢查未通過：${v}`));

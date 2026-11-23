@@ -15,6 +15,7 @@ import { checkDuplicatesOnDone } from "./dup-check.js";
 import { refreshIndexDoc } from "./index-doc.js";
 import { checkFlowCoversSa } from "../workflow/flow-covers-sa-check.js";
 import { sdImplWarnings } from "./sd-impl-warnings.js";
+import { testTraceabilityWarningsFor } from "./traceability-warnings.js";
 import { hasTechCandidates } from "../workflow/tech-stack-check.js";
 import { readOptionalText } from "./sd-impl-warnings.js";
 import { stackdumpWarning } from "./stackdump.js";
@@ -92,6 +93,7 @@ export async function handleDone(a: WorkItemArgs): Promise<ToolReply> {
     return passProgramGates({ ...r.status, deliverable_hashes: { ...(s.deliverable_hashes ?? {}), ...upstream.hashes, [roleId]: ownHashes } }, def, roleId);
   });
   warnings.push(...(await sdImplWarnings(ctx.dir, roleId, def)));
+  warnings.push(...(await testTraceabilityWarningsFor(ctx.dir, roleId, ctx.status.high_risk === true)));
   if (roleId === "sd-analyst" || roleId === "flow-analyst") warnings.push(...checkFlowCoversSa(ctx.dir));
   const techNote = techCandidates && updated.tech_source === "existing" ? { techConfirmNote: "tech-stack.md 含「候選方案」（需要使用者做技術決定），即使技術來源為沿用現有，tech-confirm 也必須由使用者本人確認。" } : {};
   const dump = await stackdumpWarning(ctx.dir, ctx.status.project_dir);
