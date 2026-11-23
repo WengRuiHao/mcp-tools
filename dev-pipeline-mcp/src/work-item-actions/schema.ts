@@ -29,6 +29,7 @@ export const workItemShape = {
   hasDb: z.boolean().optional().describe("create／set_scope：是否需要 DB 設計"),
   highRisk: z.boolean().optional().describe("create／set_scope：是否高併發／高風險需求（預設 false；SA 確認後鎖定）"),
   modules: z.array(z.string()).optional().describe("create／set_scope：本需求會動到的模組名稱（最多 20 個，每個 60 字內）；只有專案 flow.json 開了 multiModule 才能給；SA 確認後鎖定；set_scope 給空陣列＝清除"),
+  dependsOn: z.array(z.string()).optional().describe("create／set_scope：本需求依賴的其他工作項目編號（同專案，最多 10 個）；只有專案 flow.json 開了 multiModule 才能給；對方還沒完成時 get、set_scope、SA 確認與最終驗收會回 dependencyWarnings（只警告不擋）；set_scope 給空陣列＝清除"),
   styleSource: z.enum(["existing", "redesign", "new-guided", "new-select"]).optional().describe("create／set_scope：畫面風格來源 existing沿用現有｜redesign換新（既有系統）；new-guided全新有規範｜new-select全新待選（全新系統）；mockup 確認後鎖定。create 沒給時依預設值規則決定，翻新案必須明確給"),
   techSource: z.enum(["existing", "change", "new-guided", "new-select"]).optional().describe("create／set_scope：技術來源 existing沿用現有｜change換技術（既有系統）；new-guided全新有規範｜new-select全新待選（全新系統）；技術確認後鎖定。翻新案必須明確給"),
   renewal: z.boolean().optional().describe("create：是否翻新案（預設 false）；翻新案不替使用者猜風格與技術，styleSource 與 techSource 都必須明確給"),

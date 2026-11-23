@@ -2,6 +2,7 @@ import { updateStatus, type TicketStatus } from "../pipeline-store.js";
 import type { GateDecisionValue } from "../workflow/work-item-progress.js";
 import { resolveConfirmMode } from "../workflow/resolve.js";
 import { TECH_CONFIRM_GATE } from "../work-item-sources.js";
+import { dependencyWarningFields } from "../work-item-modules.js";
 import { applyGateDecision, isProgramCheckGate, isTechConfirmAuto } from "../workflow/spec-first-engine.js";
 import type { WorkflowDefinition } from "../workflow/schema.js";
 import { WorkItemActionError, errorMessage, need, okReply, type ToolReply } from "./common.js";
@@ -100,5 +101,7 @@ export async function handleConfirm(a: WorkItemArgs): Promise<ToolReply> {
   const style = selected ? await applySelection(ctx.dir, selected) : {};
   const summary = gateId === FINAL_ACCEPTANCE_GATE && value === "confirmed" ? await trySummary(ctx.dir, updated, def, ctx.id) : {};
   const indexWarning = await refreshIndexDoc({ dir: ctx.dir, status: updated }, { def, overrideApplied });
-  return okReply({ workItemId: ctx.id, gateId, decision: value, by, rewoundRoles: rewound, ...(alsoRewind.length > 0 ? { alsoRewind } : {}), ...style, ...summary, ...(indexWarning ? { indexWarning } : {}), ...nextBlock(viewFor(updated, def, overrideApplied)) });
+  // 依賴的工作項目還沒完成：SA 確認與最終驗收通過時提醒（只警告，不擋）
+  const deps = value === "confirmed" || value === "passed" ? (gateId === SA_CONFIRM_GATE || gateId === FINAL_ACCEPTANCE_GATE ? await dependencyWarningFields(updated) : {}) : {};
+  return okReply({ workItemId: ctx.id, gateId, decision: value, by, rewoundRoles: rewound, ...(alsoRewind.length > 0 ? { alsoRewind } : {}), ...style, ...summary, ...deps, ...(indexWarning ? { indexWarning } : {}), ...nextBlock(viewFor(updated, def, overrideApplied)) });
 }

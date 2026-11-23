@@ -24,6 +24,8 @@ export interface CreateWorkItemInput {
   highRisk?: boolean;
   /** 本需求動到的模組（選填）；要專案開了 multiModule（由呼叫端查好傳入）才能給非空陣列。 */
   modules?: string[];
+  /** 依賴的其他工作項目編號（呼叫端已驗證存在與同專案）；非空要專案開了 multiModule。 */
+  dependsOn?: string[];
   multiModule?: boolean;
   workflow: "spec-first";
   /** 畫面風格來源與技術來源（選填）；沒給時依 resolveSources 的預設值規則決定。 */
@@ -100,6 +102,7 @@ function validateInput(input: CreateWorkItemInput): void {
   if (input.highRisk !== undefined && typeof input.highRisk !== "boolean") throw new Error("highRisk 必須是布林值");
   if (input.modules !== undefined && input.modules.length > 0 && input.multiModule !== true) throw new Error(MULTI_MODULE_OFF_MESSAGE);
   if (input.modules !== undefined) normalizeModules(input.modules);
+  if (input.dependsOn !== undefined && input.dependsOn.length > 0 && input.multiModule !== true) throw new Error(MULTI_MODULE_OFF_MESSAGE);
   if (!SUPPORTED_WORKFLOWS.includes(input.workflow)) throw new Error(`目前只支援 workflow：${SUPPORTED_WORKFLOWS.join("、")}（收到 ${input.workflow}）`);
 }
 
@@ -137,6 +140,7 @@ export async function createWorkItem(input: CreateWorkItemInput): Promise<Create
       has_db: input.hasDb,
       ...(input.highRisk === true ? { high_risk: true } : {}),
       ...(modules.length > 0 ? { modules } : {}),
+      ...(input.dependsOn && input.dependsOn.length > 0 ? { depends_on: input.dependsOn } : {}),
       style_source: sources.styleSource,
       tech_source: sources.techSource,
       workflow_snapshot: snapshot,
@@ -178,11 +182,12 @@ function assertHighRiskChangeAllowed(id: string, status: TicketStatus, next: boo
 }
 
 /** 修改範圍、DB 設定與兩個來源。scope／hasDb 在 SA 確認後鎖定；styleSource 在 mockup 確認後鎖定；techSource 在技術確認後鎖定。任一欄位被拒絕就全部不寫入。 */
-export async function updateWorkItemScope(id: string, patch: { scope?: WorkItemScope; hasDb?: boolean; highRisk?: boolean; modules?: string[]; multiModule?: boolean } & SourcePatch): Promise<TicketStatus> {
-  if (patch.scope === undefined && patch.hasDb === undefined && patch.highRisk === undefined && patch.modules === undefined && patch.styleSource === undefined && patch.techSource === undefined) {
+export async function updateWorkItemScope(id: string, patch: { scope?: WorkItemScope; hasDb?: boolean; highRisk?: boolean; modules?: string[]; dependsOn?: string[]; multiModule?: boolean } & SourcePatch): Promise<TicketStatus> {
+  if (patch.scope === undefined && patch.hasDb === undefined && patch.highRisk === undefined && patch.modules === undefined && patch.dependsOn === undefined && patch.styleSource === undefined && patch.techSource === undefined) {
     throw new Error("scope、hasDb、highRisk、modules、styleSource、techSource 至少要給一個");
   }
   if (patch.modules !== undefined && patch.modules.length > 0 && patch.multiModule !== true) throw new Error(MULTI_MODULE_OFF_MESSAGE);
+  if (patch.dependsOn !== undefined && patch.dependsOn.length > 0 && patch.multiModule !== true) throw new Error(MULTI_MODULE_OFF_MESSAGE);
   const modulesPatch = patch.modules === undefined ? undefined : normalizeModules(patch.modules);
   if (patch.scope !== undefined && !SCOPES.includes(patch.scope)) throw new Error(`scope 只接受 frontend／backend／both：${patch.scope}`);
   if (patch.hasDb !== undefined && typeof patch.hasDb !== "boolean") throw new Error("hasDb 必須是布林值");
@@ -193,14 +198,17 @@ export async function updateWorkItemScope(id: string, patch: { scope?: WorkItemS
     if (patch.highRisk !== undefined) assertHighRiskChangeAllowed(id, status, patch.highRisk);
     const sources = applySourcePatch(status, patch);
     // 關掉 highRisk 時整個 key 拿掉（不留 false），讓狀態檔回到沒開過的樣子
-    const { high_risk: previousHighRisk, modules: previousModules, ...rest } = status;
+    const { high_risk: previousHighRisk, modules: previousModules, depends_on: previousDepends, ...rest } = status;
     const highRisk = patch.highRisk === undefined ? previousHighRisk : patch.highRisk;
     // 給空陣列＝清除，整個 key 拿掉（不留空陣列）
     const modules = modulesPatch === undefined ? previousModules : modulesPatch;
+    // 依賴關係不是範圍，SA 確認後仍可調整
+    const dependsOn = patch.dependsOn === undefined ? previousDepends : patch.dependsOn;
     return {
       ...rest,
       ...(highRisk === true ? { high_risk: true } : {}),
       ...(modules && modules.length > 0 ? { modules } : {}),
+      ...(dependsOn && dependsOn.length > 0 ? { depends_on: dependsOn } : {}),
       ...sources,
       ...(patch.scope !== undefined ? { scope: patch.scope } : {}),
       ...(patch.hasDb !== undefined ? { has_db: patch.hasDb } : {}),
