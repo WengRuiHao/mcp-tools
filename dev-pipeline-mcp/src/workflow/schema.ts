@@ -127,6 +127,8 @@ export const ProjectFlowOverrideSchema = z
     /** 專案自己的畫面風格規範／技術規範（有值才算「有規範」，建立工作項目時全新系統的預設來源依此決定）。 */
     styleGuide: z.string().trim().min(1).max(4000).optional(),
     techGuide: z.string().trim().min(1).max(4000).optional(),
+    /** 專案是否多模組並行（預設關）：開了才能宣告工作項目動到哪些模組，並對進行中的功能重疊給警告。 */
+    multiModule: z.boolean().optional(),
   })
   .strict();
 export type ProjectFlowOverride = z.infer<typeof ProjectFlowOverrideSchema>;

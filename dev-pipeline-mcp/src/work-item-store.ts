@@ -6,6 +6,7 @@ import { createInitialStatus, updateStatus, type TicketStatus } from "./pipeline
 import { buildWorkflowSnapshot, getBuiltinWorkflow, getStageOrder } from "./workflow/stage-order.js";
 import type { WhenContext } from "./workflow/validate.js";
 import { applySourcePatch, resolveSources, type SourcePatch } from "./work-item-sources.js";
+import { MULTI_MODULE_OFF_MESSAGE, normalizeModules } from "./work-item-modules.js";
 
 /** 手動來源（work item）的資料層：編號、目錄、狀態檔與範圍鎖定。不含任何 MCP 工具。 */
 
@@ -21,6 +22,9 @@ export interface CreateWorkItemInput {
   hasDb: boolean;
   /** 高併發／高風險需求（選填，預設 false）；只在 true 時寫入狀態檔。 */
   highRisk?: boolean;
+  /** 本需求動到的模組（選填）；要專案開了 multiModule（由呼叫端查好傳入）才能給非空陣列。 */
+  modules?: string[];
+  multiModule?: boolean;
   workflow: "spec-first";
   /** 畫面風格來源與技術來源（選填）；沒給時依 resolveSources 的預設值規則決定。 */
   styleSource?: string;
@@ -94,6 +98,8 @@ function validateInput(input: CreateWorkItemInput): void {
   if (!SCOPES.includes(input.scope)) throw new Error(`scope 只接受 frontend／backend／both：${input.scope}`);
   if (typeof input.hasDb !== "boolean") throw new Error("hasDb 必須是布林值");
   if (input.highRisk !== undefined && typeof input.highRisk !== "boolean") throw new Error("highRisk 必須是布林值");
+  if (input.modules !== undefined && input.modules.length > 0 && input.multiModule !== true) throw new Error(MULTI_MODULE_OFF_MESSAGE);
+  if (input.modules !== undefined) normalizeModules(input.modules);
   if (!SUPPORTED_WORKFLOWS.includes(input.workflow)) throw new Error(`目前只支援 workflow：${SUPPORTED_WORKFLOWS.join("、")}（收到 ${input.workflow}）`);
 }
 
@@ -107,6 +113,7 @@ export async function createWorkItem(input: CreateWorkItemInput): Promise<Create
   const projectDir = path.resolve(input.projectDir);
   await assertDirectoryExists(projectDir);
   const sources = resolveSources(input);
+  const modules = normalizeModules(input.modules ?? []);
   const definition = getBuiltinWorkflow(input.workflow);
   if (!definition) throw new Error(`找不到 workflow「${input.workflow}」的內建定義`);
   const snapshot = buildWorkflowSnapshot(definition);
@@ -129,6 +136,7 @@ export async function createWorkItem(input: CreateWorkItemInput): Promise<Create
       scope: input.scope,
       has_db: input.hasDb,
       ...(input.highRisk === true ? { high_risk: true } : {}),
+      ...(modules.length > 0 ? { modules } : {}),
       style_source: sources.styleSource,
       tech_source: sources.techSource,
       workflow_snapshot: snapshot,
@@ -170,24 +178,29 @@ function assertHighRiskChangeAllowed(id: string, status: TicketStatus, next: boo
 }
 
 /** 修改範圍、DB 設定與兩個來源。scope／hasDb 在 SA 確認後鎖定；styleSource 在 mockup 確認後鎖定；techSource 在技術確認後鎖定。任一欄位被拒絕就全部不寫入。 */
-export async function updateWorkItemScope(id: string, patch: { scope?: WorkItemScope; hasDb?: boolean; highRisk?: boolean } & SourcePatch): Promise<TicketStatus> {
-  if (patch.scope === undefined && patch.hasDb === undefined && patch.highRisk === undefined && patch.styleSource === undefined && patch.techSource === undefined) {
-    throw new Error("scope、hasDb、highRisk、styleSource、techSource 至少要給一個");
+export async function updateWorkItemScope(id: string, patch: { scope?: WorkItemScope; hasDb?: boolean; highRisk?: boolean; modules?: string[]; multiModule?: boolean } & SourcePatch): Promise<TicketStatus> {
+  if (patch.scope === undefined && patch.hasDb === undefined && patch.highRisk === undefined && patch.modules === undefined && patch.styleSource === undefined && patch.techSource === undefined) {
+    throw new Error("scope、hasDb、highRisk、modules、styleSource、techSource 至少要給一個");
   }
+  if (patch.modules !== undefined && patch.modules.length > 0 && patch.multiModule !== true) throw new Error(MULTI_MODULE_OFF_MESSAGE);
+  const modulesPatch = patch.modules === undefined ? undefined : normalizeModules(patch.modules);
   if (patch.scope !== undefined && !SCOPES.includes(patch.scope)) throw new Error(`scope 只接受 frontend／backend／both：${patch.scope}`);
   if (patch.hasDb !== undefined && typeof patch.hasDb !== "boolean") throw new Error("hasDb 必須是布林值");
   if (patch.highRisk !== undefined && typeof patch.highRisk !== "boolean") throw new Error("highRisk 必須是布林值");
   return updateStatus(id, (status) => {
     if (!status.workflow_snapshot) throw new Error(`${id} 不是手動來源工作項目，不能修改範圍`);
-    if ((patch.scope !== undefined || patch.hasDb !== undefined || patch.highRisk !== undefined) && isSaConfirmed(status)) throw new Error(SA_CONFIRM_LOCKED_MESSAGE);
+    if ((patch.scope !== undefined || patch.hasDb !== undefined || patch.highRisk !== undefined || modulesPatch !== undefined) && isSaConfirmed(status)) throw new Error(SA_CONFIRM_LOCKED_MESSAGE);
     if (patch.highRisk !== undefined) assertHighRiskChangeAllowed(id, status, patch.highRisk);
     const sources = applySourcePatch(status, patch);
     // 關掉 highRisk 時整個 key 拿掉（不留 false），讓狀態檔回到沒開過的樣子
-    const { high_risk: previousHighRisk, ...rest } = status;
+    const { high_risk: previousHighRisk, modules: previousModules, ...rest } = status;
     const highRisk = patch.highRisk === undefined ? previousHighRisk : patch.highRisk;
+    // 給空陣列＝清除，整個 key 拿掉（不留空陣列）
+    const modules = modulesPatch === undefined ? previousModules : modulesPatch;
     return {
       ...rest,
       ...(highRisk === true ? { high_risk: true } : {}),
+      ...(modules && modules.length > 0 ? { modules } : {}),
       ...sources,
       ...(patch.scope !== undefined ? { scope: patch.scope } : {}),
       ...(patch.hasDb !== undefined ? { has_db: patch.hasDb } : {}),

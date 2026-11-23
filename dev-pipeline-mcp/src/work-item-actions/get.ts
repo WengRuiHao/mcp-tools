@@ -1,5 +1,6 @@
 import { buildWhenContext, isSaConfirmed } from "../work-item-store.js";
 import { listProjectDocs } from "../project-docs-store.js";
+import { overlapFieldsFor } from "../work-item-modules.js";
 import { withoutHiddenHighRiskArtifacts } from "../workflow/high-risk-hidden.js";
 import { isStyleSourceLocked, isTechSourceLocked } from "../work-item-sources.js";
 import { need, okReply, type ToolReply } from "./common.js";
@@ -52,6 +53,7 @@ export async function handleGet(a: WorkItemArgs): Promise<ToolReply> {
     ...(delivered.length > 0 ? { deliveredFiles: delivered } : {}),
     ...(summaryFile ? { summaryFile } : {}),
     ...(await projectDocsField(s.project_dir)),
+    ...(await overlapFieldsFor(ctx.id, s)),
     ...(await listDeliverables(ctx.dir, withoutHiddenHighRiskArtifacts(v.def, buildWhenContext(s)))),
     ...nextBlock(v),
   });

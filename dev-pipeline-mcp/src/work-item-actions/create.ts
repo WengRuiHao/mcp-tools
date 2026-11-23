@@ -1,5 +1,6 @@
 import { createWorkItem } from "../work-item-store.js";
 import { WorkItemActionError, errorMessage, need, okReply, type ToolReply } from "./common.js";
+import { overlapFieldsFor } from "../work-item-modules.js";
 import { loadProjectFlowOverride } from "../workflow/load.js";
 import { loadWorkItem } from "./context.js";
 import type { WorkItemArgs } from "./schema.js";
@@ -17,6 +18,7 @@ export async function handleCreate(a: WorkItemArgs): Promise<ToolReply> {
       ...f,
       workflow: "spec-first",
       ...(a.highRisk !== undefined ? { highRisk: a.highRisk } : {}),
+      ...(a.modules !== undefined ? { modules: a.modules, multiModule: guides?.multiModule === true } : {}),
       ...(a.styleSource !== undefined ? { styleSource: a.styleSource } : {}),
       ...(a.techSource !== undefined ? { techSource: a.techSource } : {}),
       ...(a.renewal !== undefined ? { renewal: a.renewal } : {}),
@@ -31,7 +33,7 @@ export async function handleCreate(a: WorkItemArgs): Promise<ToolReply> {
     const ctx = await loadWorkItem(created.id);
     const v = await buildView(ctx);
     const indexWarning = await refreshIndexDoc({ dir: ctx.dir, status: ctx.status }, { def: v.def, overrideApplied: v.overrideApplied });
-    return okReply({ ...base, ...(indexWarning ? { indexWarning } : {}), ...nextBlock(v) });
+    return okReply({ ...base, ...(await overlapFieldsFor(ctx.id, ctx.status)), ...(indexWarning ? { indexWarning } : {}), ...nextBlock(v) });
   } catch (e) {
     return okReply({ ...base, warning: `已建立，但無法計算第一步建議：${errorMessage(e)}；修正後用 get 重新查詢。` });
   }
