@@ -105,10 +105,10 @@ test("role_prompt roleId=reviewer：回審查員說明書（不超過 1600 字�
   assert.equal((await env.call({ action: "role_prompt", workItemId: "wi-20200101-999", roleId: "reviewer" })).isError, true);
 });
 
-test("reviewer 不是流程角色：未知角色仍拒絕；11 個流程角色與 get 的角色列表不含 reviewer；auto 關卡 howTo 指向說明書", async () => {
+test("reviewer 不是流程角色：未知角色仍拒絕；13 個流程角色與 get 的角色列表不含 reviewer；auto 關卡 howTo 指向說明書", async () => {
   const { id } = await atSaConfirm();
   assert.equal((await env.call({ action: "role_prompt", workItemId: id, roleId: "nobody" })).isError, true);
-  assert.equal(SPEC_FIRST_ROLE_IDS.length, 11);
+  assert.equal(SPEC_FIRST_ROLE_IDS.length, 13);
   assert.ok(!SPEC_FIRST_ROLE_IDS.includes("reviewer"));
   const g = (await env.call({ action: "get", workItemId: id })).json;
   assert.ok(!JSON.stringify(g.doneRoles).includes("reviewer"));

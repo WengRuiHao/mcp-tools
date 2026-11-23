@@ -32,6 +32,12 @@ const afterIds = (g: GateDef): string[] => (Array.isArray(g.after) ? g.after : [
 const withProgress = (s: TicketStatus, p: WorkItemProgress): TicketStatus => ({ ...s, work_item_progress: p });
 const defOf = (o: ApplyOptions): WorkflowDefinition => o.def ?? (getBuiltinWorkflow("spec-first") as WorkflowDefinition);
 const nowOf = (o: ApplyOptions): string => o.now ?? new Date().toISOString();
+/** 只在高風險才啟用、目前卻沒啟用的角色（arch-pre／arch-post）：一般需求的回覆不可出現它們。 */
+const hiddenHighRiskRoles = (s: TicketStatus, d: WorkflowDefinition): Set<string> => {
+  const active = activeIds(s, d);
+  return new Set(d.roles.filter((r) => r.when?.includes("highRisk") === true && !active.has(r.id)).map((r) => r.id));
+};
+
 const activeIds = (s: TicketStatus, d: WorkflowDefinition): Set<string> => new Set(resolveWorkflow(d, buildWhenContext(s)).roles.map((r) => r.id));
 
 /** 倒回：清掉 roleIds 的 done，以及 after 與其有交集的關卡決定（上游角色與其關卡保留）。 */
@@ -152,7 +158,7 @@ export function applyVerdictFail(status: TicketStatus, gateId: string, rootCause
     ok: true,
     status: { ...withProgress(status, { ...base, rejections: appendRejection(progressOf(status), rejection), gates: { ...base.gates, [gateId]: record } }), consecutive_fail_count: count },
     routedTo: target,
-    rewound: d.roles.map((r) => r.id).filter((id) => scope.has(id)),
+    rewound: d.roles.map((r) => r.id).filter((id) => scope.has(id) && !hiddenHighRiskRoles(status, d).has(id)),
     consecutiveFailCount: count,
     requireManual,
     ...(requireManual ? { hardStop: "consecutive-fail-3" as const } : {}),

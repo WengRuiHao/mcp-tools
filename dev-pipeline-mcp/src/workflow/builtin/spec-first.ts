@@ -44,6 +44,7 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
       { id: "baseline", file: "baseline.md", kind: "markdown" },
       { id: "impact", file: "impact.md", kind: "markdown" },
       { id: "tech-stack", file: "tech-stack.md", kind: "markdown" },
+      { id: "arch", file: "architecture.md", kind: "markdown" },
       { id: "mockup", file: "sa-mockup/", kind: "html" },
       { id: "sa", file: "01-sa.md", kind: "markdown", attachments: ["sa-images/", "01-sa.docx"], deliverable: true },
       { id: "sa-notes", file: "sa-notes.md", kind: "markdown" },
@@ -65,6 +66,14 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
         dependsOn: ["baseline-survey"], inputs: ["baseline", "impact"], outputs: ["tech-stack"],
         roleNotes: "依「技術來源」決定技術棧並寫 tech-stack.md：沿用現有只記錄現況盤點查到的技術棧（程式自動記錄確認）；換技術、全新有規範、全新待選都要等使用者確認技術棧，確認後鎖定，後面角色不可自行換語言或框架。",
       },
+      // 高風險才啟用的兩個互斥架構角色：全新系統在 SA 之前決策（arch-pre），既有系統在 SA 之後檢查符合性（arch-post）；共用同一份說明與產出物
+      {
+        id: "arch-pre",
+        promptRef: "architect",
+        dependsOn: ["tech-selector"], inputs: ["tech-stack"], outputs: ["arch"],
+        when: "baseline==greenfield&&highRisk==true",
+        roleNotes: "高風險全新系統：在 SA 之前決定資料庫、MQ、快取與一致性模型、分區與鎖策略，寫成 architecture.md，並檢查語言與框架有沒有和非功能需求衝突；架構決策要等使用者本人確認。",
+      },
       {
         id: "mockup-designer",
         promptRef: "mockup-designer",
@@ -76,12 +85,19 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
       {
         id: "sa-analyst",
         promptRef: "sa-analyst",
-        dependsOn: ["baseline-survey", "tech-selector", "mockup-designer"], inputs: ["impact", "tech-stack", "mockup"], outputs: ["sa", "sa-notes"],
+        dependsOn: ["baseline-survey", "tech-selector", "arch-pre", "mockup-designer"], inputs: ["impact", "tech-stack", "arch", "mockup"], outputs: ["sa", "sa-notes"],
         roleNotes:
           "規格是給客戶看的客戶版（格式用 work_item action=template template=sa 取範本）。程式未開發前畫面只能靠 mockup 截圖：依已確認的 mockup（sa-mockup/）用網址 #狀態名稱 切換狀態截圖，整體畫面一張、每種提示狀態各一張，圖檔放 sa-images/ 並在規格中引用。定稿後圖片不換成實際系統畫面。待確認問題、需求依據與翻新案的程式依據寫在內部檔 sa-notes.md，不放進 SA。",
       },
-      { id: "db-designer", promptRef: "db-designer", dependsOn: ["sa-analyst"], inputs: ["sa", "tech-stack"], outputs: ["db", "table-schema"], optional: true, when: "hasDb==true" },
-      { id: "sd-analyst", promptRef: "sd-analyst", dependsOn: ["sa-analyst", "db-designer"], inputs: ["sa", "db", "table-schema", "tech-stack"], outputs: ["sd", "flow"], roleNotes: "SD 也負責畫流程圖：內部檔 flow.mmd（Mermaid）轉成 flow.png，03-sd.md 的「## 流程圖」只放 flow.png 的圖片引用，不放 mermaid。SD「使用資料表」的結構文件連結寫成 TableSchema/<文件>.md#表名：<文件>是該表所在的分組資料表結構文件，錨點等於表名，對應文件內「## 資料表：表名」小節；同組的多張表連到同一份文件。" },
+      {
+        id: "arch-post",
+        promptRef: "architect",
+        dependsOn: ["sa-analyst"], inputs: ["sa", "tech-stack", "impact"], outputs: ["arch"],
+        when: "baseline==brownfield&&highRisk==true",
+        roleNotes: "高風險既有系統：在 SA 之後檢查現有架構撐得住嗎、要不要加 MQ 或快取；沒有新決策就寫「沿用現有，無需新增」，有新決策（新增 MQ、改一致性模型、換資料庫）要等使用者本人確認。",
+      },
+      { id: "db-designer", promptRef: "db-designer", dependsOn: ["sa-analyst", "arch-pre", "arch-post"], inputs: ["sa", "tech-stack", "arch"], outputs: ["db", "table-schema"], optional: true, when: "hasDb==true" },
+      { id: "sd-analyst", promptRef: "sd-analyst", dependsOn: ["sa-analyst", "arch-pre", "arch-post", "db-designer"], inputs: ["sa", "db", "table-schema", "tech-stack", "arch"], outputs: ["sd", "flow"], roleNotes: "SD 也負責畫流程圖：內部檔 flow.mmd（Mermaid）轉成 flow.png，03-sd.md 的「## 流程圖」只放 flow.png 的圖片引用，不放 mermaid。SD「使用資料表」的結構文件連結寫成 TableSchema/<文件>.md#表名：<文件>是該表所在的分組資料表結構文件，錨點等於表名，對應文件內「## 資料表：表名」小節；同組的多張表連到同一份文件。" },
       {
         id: "spec-verifier",
         promptRef: "spec-verifier",
@@ -98,6 +114,7 @@ export function buildSpecFirstWorkflow(): WorkflowDefinition {
     gates: [
       { id: "impact-content", after: "baseline-survey", type: "content", confirmMode: "auto", checks: [] },
       { id: "tech-confirm", after: "tech-selector", type: "confirmation", confirmMode: "manual" },
+      { id: "arch-confirm", after: ["arch-pre", "arch-post"], type: "confirmation", confirmMode: "manual" },
       { id: "mockup-confirm", after: "mockup-designer", type: "confirmation", confirmMode: "manual" },
       {
         id: "sa-content-check",

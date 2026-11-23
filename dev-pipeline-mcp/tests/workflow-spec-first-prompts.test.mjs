@@ -9,8 +9,8 @@ const fileOf = (id) => wf.artifacts.find((a) => a.id === id).file;
 const j = (...parts) => parts.join("");
 const FORBIDDEN = [j("UEC", "-F"), j("電子", "發票"), j("ofe", "invoice"), j("SC", "SB"), j("上海", "商銀"), j("Alv", "en"), j("高", "銀"), j("sow", "ffd"), j("社家", "署"), j("boke", "ps"), j("KS", "BS")];
 
-test("11 個角色都能取得，且與 builtin 角色 id 完全一致（flow-analyst 已併入 sd-analyst）", () => {
-  assert.equal(SPEC_FIRST_ROLE_IDS.length, 11);
+test("13 個角色（含高風險才啟用的 arch-pre／arch-post）都能取得，且與 builtin 角色 id 完全一致（flow-analyst 已併入 sd-analyst）", () => {
+  assert.equal(SPEC_FIRST_ROLE_IDS.length, 13);
   assert.ok(!SPEC_FIRST_ROLE_IDS.includes("flow-analyst"));
   assert.deepEqual([...SPEC_FIRST_ROLE_IDS].sort(), wf.roles.map((r) => r.id).sort());
   for (const id of SPEC_FIRST_ROLE_IDS) assert.ok(getSpecFirstRolePrompt(id).length > 0, id);

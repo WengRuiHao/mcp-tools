@@ -1,4 +1,4 @@
-// 黃金快照：規格先行（spec-first）11 個角色說明書的輸出（問題 87 的保護網；prompts.json 只涵蓋 Asana 流程五個角色，不可更動）。
+// 黃金快照：規格先行（spec-first）13 個角色說明書的輸出（問題 87 的保護網；prompts.json 只涵蓋 Asana 流程五個角色，不可更動）。
 // 每個角色 × 選項組合存 sha256 與長度；沒有選項的基本版另存全文，方便檢視差異。UPDATE_GOLDEN=1 才會重寫 tests/golden/spec-first-prompts.json。
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -17,9 +17,9 @@ const OPTION_SETS = {
   all: { workItemDir: WORK_ITEM_DIR, roleNotes: "專案補充：一律使用繁體中文。", projectGuide: { title: "專案規範", text: "命名使用 camelCase。" } },
 };
 
-test("golden: 規格先行 11 個角色清單固定", () => {
+test("golden: 規格先行 13 個角色清單固定", () => {
   assert.deepEqual([...SPEC_FIRST_ROLE_IDS].sort(), [
-    "backend-engineer", "baseline-survey", "db-designer", "frontend-engineer", "mockup-designer",
+    "arch-post", "arch-pre", "backend-engineer", "baseline-survey", "db-designer", "frontend-engineer", "mockup-designer",
     "sa-analyst", "sd-analyst", "spec-verifier", "tech-selector", "tester", "verifier",
   ]);
 });

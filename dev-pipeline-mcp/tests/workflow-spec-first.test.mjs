@@ -78,7 +78,7 @@ test("sa 內容關卡：mockup 截圖檢查存在，排在 sa 確認之前，且
   assert.ok(gi("sa-content-check") < gi("sa-confirm"));
   const confirm = d.gates[gi("sa-confirm")];
   assert.deepEqual([confirm.type, confirm.confirmMode, confirm.after], ["confirmation", "auto", "sa-analyst"]);
-  assert.equal(d.gates.length, 12);
+  assert.equal(d.gates.length, 13); // 含高風險才啟用的 arch-confirm
   assert.ok(d.artifacts.find((a) => a.id === "sa").attachments.includes("sa-images/"));
 });
 

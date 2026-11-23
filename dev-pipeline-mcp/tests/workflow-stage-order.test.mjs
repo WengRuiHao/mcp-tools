@@ -32,7 +32,9 @@ test("spec-first 順序：new 開頭、spec-verifier 在 sd-analyst 後且在前
   assert.ok(i("baseline-survey") > 0, "optional 角色保留");
   assert.ok(i("baseline-survey") < i("mockup-designer") && i("mockup-designer") < i("sa-analyst"), "mockup-designer 在 baseline-survey 之後、sa-analyst 之前");
   assert.ok(i("baseline-survey") < i("tech-selector") && i("tech-selector") < i("mockup-designer"), "tech-selector 在 baseline-survey 之後、mockup-designer 之前");
-  assert.equal(o.length, 12);
+  assert.equal(o.length, 14); // 含高風險才啟用的 arch-pre、arch-post
+  assert.ok(i("tech-selector") < i("arch-pre") && i("arch-pre") < i("sa-analyst"), "arch-pre 在技術選型之後、SA 之前");
+  assert.ok(i("sa-analyst") < i("arch-post") && i("arch-post") < i("db-designer"), "arch-post 在 SA 之後、DB 設計之前");
 });
 
 test("不含重複", () => {
