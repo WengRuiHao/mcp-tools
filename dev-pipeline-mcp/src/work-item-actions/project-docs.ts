@@ -1,4 +1,5 @@
 import { updateStatus } from "../pipeline-store.js";
+import { refreshIndexDoc } from "./index-doc.js";
 import { PROJECT_DOC_NAMES, ProjectDocConflictError, isProjectDocName, listProjectDocs, readProjectDoc, writeProjectDoc } from "../project-docs-store.js";
 import { WorkItemActionError, errorMessage, need, okReply, type ToolReply } from "./common.js";
 import { loadWorkItem } from "./context.js";
@@ -8,11 +9,11 @@ import type { WorkItemArgs } from "./schema.js";
 
 const MAX_RECORDED_CHANGES = 50;
 
-async function projectDirOf(workItemId: string): Promise<{ id: string; projectDir: string }> {
+async function projectDirOf(workItemId: string): Promise<{ id: string; dir: string; projectDir: string }> {
   const ctx = await loadWorkItem(workItemId);
   const projectDir = ctx.status.project_dir;
   if (!projectDir) throw new WorkItemActionError(`工作項目「${ctx.id}」沒有記錄專案目錄，無法存取專案層文件`);
-  return { id: ctx.id, projectDir };
+  return { id: ctx.id, dir: ctx.dir, projectDir };
 }
 
 function assertName(filename: string): void {
@@ -36,7 +37,7 @@ export async function handleProjectDocWrite(a: WorkItemArgs): Promise<ToolReply>
   const { workItemId, filename } = need("project_doc_write", a, ["workItemId", "filename"]);
   if (typeof a.content !== "string") throw new WorkItemActionError("action=project_doc_write 缺少必填參數：content");
   assertName(filename);
-  const { id, projectDir } = await projectDirOf(workItemId);
+  const { id, dir, projectDir } = await projectDirOf(workItemId);
   let result;
   try {
     result = await writeProjectDoc(projectDir, filename, a.content, a.expectedSha256 !== undefined ? { expectedSha256: a.expectedSha256 } : {});
@@ -46,7 +47,10 @@ export async function handleProjectDocWrite(a: WorkItemArgs): Promise<ToolReply>
   }
   if (result.changed) {
     const at = new Date().toISOString();
-    await updateStatus(id, (s) => ({ ...s, project_doc_changes: [...(s.project_doc_changes ?? []), { doc: filename, at, sha256: result.sha256 }].slice(-MAX_RECORDED_CHANGES) }));
+    const updated = await updateStatus(id, (s) => ({ ...s, project_doc_changes: [...(s.project_doc_changes ?? []), { doc: filename, at, sha256: result.sha256 }].slice(-MAX_RECORDED_CHANGES) }));
+    // 索引列出專案層文件；更新失敗不影響寫入，只附警告
+    const indexWarning = await refreshIndexDoc({ dir, status: updated });
+    return okReply({ workItemId: id, doc: filename, sha256: result.sha256, bytes: result.bytes, changed: result.changed, ...(indexWarning ? { indexWarning } : {}) });
   }
   return okReply({ workItemId: id, doc: filename, sha256: result.sha256, bytes: result.bytes, changed: result.changed });
 }

@@ -2,6 +2,7 @@ import { readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { TicketStatus } from "../pipeline-store.js";
 import { buildWhenContext } from "../work-item-store.js";
+import { PROJECT_DOCS_DIR, listProjectDocs } from "../project-docs-store.js";
 import { artifactDeliverablePaths, deliverablePaths } from "../workflow/deliverable-files.js";
 import { FINAL_SUMMARY_FILE, decisionText, deciderText, formatTime, gateLabel, oneLine } from "../workflow/final-summary.js";
 import { INDEX_DOC_FILE } from "../workflow/internal-files.js";
@@ -145,6 +146,15 @@ export async function deliveredFiles(dir: string): Promise<string[]> {
   }
 }
 
+/** 專案層文件（跨功能共用，放專案目錄）；專案沒有文件時不產生章節，簡單需求的索引不變。連結是從本工作項目目錄出發的相對路徑。 */
+async function projectDocsSection(dir: string, status: TicketStatus): Promise<string[]> {
+  if (!status.project_dir) return [];
+  const docs = await listProjectDocs(status.project_dir).catch(() => []);
+  if (docs.length === 0) return [];
+  const rel = (name: string): string => path.relative(dir, path.join(status.project_dir as string, PROJECT_DOCS_DIR, name)).split(path.sep).join("/");
+  return ["## 專案層文件", "", "跨功能共用的專案層級文件（不屬於單一工作項目；用 project_doc_read／project_doc_write 存取）。", "", ...docs.map((d) => `- [${d.name}](${rel(d.name)})（${d.bytes} bytes）`), ""];
+}
+
 async function staleSection(dir: string, status: TicketStatus): Promise<string[]> {
   const note = await staleUpstreamNote(dir, status);
   return note ? ["## 上游文件可能過期", "", note, ""] : [];
@@ -164,6 +174,7 @@ export async function buildIndexDoc(dir: string, status: TicketStatus, def: Work
     ...flowTable(rows),
     ...(await focusSection(dir, def, status)),
     ...(await deliveredSection(dir)),
+    ...(await projectDocsSection(dir, status)),
     ...gateSection(status, def),
     ...(await decisionSection(dir, status)),
     ...(await staleSection(dir, status)),

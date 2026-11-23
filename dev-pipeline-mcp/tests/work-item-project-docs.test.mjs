@@ -100,3 +100,22 @@ test("get：專案沒有文件就沒有 projectDocs 欄位；有了才列", asyn
     await env2.cleanup();
   }
 });
+
+test("索引：專案有專案層文件才多「專案層文件」一節（附相對連結）；寫入後立即更新；沒有文件的專案索引不變", async () => {
+  const env2 = await setupEnv("wi-pdoc-index-");
+  try {
+    const mk = async (title) => (await env2.call({ action: "create", projectDir: env2.projectDir, title, requirement: "y", baseline: "greenfield", scope: "both", hasDb: true, techSource: "new-guided", styleSource: "new-guided" })).json;
+    const a = await mk("索引甲");
+    const before = await readFile(path.join(a.dir, "00-索引.md"), "utf-8");
+    assert.doesNotMatch(before, /專案層文件/);
+    await env2.call({ action: "project_doc_write", workItemId: a.workItemId, filename: DOC, content: "# 決策\n" });
+    const after = await readFile(path.join(a.dir, "00-索引.md"), "utf-8");
+    assert.match(after, /## 專案層文件/);
+    const rel = path.relative(a.dir, path.join(env2.projectDir, ".dev-pipeline", "project-docs", DOC)).split(path.sep).join("/");
+    assert.ok(after.includes(`[${DOC}](${rel})`), after);
+    const b = await mk("索引乙");
+    assert.match(await readFile(path.join(b.dir, "00-索引.md"), "utf-8"), /## 專案層文件/, "同專案後建立的項目也看得到");
+  } finally {
+    await env2.cleanup();
+  }
+});
