@@ -12,12 +12,14 @@ export interface SnapshotInfo {
   savedAt: string;
 }
 
-/** Files under .pipeline/ (never the history itself) plus the original role-rule location. */
+export const PROJECT_DOCS_PREFIX = ".dev-pipeline/project-docs/";
+
+/** Files under .pipeline/ (never the history itself), the original role-rule location, and project-level docs (.dev-pipeline/project-docs/). */
 export function isRuleFilePath(relPath: string): boolean {
   const p = relPath.replace(/\\/g, "/");
   if (p.split("/").includes("..")) return false;
   if (p.startsWith(`${HISTORY_ROOT}/`)) return false;
-  return p.startsWith(".pipeline/") || p.startsWith(".claude/pipeline-roles/");
+  return p.startsWith(".pipeline/") || p.startsWith(".claude/pipeline-roles/") || p.startsWith(PROJECT_DOCS_PREFIX);
 }
 
 function historyDir(projectDir: string, relPath: string): string {

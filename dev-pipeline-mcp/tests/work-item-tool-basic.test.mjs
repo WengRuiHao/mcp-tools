@@ -12,7 +12,7 @@ test("工具已註冊且 action 為必填 enum", async () => {
   const { tools } = await env.client.listTools();
   const t = tools.find((x) => x.name === "work_item");
   assert.ok(t);
-  assert.equal(t.inputSchema.properties.action.enum.length, 14);
+  assert.equal(t.inputSchema.properties.action.enum.length, 16); // 含 project_doc_read／project_doc_write
   assert.deepEqual(t.inputSchema.required, ["action"]);
 });
 

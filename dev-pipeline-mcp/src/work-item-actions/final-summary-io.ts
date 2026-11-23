@@ -50,6 +50,7 @@ async function collectInput(dir: string, status: TicketStatus, def: WorkflowDefi
     scope: status.scope,
     hasDb: status.has_db,
     ...(status.high_risk === true ? { highRisk: true } : {}),
+    ...(status.project_doc_changes && status.project_doc_changes.length > 0 ? { projectDocChanges: status.project_doc_changes } : {}),
     styleSource: status.style_source,
     techSource: status.tech_source,
     createdAt,

@@ -1,4 +1,5 @@
 import { buildWhenContext, isSaConfirmed } from "../work-item-store.js";
+import { listProjectDocs } from "../project-docs-store.js";
 import { withoutHiddenHighRiskArtifacts } from "../workflow/high-risk-hidden.js";
 import { isStyleSourceLocked, isTechSourceLocked } from "../work-item-sources.js";
 import { need, okReply, type ToolReply } from "./common.js";
@@ -50,7 +51,15 @@ export async function handleGet(a: WorkItemArgs): Promise<ToolReply> {
     ...(staleNote ? { upstreamMayBeStale: staleNote } : {}),
     ...(delivered.length > 0 ? { deliveredFiles: delivered } : {}),
     ...(summaryFile ? { summaryFile } : {}),
+    ...(await projectDocsField(s.project_dir)),
     ...(await listDeliverables(ctx.dir, withoutHiddenHighRiskArtifacts(v.def, buildWhenContext(s)))),
     ...nextBlock(v),
   });
+}
+
+/** 專案有專案層文件才回 projectDocs；沒有就不多欄位，簡單需求的 get 回覆不變。 */
+async function projectDocsField(projectDir: string | null | undefined): Promise<{ projectDocs?: Array<{ name: string; bytes: number }> }> {
+  if (!projectDir) return {};
+  const docs = await listProjectDocs(projectDir);
+  return docs.length > 0 ? { projectDocs: docs } : {};
 }

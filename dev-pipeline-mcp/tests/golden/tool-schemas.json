@@ -1727,8 +1727,8 @@
  },
  "toolCount": 43,
  "work_item": {
-  "descriptionLength": 2402,
-  "descriptionSha256": "b2d953991bc09d4f411a415763442388dd51c0f3111be4da4be56ea6ad086e00",
+  "descriptionLength": 2683,
+  "descriptionSha256": "6f9bbbcc752b4bfe144ee21eb8713d41e871eaedd8c0f8f23a04ad9e3690f4de",
   "inputSchema": {
    "$schema": "http://json-schema.org/draft-07/schema#",
    "additionalProperties": false,
@@ -1739,8 +1739,8 @@
      "type": "boolean"
     },
     "action": {
-     "descriptionLength": 128,
-     "descriptionSha256": "63ee4cb5a54efebaf600b20463a6ea7a1aec43599621601edbb914c41270bef7",
+     "descriptionLength": 163,
+     "descriptionSha256": "1eac4f2337c94cf6d181f770b574bd8337179eea8869fc74b2a7332cc3880f94",
      "enum": [
       "create",
       "get",
@@ -1755,7 +1755,9 @@
       "update_requirement",
       "record_decision",
       "template",
-      "deliver"
+      "deliver",
+      "project_doc_read",
+      "project_doc_write"
      ],
      "type": "string"
     },
@@ -1816,9 +1818,14 @@
      ],
      "type": "string"
     },
+    "expectedSha256": {
+     "descriptionLength": 64,
+     "descriptionSha256": "620dd22191fe8de1972ef4be16e19aebf33f543bbc162ada4729c8ad6d304e2e",
+     "type": "string"
+    },
     "filename": {
-     "descriptionLength": 35,
-     "descriptionSha256": "060ec43c388112ecb7c868ce89174a418407cf856c5e212a92081f50d606a793",
+     "descriptionLength": 114,
+     "descriptionSha256": "08342e89fa4f1529b3800d141bee53ec924ecb13425ef97f5badd2c8370d0d1d",
      "type": "string"
     },
     "gateId": {
@@ -2033,7 +2040,7 @@
    ],
    "type": "object"
   },
-  "paramCount": 35
+  "paramCount": 36
  },
  "write_project_file": {
   "descriptionLength": 352,

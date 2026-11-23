@@ -25,6 +25,7 @@ test("confirmed：寫出 final-summary.md，回傳 summaryFile 與簡短摘要�
   assert.match(text, /最終驗收（final-acceptance）：確認｜使用者本人/);
   assert.match(text, /SA 內容檢查（sa-content-check）：通過｜程式檢查/);
   assert.doesNotMatch(text, /[{}]|"decision"|�|undefined/);
+  assert.doesNotMatch(text, /專案層文件/, "沒動過專案層文件的工作項目，報告不該多這一節");
   assert.equal((await env.call({ action: "get", workItemId: id })).json.summaryFile, r.json.summaryFile);
 });
 
@@ -72,4 +73,13 @@ test("final-summary.md 基本資料列出畫面風格來源與技術來源", asy
   assert.match(text, /- 畫面風格來源：全新待選（new-select）/);
   assert.match(text, /- 技術來源：全新待選（new-select）/);
   assert.match(text, /技術確認（tech-confirm）：確認｜使用者本人/);
+});
+
+test("動過專案層文件才多一節「本次更新的專案層文件」", async () => {
+  const touched = await env.create();
+  await runUntil(env, touched.id, touched.dir, "final-acceptance-none");
+  await env.call({ action: "project_doc_write", workItemId: touched.id, filename: "architecture-decisions.md", content: "# 架構決策書\n" });
+  const text = await readFile((await accept(touched.id)).json.summaryFile, "utf-8");
+  assert.match(text, /本次更新的專案層文件/);
+  assert.match(text, /architecture-decisions\.md/);
 });

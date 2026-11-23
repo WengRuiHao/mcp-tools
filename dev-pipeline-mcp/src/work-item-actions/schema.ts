@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /** work_item 單一工具的參數：以 action 分派，其餘欄位依動作選填（缺必填欄位由各動作回清楚錯誤）。 */
 
-export const WORK_ITEM_ACTIONS = ["create", "get", "role_prompt", "set_scope", "write", "attach", "render", "done", "confirm", "verdict", "update_requirement", "record_decision", "template", "deliver"] as const;
+export const WORK_ITEM_ACTIONS = ["create", "get", "role_prompt", "set_scope", "write", "attach", "render", "done", "confirm", "verdict", "update_requirement", "record_decision", "template", "deliver", "project_doc_read", "project_doc_write"] as const;
 export type WorkItemAction = (typeof WORK_ITEM_ACTIONS)[number];
 
 const reasonsShape = {
@@ -19,7 +19,7 @@ const reviewShape = {
 };
 
 export const workItemShape = {
-  action: z.enum(WORK_ITEM_ACTIONS).describe("動作：create｜get｜role_prompt｜set_scope｜write｜attach｜render｜done｜confirm｜verdict｜update_requirement｜record_decision｜template｜deliver"),
+  action: z.enum(WORK_ITEM_ACTIONS).describe("動作：create｜get｜role_prompt｜set_scope｜write｜attach｜render｜done｜confirm｜verdict｜update_requirement｜record_decision｜template｜deliver｜project_doc_read｜project_doc_write"),
   workItemId: z.string().optional().describe("工作項目編號（wi-YYYYMMDD-NNN）；create 以外都要"),
   projectDir: z.string().optional().describe("create：專案目錄絕對路徑（必須存在）"),
   title: z.string().optional().describe("create：標題"),
@@ -34,7 +34,8 @@ export const workItemShape = {
   template: z.enum(["sa", "sd", "table-schema", "system-er", "mockup-states", "er-source", "system-er-source"]).optional().describe("template：要取的範本（sa＝客戶版 SA｜sd＝後端規格｜table-schema＝資料表結構文件｜system-er＝系統 ER 圖｜mockup-states＝mockup 狀態切換範例 HTML｜er-source＝模組 ER 圖 Mermaid 來源｜system-er-source＝系統 ER 圖 Mermaid 來源）；不需 workItemId"),
   target: z.enum(["sa", "sd", "all"]).optional().describe("deliver：要輸出的交付文件（sa＝系統分析書｜sd＝系統設計書｜all＝兩者，預設）；輸出客戶命名的副本到 deliverables/"),
   roleId: z.string().optional().describe("role_prompt／done：角色 id（例如 sa-analyst）"),
-  filename: z.string().optional().describe("write：產出檔名（只能是流程定義的產出檔，例如 01-sa.md）"),
+  expectedSha256: z.string().optional().describe("project_doc_write：讀取時拿到的 sha256；與目前版本不符就拒絕（有人先改過），要重新讀取後只重做自己的改動"),
+  filename: z.string().optional().describe("project_doc_read／project_doc_write：專案層文件名稱（固定白名單，例如 architecture-decisions.md）；write：產出檔名（只能是流程定義的產出檔，例如 01-sa.md）"),
   content: z.string().optional().describe("write：檔案內容（上限 512KB）"),
   srcPath: z.string().optional().describe("attach：來源檔絕對路徑（必須存在且為檔案）"),
   destDir: z.enum(["sa-mockup", "sa-images", "evidence", "flow", "er"]).optional().describe("attach：目的位置；flow＝根目錄的 flow.png；er＝TableSchema/er/ 的 ER 圖 PNG（name 必填，例如 orders.png）"),

@@ -115,3 +115,13 @@ test("基本資料多兩行：畫面風格來源與技術來源；沒有紀錄�
   const tech = buildFinalSummary({ ...base(), gates: [...gates, { id: "tech-confirm", after: "tech-selector", type: "confirmation" }] });
   assert.match(tech, /技術確認（tech-confirm）：無紀錄/);
 });
+
+test("專案層文件異動：有才多一節，列出文件、時間與雜湊前綴；沒有就逐字不變", () => {
+  const without = buildFinalSummary(base());
+  assert.doesNotMatch(without, /專案層文件/);
+  assert.equal(buildFinalSummary({ ...base(), projectDocChanges: [] }), without);
+  const sha = "ab12cd34".padEnd(64, "0");
+  const t = buildFinalSummary({ ...base(), projectDocChanges: [{ doc: "architecture-decisions.md", at: "2026-01-01T04:00:00.000Z", sha256: sha }] });
+  assert.match(t, /本次更新的專案層文件/);
+  assert.match(t, /architecture-decisions\.md.*2026-01-01 12:00:00.*ab12cd34/);
+});

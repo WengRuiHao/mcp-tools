@@ -42,6 +42,8 @@ export interface FinalSummaryInput {
   /** 正式交付物與內部過程檔路徑（有給才列出分組清單）。 */
   deliverablePaths?: readonly string[];
   internalPaths?: readonly string[];
+  /** 本工作項目寫過的專案層文件；沒寫過就不給，報告不會多這一節。 */
+  projectDocChanges?: ReadonlyArray<{ doc: string; at: string; sha256: string }> | undefined;
   /** 工作項目目錄與專案目錄根殘留的 *.stackdump（Bash 當機遺留，有才列出警告節）。 */
   stackdumpPaths?: readonly string[];
 }
@@ -224,6 +226,11 @@ function stackdumpSection(paths: readonly string[] | undefined): string[] {
   return ["## 六、殘留的 stackdump 檔（警告）", "", "以下是 Bash 當機遺留的 *.stackdump，不是交付物，請確認後刪除，並留意當時的指令是否真的執行完成：", "", ...paths.map((p) => `- ${p}`), ""];
 }
 
+function projectDocSection(changes: FinalSummaryInput["projectDocChanges"]): string[] {
+  if (!changes || changes.length === 0) return [];
+  return ["## 七、本次更新的專案層文件", "", ...changes.map((c) => `- ${c.doc}｜${formatTime(c.at)}｜版本 ${c.sha256.slice(0, 8)}`), ""];
+}
+
 /** 完整報告字串。第五節只有工作項目目錄內有 dup-report.md 才會出現。 */
 export function buildFinalSummary(i: FinalSummaryInput): string {
   const completedAt = i.progress?.gates["final-acceptance"]?.at;
@@ -236,6 +243,7 @@ export function buildFinalSummary(i: FinalSummaryInput): string {
     ...artifactSection(i),
     ...dupSection(i.dupReport),
     ...stackdumpSection(i.stackdumpPaths),
+    ...projectDocSection(i.projectDocChanges),
     "---",
     "",
     "這份報告由程式依紀錄彙整，不含 AI 的主觀評論。",

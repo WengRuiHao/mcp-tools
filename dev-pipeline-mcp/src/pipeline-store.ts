@@ -101,6 +101,8 @@ export interface TicketStatus {
   has_db?: boolean;
   /** 高併發／高風險需求（SA 確認後鎖定）；只在 true 時才寫入，簡單需求的狀態檔不會多這個 key，同樣刻意不放進 NEW_STATUS。 */
   high_risk?: boolean;
+  /** 本工作項目寫過哪些專案層文件（最近 50 筆）；沒寫過就沒有這個 key，簡單需求的狀態檔不受影響。 */
+  project_doc_changes?: Array<{ doc: string; at: string; sha256: string }>;
   /** 畫面風格來源（mockup 確認前可改）。沿用現有／換新／全新有規範／全新待選；同樣刻意不放進 NEW_STATUS。 */
   style_source?: "existing" | "redesign" | "new-guided" | "new-select";
   /** 全新待選風格（new-select）在 mockup-confirm 確認時使用者選定的風格檔名（sa-mockup/ 內的 style-*.html）；其餘候選移到 sa-mockup/_candidates/。選填，不放進 NEW_STATUS。 */
