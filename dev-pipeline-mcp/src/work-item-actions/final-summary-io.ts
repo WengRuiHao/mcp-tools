@@ -48,6 +48,7 @@ async function collectInput(dir: string, status: TicketStatus, def: WorkflowDefi
     baseline: status.baseline,
     scope: status.scope,
     hasDb: status.has_db,
+    ...(status.high_risk === true ? { highRisk: true } : {}),
     styleSource: status.style_source,
     techSource: status.tech_source,
     createdAt,

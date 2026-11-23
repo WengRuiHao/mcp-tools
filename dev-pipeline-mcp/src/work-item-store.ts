@@ -19,6 +19,8 @@ export interface CreateWorkItemInput {
   baseline: WorkItemBaseline;
   scope: WorkItemScope;
   hasDb: boolean;
+  /** 高併發／高風險需求（選填，預設 false）；只在 true 時寫入狀態檔。 */
+  highRisk?: boolean;
   workflow: "spec-first";
   /** 畫面風格來源與技術來源（選填）；沒給時依 resolveSources 的預設值規則決定。 */
   styleSource?: string;
@@ -91,6 +93,7 @@ function validateInput(input: CreateWorkItemInput): void {
   if (!BASELINES.includes(input.baseline)) throw new Error(`baseline 只接受 greenfield／brownfield：${input.baseline}`);
   if (!SCOPES.includes(input.scope)) throw new Error(`scope 只接受 frontend／backend／both：${input.scope}`);
   if (typeof input.hasDb !== "boolean") throw new Error("hasDb 必須是布林值");
+  if (input.highRisk !== undefined && typeof input.highRisk !== "boolean") throw new Error("highRisk 必須是布林值");
   if (!SUPPORTED_WORKFLOWS.includes(input.workflow)) throw new Error(`目前只支援 workflow：${SUPPORTED_WORKFLOWS.join("、")}（收到 ${input.workflow}）`);
 }
 
@@ -125,6 +128,7 @@ export async function createWorkItem(input: CreateWorkItemInput): Promise<Create
       baseline: input.baseline,
       scope: input.scope,
       has_db: input.hasDb,
+      ...(input.highRisk === true ? { high_risk: true } : {}),
       style_source: sources.styleSource,
       tech_source: sources.techSource,
       workflow_snapshot: snapshot,
@@ -149,18 +153,23 @@ export function isSaConfirmed(status: TicketStatus): boolean {
 }
 
 /** 修改範圍、DB 設定與兩個來源。scope／hasDb 在 SA 確認後鎖定；styleSource 在 mockup 確認後鎖定；techSource 在技術確認後鎖定。任一欄位被拒絕就全部不寫入。 */
-export async function updateWorkItemScope(id: string, patch: { scope?: WorkItemScope; hasDb?: boolean } & SourcePatch): Promise<TicketStatus> {
-  if (patch.scope === undefined && patch.hasDb === undefined && patch.styleSource === undefined && patch.techSource === undefined) {
-    throw new Error("scope、hasDb、styleSource、techSource 至少要給一個");
+export async function updateWorkItemScope(id: string, patch: { scope?: WorkItemScope; hasDb?: boolean; highRisk?: boolean } & SourcePatch): Promise<TicketStatus> {
+  if (patch.scope === undefined && patch.hasDb === undefined && patch.highRisk === undefined && patch.styleSource === undefined && patch.techSource === undefined) {
+    throw new Error("scope、hasDb、highRisk、styleSource、techSource 至少要給一個");
   }
   if (patch.scope !== undefined && !SCOPES.includes(patch.scope)) throw new Error(`scope 只接受 frontend／backend／both：${patch.scope}`);
   if (patch.hasDb !== undefined && typeof patch.hasDb !== "boolean") throw new Error("hasDb 必須是布林值");
+  if (patch.highRisk !== undefined && typeof patch.highRisk !== "boolean") throw new Error("highRisk 必須是布林值");
   return updateStatus(id, (status) => {
     if (!status.workflow_snapshot) throw new Error(`${id} 不是手動來源工作項目，不能修改範圍`);
-    if ((patch.scope !== undefined || patch.hasDb !== undefined) && isSaConfirmed(status)) throw new Error(SA_CONFIRM_LOCKED_MESSAGE);
+    if ((patch.scope !== undefined || patch.hasDb !== undefined || patch.highRisk !== undefined) && isSaConfirmed(status)) throw new Error(SA_CONFIRM_LOCKED_MESSAGE);
     const sources = applySourcePatch(status, patch);
+    // 關掉 highRisk 時整個 key 拿掉（不留 false），讓狀態檔回到沒開過的樣子
+    const { high_risk: previousHighRisk, ...rest } = status;
+    const highRisk = patch.highRisk === undefined ? previousHighRisk : patch.highRisk;
     return {
-      ...status,
+      ...rest,
+      ...(highRisk === true ? { high_risk: true } : {}),
       ...sources,
       ...(patch.scope !== undefined ? { scope: patch.scope } : {}),
       ...(patch.hasDb !== undefined ? { has_db: patch.hasDb } : {}),
@@ -169,12 +178,13 @@ export async function updateWorkItemScope(id: string, patch: { scope?: WorkItemS
 }
 
 /** 把狀態轉成 resolveWorkflow 用的 when context；值一律是字串 "true"／"false"。缺欄位時視為既有系統、前後端皆做、無 DB。 */
-export function buildWhenContext(status: Pick<TicketStatus, "baseline" | "scope" | "has_db">): WhenContext {
+export function buildWhenContext(status: Pick<TicketStatus, "baseline" | "scope" | "has_db" | "high_risk">): WhenContext {
   const scope = status.scope ?? "both";
   return {
     baseline: status.baseline ?? "brownfield",
     hasFrontend: String(scope !== "backend"),
     hasBackend: String(scope !== "frontend"),
     hasDb: String(status.has_db === true),
+    highRisk: String(status.high_risk === true),
   };
 }

@@ -1727,8 +1727,8 @@
  },
  "toolCount": 43,
  "work_item": {
-  "descriptionLength": 2393,
-  "descriptionSha256": "33ac22d70c968a96631d6fdeebe62a6a65a9f8b8a97e92010e6271e0d3318d87",
+  "descriptionLength": 2402,
+  "descriptionSha256": "b2d953991bc09d4f411a415763442388dd51c0f3111be4da4be56ea6ad086e00",
   "inputSchema": {
    "$schema": "http://json-schema.org/draft-07/schema#",
    "additionalProperties": false,
@@ -1829,6 +1829,11 @@
     "hasDb": {
      "descriptionLength": 27,
      "descriptionSha256": "7c14ca3542e462d8d2abd26ae986059967d5ccc702d67cdcfaa34dc2e6af5807",
+     "type": "boolean"
+    },
+    "highRisk": {
+     "descriptionLength": 47,
+     "descriptionSha256": "8322518111730b1e0feb728873d02aae62f480511a59ef29aa39bf7afc6c4347",
      "type": "boolean"
     },
     "kind": {
@@ -2028,7 +2033,7 @@
    ],
    "type": "object"
   },
-  "paramCount": 34
+  "paramCount": 35
  },
  "write_project_file": {
   "descriptionLength": 352,

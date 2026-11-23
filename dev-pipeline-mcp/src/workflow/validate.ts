@@ -65,6 +65,7 @@ export const KNOWN_WHEN_KEYS: readonly string[] = [
   "hasFrontend",
   "hasBackend",
   "hasDb",
+  "highRisk",
 ];
 
 /** 回傳所有語意錯誤；空陣列代表合法。knownWhenKeys 有給時，when 用到清單外的 key 也算錯。 */

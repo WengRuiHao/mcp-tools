@@ -175,7 +175,7 @@ test("buildWhenContext 各 scope 組合，且可餵給 resolveWorkflow", () => {
   ];
   for (const [st, fe, be, db] of cases) {
     const ctx = buildWhenContext({ baseline: "greenfield", ...st });
-    assert.deepEqual(ctx, { baseline: "greenfield", hasFrontend: fe, hasBackend: be, hasDb: db });
+    assert.deepEqual(ctx, { baseline: "greenfield", hasFrontend: fe, hasBackend: be, hasDb: db, highRisk: "false" });
   }
   const def = getBuiltinWorkflow("spec-first");
   const ids = (st) => resolveWorkflow(def, buildWhenContext(st)).roles.map((r) => r.id);

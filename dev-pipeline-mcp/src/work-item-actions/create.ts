@@ -16,6 +16,7 @@ export async function handleCreate(a: WorkItemArgs): Promise<ToolReply> {
     created = await createWorkItem({
       ...f,
       workflow: "spec-first",
+      ...(a.highRisk !== undefined ? { highRisk: a.highRisk } : {}),
       ...(a.styleSource !== undefined ? { styleSource: a.styleSource } : {}),
       ...(a.techSource !== undefined ? { techSource: a.techSource } : {}),
       ...(a.renewal !== undefined ? { renewal: a.renewal } : {}),
@@ -25,7 +26,7 @@ export async function handleCreate(a: WorkItemArgs): Promise<ToolReply> {
   } catch (e) {
     throw new WorkItemActionError(`建立工作項目失敗：${errorMessage(e)}`);
   }
-  const base = { workItemId: created.id, dir: created.dir, baseline: f.baseline, scope: f.scope, hasDb: f.hasDb, styleSource: created.styleSource, techSource: created.techSource };
+  const base = { workItemId: created.id, dir: created.dir, baseline: f.baseline, scope: f.scope, hasDb: f.hasDb, ...(a.highRisk === true ? { highRisk: true } : {}), styleSource: created.styleSource, techSource: created.techSource };
   try {
     const ctx = await loadWorkItem(created.id);
     const v = await buildView(ctx);

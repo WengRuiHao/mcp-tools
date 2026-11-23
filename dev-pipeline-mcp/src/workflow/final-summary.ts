@@ -26,6 +26,8 @@ export interface FinalSummaryInput {
   baseline: string | undefined;
   scope: string | undefined;
   hasDb: boolean | undefined;
+  /** 高併發／高風險需求；只有 true 時才顯示一行，簡單需求的交付摘要逐字不變。 */
+  highRisk?: boolean | undefined;
   /** 畫面風格來源、技術來源（舊工作項目沒有就不給，顯示「無紀錄」）。 */
   styleSource?: string | undefined;
   techSource?: string | undefined;
@@ -101,6 +103,7 @@ function basicSection(i: FinalSummaryInput, completedAt: string | undefined): st
     `- 既有或全新：${(i.baseline && BASELINE_TEXT[i.baseline]) || NO_RECORD}`,
     `- 範圍：${(i.scope && SCOPE_TEXT[i.scope]) || NO_RECORD}`,
     `- 是否動資料庫：${yesNo}`,
+    ...(i.highRisk === true ? ["- 高併發／高風險需求：是"] : []),
     `- 畫面風格來源：${sourceText(i.styleSource, STYLE_SOURCE_LABELS)}`,
     `- 技術來源：${sourceText(i.techSource, TECH_SOURCE_LABELS)}`,
     `- 建立時間：${formatTime(i.createdAt)}`,

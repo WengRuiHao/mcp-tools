@@ -32,6 +32,7 @@ export async function handleGet(a: WorkItemArgs): Promise<ToolReply> {
     baseline: s.baseline,
     scope: s.scope,
     hasDb: s.has_db,
+    ...(s.high_risk === true ? { highRisk: true } : {}),
     styleSource: s.style_source ?? null,
     styleSourceLocked: isStyleSourceLocked(s),
     techSource: s.tech_source ?? null,
