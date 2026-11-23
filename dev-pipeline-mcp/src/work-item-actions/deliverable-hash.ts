@@ -88,7 +88,7 @@ export async function recheckChangedRoles(dir: string, status: TicketStatus, def
       hashes[role.id] = current;
       continue;
     }
-    const roleProblems = await checkDeliverables(dir, role.id, def, { techSource: status.tech_source, projectDir: status.project_dir, baseline: status.baseline, selectedStyle, legacy }).catch((e: unknown) => [`重新檢查時發生錯誤：${e instanceof Error ? e.message : String(e)}`]);
+    const roleProblems = await checkDeliverables(dir, role.id, def, { techSource: status.tech_source, highRisk: status.high_risk === true, projectDir: status.project_dir, baseline: status.baseline, selectedStyle, legacy }).catch((e: unknown) => [`重新檢查時發生錯誤：${e instanceof Error ? e.message : String(e)}`]);
     if (roleProblems.length === 0) {
       hashes[role.id] = current;
       continue;

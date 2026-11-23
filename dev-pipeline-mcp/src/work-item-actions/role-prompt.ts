@@ -4,6 +4,7 @@ import { loadProjectFlowOverride } from "../workflow/load.js";
 import { WorkItemActionError, errorMessage, need, okReply, type ToolReply } from "./common.js";
 import { loadWorkItem } from "./context.js";
 import { SA_ROLE_ID, decisionsAfterSa, decisionsOf, decisionsPromptSection, saDecisionsPromptSection, uncovered } from "./decisions.js";
+import { highRiskPromptSection } from "./high-risk-prompt.js";
 import { readPendingQuestions } from "./sa-notes-questions.js";
 import type { WorkItemArgs } from "./schema.js";
 
@@ -36,6 +37,10 @@ export async function handleRolePrompt(a: WorkItemArgs): Promise<ToolReply> {
   if (roleId === SA_ROLE_ID) {
     const saSection = saDecisionsPromptSection(decisionsOf(ctx.status));
     if (saSection) prompt = `${prompt}\n${saSection}\n`;
+  }
+  if (ctx.status.high_risk === true) {
+    const hrSection = highRiskPromptSection(roleId);
+    if (hrSection) prompt = `${prompt}\n${hrSection}\n`;
   }
   return okReply({ workItemId: ctx.id, roleId, hasProjectRoleNotes: projectNotes !== undefined, hasProjectGuide: projectGuide !== undefined, prompt });
 }

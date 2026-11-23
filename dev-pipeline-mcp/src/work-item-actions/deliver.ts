@@ -67,7 +67,7 @@ async function assertDeliverable(ctx: WorkItemContext, def: Awaited<ReturnType<t
   const progress = ctx.status.work_item_progress;
   if (!isRoleDone(progress, spec.role)) throw new WorkItemActionError(`${spec.label}還不能交付：角色 ${spec.role} 尚未 done（${spec.md} 要先完成交件）。`);
   if (!isGatePassed(progress, spec.gate)) throw new WorkItemActionError(`${spec.label}還不能交付：關卡 ${spec.gate} 尚未通過（${spec.md} 要先經確認）。`);
-  const problems = await checkDeliverables(ctx.dir, spec.role, def, { techSource: ctx.status.tech_source, projectDir: ctx.status.project_dir, baseline: ctx.status.baseline, legacy: isLegacyLayout(ctx.status) });
+  const problems = await checkDeliverables(ctx.dir, spec.role, def, { techSource: ctx.status.tech_source, highRisk: ctx.status.high_risk === true, projectDir: ctx.status.project_dir, baseline: ctx.status.baseline, legacy: isLegacyLayout(ctx.status) });
   if (problems.length > 0) throw new WorkItemActionError(`${spec.label}交付前的內容檢查未通過，請修正後再交付：`, { problems });
 }
 

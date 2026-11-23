@@ -100,3 +100,66 @@ test("工具：參數 schema 有 highRisk（布林）", async () => {
   const t = tools.find((x) => x.name === "work_item");
   assert.equal(t.inputSchema.properties.highRisk.type, "boolean");
 });
+
+// ---- 1-B：技術選型拆分（只對 highRisk 生效）----
+const { checkTechStack } = await import("../dist/workflow/tech-stack-check.js");
+const { STACK_TABLE, techStackFor } = await import("./helpers/tech-fixtures.mjs");
+const noDbTable = STACK_TABLE.replace("| 資料庫種類 | MySQL |\n", "").replace("| 資料庫版本 | 8.0 |\n", "");
+const stackDoc = (table) => `## 技術來源\nnew-guided\n## 技術棧\n${table}## 選擇理由\n依來源決定。\n`;
+
+test("一般需求：缺資料庫種類與版本照舊擋回（行為完全不變）", () => {
+  const r = checkTechStack(stackDoc(noDbTable), { techSource: "new-guided" });
+  assert.ok(r.some((x) => x.includes("資料庫種類")) && r.some((x) => x.includes("資料庫版本")));
+  assert.ok(checkTechStack(stackDoc(noDbTable), { techSource: "new-guided", highRisk: false }).some((x) => x.includes("資料庫種類")));
+});
+
+test("highRisk：技術棧表格不再要求資料庫種類與版本，其餘列照舊要求", () => {
+  assert.deepEqual(checkTechStack(stackDoc(noDbTable), { techSource: "new-guided", highRisk: true }), []);
+  const noBackend = noDbTable.replace("| 後端語言 | Java |\n", "");
+  assert.ok(checkTechStack(stackDoc(noBackend), { techSource: "new-guided", highRisk: true }).some((x) => x.includes("後端語言")));
+});
+
+test("highRisk：仍有資料庫列也合格（寫了不會被擋），佔位字樣也不檢查", () => {
+  assert.deepEqual(checkTechStack(techStackFor("new-guided"), { techSource: "new-guided", highRisk: true }), []);
+  const placeholder = STACK_TABLE.replace("| 資料庫種類 | MySQL |", "| 資料庫種類 | 待定 |");
+  assert.deepEqual(checkTechStack(stackDoc(placeholder), { techSource: "new-guided", highRisk: true }), []);
+});
+
+test("highRisk：擋回訊息的列名範例不再列出資料庫種類與版本", () => {
+  const r = checkTechStack(stackDoc("沒有表格\n"), { techSource: "new-guided", highRisk: true });
+  assert.ok(r.length > 0 && r.every((x) => !x.includes("資料庫種類")));
+});
+
+test("工具：highRisk 工作項目的 tech-selector 交件，沒有資料庫列也通過；一般工作項目仍被擋", async () => {
+  const { fulfil, CLEAN_REVIEW } = await import("./helpers/work-item-env.mjs");
+  const make = async (extra) => {
+    const c = await env.call(createArgs({ techSource: "new-guided", styleSource: "new-guided", ...extra }));
+    return { id: c.json.workItemId, dir: c.json.dir };
+  };
+  assert.ok(typeof fulfil === "function" && CLEAN_REVIEW);
+  const hi = await make({ highRisk: true });
+  const lo = await make({});
+  const { writeFile } = await import("node:fs/promises");
+  await writeFile(path.join(hi.dir, "tech-stack.md"), stackDoc(noDbTable));
+  await writeFile(path.join(lo.dir, "tech-stack.md"), stackDoc(noDbTable));
+  const rHi = await env.call({ action: "done", workItemId: hi.id, roleId: "tech-selector" });
+  const rLo = await env.call({ action: "done", workItemId: lo.id, roleId: "tech-selector" });
+  const text = (r) => JSON.stringify(r.json);
+  assert.ok(!text(rHi).includes("資料庫種類"), text(rHi).slice(0, 300));
+  assert.ok(text(rLo).includes("資料庫種類"), text(rLo).slice(0, 300));
+});
+
+test("角色說明：highRisk 的 tech-selector 附加段落；一般需求逐字等於靜態說明書", async () => {
+  const { getSpecFirstRolePrompt } = await import("../dist/prompts-spec-first.js");
+  const { highRiskPromptSection, MAX_SECTION_CHARS, HIGH_RISK_ROLE_IDS } = await import("../dist/work-item-actions/high-risk-prompt.js");
+  const hi = (await env.call(createArgs({ highRisk: true }))).json.workItemId;
+  const lo = (await env.call(createArgs({}))).json.workItemId;
+  const pHi = await env.call({ action: "role_prompt", workItemId: hi, roleId: "tech-selector" });
+  const pLo = await env.call({ action: "role_prompt", workItemId: lo, roleId: "tech-selector" });
+  assert.match(pHi.json.prompt, /高風險需求：技術選型只選語言與框架/);
+  assert.ok(!pLo.json.prompt.includes("高風險需求"));
+  assert.equal(pLo.json.prompt, getSpecFirstRolePrompt("tech-selector", { workItemDir: (await env.call({ action: "get", workItemId: lo })).json.dir }));
+  for (const id of HIGH_RISK_ROLE_IDS) assert.ok(highRiskPromptSection(id).length <= MAX_SECTION_CHARS, `${id} 段落超過上限`);
+  const other = await env.call({ action: "role_prompt", workItemId: hi, roleId: "sa-analyst" });
+  assert.ok(!other.json.prompt.includes("高風險需求：技術選型"));
+});

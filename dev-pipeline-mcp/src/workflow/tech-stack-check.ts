@@ -16,12 +16,15 @@ export const BASELINE_FILE = "baseline.md";
 export const MIN_CANDIDATES = 2;
 const NOT_APPLICABLE = "不適用";
 /** 擋回訊息附的固定列名範例（列名比對以第一欄為準）。 */
-export const TECH_STACK_EXAMPLE = `列名固定：${["前端語言","前端框架","前端元件庫","後端語言","後端框架","資料庫種類","資料庫版本","建置與測試工具","主要版本"].join("、")}；範例列「| 前端框架 | 不適用 |」，不適用要寫「${NOT_APPLICABLE}」並在選擇理由說明`;
+const exampleFor = (labels: readonly string[]): string => `列名固定：${labels.join("、")}；範例列「| 前端框架 | 不適用 |」，不適用要寫「${NOT_APPLICABLE}」並在選擇理由說明`;
+export const TECH_STACK_EXAMPLE = exampleFor(["前端語言","前端框架","前端元件庫","後端語言","後端框架","資料庫種類","資料庫版本","建置與測試工具","主要版本"]);
 
 /** 技術棧表格必須列出的項目；match 以第一欄（去掉空白與括號）判斷這一列是不是該項目。 */
 interface RequiredItem {
   label: string;
   match: (cell: string) => boolean;
+  /** 資料庫列：高風險需求改由架構角色決定資料庫，技術選型不再要求。 */
+  db?: true;
 }
 const has = (...words: string[]) => (cell: string): boolean => words.every((w) => cell.includes(w));
 const REQUIRED_ITEMS: readonly RequiredItem[] = [
@@ -30,8 +33,8 @@ const REQUIRED_ITEMS: readonly RequiredItem[] = [
   { label: "前端元件庫", match: has("前端", "元件庫") },
   { label: "後端語言", match: has("後端", "語言") },
   { label: "後端框架", match: has("後端", "框架") },
-  { label: "資料庫種類", match: has("資料庫", "種類") },
-  { label: "資料庫版本", match: has("資料庫", "版本") },
+  { label: "資料庫種類", match: has("資料庫", "種類"), db: true },
+  { label: "資料庫版本", match: has("資料庫", "版本"), db: true },
   { label: "建置與測試工具", match: (c) => c.includes("建置") || c.includes("測試") },
   { label: "主要版本", match: has("主要版本") },
 ];
@@ -43,15 +46,17 @@ const clean = (cell: string): string => cell.replace(/[`*_]/g, "").trim();
 const normLabel = (cell: string): string => clean(cell).replace(/[\s（）()]/g, "");
 const isBlank = (body: string | null): boolean => body === null || body.trim() === "";
 
-function checkStackTable(body: string): { problems: string[]; usesNotApplicable: boolean } {
+function checkStackTable(body: string, highRisk: boolean): { problems: string[]; usesNotApplicable: boolean } {
+  const items = highRisk ? REQUIRED_ITEMS.filter((i) => i.db !== true) : REQUIRED_ITEMS;
+  const example = highRisk ? exampleFor(items.map((i) => i.label)) : TECH_STACK_EXAMPLE;
   const rows = tableDataRows(body);
-  if (rows === null) return { problems: [`${TECH_STACK_FILE}「${TECH_STACK_HEADING}」必須是 markdown 表格（表頭＋分隔列＋資料列），每列「項目｜內容」。${TECH_STACK_EXAMPLE}`], usesNotApplicable: false };
+  if (rows === null) return { problems: [`${TECH_STACK_FILE}「${TECH_STACK_HEADING}」必須是 markdown 表格（表頭＋分隔列＋資料列），每列「項目｜內容」。${example}`], usesNotApplicable: false };
   const problems: string[] = [];
   let usesNotApplicable = false;
-  for (const item of REQUIRED_ITEMS) {
+  for (const item of items) {
     const hit = rows.filter((r) => item.match(normLabel(r[0] ?? "")));
     if (hit.length === 0) {
-      problems.push(`${TECH_STACK_FILE}「${TECH_STACK_HEADING}」表格缺少「${item.label}」這一列（${TECH_STACK_EXAMPLE}）`);
+      problems.push(`${TECH_STACK_FILE}「${TECH_STACK_HEADING}」表格缺少「${item.label}」這一列（${example}）`);
       continue;
     }
     for (const r of hit) {
@@ -111,6 +116,8 @@ export interface TechStackCheckInput {
   techSource: string | undefined;
   /** baseline.md 全文（沿用現有時用來核對；讀不到傳 undefined）。 */
   baselineText?: string | undefined;
+  /** 高風險需求：資料庫種類與版本改由架構角色決定，技術棧表格不再要求這兩列（預設 false，行為與過去完全相同）。 */
+  highRisk?: boolean | undefined;
 }
 
 /** 檢查 tech-stack.md 全文；回傳問題清單（空陣列＝合格）。 */
@@ -123,7 +130,7 @@ export function checkTechStack(text: string, input: TechStackCheckInput): string
   const stack = extractSection(text, TECH_STACK_HEADING);
   if (stack === null) problems.push(`${TECH_STACK_FILE} 缺少「## ${TECH_STACK_HEADING}」一節`);
   else {
-    const t = checkStackTable(stack);
+    const t = checkStackTable(stack, input.highRisk === true);
     problems.push(...t.problems);
     if (t.usesNotApplicable && !(reason ?? "").includes(NOT_APPLICABLE)) problems.push(`${TECH_STACK_FILE} 有項目寫「${NOT_APPLICABLE}」，必須在「${TECH_REASON_HEADING}」說明為什麼不適用`);
   }

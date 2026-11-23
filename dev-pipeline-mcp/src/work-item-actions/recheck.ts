@@ -38,7 +38,7 @@ export async function recheckAfterWrite(dir: string, status: TicketStatus, def: 
   const failures: string[] = [];
   for (const roleId of roles) {
     try {
-      const problems = await checkDeliverables(dir, roleId, def, { techSource: status.tech_source, projectDir: status.project_dir, baseline: status.baseline, legacy: isLegacyLayout(status) });
+      const problems = await checkDeliverables(dir, roleId, def, { techSource: status.tech_source, highRisk: status.high_risk === true, projectDir: status.project_dir, baseline: status.baseline, legacy: isLegacyLayout(status) });
       failures.push(...problems.map((p) => (roles.length > 1 ? `[${roleId}] ${p}` : p)));
     } catch (e) {
       failures.push(`[${roleId}] 重新檢查時發生錯誤：${e instanceof Error ? e.message : String(e)}`);

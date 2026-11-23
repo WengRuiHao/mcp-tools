@@ -146,13 +146,13 @@ async function readOptional(file: string): Promise<string | undefined> {
 }
 
 /** 現況盤點：baseline.md 必須有「## 現有技術棧」；技術選型：tech-stack.md 的結構與內容檢查（缺檔由一般交件檢查回報）。 */
-async function checkTech(dir: string, roleId: string, techSource: string | undefined): Promise<string[]> {
+async function checkTech(dir: string, roleId: string, techSource: string | undefined, highRisk: boolean): Promise<string[]> {
   if (roleId === "baseline-survey") {
     const text = await readOptional(path.join(dir, BASELINE_FILE));
     return text === undefined ? [] : checkBaselineTechStack(text, BASELINE_FILE);
   }
   const text = await readOptional(path.join(dir, TECH_STACK_FILE));
-  return text === undefined ? [] : checkTechStack(text, { techSource, baselineText: await readOptional(path.join(dir, BASELINE_FILE)) });
+  return text === undefined ? [] : checkTechStack(text, { techSource, highRisk, baselineText: await readOptional(path.join(dir, BASELINE_FILE)) });
 }
 
 /** 正式交付物引用檢查（內部檔名、圖片來源）。SA／SD 交件時只看自己的文件，並略過標準檢查已回報的內部檔名；測試工程師交件（最終驗收前）檢查全部正式交付物。 */
@@ -175,6 +175,8 @@ function checkPointers(dir: string, roleId: string, def: WorkflowDefinition, leg
 
 export interface DeliverableContext {
   techSource?: string | undefined;
+  /** 高併發／高風險需求（技術選型不再要求資料庫列）。 */
+  highRisk?: boolean | undefined;
   /** 工作項目的專案目錄；沒有時分層檢查只比對 impl 說明與 SD。 */
   projectDir?: string | null | undefined;
   /** 既有系統才需要既有資料表。 */
@@ -212,6 +214,6 @@ export async function checkDeliverables(dir: string, roleId: string, def: Workfl
   if (roleId === "backend-engineer") problems.push(...(await checkLayers(dir, def, ctx.projectDir)));
   problems.push(...checkPointers(dir, roleId, def, ctx.legacy === true));
   problems.push(...(await checkReuse(dir, roleId, def)));
-  if (roleId === "baseline-survey" || roleId === "tech-selector") problems.push(...(await checkTech(dir, roleId, ctx.techSource)));
+  if (roleId === "baseline-survey" || roleId === "tech-selector") problems.push(...(await checkTech(dir, roleId, ctx.techSource, ctx.highRisk === true)));
   return problems;
 }
