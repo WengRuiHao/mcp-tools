@@ -163,3 +163,12 @@ test("角色說明：highRisk 的 tech-selector 附加段落；一般需求逐�
   const other = await env.call({ action: "role_prompt", workItemId: hi, roleId: "sa-analyst" });
   assert.ok(!other.json.prompt.includes("高風險需求：技術選型"));
 });
+
+test("角色說明：highRisk 的 sd-analyst 附加「上線與回滾」段落；一般需求不附加", async () => {
+  const hi = (await env.call(createArgs({ highRisk: true }))).json.workItemId;
+  const lo = (await env.call(createArgs({}))).json.workItemId;
+  const pHi = await env.call({ action: "role_prompt", workItemId: hi, roleId: "sd-analyst" });
+  const pLo = await env.call({ action: "role_prompt", workItemId: lo, roleId: "sd-analyst" });
+  assert.match(pHi.json.prompt, /高風險需求：SD 要有「上線與回滾」章節/);
+  assert.ok(!pLo.json.prompt.includes("上線與回滾"));
+});

@@ -12,7 +12,8 @@ import { checkSaImages, SA_FILE_NAME } from "../workflow/sa-image-check.js";
 import { checkSaNoCode } from "../workflow/sa-no-code-check.js";
 import { checkSaStandard } from "../workflow/sa-standard-check.js";
 import { checkSdLayers } from "../workflow/sd-layer-check.js";
-import { checkSdStructure } from "../workflow/sd-structure-check.js";
+import { checkSdRollout } from "../workflow/sd-rollout-check.js";
+import { checkSdStructure, hasTableSchemas } from "../workflow/sd-structure-check.js";
 import { checkTableSchemas } from "../workflow/table-schema-check.js";
 import { checkBaselineTechStack, checkTechStack, TECH_STACK_FILE, BASELINE_FILE } from "../workflow/tech-stack-check.js";
 import { checkTestEvidence, TEST_FILE_NAME } from "../workflow/test-evidence-check.js";
@@ -114,11 +115,13 @@ async function checkReuse(dir: string, roleId: string, def: WorkflowDefinition):
 }
 
 /** SD 新標準檢查（含 TableSchema 連結的檔案存在檢查）。 */
-async function checkSd(dir: string, def: WorkflowDefinition, projectDir: string | null | undefined, legacy: boolean): Promise<string[]> {
+async function checkSd(dir: string, def: WorkflowDefinition, projectDir: string | null | undefined, legacy: boolean, highRisk: boolean): Promise<string[]> {
   const file = def.artifacts.find((a) => a.id === "sd")?.file;
   if (!file) return [];
   try {
-    return checkSdStructure(await readFile(path.join(dir, file), "utf-8"), dir, projectDir, { legacy }).map((v) => `SD 標準檢查未通過：${v}`);
+    const text = await readFile(path.join(dir, file), "utf-8");
+    const rollout = highRisk ? checkSdRollout(text, { needsDbRollback: hasTableSchemas(dir) }).map((v) => `SD 上線與回滾檢查未通過：${v}`) : [];
+    return [...checkSdStructure(text, dir, projectDir, { legacy }).map((v) => `SD 標準檢查未通過：${v}`), ...rollout];
   } catch {
     return []; // 檔案缺漏已由一般交件檢查回報
   }
@@ -210,7 +213,7 @@ export async function checkDeliverables(dir: string, roleId: string, def: Workfl
   if (roleId === "mockup-designer") problems.push(...checkMockupDir(dir, { selectedStyle: ctx.selectedStyle }).map((v) => `mockup 檢查未通過：${v}`));
   if (roleId === "sd-analyst") problems.push(...checkMermaidFile(dir).map((v) => `流程圖（flow.mmd）格式檢查未通過：${v}`));
   if (roleId === "tester") problems.push(...(await checkTest(dir)));
-  if (roleId === "sd-analyst") problems.push(...(await checkSd(dir, def, ctx.projectDir, ctx.legacy === true)));
+  if (roleId === "sd-analyst") problems.push(...(await checkSd(dir, def, ctx.projectDir, ctx.legacy === true, ctx.highRisk === true)));
   if (roleId === "backend-engineer") problems.push(...(await checkLayers(dir, def, ctx.projectDir)));
   problems.push(...checkPointers(dir, roleId, def, ctx.legacy === true));
   problems.push(...(await checkReuse(dir, roleId, def)));

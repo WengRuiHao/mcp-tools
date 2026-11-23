@@ -118,7 +118,7 @@ function sectionTable(body: string, idx: number, out: string[], allowEmpty: bool
   return table.rows;
 }
 
-function hasTableSchemas(dir: string): boolean {
+export function hasTableSchemas(dir: string): boolean {
   try {
     return readdirSync(path.join(dir, TABLE_SCHEMA_DIR)).some((f) => f.endsWith(".md"));
   } catch {
