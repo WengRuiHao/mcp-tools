@@ -29,9 +29,9 @@ ul,ol{padding-left:22px}
 <body>
 <main>
 <h1>高併發流程設計進展</h1>
-<p class="sub">更新 2026-11-20 ｜ 狀態：<span class="tag warn">設計討論中，尚未實作</span><br>
+<p class="sub">更新 2026-11-23 ｜ 狀態：<span class="tag warn">設計討論中，尚未實作</span><br>
 使用者目前沒有真實案子，只是假設情境，先做上游（需求、技術取捨、架構與 MQ、DB、失敗模式）與工程階段輕量檢查。壓力與併發壓測暫緩，只列需求。另外討論了跨層缺漏流程，其中「可觀測性」與「安全設計」已有方向。<br>
-狀態標籤：<span class="tag ok">已決定</span> 使用者已確認；<span class="tag warn">擬定</span> 我的建議，使用者尚未逐項確認。</p>
+狀態標籤：<span class="tag ok">已決定</span> 使用者已確認；<span class="tag warn">實作時查證</span> 實作前或實作時要查證的技術備註（原「擬定」項目已於 2026-11-23 全部確認）。</p>
 <nav>
 <a href="#s0"><b>大統整</b></a>
 <a href="#s1">一 背景</a><a href="#s2">二 總體設計</a><a href="#s3">三 兩種情境</a><a href="#s4">四 各角色增加內容</a><a href="#s5">五 非功能需求</a><a href="#s6">六 可觀測性與安全設計</a><a href="#s7">七 缺漏流程清單</a><a href="#s8">八 系統 BPMN</a><a href="#s9">九 查證結果</a><a href="#s10">十 實作批次</a><a href="#s11">十一 待決定</a><a href="#s12">十二 已決定清單</a><a href="#s13">十三 已知限制</a>
@@ -86,7 +86,7 @@ ul,ol{padding-left:22px}
 <tr><td>狀態</td><td>設計討論完成，無任何 <code>src/</code> 或 <code>tests/</code> 變更；壓測暫緩</td></tr>
 <tr><td>實作順序</td><td>0 補 golden → 1 開關與接線／1P 專案層文件基礎（可平行）→ 1M 層級機制最小實作 → 2M 模組與跨層檢查；2、2S、3 可與之平行；1b 系統層；4 文件更新。細節見第十節</td></tr>
 <tr><td>最大風險</td><td>批次 1M：引擎沒有跨功能依賴、專案層文件、下線與事後檢討工作項目類型，且段落式寫入的複雜度高；其次是說明書字數上限與規則總量</td></tr>
-<tr><td>下一步</td><td>逐項確認第六、七章標為「擬定」的細項；之後你確認批次計畫才開工</td></tr>
+<tr><td>下一步</td><td>擬定項目已全數確認（2026-11-23）；下一步是你確認批次計畫，確認後才開工</td></tr>
 <tr><td>閱讀提示</td><td>第七章的 7.6–7.9（28 項補充缺口）已折疊，點開才展開；各缺口的完整規則都在那裡</td></tr>
 </table>
 
@@ -165,7 +165,7 @@ ul,ol{padding-left:22px}
 <tr><td>9</td><td>資料遺失容忍度</td><td>萬一系統掛掉，最多可以丟多少資料？（影響備份與 MQ 持久化）</td></tr>
 </table>
 <p><span class="tag ok">已決定</span> 預設為上述 9 項，開放專案設定（<code>flow.json</code> 的 <code>nfrItems</code>），檢查程式改讀設定；每項不適用須寫理由；建議值標示來源。<br>
-<span class="tag warn">待決定</span> 專案能否刪除預設項目。建議：可自由新增，刪除須在設定寫理由並顯示在交付摘要。</p>
+<span class="tag ok">已決定</span> 專案能否刪除預設項目：可自由新增，刪除須在設定寫理由並顯示在交付摘要。</p>
 
 <h2 id="s6">六、可觀測性與安全設計（缺漏流程的優先兩項，不限高風險）</h2>
 <p>共同做法：不新增角色，在 SA、SD、DB、審查員各加一段動態內容，加上少量可程式檢查；工程階段由驗證師用「搜尋事件名」抽查。高風險時要求更細。</p>
@@ -176,12 +176,12 @@ ul,ol{padding-left:22px}
 <tr><td>痛點</td><td>使用者經常遇到：出事時沒有日誌可以找問題。所以重點是「日誌覆蓋」，不是指標或告警。</td><td class="st">背景</td></tr>
 <tr><td>適用範圍</td><td>所有功能一律要求基本日誌與追蹤編號；<code>highRisk</code> 再加指標與告警門檻。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
 <tr><td>日誌格式</td><td>由流程規定，不留給各專案自訂。固定欄位：時間、等級、追蹤編號、事件名、業務主鍵（如單號）、結果、錯誤碼、耗時。敏感資料不得寫入。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
-<tr><td>必須有日誌的位置</td><td>API 進出；每個失敗分支；每次外部呼叫（開始、逾時、重試、失敗）；重要資料寫入的結果；MQ 的發送、消費、重試、進入死信。</td><td class="st"><span class="tag ok">已決定</span>（暫定）</td></tr>
+<tr><td>必須有日誌的位置</td><td>API 進出；每個失敗分支；每次外部呼叫（開始、逾時、重試、失敗）；重要資料寫入的結果；MQ 的發送、消費、重試、進入死信。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
 <tr><td>驗證師抽查</td><td>對照 SD 的日誌事件表，在程式碼中搜尋事件名是否存在（事件名是固定字串，用搜尋即可）。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
-<tr><td>SA</td><td>需求中標出「哪些業務事件事後必須能查到」。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
-<tr><td>SD</td><td>新增日誌章節：每個 API、每個失敗情境都對應一個日誌事件與欄位。高風險的失敗模式表多一欄「留下什麼痕跡」，不可空白。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
-<tr><td>審查員</td><td>檢查表加一問：「出事時只看日誌能否還原發生什麼」。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
-<tr><td>可程式檢查</td><td>日誌章節存在；失敗情境表每列的日誌事件欄非空；日誌事件名不重複；欄位名稱屬於規定欄位。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
+<tr><td>SA</td><td>需求中標出「哪些業務事件事後必須能查到」。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
+<tr><td>SD</td><td>新增日誌章節：每個 API、每個失敗情境都對應一個日誌事件與欄位。高風險的失敗模式表多一欄「留下什麼痕跡」，不可空白。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
+<tr><td>審查員</td><td>檢查表加一問：「出事時只看日誌能否還原發生什麼」。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
+<tr><td>可程式檢查</td><td>日誌章節存在；失敗情境表每列的日誌事件欄非空；日誌事件名不重複；欄位名稱屬於規定欄位。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
 <tr><td>限制</td><td>流程只能檢查 SD 有寫日誌設計；程式碼層只能靠搜尋抽查事件名是否出現，查不到是否在對的位置、是否真的會被執行。</td><td class="st">限制</td></tr>
 </table>
 
@@ -192,10 +192,10 @@ ul,ol{padding-left:22px}
 <tr><td>適用範圍</td><td>所有功能的寫入類 API 都要二選一（對應稽核事件，或寫「不需稽核」加理由）；敏感資料讀取、權限變更、匯出，只在 SA 標了敏感資料或 <code>highRisk</code> 時才要求。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
 <tr><td>驗證師抽查</td><td>對照 SD 的稽核事件表，在程式碼中搜尋事件名是否存在。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
 <tr><td>與日誌的差別</td><td>日誌給工程師除錯，可輪替、可遺失；稽核軌跡給安全與究責，只能新增、不可改刪、有保存期限、可依業務主鍵查詢。兩者共用追蹤編號以便串起來。</td><td class="st">說明</td></tr>
-<tr><td>固定欄位</td><td>操作者身分與來源、時間、動作、對象（資料類型與主鍵）、結果、追蹤編號；變更前後的值中，敏感欄位只記遮罩或雜湊。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
-<tr><td>需稽核的操作</td><td>登入登出與授權失敗；權限變更；敏感資料讀取與匯出；金流與狀態變更；管理操作與設定變更。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
-<tr><td>SA／DB</td><td>SA 標出哪些操作需稽核、資料敏感等級、保存期限。DB：稽核表獨立，只新增，宣告不授予改刪權限；既有系統已有稽核機制則沿用。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
-<tr><td>可程式檢查</td><td>寫入類 API 都有稽核事件或「不需稽核」理由；稽核欄位名稱屬於規定欄位；稽核事件名不重複。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
+<tr><td>固定欄位</td><td>操作者身分與來源、時間、動作、對象（資料類型與主鍵）、結果、追蹤編號；變更前後的值中，敏感欄位只記遮罩或雜湊。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
+<tr><td>需稽核的操作</td><td>登入登出與授權失敗；權限變更；敏感資料讀取與匯出；金流與狀態變更；管理操作與設定變更。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
+<tr><td>SA／DB</td><td>SA 標出哪些操作需稽核、資料敏感等級、保存期限。DB：稽核表獨立，只新增，宣告不授予改刪權限；既有系統已有稽核機制則沿用。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
+<tr><td>可程式檢查</td><td>寫入類 API 都有稽核事件或「不需稽核」理由；稽核欄位名稱屬於規定欄位；稽核事件名不重複。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
 <tr><td>限制</td><td>與可觀測性相同：程式碼層只靠搜尋事件名抽查。</td><td class="st">限制</td></tr>
 </table>
 
@@ -205,16 +205,16 @@ ul,ol{padding-left:22px}
 <tr><td>方向</td><td>凡是關於授權的部分都不寫死，另外設計成可動態調整：被設計的系統要有統一的授權模組與其管理功能。角色、權限指派、角色與權限的對應、資料範圍規則（如業務只能看自己的客戶）、預設值，全是資料，可在執行中調整，不需改程式或重新部署。各功能只宣告「需要哪個權限」並呼叫該模組判斷。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
 <tr><td>適用範圍</td><td>適用<b>任何系統</b>，不限高風險。指系統內的授權模組，不是流程引擎新增角色。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
 <tr><td>一般系統由誰寫授權決策</td><td>選 A：授權決策放專案層級文件，由第一個需要授權的功能的 SA 一併產出（沿用現有機制，或新建授權模組）；功能層檢查所有系統一律適用；不改架構角色的啟用條件。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
-<tr><td>唯一不能動態的</td><td>權限碼本身：它是程式碼用來標示「這個動作受保護」的識別字，必須寫在程式與登記表裡，但誰擁有它是資料。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
+<tr><td>唯一不能動態的</td><td>權限碼本身：它是程式碼用來標示「這個動作受保護」的識別字，必須寫在程式與登記表裡，但誰擁有它是資料。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
 <tr><td>授權模組不可用時</td><td><b>預設拒絕</b>，此預設固定，不做成可在執行中切換的開關。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
 <tr><td>降級放行名單</td><td>模組不可用時仍可放行的權限碼，<b>只能是標為公開的權限碼</b>；名單<b>寫在部署設定檔</b>（可寫死，不做本地快照），維護權限只給 admin；每次異動寫稽核並附理由。（取代原先「例外名單做成資料維護」的想法，僅限降級名單。）</td><td class="st"><span class="tag ok">已決定</span></td></tr>
-<tr><td>授權模組的管理功能</td><td>角色維護、權限指派、資料範圍規則維護、變更即時生效（含快取失效）、所有變更寫稽核；本身是要開發的功能，要有自己的 SA 與 SD。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
-<tr><td>系統層（架構決策）</td><td>授權模型（角色型、屬性型或混合，由架構師或 SA 決定，流程只強制「必須寫明」）、在哪裡統一攔截、權限資料存放（資料表）、快取與失效方式；決策寫進專案層級文件。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
-<tr><td>功能層</td><td>SA 列出「資源 × 動作」。SD 每個 API 標「權限碼」，或標「公開」加理由；不得在 SD 寫死角色名稱、角色與權限的對應、或「只有某部門／某身分才能…」之類的資料範圍條件；資料範圍引用授權模組的規則名稱。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
-<tr><td>失敗模式（高風險）</td><td>快取過期或失效失敗時的處理；權限變更後生效的最長延遲要寫成數字。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
-<tr><td>權限碼登記表</td><td>放專案層級文件（共用批次 1P 基礎建設）；新功能需要新權限碼時先登記，SD 的權限碼必須存在於登記表。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
-<tr><td>既有系統</td><td>已有授權機制就沿用，由基線調查記錄，不重做。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
-<tr><td>可程式檢查</td><td>每個 API 有權限碼或「公開」理由；權限碼格式正確且在登記表中；SD 內出現角色名稱字樣時警告（先做警告等級）。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
+<tr><td>授權模組的管理功能</td><td>角色維護、權限指派、資料範圍規則維護、變更即時生效（含快取失效）、所有變更寫稽核；本身是要開發的功能，要有自己的 SA 與 SD。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
+<tr><td>系統層（架構決策）</td><td>授權模型（角色型、屬性型或混合，由架構師或 SA 決定，流程只強制「必須寫明」）、在哪裡統一攔截、權限資料存放（資料表）、快取與失效方式；決策寫進專案層級文件。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
+<tr><td>功能層</td><td>SA 列出「資源 × 動作」。SD 每個 API 標「權限碼」，或標「公開」加理由；不得在 SD 寫死角色名稱、角色與權限的對應、或「只有某部門／某身分才能…」之類的資料範圍條件；資料範圍引用授權模組的規則名稱。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
+<tr><td>失敗模式（高風險）</td><td>快取過期或失效失敗時的處理；權限變更後生效的最長延遲要寫成數字。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
+<tr><td>權限碼登記表</td><td>放專案層級文件（共用批次 1P 基礎建設）；新功能需要新權限碼時先登記，SD 的權限碼必須存在於登記表。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
+<tr><td>既有系統</td><td>已有授權機制就沿用，由基線調查記錄，不重做。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
+<tr><td>可程式檢查</td><td>每個 API 有權限碼或「公開」理由；權限碼格式正確且在登記表中；SD 內出現角色名稱字樣時警告（先做警告等級）。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
 <tr><td>限制</td><td>授權模組要先於其他功能完成，但引擎沒有「功能之間的先後依賴」機制，只能靠人安排順序。</td><td class="st">限制</td></tr>
 </table>
 
@@ -224,7 +224,7 @@ ul,ol{padding-left:22px}
 <tr><td>SA</td><td>標出敏感欄位與敏感等級（個資、金流等）。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
 <tr><td>SD／DB</td><td>每個敏感欄位寫明儲存方式（加密或遮罩）與誰能讀取（引用權限碼）。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
 <tr><td>日誌與稽核</td><td>日誌不得寫入敏感欄位；稽核軌跡的變更前後值中敏感欄位只記遮罩或雜湊。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
-<tr><td>可程式檢查</td><td>SA 標的敏感欄位在 SD／DB 中都有儲存方式；日誌事件欄位不含敏感欄位名稱。</td><td class="st"><span class="tag warn">擬定</span></td></tr>
+<tr><td>可程式檢查</td><td>SA 標的敏感欄位在 SD／DB 中都有儲存方式；日誌事件欄位不含敏感欄位名稱。</td><td class="st"><span class="tag ok">已決定</span></td></tr>
 </table>
 
 <h2 id="s7">七、單一功能 → 模組 → 系統：缺漏流程清單（使用者可能再補充）</h2>
@@ -257,7 +257,7 @@ ul,ol{padding-left:22px}
 <tr><td>介面變更</td><td>向下相容（如新增選填欄位）：只更新清單。不相容：必須升版本，系統列出所有使用者，走 7.3 的「影響模組地圖」，使用者的功能重新確認。不相容變更預設要求新舊版並行一段時間（接 7.4 相容性），除非寫理由說明可直接切換</td><td><span class="tag ok">已決定</span></td></tr>
 <tr><td>既有系統（brownfield）</td><td>地圖漸進式建立，初始只有「未歸類」區；功能碰到哪裡 SA 就補哪裡（只填名稱、職責、擁有資料，依賴可標待補）；檢查只套用在已歸類部分；既有模組狀態預設「已完成」；多模組直接寫同一張表登記為「歷史例外」，不判違規，新功能不得新增例外</td><td><span class="tag ok">已決定</span></td></tr>
 <tr><td>啟用條件</td><td>專案設定 <code>multiModule</code> 開關，預設關閉；<code>highRisk</code> 自動視為開啟；關閉時 SA 不填所屬模組、不檢查地圖</td><td><span class="tag ok">已決定</span></td></tr>
-<tr><td>限制</td><td>引擎目前沒有跨功能依賴機制，擋住規則與狀態自動標記要新做，放入批次 1P</td><td><span class="tag warn">擬定</span></td></tr>
+<tr><td>限制</td><td>引擎目前沒有跨功能依賴機制，擋住規則與狀態自動標記要新做，放入批次 1P</td><td><span class="tag warn">實作時查證</span></td></tr>
 </table>
 
 <h3>7.2 追溯矩陣（已討論）</h3>
@@ -270,7 +270,7 @@ ul,ol{padding-left:22px}
 <tr><td>檢查方式</td><td>引擎機械比對；結果放進交付摘要</td><td><span class="tag ok">已決定</span></td></tr>
 <tr><td>漏項處理</td><td>需求沒有對應 SD：擋住。需求沒有對應測試：只警告；SA 標「不需測試」並寫理由則不警告</td><td><span class="tag ok">已決定</span></td></tr>
 <tr><td>舊資料</td><td>只對新流程要求編號；舊工作項目不回溯，缺編號時略過追溯檢查、不報錯</td><td><span class="tag ok">已決定</span></td></tr>
-<tr><td>需要調整的程式</td><td><code>flow-covers-sa-check.ts</code> 的 <code>cleanName</code> 不會去掉 <code>R1</code> 這種英文開頭；<code>sd-api-parse.ts</code> 與 <code>test-evidence-check.ts</code> 要新增「對應需求」解析</td><td><span class="tag warn">擬定</span></td></tr>
+<tr><td>需要調整的程式</td><td><code>flow-covers-sa-check.ts</code> 的 <code>cleanName</code> 不會去掉 <code>R1</code> 這種英文開頭；<code>sd-api-parse.ts</code> 與 <code>test-evidence-check.ts</code> 要新增「對應需求」解析</td><td><span class="tag ok">已查證</span></td></tr>
 <tr><td>查證</td><td>2026-11-20 唯讀查證：三種文件目前都沒有需求編號概念；SD 解析到下一個二級標題為止（先前未驗證的 API 區段結束判斷已確認）</td><td><span class="tag ok">已決定</span></td></tr>
 </table>
 
@@ -284,7 +284,7 @@ ul,ol{padding-left:22px}
 <tr><td>只影響 SD</td><td>不退回；須寫一句理由，放進交付摘要</td><td><span class="tag ok">已決定</span></td></tr>
 <tr><td>追溯矩陣重跑</td><td>變更後自動重新比對需求、SD、測試的對應</td><td><span class="tag ok">已決定</span></td></tr>
 <tr><td>已交付功能</td><td>不受影響，只處理進行中的功能</td><td><span class="tag ok">已決定</span></td></tr>
-<tr><td>實作面</td><td>引擎目前只有功能內重新分析，往上退回 SA、更新模組地圖皆需新做；尚未查證可重用的現有機制（如 <code>request_reanalysis</code>）</td><td><span class="tag warn">擬定</span></td></tr>
+<tr><td>實作面</td><td>引擎目前只有功能內重新分析，往上退回 SA、更新模組地圖皆需新做；尚未查證可重用的現有機制（如 <code>request_reanalysis</code>）</td><td><span class="tag warn">實作時查證</span></td></tr>
 </table>
 
 <h3>7.4 部署與回滾（已討論）</h3>
@@ -298,7 +298,7 @@ ul,ol{padding-left:22px}
 <tr><td>功能開關</td><td>新功能預設可關閉；不適用要寫理由</td><td><span class="tag ok">已決定</span></td></tr>
 <tr><td>回滾判斷</td><td>上線後觀察哪些指標（接可觀測性 6.1）、超過什麼門檻就回滾</td><td><span class="tag ok">已決定</span></td></tr>
 <tr><td>相容性</td><td>新舊版本同時運行時（滾動部署），資料格式與 API 須向下相容並寫明</td><td><span class="tag ok">已決定</span></td></tr>
-<tr><td>實作面</td><td>SD 範本、SD 結構檢查與審查員說明需新增此節；「有 DB 結構異動」的判斷來源（SD 的資料表新增／修改標註）尚未查證</td><td><span class="tag warn">擬定</span></td></tr>
+<tr><td>實作面</td><td>SD 範本、SD 結構檢查與審查員說明需新增此節；「有 DB 結構異動」的判斷來源（SD 的資料表新增／修改標註）尚未查證</td><td><span class="tag warn">實作時查證</span></td></tr>
 </table>
 
 <h3>7.5 系統層補充（已討論）</h3>
@@ -311,7 +311,7 @@ ul,ol{padding-left:22px}
 <tr><td>災難復原</td><td>備份頻率、可接受的最長中斷時間、可接受的最大資料遺失量、還原演練</td><td><span class="tag ok">已決定</span></td></tr>
 <tr><td>外部系統整合</td><td>每個外部系統的介面、逾時與重試、對方當機時的處理；接可觀測性的外部呼叫記錄點</td><td><span class="tag ok">已決定</span></td></tr>
 <tr><td>舊系統遷移</td><td>資料搬移方式、新舊並行期間、驗證方法、退回方式</td><td><span class="tag ok">已決定</span></td></tr>
-<tr><td>決定依據</td><td>使用者表示此領域沒有經驗，採用建議方案；五節內容為通用清單，真有案子時需再依實際情況檢討（例如成本估算、合規要求尚未納入）</td><td><span class="tag warn">擬定</span></td></tr>
+<tr><td>決定依據</td><td>使用者表示此領域沒有經驗，採用建議方案；五節內容為通用清單，真有案子時需再依實際情況檢討（例如成本估算、合規要求尚未納入）</td><td><span class="tag ok">已決定</span></td></tr>
 </table>
 
 <details id="s7-gaps"><summary><b>補充缺口 7.6–7.9 全文（四輪共 28 項；重點已整理在「大統整」，這裡是完整紀錄）</b></summary>
@@ -425,7 +425,7 @@ ul,ol{padding-left:22px}
 <tr><th>#</th><th>問題</th><th>建議</th></tr>
 <tr><td>1</td><td>專案能否刪除預設非功能需求項目</td><td>已決定：可自由新增；刪除須寫理由並顯示於交付摘要</td></tr>
 <tr><td>2</td><td>缺漏清單其餘 5 項何時討論</td><td>已完成：7 項皆已討論，另加 9 項補充缺口（7.6）、第二輪 6 項（7.7）、第三輪 7 項（7.8）與第四輪 6 項（7.9）</td></tr>
-<tr><td>3</td><td>第六節標為「擬定」的細項是否確認</td><td>已決定：5 項缺漏都討論完後，再逐項確認；目前輪到此步</td></tr>
+<tr><td>3</td><td>第六節標為「擬定」的細項是否確認</td><td>已完成：2026-11-23 逐項確認，擬定項目全數同意</td></tr>
 <tr><td>4</td><td>文件是否 commit 並 push 到 main（目前未提交）</td><td>確認後提交</td></tr>
 </table>
 
