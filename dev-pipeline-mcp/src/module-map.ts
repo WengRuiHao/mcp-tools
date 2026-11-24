@@ -113,8 +113,49 @@ function findCycle(mods: readonly ModuleEntry[]): string[] | null {
   return null;
 }
 
+export interface GlossaryEntry {
+  name: string;
+  aliases: string[];
+}
+
+/** 「## 名詞表」每行「- 標準名稱：別名、別名」。沒有這一節回空陣列。 */
+export function parseGlossary(text: string): GlossaryEntry[] {
+  const body = extractSection(text, "名詞表");
+  if (body === null) return [];
+  const out: GlossaryEntry[] = [];
+  for (const raw of body.split(/\r\n|\r|\n/)) {
+    const kv = labelValue(raw);
+    if (kv && kv.label) out.push({ name: kv.label, aliases: list(kv.value) });
+  }
+  return out;
+}
+
+/** 名詞表結構問題：同一別名登記在兩個標準名稱、別名與另一個標準名稱相同。 */
+export function glossaryProblems(g: readonly GlossaryEntry[]): string[] {
+  const out: string[] = [];
+  const names = new Set(g.map((e) => e.name));
+  const owner = new Map<string, string>();
+  for (const e of g) {
+    for (const a of e.aliases) {
+      const prev = owner.get(a);
+      if (prev !== undefined && prev !== e.name) out.push(`別名「${a}」同時登記在「${prev}」與「${e.name}」；一個別名只能對應一個標準名稱`);
+      else owner.set(a, e.name);
+      if (names.has(a) && a !== e.name) out.push(`「${e.name}」的別名「${a}」本身是另一個標準名稱`);
+    }
+  }
+  return out;
+}
+
+/** 別名換成標準名稱；沒登記的原樣返回。 */
+function canonicalizer(g: readonly GlossaryEntry[] | undefined): (t: string) => string {
+  const map = new Map<string, string>();
+  for (const e of g ?? []) for (const a of e.aliases) if (!map.has(a)) map.set(a, e.name);
+  return (t) => map.get(t) ?? t;
+}
+
 /** 模組地圖本身的結構問題（寫入時回警告）：模組重複、沒有負責人、資料表兩個擁有者、依賴不存在、循環依賴。 */
-export function moduleMapProblems(mods: readonly ModuleEntry[]): string[] {
+export function moduleMapProblems(mods: readonly ModuleEntry[], glossary?: readonly GlossaryEntry[]): string[] {
+  const canon = canonicalizer(glossary);
   const out: string[] = [];
   const names = new Set<string>();
   for (const m of mods) {
@@ -124,7 +165,8 @@ export function moduleMapProblems(mods: readonly ModuleEntry[]): string[] {
   }
   const owner = new Map<string, string>();
   for (const m of mods) {
-    for (const t of m.tables) {
+    for (const raw of m.tables) {
+      const t = canon(raw);
       const prev = owner.get(t);
       if (prev !== undefined && prev !== m.name) out.push(`資料表「${t}」同時被模組「${prev}」與「${m.name}」擁有；一筆資料只能有一個擁有者`);
       else owner.set(t, m.name);
@@ -203,11 +245,12 @@ export function checkModulesDeclared(mods: readonly ModuleEntry[], declared: rea
 }
 
 /** 資料表擁有權：只有擁有者能寫；工作項目動到別的模組擁有、且自己沒宣告該模組的資料表就擋。沒人擁有的表不擋。 */
-export function checkTableOwnership(mods: readonly ModuleEntry[], tables: readonly string[], declared: readonly string[]): string[] {
+export function checkTableOwnership(mods: readonly ModuleEntry[], tables: readonly string[], declared: readonly string[], glossary?: readonly GlossaryEntry[]): string[] {
   const mine = new Set(declared);
+  const canon = canonicalizer(glossary);
   const out: string[] = [];
   for (const t of tables) {
-    const o = mods.find((m) => m.tables.includes(t));
+    const o = mods.find((m) => m.tables.some((x) => canon(x) === canon(t)));
     if (o && !mine.has(o.name)) out.push(`資料表「${t}」屬於模組「${o.name}」，本工作項目只宣告了模組「${declared.join("、") || "（無）"}」；只有擁有者能寫（改成宣告「${o.name}」，或改走跨模組請求）`);
   }
   return out;

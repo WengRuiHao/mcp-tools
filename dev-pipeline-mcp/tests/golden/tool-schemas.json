@@ -1727,8 +1727,8 @@
  },
  "toolCount": 43,
  "work_item": {
-  "descriptionLength": 3219,
-  "descriptionSha256": "e0f5d4689c9e239b96184e5116792b4af325a61ac63a4e0bfcd2c809348514d9",
+  "descriptionLength": 3263,
+  "descriptionSha256": "b2aa78cf380552a36b79f8b75ec105accb2028586e03b47938944d9850fca6d5",
   "inputSchema": {
    "$schema": "http://json-schema.org/draft-07/schema#",
    "additionalProperties": false,
