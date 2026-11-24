@@ -146,6 +146,69 @@ export function checkScenarioTests(names: readonly string[], testText: string): 
   return out;
 }
 
+export interface ContractExample {
+  module: string;
+  iface: string;
+  input: string;
+  output: string;
+}
+
+const CONTRACT_HEADING = "契約範例";
+
+/** 每個模組底下「### 契約範例」每行「介面｜輸入：…｜預期輸出：…」；缺的欄位是空字串（由結構檢查回報）。 */
+export function parseContractExamples(text: string): ContractExample[] {
+  const lines = text.split(/\r\n|\r|\n/);
+  const heads = listHeadings(text);
+  const out: ContractExample[] = [];
+  for (const h of heads.filter((x) => x.level === 2 && x.title.trim().startsWith(MODULE_PREFIX))) {
+    const mod = h.title.trim().slice(MODULE_PREFIX.length).trim();
+    const end = heads.find((x) => x.line > h.line && x.level <= 2);
+    let inSection = false;
+    for (const raw of lines.slice(h.line, end ? end.line - 1 : lines.length)) {
+      const heading = /^#{3,6}\s+(.+?)\s*#*\s*$/.exec(raw);
+      if (heading) {
+        inSection = strip(heading[1]) === CONTRACT_HEADING;
+        continue;
+      }
+      if (!inSection) continue;
+      const bare = raw.replace(/^\s*(?:[-*+]|\d+[.)])\s*/, "");
+      if (!/[｜|]/.test(bare)) continue;
+      const parts = bare.split(/[｜|]/).map((p) => p.replace(/[`*]/g, "").trim());
+      const field = (re: RegExp): string => parts.slice(1).map((p) => re.exec(p)?.[1]?.trim()).find((v) => v !== undefined) ?? "";
+      if (parts[0]) out.push({ module: mod, iface: parts[0], input: field(/^輸入\s*[:：]\s*(.*)$/), output: field(/^(?:預期)?輸出\s*[:：]\s*(.*)$/) });
+    }
+  }
+  return out;
+}
+
+/** 契約範例結構（地圖寫入警告）：每個介面至少一個範例、範例要指向存在的介面且有輸入與預期輸出。 */
+export function contractExampleProblems(mods: readonly ModuleEntry[], examples: readonly ContractExample[]): string[] {
+  const out: string[] = [];
+  for (const m of mods) {
+    for (const i of m.interfaces) if (!examples.some((e) => e.module === m.name && e.iface === i.name)) out.push(`介面「${m.name}.${i.name}」沒有契約範例（高風險需求呼叫它時會被擋；在模組底下加「### 契約範例」，寫「- ${i.name}｜輸入：…｜預期輸出：…」）`);
+  }
+  for (const e of examples) {
+    const owner = mods.find((m) => m.name === e.module);
+    if (owner && !owner.interfaces.some((i) => i.name === e.iface)) out.push(`契約範例的介面「${e.module}.${e.iface}」不在模組「${e.module}」的對外介面清單`);
+    if (!e.input) out.push(`契約範例「${e.module}.${e.iface}」缺少「輸入：」`);
+    if (!e.output) out.push(`契約範例「${e.module}.${e.iface}」缺少「預期輸出：」`);
+  }
+  return out;
+}
+
+/** SD 呼叫的對方介面都要有契約範例（消費方以範例當替身）；呼叫自己宣告的模組不算。 */
+export function checkCalledContracts(calls: readonly CrossModuleCall[], examples: readonly ContractExample[], declared: readonly string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const c of calls) {
+    const key = `${c.module}.${c.iface}`;
+    if (declared.includes(c.module) || seen.has(key)) continue;
+    seen.add(key);
+    if (!examples.some((e) => e.module === c.module && e.iface === c.iface && e.input && e.output)) out.push(`呼叫的介面「${key}」沒有契約範例（請對方在模組地圖補「### 契約範例」，高風險需求才要求）`);
+  }
+  return out;
+}
+
 export interface GlossaryEntry {
   name: string;
   aliases: string[];

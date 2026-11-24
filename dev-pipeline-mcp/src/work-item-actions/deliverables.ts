@@ -231,7 +231,7 @@ export async function checkDeliverables(dir: string, roleId: string, def: Workfl
   if (roleId === "tester") problems.push(...(await checkTest(dir, ctx.highRisk === true)));
   if (roleId === "tester") problems.push(...(await scenarioTestProblems(dir, ctx.projectDir, ctx.modules).catch((e) => [`情境測試檢查失敗：${e instanceof Error ? e.message : String(e)}`])));
   if (roleId === "sd-analyst") problems.push(...(await checkSd(dir, def, ctx.projectDir, ctx.legacy === true, ctx.highRisk === true)));
-  if (roleId === "sd-analyst") problems.push(...(await sdModuleMapProblems(dir, ctx.projectDir, ctx.modules).catch((e) => [`模組地圖檢查失敗：${e instanceof Error ? e.message : String(e)}`])));
+  if (roleId === "sd-analyst") problems.push(...(await sdModuleMapProblems(dir, ctx.projectDir, ctx.modules, ctx.highRisk === true).catch((e) => [`模組地圖檢查失敗：${e instanceof Error ? e.message : String(e)}`])));
   if (roleId === "backend-engineer") problems.push(...(await checkLayers(dir, def, ctx.projectDir)));
   problems.push(...checkPointers(dir, roleId, def, ctx.legacy === true));
   problems.push(...(await checkReuse(dir, roleId, def)));
