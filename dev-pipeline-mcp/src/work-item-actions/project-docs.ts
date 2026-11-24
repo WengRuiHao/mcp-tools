@@ -1,5 +1,5 @@
 import { updateStatus } from "../pipeline-store.js";
-import { MODULE_MAP_FILE, contractExampleProblems, glossaryProblems, parseContractExamples, moduleMapProblems, parseGlossary, parseModuleMap, parseScenarios, scenarioProblems } from "../module-map.js";
+import { MODULE_MAP_FILE, contractExampleProblems, glossaryProblems, interfaceChangeNotices, parseContractExamples, moduleMapProblems, parseGlossary, parseModuleMap, parseScenarios, scenarioProblems } from "../module-map.js";
 import { refreshIndexDoc } from "./index-doc.js";
 import { PROJECT_DOC_NAMES, ProjectDocConflictError, isProjectDocName, listProjectDocs, readProjectDoc, writeProjectDoc } from "../project-docs-store.js";
 import { WorkItemActionError, errorMessage, need, okReply, type ToolReply } from "./common.js";
@@ -40,6 +40,7 @@ export async function handleProjectDocWrite(a: WorkItemArgs): Promise<ToolReply>
   assertName(filename);
   const { id, dir, projectDir } = await projectDirOf(workItemId);
   let result;
+  const before = filename === MODULE_MAP_FILE ? (await readProjectDoc(projectDir, filename)).content : "";
   try {
     result = await writeProjectDoc(projectDir, filename, a.content, a.expectedSha256 !== undefined ? { expectedSha256: a.expectedSha256 } : {});
   } catch (e) {
@@ -52,7 +53,8 @@ export async function handleProjectDocWrite(a: WorkItemArgs): Promise<ToolReply>
     // 索引列出專案層文件；更新失敗不影響寫入，只附警告
     const indexWarning = await refreshIndexDoc({ dir, status: updated });
     const mapProblems = filename === MODULE_MAP_FILE ? [...moduleMapProblems(parseModuleMap(a.content), parseGlossary(a.content)), ...glossaryProblems(parseGlossary(a.content)), ...scenarioProblems(parseModuleMap(a.content), parseScenarios(a.content)), ...contractExampleProblems(parseModuleMap(a.content), parseContractExamples(a.content))] : [];
-    return okReply({ workItemId: id, doc: filename, sha256: result.sha256, bytes: result.bytes, changed: result.changed, ...(mapProblems.length > 0 ? { moduleMapWarnings: mapProblems } : {}), ...(indexWarning ? { indexWarning } : {}) });
+    const notices = filename === MODULE_MAP_FILE ? interfaceChangeNotices(before, a.content) : [];
+    return okReply({ workItemId: id, doc: filename, sha256: result.sha256, bytes: result.bytes, changed: result.changed, ...(mapProblems.length > 0 ? { moduleMapWarnings: mapProblems } : {}), ...(notices.length > 0 ? { interfaceChangeNotices: notices } : {}), ...(indexWarning ? { indexWarning } : {}) });
   }
   return okReply({ workItemId: id, doc: filename, sha256: result.sha256, bytes: result.bytes, changed: result.changed });
 }

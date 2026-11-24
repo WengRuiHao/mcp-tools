@@ -209,6 +209,36 @@ export function checkCalledContracts(calls: readonly CrossModuleCall[], examples
   return out;
 }
 
+/** 地圖寫入前後比對介面：升版、內容變了版本沒升、版本倒退、被移除，各自列出使用者。新增介面與沒變都不通知。 */
+export function interfaceChangeNotices(oldText: string, newText: string): string[] {
+  const snap = (text: string) => {
+    const ex = parseContractExamples(text);
+    const out = new Map<string, { iface: InterfaceEntry; examples: string }>();
+    for (const m of parseModuleMap(text)) {
+      for (const i of m.interfaces) out.set(`${m.name}.${i.name}`, { iface: i, examples: ex.filter((e) => e.module === m.name && e.iface === i.name).map((e) => `${e.input}→${e.output}`).join("\n") });
+    }
+    return out;
+  };
+  const before = snap(oldText);
+  const after = snap(newText);
+  const out: string[] = [];
+  for (const [key, old] of before) {
+    const users = old.iface.users.join("、") || "（無）";
+    const now = after.get(key);
+    if (!now) {
+      if (old.iface.users.length > 0) out.push(`介面「${key}」已移除，但仍登記有使用者：${users}；請先讓他們改用別的介面`);
+      continue;
+    }
+    const ov = old.iface.version;
+    const nv = now.iface.version;
+    if (ov !== undefined && nv !== undefined && nv > ov) out.push(`介面「${key}」升版 v${ov} → v${nv}，使用者：${users} 需要跟著升級（預設新舊版並行，舊版保留到使用者都升級完）`);
+    else if (ov !== undefined && nv !== undefined && nv < ov) out.push(`介面「${key}」版本倒退（v${ov} → v${nv}）；使用者：${users}`);
+    else if (old.iface.summary !== now.iface.summary) out.push(`介面「${key}」的摘要變了但版本沒升；若是不相容變更請升版，使用者：${users}`);
+    else if (old.examples !== now.examples) out.push(`介面「${key}」的契約範例變了但版本沒升；若是不相容變更請升版，使用者：${users}`);
+  }
+  return out;
+}
+
 export interface GlossaryEntry {
   name: string;
   aliases: string[];

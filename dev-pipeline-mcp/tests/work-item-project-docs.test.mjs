@@ -131,6 +131,18 @@ test("模組地圖：寫入有結構問題就回 moduleMapWarnings（不擋寫�
   assert.equal(other.json.moduleMapWarnings, undefined);
 });
 
+test("模組地圖：介面升版寫入時回 interfaceChangeNotices 列出使用者；第一次寫入或沒變動不回", async () => {
+  const c = await create();
+  const map = (v) => `## 模組：庫存\n- 負責人：x\n### 對外介面\n- 扣庫存｜同步呼叫｜v${v}｜扣減｜使用者：訂單\n\n## 模組：訂單\n- 負責人：y\n`;
+  const first = await env.call({ action: "project_doc_write", workItemId: c.workItemId, filename: "module-map.md", content: map(1) });
+  assert.equal(first.json.interfaceChangeNotices, undefined);
+  const up = await env.call({ action: "project_doc_write", workItemId: c.workItemId, filename: "module-map.md", content: map(2) });
+  assert.equal(up.isError, false, JSON.stringify(up.json));
+  assert.match(up.json.interfaceChangeNotices.join("\n"), /庫存\.扣庫存.*v1.*v2.*訂單/);
+  const same = await env.call({ action: "project_doc_write", workItemId: c.workItemId, filename: "module-map.md", content: map(2) });
+  assert.equal(same.json.interfaceChangeNotices, undefined);
+});
+
 test("模組地圖：跨模組情境結構問題也走 moduleMapWarnings", async () => {
   const c = await create();
   const map = "## 模組：A\n- 負責人：x\n\n## 模組：B\n- 負責人：y\n\n## 跨模組情境：下單\n- 經過模組：A → Q\n- 協調者：A\n";
