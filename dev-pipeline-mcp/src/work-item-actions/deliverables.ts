@@ -8,7 +8,7 @@ import { SA_INTERNAL_TERMS, SD_INTERNAL_TERMS } from "../workflow/internal-files
 import { checkMermaidFile } from "../workflow/mermaid-check.js";
 import { checkMockupDir } from "../workflow/mockup-check.js";
 import { checkImpactReuseList, checkReuseRecord } from "../workflow/reuse-record-check.js";
-import { checkSaImages, SA_FILE_NAME } from "../workflow/sa-image-check.js";
+import { checkSaImages, SA_FILE_NAME, validateImageRef } from "../workflow/sa-image-check.js";
 import { checkSaNoCode } from "../workflow/sa-no-code-check.js";
 import { checkSaStandard } from "../workflow/sa-standard-check.js";
 import { checkSdLayers } from "../workflow/sd-layer-check.js";
@@ -17,7 +17,8 @@ import { checkSaRequirementIds, checkSdTraceability, parseSaRequirementIds } fro
 import { checkSdStructure, hasTableSchemas } from "../workflow/sd-structure-check.js";
 import { checkTableSchemas } from "../workflow/table-schema-check.js";
 import { checkBaselineTechStack, checkTechStack, TECH_STACK_FILE, BASELINE_FILE } from "../workflow/tech-stack-check.js";
-import { checkTestEvidence, TEST_FILE_NAME } from "../workflow/test-evidence-check.js";
+import { checkTestEvidence, EVIDENCE_DIR, TEST_FILE_NAME } from "../workflow/test-evidence-check.js";
+import { checkDrillEvidenceText } from "../workflow/drill-evidence-check.js";
 
 /** done 的交件檢查：回傳問題清單（空陣列＝合格）。檔名全部來自流程定義，不接受使用者輸入。 */
 
@@ -90,10 +91,16 @@ async function checkSa(dir: string, legacy: boolean, highRisk: boolean): Promise
   return problems;
 }
 
-async function checkTest(dir: string): Promise<string[]> {
+async function checkTest(dir: string, highRisk: boolean): Promise<string[]> {
   if ((await sizeOf(path.join(dir, TEST_FILE_NAME))) === null) return [`缺少 ${TEST_FILE_NAME}，無法檢查測試證據`];
   try {
-    return checkTestEvidence(dir).violations.map((v) => `測試證據檢查未通過：${v}`);
+    const problems = checkTestEvidence(dir).violations.map((v) => `測試證據檢查未通過：${v}`);
+    if (highRisk) {
+      const text = await readFile(path.join(dir, TEST_FILE_NAME), "utf-8");
+      const root = path.resolve(dir, EVIDENCE_DIR);
+      problems.push(...checkDrillEvidenceText(text, { validateImage: (ref) => validateImageRef(ref, root, EVIDENCE_DIR) }).map((v) => `回滾演練證據檢查未通過：${v}`));
+    }
+    return problems;
   } catch (e) {
     return [`測試證據檢查失敗：${e instanceof Error ? e.message : String(e)}`];
   }
@@ -218,7 +225,7 @@ export async function checkDeliverables(dir: string, roleId: string, def: Workfl
   if (roleId === "db-designer") problems.push(...checkTableSchemas(dir, { baseline: ctx.baseline, projectDir: ctx.projectDir, legacy: ctx.legacy }).map((v) => `資料表結構文件檢查未通過：${v}`));
   if (roleId === "mockup-designer") problems.push(...checkMockupDir(dir, { selectedStyle: ctx.selectedStyle }).map((v) => `mockup 檢查未通過：${v}`));
   if (roleId === "sd-analyst") problems.push(...checkMermaidFile(dir).map((v) => `流程圖（flow.mmd）格式檢查未通過：${v}`));
-  if (roleId === "tester") problems.push(...(await checkTest(dir)));
+  if (roleId === "tester") problems.push(...(await checkTest(dir, ctx.highRisk === true)));
   if (roleId === "sd-analyst") problems.push(...(await checkSd(dir, def, ctx.projectDir, ctx.legacy === true, ctx.highRisk === true)));
   if (roleId === "backend-engineer") problems.push(...(await checkLayers(dir, def, ctx.projectDir)));
   problems.push(...checkPointers(dir, roleId, def, ctx.legacy === true));

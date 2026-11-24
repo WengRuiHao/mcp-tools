@@ -3,6 +3,7 @@
 import { isAbsolute, relative } from "node:path";
 import { detectDuplicates, formatDupReport, getChangedFiles, DupPathError, type DupReport, type DupWaiver } from "../dup-detect/index.js";
 import { CHANGED_FILES_HEADING, DUP_WAIVER_HEADING, parseDupInput } from "./dup-input.js";
+import { loadProjectFlowOverride } from "./load.js";
 import { checkReuseRecord, extractSection } from "./reuse-record-check.js";
 
 export const IMPLEMENTATION_FILE = "02-implementation.md";
@@ -70,7 +71,9 @@ export async function checkAsanaReuseGuard(implementation: string, projectDir: s
   }
   let report: DupReport;
   try {
-    report = await detectDuplicates({ projectDir, changedFiles: changed, waivers: parseDupInput(implementation).waivers });
+    // 與工作項目流程一致：套用專案 flow.json 的 dup 設定（門檻、extraExcludes）
+    const dup = (await loadProjectFlowOverride(projectDir))?.dup;
+    report = await detectDuplicates({ projectDir, changedFiles: changed, waivers: parseDupInput(implementation).waivers, ...(dup ? { options: dup } : {}) });
   } catch (err) {
     if (err instanceof DupPathError) return { ok: false, message: `「## ${CHANGED_FILES_HEADING}」有不合法的路徑，無法偵測重複：${err.message}` };
     throw err;

@@ -92,6 +92,25 @@ test("無效豁免被擋", async () => {
   assert.match(r.json.message, /重複/);
 });
 
+test("專案 flow.json 的 dup.extraExcludes 在 Asana 流程也生效", async () => {
+  const impl = `## 重用檢查紀錄\n${TABLE}\n## 改動檔案\n- src/clean.js\n`;
+  const withoutExclude = await ticket("g9", impl, { "src/clean.js": jsSource("c") });
+  await mkdir(path.join(withoutExclude.project_dir, "docs"), { recursive: true });
+  await writeFile(path.join(withoutExclude.project_dir, "docs", "a.js"), jsSource("d"));
+  await writeFile(path.join(withoutExclude.project_dir, "docs", "b.js"), jsSource("d"));
+  assert.equal((await call(withoutExclude)).isError, true);
+
+  const withExclude = await ticket("g10", impl, { "src/clean.js": jsSource("c") });
+  await mkdir(path.join(withExclude.project_dir, "docs"), { recursive: true });
+  await writeFile(path.join(withExclude.project_dir, "docs", "a.js"), jsSource("d"));
+  await writeFile(path.join(withExclude.project_dir, "docs", "b.js"), jsSource("d"));
+  await mkdir(path.join(withExclude.project_dir, ".pipeline"), { recursive: true });
+  await writeFile(path.join(withExclude.project_dir, ".pipeline", "flow.json"), JSON.stringify({ schemaVersion: 1, dup: { extraExcludes: ["docs"] } }));
+  const r = await call(withExclude);
+  assert.equal(r.isError, false);
+  assert.equal((await store.readStatus("g10")).stage, "implemented");
+});
+
 test("乾淨通過，status.json 沒有新欄位", async () => {
   const impl = `## 重用檢查紀錄\n${TABLE}\n## 改動檔案\n- src/clean.js — 新增\n`;
   const args = await ticket("g6", impl, { "src/clean.js": jsSource("unique") });
