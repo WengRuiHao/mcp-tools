@@ -1,5 +1,6 @@
 import { updateStatus } from "../pipeline-store.js";
-import { MODULE_MAP_FILE, contractExampleProblems, glossaryProblems, interfaceChangeNotices, parseContractExamples, moduleMapProblems, parseGlossary, parseModuleMap, parseScenarios, scenarioProblems } from "../module-map.js";
+import { CAPACITY_FILE, capacityDocProblems, parseCapacityAssumptions } from "../capacity-assumptions.js";
+import { MODULE_MAP_FILE, contractExampleProblems, glossaryProblems, interfaceChangeNotices, interfaceConditionProblems, parseContractExamples, moduleMapProblems, parseGlossary, parseModuleMap, parseScenarios, scenarioProblems } from "../module-map.js";
 import { refreshIndexDoc } from "./index-doc.js";
 import { PROJECT_DOC_NAMES, ProjectDocConflictError, isProjectDocName, listProjectDocs, readProjectDoc, writeProjectDoc } from "../project-docs-store.js";
 import { WorkItemActionError, errorMessage, need, okReply, type ToolReply } from "./common.js";
@@ -52,9 +53,10 @@ export async function handleProjectDocWrite(a: WorkItemArgs): Promise<ToolReply>
     const updated = await updateStatus(id, (s) => ({ ...s, project_doc_changes: [...(s.project_doc_changes ?? []), { doc: filename, at, sha256: result.sha256 }].slice(-MAX_RECORDED_CHANGES) }));
     // 索引列出專案層文件；更新失敗不影響寫入，只附警告
     const indexWarning = await refreshIndexDoc({ dir, status: updated });
-    const mapProblems = filename === MODULE_MAP_FILE ? [...moduleMapProblems(parseModuleMap(a.content), parseGlossary(a.content)), ...glossaryProblems(parseGlossary(a.content)), ...scenarioProblems(parseModuleMap(a.content), parseScenarios(a.content)), ...contractExampleProblems(parseModuleMap(a.content), parseContractExamples(a.content))] : [];
+    const mapProblems = filename === MODULE_MAP_FILE ? [...moduleMapProblems(parseModuleMap(a.content), parseGlossary(a.content)), ...glossaryProblems(parseGlossary(a.content)), ...scenarioProblems(parseModuleMap(a.content), parseScenarios(a.content)), ...contractExampleProblems(parseModuleMap(a.content), parseContractExamples(a.content)), ...interfaceConditionProblems(a.content)] : [];
+    const capacityProblems = filename === CAPACITY_FILE ? capacityDocProblems(parseCapacityAssumptions(a.content)) : [];
     const notices = filename === MODULE_MAP_FILE ? interfaceChangeNotices(before, a.content) : [];
-    return okReply({ workItemId: id, doc: filename, sha256: result.sha256, bytes: result.bytes, changed: result.changed, ...(mapProblems.length > 0 ? { moduleMapWarnings: mapProblems } : {}), ...(notices.length > 0 ? { interfaceChangeNotices: notices } : {}), ...(indexWarning ? { indexWarning } : {}) });
+    return okReply({ workItemId: id, doc: filename, sha256: result.sha256, bytes: result.bytes, changed: result.changed, ...(mapProblems.length > 0 ? { moduleMapWarnings: mapProblems } : {}), ...(notices.length > 0 ? { interfaceChangeNotices: notices } : {}), ...(capacityProblems.length > 0 ? { capacityWarnings: capacityProblems } : {}), ...(indexWarning ? { indexWarning } : {}) });
   }
   return okReply({ workItemId: id, doc: filename, sha256: result.sha256, bytes: result.bytes, changed: result.changed });
 }

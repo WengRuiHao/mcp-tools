@@ -146,6 +146,38 @@ export function checkScenarioTests(names: readonly string[], testText: string): 
   return out;
 }
 
+const COND_FIELDS: ReadonlyArray<{ label: string; re: RegExp; syncOnly: boolean }> = [
+  { label: "逾時", re: /^逾時\s*[:：]\s*\S/, syncOnly: true },
+  { label: "冪等", re: /^冪等\s*[:：]\s*\S/, syncOnly: false },
+  { label: "速率限制", re: /^(?:速率限制|限流)\s*[:：]\s*\S/, syncOnly: true },
+];
+
+/** 介面清單的執行條件欄位：同步呼叫要有逾時、冪等、速率限制；事件只要冪等。缺的欄位只警告。 */
+export function interfaceConditionProblems(text: string): string[] {
+  const lines = text.split(/\r\n|\r|\n/);
+  const heads = listHeadings(text);
+  const out: string[] = [];
+  for (const h of heads.filter((x) => x.level === 2 && x.title.trim().startsWith(MODULE_PREFIX))) {
+    const mod = h.title.trim().slice(MODULE_PREFIX.length).trim();
+    const end = heads.find((x) => x.line > h.line && x.level <= 2);
+    let inIface = false;
+    for (const raw of lines.slice(h.line, end ? end.line - 1 : lines.length)) {
+      const heading = /^#{3,6}\s+(.+?)\s*#*\s*$/.exec(raw);
+      if (heading) {
+        inIface = strip(heading[1]) === IFACE_HEADING;
+        continue;
+      }
+      if (!inIface) continue;
+      const entry = parseInterfaceLine(raw);
+      if (!entry) continue;
+      const parts = raw.replace(/^\s*(?:[-*+]|\d+[.)])\s*/, "").split(/[｜|]/).map((p) => p.replace(/[`*]/g, "").trim());
+      const missing = COND_FIELDS.filter((f) => (!f.syncOnly || entry.type !== "事件") && !parts.some((p) => f.re.test(p))).map((f) => f.label);
+      if (missing.length > 0) out.push(`介面「${mod}.${entry.name}」缺少執行條件：${missing.join("、")}（寫「逾時：3秒｜冪等：是｜速率限制：100/秒」，值應與 SD 的失敗模式表一致）`);
+    }
+  }
+  return out;
+}
+
 export interface ContractExample {
   module: string;
   iface: string;

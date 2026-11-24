@@ -121,6 +121,39 @@ test("set_scope 可改 modules（回傳新的重疊警告）；給空陣列整�
   assert.match(locked.json.message, /鎖定/);
 });
 
+test("進行中功能的資料表重疊：兩個進行中功能的 TableSchema 有同名資料表就在 get 警告（只警告）；沒開 multiModule、已完成、沒有共同表都不警告", async () => {
+  const addTables = async (dir, names) => {
+    await mkdir(path.join(dir, "TableSchema"), { recursive: true });
+    for (const n of names) await writeFile(path.join(dir, "TableSchema", `${n}.md`), "x");
+  };
+  const p = await newProject(true);
+  const a = await create(p, { title: "表A" });
+  const b = await create(p, { title: "表B" });
+  await addTables(a.json.dir, ["orders", "members"]);
+  await addTables(b.json.dir, ["orders", "stock"]);
+  const gotB = (await env.call({ action: "get", workItemId: b.json.workItemId })).json;
+  assert.deepEqual(gotB.tableOverlapWarnings, [{ workItemId: a.json.workItemId, title: "表A", tables: ["orders"] }]);
+  const gotA = (await env.call({ action: "get", workItemId: a.json.workItemId })).json;
+  assert.equal(gotA.tableOverlapWarnings[0].workItemId, b.json.workItemId);
+
+  const c = await create(p, { title: "表C" });
+  await addTables(c.json.dir, ["reports"]);
+  assert.ok(!("tableOverlapWarnings" in (await env.call({ action: "get", workItemId: c.json.workItemId })).json));
+
+  const st = await statusOf(a.json.dir);
+  st.work_item_progress ??= { roles: {}, gates: {} };
+  st.work_item_progress.gates["final-acceptance"] = { decision: "confirmed", by: "human", at: new Date().toISOString() };
+  await writeFile(path.join(a.json.dir, "status.json"), JSON.stringify(st));
+  assert.ok(!("tableOverlapWarnings" in (await env.call({ action: "get", workItemId: b.json.workItemId })).json), "已完成不算");
+
+  const off = await newProject(undefined);
+  const x = await create(off, { title: "關X" });
+  const y = await create(off, { title: "關Y" });
+  await addTables(x.json.dir, ["orders"]);
+  await addTables(y.json.dir, ["orders"]);
+  assert.ok(!("tableOverlapWarnings" in (await env.call({ action: "get", workItemId: y.json.workItemId })).json));
+});
+
 test("沒開 multiModule 時 set_scope 的 modules 被拒絕", async () => {
   const p = await newProject(undefined);
   const a = await create(p);

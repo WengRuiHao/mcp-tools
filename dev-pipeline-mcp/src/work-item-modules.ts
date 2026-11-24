@@ -1,3 +1,4 @@
+import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { readStatus, type TicketStatus } from "./pipeline-store.js";
 import { readJsonFile } from "./atomic-store.js";
@@ -62,6 +63,45 @@ export async function findModuleOverlaps(projectDir: string, selfId: string, mod
     if (shared.length > 0) found.push({ workItemId: id, title: status.name ?? "", modules: shared });
   }
   return found;
+}
+
+export interface TableOverlapWarning {
+  workItemId: string;
+  title: string;
+  tables: string[];
+}
+
+async function tablesIn(dir: string): Promise<string[]> {
+  const files = await readdir(path.join(dir, "TableSchema")).catch(() => [] as string[]);
+  return files.filter((f) => f.endsWith(".md") && f !== "system-er.md").map((f) => f.slice(0, -3));
+}
+
+/** 同專案、尚未完成的其他工作項目，TableSchema 裡有同名資料表者（只警告）。壞掉讀不到的略過。 */
+export async function findTableOverlaps(projectDir: string, selfId: string, selfDir: string): Promise<TableOverlapWarning[]> {
+  const mine = new Set(await tablesIn(selfDir));
+  if (mine.size === 0) return [];
+  const index = await readJsonFile<Record<string, string>>(getTicketsIndexFile(), {});
+  const found: TableOverlapWarning[] = [];
+  for (const [id, dir] of Object.entries(index)) {
+    if (id === selfId || !/^wi-\d{8}-\d+$/.test(id) || typeof dir !== "string") continue;
+    let status: TicketStatus;
+    try {
+      status = await readStatus(id);
+    } catch {
+      continue;
+    }
+    if (!sameDir(status.project_dir, projectDir) || isFinished(status)) continue;
+    const shared = (await tablesIn(dir)).filter((t) => mine.has(t));
+    if (shared.length > 0) found.push({ workItemId: id, title: status.name ?? "", tables: shared });
+  }
+  return found;
+}
+
+/** get 用：專案開了 multiModule 才檢查；沒有重疊不多欄位。 */
+export async function tableOverlapField(id: string, status: TicketStatus, dir: string): Promise<{ tableOverlapWarnings?: TableOverlapWarning[] }> {
+  if (!status.project_dir || !(await isMultiModuleProject(status.project_dir).catch(() => false))) return {};
+  const w = await findTableOverlaps(status.project_dir, id, dir);
+  return w.length > 0 ? { tableOverlapWarnings: w } : {};
 }
 
 export const MAX_DEPENDS_ON = 10;

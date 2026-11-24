@@ -143,6 +143,19 @@ test("模組地圖：介面升版寫入時回 interfaceChangeNotices 列出使�
   assert.equal(same.json.interfaceChangeNotices, undefined);
 });
 
+test("容量假設：寫入缺到期日回 capacityWarnings；高風險的 get 回逾期提醒，非高風險不回", async () => {
+  const c = await create();
+  const bad = await env.call({ action: "project_doc_write", workItemId: c.workItemId, filename: "capacity-assumptions.md", content: "- 沒日期的假設\n- 舊假設｜到期日：2020-01-01\n" });
+  assert.equal(bad.isError, false, JSON.stringify(bad.json));
+  assert.match(bad.json.capacityWarnings.join("\n"), /沒日期的假設.*到期日/);
+  const plain = (await env.call({ action: "get", workItemId: c.workItemId })).json;
+  assert.equal(plain.capacityWarnings, undefined);
+  const hr = await env.call({ action: "set_scope", workItemId: c.workItemId, highRisk: true });
+  assert.equal(hr.isError, false, JSON.stringify(hr.json));
+  const got = (await env.call({ action: "get", workItemId: c.workItemId })).json;
+  assert.match(got.capacityWarnings.join("\n"), /舊假設.*逾期.*2020-01-01/);
+});
+
 test("模組地圖：跨模組情境結構問題也走 moduleMapWarnings", async () => {
   const c = await create();
   const map = "## 模組：A\n- 負責人：x\n\n## 模組：B\n- 負責人：y\n\n## 跨模組情境：下單\n- 經過模組：A → Q\n- 協調者：A\n";
