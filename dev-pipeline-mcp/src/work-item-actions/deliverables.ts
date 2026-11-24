@@ -18,6 +18,7 @@ import { checkSdStructure, hasTableSchemas } from "../workflow/sd-structure-chec
 import { checkTableSchemas } from "../workflow/table-schema-check.js";
 import { checkBaselineTechStack, checkTechStack, TECH_STACK_FILE, BASELINE_FILE } from "../workflow/tech-stack-check.js";
 import { checkTestEvidence, EVIDENCE_DIR, TEST_FILE_NAME } from "../workflow/test-evidence-check.js";
+import { sdModuleMapProblems } from "./module-map-checks.js";
 import { checkDrillEvidenceText } from "../workflow/drill-evidence-check.js";
 
 /** done 的交件檢查：回傳問題清單（空陣列＝合格）。檔名全部來自流程定義，不接受使用者輸入。 */
@@ -193,6 +194,8 @@ export interface DeliverableContext {
   techSource?: string | undefined;
   /** 高併發／高風險需求（技術選型不再要求資料庫列）。 */
   highRisk?: boolean | undefined;
+  /** 工作項目宣告動到的模組（multiModule 專案）；SD 交件時與模組地圖核對。 */
+  modules?: readonly string[] | undefined;
   /** 工作項目的專案目錄；沒有時分層檢查只比對 impl 說明與 SD。 */
   projectDir?: string | null | undefined;
   /** 既有系統才需要既有資料表。 */
@@ -227,6 +230,7 @@ export async function checkDeliverables(dir: string, roleId: string, def: Workfl
   if (roleId === "sd-analyst") problems.push(...checkMermaidFile(dir).map((v) => `流程圖（flow.mmd）格式檢查未通過：${v}`));
   if (roleId === "tester") problems.push(...(await checkTest(dir, ctx.highRisk === true)));
   if (roleId === "sd-analyst") problems.push(...(await checkSd(dir, def, ctx.projectDir, ctx.legacy === true, ctx.highRisk === true)));
+  if (roleId === "sd-analyst") problems.push(...(await sdModuleMapProblems(dir, ctx.projectDir, ctx.modules).catch((e) => [`模組地圖檢查失敗：${e instanceof Error ? e.message : String(e)}`])));
   if (roleId === "backend-engineer") problems.push(...(await checkLayers(dir, def, ctx.projectDir)));
   problems.push(...checkPointers(dir, roleId, def, ctx.legacy === true));
   problems.push(...(await checkReuse(dir, roleId, def)));

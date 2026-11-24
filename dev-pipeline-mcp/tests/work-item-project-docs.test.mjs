@@ -119,3 +119,14 @@ test("索引：專案有專案層文件才多「專案層文件」一節（附�
     await env2.cleanup();
   }
 });
+
+test("模組地圖：寫入有結構問題就回 moduleMapWarnings（不擋寫入）；沒問題或別的文件不回", async () => {
+  const c = await create();
+  const bad = await env.call({ action: "project_doc_write", workItemId: c.workItemId, filename: "module-map.md", content: "## 模組：A\n- 依賴模組：Z\n" });
+  assert.equal(bad.isError, false, JSON.stringify(bad.json));
+  assert.ok(bad.json.moduleMapWarnings.some((w) => w.includes("負責人")) && bad.json.moduleMapWarnings.some((w) => w.includes("Z")), JSON.stringify(bad.json));
+  const ok = await env.call({ action: "project_doc_write", workItemId: c.workItemId, filename: "module-map.md", content: "## 模組：A\n- 負責人：x\n" });
+  assert.equal(ok.json.moduleMapWarnings, undefined);
+  const other = await write(c.workItemId, { content: "# 內容 ## 模組：A\n" });
+  assert.equal(other.json.moduleMapWarnings, undefined);
+});

@@ -34,7 +34,7 @@ const WORK_ITEM_DESCRIPTION =
   "- record_decision：記錄使用者的決定（workItemId、question＝sa-notes.md 待確認問題的編號或標題、answer、reason＝使用者原話、by:\"human\"）；使用者說「全部照建議」用 acceptAllSuggested:true（不需 question、answer，reason 仍要附原話）一次接受所有尚無記錄的待確認問題。sa-notes.md 還有沒決定記錄的待確認問題時，sa-confirm 不可由 AI 核准；已記錄的決定會出現在 get、審查員說明書與 00-索引.md。\n" +
   "- template：取範本全文（template＝sa｜sd｜table-schema｜system-er｜mockup-states｜er-source｜system-er-source，不需 workItemId）；角色說明提到「範本」時用它取，不要找專案裡的檔案。\n" +
   "- deliver：把交付物輸出成客戶命名的副本到 deliverables/（workItemId、target＝sa｜sd｜all，預設 all）：「<標題>_系統分析書_v<版次>」「<標題>_系統設計書_v<版次>」，圖片一併複製並改寫引用；需產出角色已 done 且對應確認關卡已通過；SD 轉 Word 由人工負責。\n" +
-  "- project_doc_read／project_doc_write：專案層級文件（跨功能共用，放專案目錄的 .dev-pipeline/project-docs/，檔名限固定白名單）。read 不帶 filename 列出現有文件與可用名稱，帶 filename 回內容與 sha256；write 整份寫入（workItemId、filename、content），可帶 expectedSha256 做版本比對，不符會回 conflict:true，要重新讀取後只重做自己的改動；覆寫前自動存歷史快照，可用 restore_rule_file 還原。\n" +
+  "- project_doc_read／project_doc_write：專案層級文件（跨功能共用，放專案目錄的 .dev-pipeline/project-docs/，檔名限固定白名單）。read 不帶 filename 列出現有文件與可用名稱，帶 filename 回內容與 sha256；write 整份寫入（workItemId、filename、content），可帶 expectedSha256 做版本比對，不符會回 conflict:true，要重新讀取後只重做自己的改動；覆寫前自動存歷史快照，可用 restore_rule_file 還原。module-map.md 格式：每個模組一個「## 模組：名稱」，底下每行「- 項目：內容」，項目為負責人、類型（系統模組）、狀態（已完成／開發中，沒寫視為已完成）、擁有資料表、依賴模組；專案開 multiModule 後，SD 交件會核對 modules 與資料表擁有權，SD 確認時依賴的系統模組未完成，AI 不能代確認。\n" +
   "Asana 票單不可用本工具，請用既有 Asana 工具。錯誤一律回 isError。";
 
 async function dispatch(a: WorkItemArgs, renderer: Renderer): Promise<ToolReply> {
