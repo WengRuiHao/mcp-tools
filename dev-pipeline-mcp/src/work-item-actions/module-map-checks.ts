@@ -1,6 +1,6 @@
-import { readdir } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
-import { MODULE_MAP_FILE, blockedByUnfinishedSystemModules, checkModulesDeclared, checkTableOwnership, parseModuleMap } from "../module-map.js";
+import { MODULE_MAP_FILE, blockedByUnfinishedSystemModules, checkModulesDeclared, checkCrossModuleCalls, checkTableOwnership, parseCrossModuleCalls, parseModuleMap } from "../module-map.js";
 import { readProjectDoc } from "../project-docs-store.js";
 import { isMultiModuleProject } from "../work-item-modules.js";
 import { WorkItemActionError } from "./common.js";
@@ -24,7 +24,8 @@ export async function sdModuleMapProblems(dir: string, projectDir: string | null
   if (!modules || modules.length === 0) return [];
   const map = await loadMap(projectDir);
   if (!map) return [];
-  return [...checkModulesDeclared(map, modules), ...checkTableOwnership(map, await tableNames(dir), modules)].map((v) => `模組地圖檢查未通過：${v}`);
+  const sd = await readFile(path.join(dir, "03-sd.md"), "utf-8").catch(() => "");
+  return [...checkModulesDeclared(map, modules), ...checkTableOwnership(map, await tableNames(dir), modules), ...checkCrossModuleCalls(map, parseCrossModuleCalls(sd), modules)].map((v) => `模組地圖檢查未通過：${v}`);
 }
 
 /** 進入實作的把關：SD 確認時，所屬模組依賴的系統模組還沒完成，AI 不能代確認；使用者本人確認視為臨時放行（原話記在關卡紀錄）。 */

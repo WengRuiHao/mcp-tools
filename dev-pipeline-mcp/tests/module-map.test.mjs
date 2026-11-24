@@ -13,7 +13,7 @@ const MAP = [
 test("解析：負責人、類型、狀態、擁有資料表、依賴模組；多種寫法與分隔符", () => {
   const m = parseModuleMap(MAP);
   assert.deepEqual(m.map((x) => x.name), ["會員", "訂單", "權限"]);
-  assert.deepEqual(m[0], { name: "會員", owner: "小王", system: true, finished: true, tables: ["members", "member_roles"], dependsOn: [] });
+  assert.deepEqual(m[0], { name: "會員", owner: "小王", system: true, finished: true, tables: ["members", "member_roles"], dependsOn: [], interfaces: [] });
   assert.deepEqual(m[1].dependsOn, ["會員", "權限"]);
   assert.equal(m[1].system, false);
   assert.equal(m[1].finished, true, "沒寫狀態視為已完成");
