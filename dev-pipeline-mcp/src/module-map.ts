@@ -147,6 +147,55 @@ export function moduleMapProblems(mods: readonly ModuleEntry[]): string[] {
   return out;
 }
 
+export interface ScenarioEntry {
+  name: string;
+  modules: string[];
+  coordinator: string | undefined;
+  failure: string;
+  consistency: string;
+}
+
+const SCENARIO_PREFIX = "跨模組情境：";
+
+/** 「## 跨模組情境：名稱」區塊：經過模組（依序，用 → 或頓號分隔）、協調者、失敗處理、一致性。 */
+export function parseScenarios(text: string): ScenarioEntry[] {
+  const lines = text.split(/\r\n|\r|\n/);
+  const heads = listHeadings(text);
+  return heads
+    .filter((h) => h.level === 2 && h.title.trim().startsWith(SCENARIO_PREFIX))
+    .map((h) => {
+      const end = heads.find((x) => x.line > h.line && x.level <= 2);
+      const e: ScenarioEntry = { name: h.title.trim().slice(SCENARIO_PREFIX.length).trim(), modules: [], coordinator: undefined, failure: "", consistency: "" };
+      for (const raw of lines.slice(h.line, end ? end.line - 1 : lines.length)) {
+        const kv = labelValue(raw);
+        if (!kv) continue;
+        if (kv.label === "經過模組") e.modules = list(kv.value.replace(/[→>＞]+|->/g, "、"));
+        else if (kv.label === "協調者" && kv.value) e.coordinator = strip(kv.value);
+        else if (kv.label === "失敗處理") e.failure = kv.value;
+        else if (kv.label === "一致性" || kv.label === "一致性要求") e.consistency = kv.value;
+      }
+      return e;
+    });
+}
+
+/** 跨模組情境的結構問題：情境重名、模組不存在、少於兩個模組、協調者不在經過模組、缺失敗處理或一致性。 */
+export function scenarioProblems(mods: readonly ModuleEntry[], scenarios: readonly ScenarioEntry[]): string[] {
+  const known = new Set(mods.map((m) => m.name));
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const s of scenarios) {
+    if (seen.has(s.name)) out.push(`跨模組情境「${s.name}」重複定義`);
+    seen.add(s.name);
+    for (const m of s.modules) if (!known.has(m)) out.push(`跨模組情境「${s.name}」經過的模組「${m}」不在模組地圖`);
+    if (new Set(s.modules).size < 2) out.push(`跨模組情境「${s.name}」至少兩個模組（寫「- 經過模組：甲 → 乙」）`);
+    if (!s.coordinator) out.push(`跨模組情境「${s.name}」沒有協調者（寫「- 協調者：模組名」）`);
+    else if (!s.modules.includes(s.coordinator)) out.push(`跨模組情境「${s.name}」的協調者「${s.coordinator}」不在經過模組`);
+    if (!s.failure) out.push(`跨模組情境「${s.name}」沒有失敗處理（每一步失敗三選一：重試、補償、人工處理）`);
+    if (!s.consistency) out.push(`跨模組情境「${s.name}」沒有一致性要求（寫「- 一致性：最終一致或強一致與做法」）`);
+  }
+  return out;
+}
+
 /** 工作項目宣告的模組都要在地圖裡。 */
 export function checkModulesDeclared(mods: readonly ModuleEntry[], declared: readonly string[]): string[] {
   const known = new Set(mods.map((m) => m.name));

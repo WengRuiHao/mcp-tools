@@ -130,3 +130,13 @@ test("模組地圖：寫入有結構問題就回 moduleMapWarnings（不擋寫�
   const other = await write(c.workItemId, { content: "# 內容 ## 模組：A\n" });
   assert.equal(other.json.moduleMapWarnings, undefined);
 });
+
+test("模組地圖：跨模組情境結構問題也走 moduleMapWarnings", async () => {
+  const c = await create();
+  const map = "## 模組：A\n- 負責人：x\n\n## 模組：B\n- 負責人：y\n\n## 跨模組情境：下單\n- 經過模組：A → Q\n- 協調者：A\n";
+  const r = await env.call({ action: "project_doc_write", workItemId: c.workItemId, filename: "module-map.md", content: map });
+  assert.equal(r.isError, false, JSON.stringify(r.json));
+  const w = r.json.moduleMapWarnings.join("\n");
+  assert.match(w, /下單.*Q.*不在模組地圖/);
+  assert.match(w, /下單.*失敗處理/);
+});
