@@ -82,12 +82,12 @@ export function checkSdTraceability(sdText: string, saIds: readonly string[]): s
   return out;
 }
 
-interface TestBlock {
+export interface TestBlock {
   name: string;
   ids: string[] | null;
 }
 
-function parseTestBlocks(testText: string): TestBlock[] {
+export function parseTestBlocks(testText: string): TestBlock[] {
   const heads = listHeadings(testText);
   const lines = testText.split(/\r\n|\r|\n/);
   const tests = heads.filter((h) => (h.level === 2 || h.level === 3) && h.title.trim().startsWith(TEST_PREFIX));

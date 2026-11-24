@@ -1,6 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
-import { MODULE_MAP_FILE, blockedByUnfinishedSystemModules, checkModulesDeclared, checkCrossModuleCalls, checkTableOwnership, parseCrossModuleCalls, parseGlossary, parseModuleMap } from "../module-map.js";
+import { MODULE_MAP_FILE, blockedByUnfinishedSystemModules, checkModulesDeclared, checkCrossModuleCalls, checkScenarioTests, checkSdScenarios, checkTableOwnership, parseCrossModuleCalls, parseGlossary, parseModuleMap, parseScenarios, parseSdScenarioNames } from "../module-map.js";
 import { readProjectDoc } from "../project-docs-store.js";
 import { isMultiModuleProject } from "../work-item-modules.js";
 import { WorkItemActionError } from "./common.js";
@@ -11,7 +11,7 @@ const SD_CONFIRM_GATE = "sd-confirm";
 async function loadMap(projectDir: string | null | undefined) {
   if (!projectDir || !(await isMultiModuleProject(projectDir))) return null;
   const doc = await readProjectDoc(projectDir, MODULE_MAP_FILE);
-  return doc.exists ? Object.assign(parseModuleMap(doc.content), { glossary: parseGlossary(doc.content) }) : null;
+  return doc.exists ? Object.assign(parseModuleMap(doc.content), { glossary: parseGlossary(doc.content), scenarios: parseScenarios(doc.content) }) : null;
 }
 
 async function tableNames(dir: string): Promise<string[]> {
@@ -25,7 +25,18 @@ export async function sdModuleMapProblems(dir: string, projectDir: string | null
   const map = await loadMap(projectDir);
   if (!map) return [];
   const sd = await readFile(path.join(dir, "03-sd.md"), "utf-8").catch(() => "");
-  return [...checkModulesDeclared(map, modules), ...checkTableOwnership(map, await tableNames(dir), modules, map.glossary), ...checkCrossModuleCalls(map, parseCrossModuleCalls(sd), modules)].map((v) => `模組地圖檢查未通過：${v}`);
+  return [...checkModulesDeclared(map, modules), ...checkTableOwnership(map, await tableNames(dir), modules, map.glossary), ...checkCrossModuleCalls(map, parseCrossModuleCalls(sd), modules), ...checkSdScenarios(map.scenarios, parseSdScenarioNames(sd))].map((v) => `模組地圖檢查未通過：${v}`);
+}
+
+/** 測試交件：SD 宣告所屬的跨模組情境，每個都要有端到端整合測試並掛需求編號。條件同 sdModuleMapProblems，SD 沒寫情境節就不檢查。 */
+export async function scenarioTestProblems(dir: string, projectDir: string | null | undefined, modules: readonly string[] | undefined): Promise<string[]> {
+  if (!modules || modules.length === 0) return [];
+  const map = await loadMap(projectDir);
+  if (!map) return [];
+  const names = parseSdScenarioNames(await readFile(path.join(dir, "03-sd.md"), "utf-8").catch(() => ""));
+  if (names.length === 0) return [];
+  const test = await readFile(path.join(dir, "test.md"), "utf-8").catch(() => "");
+  return checkScenarioTests(names, test).map((v) => `情境測試檢查未通過：${v}`);
 }
 
 /** 進入實作的把關：SD 確認時，所屬模組依賴的系統模組還沒完成，AI 不能代確認；使用者本人確認視為臨時放行（原話記在關卡紀錄）。 */

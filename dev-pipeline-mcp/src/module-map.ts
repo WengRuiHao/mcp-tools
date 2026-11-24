@@ -3,6 +3,7 @@
 // 項目：負責人、類型（系統模組）、狀態（已完成／開發中，沒寫視為已完成）、擁有資料表、依賴模組。
 import { extractSection } from "./workflow/reuse-record-check.js";
 import { listHeadings } from "./workflow/sa-image-check.js";
+import { parseTestBlocks } from "./workflow/traceability-check.js";
 
 export const MODULE_MAP_FILE = "module-map.md";
 const MODULE_PREFIX = "模組：";
@@ -111,6 +112,38 @@ function findCycle(mods: readonly ModuleEntry[]): string[] | null {
     if (c) return c;
   }
   return null;
+}
+
+/** SD「## 跨模組情境」節每行一個情境名（冒號後是說明）；沒有這一節回空陣列。 */
+export function parseSdScenarioNames(sdText: string): string[] {
+  const body = extractSection(sdText, "跨模組情境");
+  if (body === null) return [];
+  const out: string[] = [];
+  for (const raw of body.split(/\r\n|\r|\n/)) {
+    const bare = raw.replace(/^\s*(?:[-*+]|\d+[.)])\s*/, "").replace(/[`*]/g, "").trim();
+    if (!bare || raw.trim().startsWith("#")) continue;
+    const name = bare.split(/[:：]/)[0].trim();
+    if (name) out.push(name);
+  }
+  return [...new Set(out)];
+}
+
+/** SD 宣告所屬的情境都要在模組地圖的情境清單裡。 */
+export function checkSdScenarios(scenarios: readonly ScenarioEntry[], declared: readonly string[]): string[] {
+  const known = new Set(scenarios.map((s) => s.name));
+  return declared.filter((n) => !known.has(n)).map((n) => `SD 宣告的跨模組情境「${n}」不在模組地圖（先把它登記到 ${MODULE_MAP_FILE} 的「## 跨模組情境：${n}」，或修正名稱）`);
+}
+
+/** 每個所屬情境至少一個端到端整合測試（測試項目名稱含情境名），並掛對應需求編號。 */
+export function checkScenarioTests(names: readonly string[], testText: string): string[] {
+  const blocks = parseTestBlocks(testText);
+  const out: string[] = [];
+  for (const n of names) {
+    const hit = blocks.filter((b) => b.name.includes(n));
+    if (hit.length === 0) out.push(`跨模組情境「${n}」沒有端到端整合測試（測試報告加「## 測試：${n}…」項目）`);
+    else if (!hit.some((b) => b.ids && b.ids.length > 0)) out.push(`跨模組情境「${n}」的測試項目缺少「**對應需求：** R1」（情境測試要掛追溯矩陣的需求編號）`);
+  }
+  return out;
 }
 
 export interface GlossaryEntry {
