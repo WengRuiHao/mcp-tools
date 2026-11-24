@@ -11,6 +11,7 @@ import { SA_CONFIRM_GATE, requireDecisionsReflected, requireQuestionsDecided } f
 import { FINAL_ACCEPTANCE_GATE, writeFinalSummary } from "./final-summary-io.js";
 import { authorizeDecision, requireAgentRejectReason, requireHumanQuote, requireReviewReasons, withReviewNote } from "./gate-guard.js";
 import { MOCKUP_CONFIRM_GATE, moveLosingCandidates, validateSelected, type MovedCandidate } from "./mockup-select.js";
+import { requireHumanForIrreversible } from "./irreversible-guard.js";
 import { recordEscalation, withoutEscalation } from "./review-escalation.js";
 import { refreshIndexDoc } from "./index-doc.js";
 import type { WorkItemArgs } from "./schema.js";
@@ -75,6 +76,7 @@ export async function handleConfirm(a: WorkItemArgs): Promise<ToolReply> {
     await requireQuestionsDecided(ctx.dir, ctx.status);
     requireDecisionsReflected(ctx.status);
   }
+  await requireHumanForIrreversible(ctx.dir, ctx.status, gateId, by, decision);
   requireHumanQuote(def, gateId, by, a.reason, decision);
   requireAgentRejectReason(gateId, by, decision, a.reason);
   const alsoRewind = [...new Set((a.alsoRewind ?? []).map((x) => x.trim()).filter((x) => x !== ""))];

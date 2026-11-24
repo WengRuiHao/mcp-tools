@@ -55,3 +55,12 @@ export function checkSdRollout(text: string, opts: { needsDbRollback: boolean })
   }
   return out;
 }
+
+/** SD 的「上線與回滾」節裡，「DB 變更回滾」是否寫了不可逆（高風險時要使用者本人確認）。 */
+export function hasIrreversibleDbChange(text: string): boolean {
+  const body = extractSection(text, ROLLOUT_SECTION);
+  if (body === null) return false;
+  const item = ROLLOUT_ITEMS.find((i) => i.name === "DB 變更回滾");
+  const content = item ? itemContent(body, item) : null;
+  return content !== null && /不可逆/.test(content);
+}

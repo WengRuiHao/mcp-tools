@@ -92,3 +92,28 @@ test("接線：高風險的 SD 交件才檢查上線與回滾；一般需求完�
   const ok = await checkDeliverables(dir, "sd-analyst", def, { highRisk: true });
   assert.ok(!ok.some((p) => p.includes("上線與回滾")), JSON.stringify(ok));
 });
+
+test("不可逆偵測：DB 變更回滾寫了不可逆才算；沒寫或寫還原方式不算", async () => {
+  const { hasIrreversibleDbChange } = await import("../dist/workflow/sd-rollout-check.js");
+  assert.equal(hasIrreversibleDbChange(GOOD), false);
+  assert.equal(hasIrreversibleDbChange(GOOD.replace(/- DB 變更回滾：.*/, "- DB 變更回滾：不可逆，刪除欄位後無法還原，上線前完整備份。")), true);
+  assert.equal(hasIrreversibleDbChange("## API 說明\n\n沒有上線與回滾節\n"), false);
+  assert.equal(hasIrreversibleDbChange("## 規格說明\n\n- DB 變更回滾：不可逆\n\n## 上線與回滾\n\n- 上線步驟：x\n"), false);
+});
+
+test("不可逆確認：高風險且 SD 含不可逆時，AI 不可代確認 sd-confirm；本人確認、一般需求、其他關卡不受影響", async () => {
+  const { requireHumanForIrreversible } = await import("../dist/work-item-actions/irreversible-guard.js");
+  const { mkdtemp, writeFile } = await import("node:fs/promises");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const dir = await mkdtemp(path.join(os.tmpdir(), "irrev-"));
+  await writeFile(path.join(dir, "03-sd.md"), GOOD.replace(/- DB 變更回滾：.*/, "- DB 變更回滾：不可逆，刪除欄位後無法還原，上線前完整備份。"));
+  const hi = { high_risk: true };
+  await assert.rejects(requireHumanForIrreversible(dir, hi, "sd-confirm", "agent", "confirmed"), /不可逆.*本人/);
+  await requireHumanForIrreversible(dir, hi, "sd-confirm", "human", "confirmed");
+  await requireHumanForIrreversible(dir, hi, "sd-confirm", "agent", "rejected");
+  await requireHumanForIrreversible(dir, hi, "sa-confirm", "agent", "confirmed");
+  await requireHumanForIrreversible(dir, {}, "sd-confirm", "agent", "confirmed");
+  await writeFile(path.join(dir, "03-sd.md"), GOOD);
+  await requireHumanForIrreversible(dir, hi, "sd-confirm", "agent", "confirmed");
+});
