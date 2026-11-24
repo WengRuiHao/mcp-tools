@@ -113,3 +113,25 @@ test("接線：高風險的測試工程師交件附追溯警告；一般需求�
   assert.deepEqual(await testTraceabilityWarningsFor(dir, "tester", false), []);
   assert.deepEqual(await testTraceabilityWarningsFor(dir, "verifier", true), []);
 });
+
+test("交付摘要：高風險才有追溯矩陣節（收合、僅供參考）；沒給矩陣時報告逐字不變", async () => {
+  const { buildFinalSummary } = await import("../dist/workflow/final-summary.js");
+  const base = { workItemId: "wi-20260101-1", title: "t", requirement: "r", baseline: undefined, scope: undefined, hasDb: undefined, createdAt: undefined, gates: [], artifacts: [], progress: undefined, consecutiveFailCount: 0, files: [], dupReport: undefined };
+  const plain = buildFinalSummary(base);
+  assert.ok(!plain.includes("追溯"));
+  const withM = buildFinalSummary({ ...base, traceability: [{ id: "R1", apis: ["登入"], tests: ["登入成功"] }, { id: "R2", apis: ["登出"], tests: [] }] });
+  assert.ok(withM.includes("追溯矩陣（僅供參考）") && withM.includes("<details>"), withM);
+  assert.ok(withM.includes("| R1 | 登入 | 登入成功 |"));
+  assert.ok(withM.includes("| R2 | 登出 | 無 |"));
+  assert.equal(buildFinalSummary({ ...base, traceability: [] }), plain);
+});
+
+test("接線：高風險工作項目的 final-summary.md 含追溯矩陣；SA 沒編號則沒有", async () => {
+  const { collectTraceability } = await import("../dist/work-item-actions/final-summary-io.js");
+  const dir = await tmpWith({ "01-sa.md": sa("R1, R2"), "03-sd.md": sd(api("登入", "R1, R2")), "test.md": tests(tcase("登入成功", "R1")) });
+  const m = await collectTraceability(dir, true);
+  assert.deepEqual(m.map((r) => [r.id, r.apis, r.tests]), [["R1", ["登入"], ["登入成功"]], ["R2", ["登入"], []]]);
+  assert.deepEqual(await collectTraceability(dir, false), []);
+  const none = await tmpWith({ "01-sa.md": sa(undefined) });
+  assert.deepEqual(await collectTraceability(none, true), []);
+});

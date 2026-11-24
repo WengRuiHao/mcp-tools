@@ -44,6 +44,8 @@ export interface FinalSummaryInput {
   internalPaths?: readonly string[];
   /** 本工作項目寫過的專案層文件；沒寫過就不給，報告不會多這一節。 */
   projectDocChanges?: ReadonlyArray<{ doc: string; at: string; sha256: string }> | undefined;
+  /** 高風險追溯矩陣（需求 → API → 測試）；沒給或空陣列就不多這一節。 */
+  traceability?: readonly { id: string; apis: readonly string[]; tests: readonly string[] }[] | undefined;
   /** 工作項目目錄與專案目錄根殘留的 *.stackdump（Bash 當機遺留，有才列出警告節）。 */
   stackdumpPaths?: readonly string[];
 }
@@ -231,6 +233,25 @@ function projectDocSection(changes: FinalSummaryInput["projectDocChanges"]): str
   return ["## 七、本次更新的專案層文件", "", ...changes.map((c) => `- ${c.doc}｜${formatTime(c.at)}｜版本 ${c.sha256.slice(0, 8)}`), ""];
 }
 
+const cell = (items: readonly string[]): string => (items.length === 0 ? "無" : items.map((s) => oneLine(s).replace(/\|/g, "\\|")).join("、"));
+
+function traceabilitySection(rows: FinalSummaryInput["traceability"]): string[] {
+  if (!rows || rows.length === 0) return [];
+  return [
+    "## 八、追溯矩陣（僅供參考）",
+    "",
+    "<details>",
+    "<summary>需求 → SD API → 測試項目對照（點開查看）</summary>",
+    "",
+    "| 需求 | SD API | 測試項目 |",
+    "| --- | --- | --- |",
+    ...rows.map((r) => `| ${r.id} | ${cell(r.apis)} | ${cell(r.tests)} |`),
+    "",
+    "</details>",
+    "",
+  ];
+}
+
 /** 完整報告字串。第五節只有工作項目目錄內有 dup-report.md 才會出現。 */
 export function buildFinalSummary(i: FinalSummaryInput): string {
   const completedAt = i.progress?.gates["final-acceptance"]?.at;
@@ -244,6 +265,7 @@ export function buildFinalSummary(i: FinalSummaryInput): string {
     ...dupSection(i.dupReport),
     ...stackdumpSection(i.stackdumpPaths),
     ...projectDocSection(i.projectDocChanges),
+    ...traceabilitySection(i.traceability),
     "---",
     "",
     "這份報告由程式依紀錄彙整，不含 AI 的主觀評論。",

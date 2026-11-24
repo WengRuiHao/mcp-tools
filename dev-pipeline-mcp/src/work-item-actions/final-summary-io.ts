@@ -8,6 +8,9 @@ import { FINAL_SUMMARY_FILE, artifactPaths, buildFinalSummary, buildFinalSummary
 import { resolveWorkflow } from "../workflow/resolve.js";
 import type { WorkflowDefinition } from "../workflow/schema.js";
 import { findStackdumps } from "./stackdump.js";
+import { SA_FILE_NAME } from "../workflow/sa-image-check.js";
+import { TEST_FILE_NAME } from "../workflow/test-evidence-check.js";
+import { parseSaRequirementIds, traceabilityMatrix, type MatrixRow } from "../workflow/traceability-check.js";
 import { isGatePassed } from "../workflow/work-item-progress.js";
 
 export const FINAL_ACCEPTANCE_GATE = "final-acceptance";
@@ -33,6 +36,17 @@ async function measure(root: string, rel: string): Promise<FileFact> {
 }
 
 const readOptional = (file: string): Promise<string | undefined> => readFile(file, "utf-8").catch(() => undefined);
+
+/** 高風險才組追溯矩陣；SA 沒有需求編號或任何檔案讀不到就回空陣列（報告不多這一節）。 */
+export async function collectTraceability(dir: string, highRisk: boolean): Promise<MatrixRow[]> {
+  if (!highRisk) return [];
+  const sa = await readOptional(path.join(dir, SA_FILE_NAME));
+  if (sa === undefined) return [];
+  const ids = parseSaRequirementIds(sa).ids;
+  if (ids.length === 0) return [];
+  const [sd, test] = await Promise.all([readOptional(path.join(dir, "03-sd.md")), readOptional(path.join(dir, TEST_FILE_NAME))]);
+  return traceabilityMatrix(ids, sd ?? "", test ?? "");
+}
 
 async function collectInput(dir: string, status: TicketStatus, def: WorkflowDefinition, id: string): Promise<FinalSummaryInput> {
   const resolved = resolveWorkflow(def, buildWhenContext(status));
@@ -63,6 +77,7 @@ async function collectInput(dir: string, status: TicketStatus, def: WorkflowDefi
     deliverablePaths: delivered,
     internalPaths: internal,
     stackdumpPaths: await findStackdumps(dir, status.project_dir),
+    traceability: await collectTraceability(dir, status.high_risk === true),
   };
 }
 
