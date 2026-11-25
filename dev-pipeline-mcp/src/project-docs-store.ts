@@ -24,6 +24,7 @@ export const PROJECT_DOC_NAMES: readonly string[] = Object.freeze([
   "change-log.md",
   "capacity-assumptions.md",
   "release-register.md",
+  "legacy-exceptions.md",
 ]);
 
 export class ProjectDocConflictError extends Error {

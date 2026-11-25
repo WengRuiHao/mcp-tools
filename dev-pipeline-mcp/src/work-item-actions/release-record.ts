@@ -1,5 +1,6 @@
 import { RELEASE_FILE, DEFAULT_RELEASE_DAYS, addDays, formatReleaseLine, isIsoDate, overdueReleases, parseReleases } from "../release-register.js";
 import { readProjectDoc, writeProjectDoc } from "../project-docs-store.js";
+import { LEGACY_EXCEPTIONS_FILE, overdueLegacyExceptions } from "../legacy-exceptions.js";
 import { WorkItemActionError, errorMessage } from "./common.js";
 
 export const todayIso = (now: Date): string => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -33,4 +34,13 @@ export async function releaseWarningsField(projectDir: string | null | undefined
   if (!doc || !doc.exists) return {};
   const over = overdueReleases(parseReleases(doc.content), todayIso(now));
   return over.length > 0 ? { releaseWarnings: over.map((r) => `${r.workItemId} 的放行已逾期（預計補齊 ${r.due}）：${r.reason}；請補齊依賴，並從 ${RELEASE_FILE} 移除或更新到期日`) } : {};
+}
+
+/** get 用：專案層歷史例外清單有逾期的才回 legacyExceptionWarnings；沒有文件、沒有逾期都不多欄位。 */
+export async function legacyExceptionWarningsField(projectDir: string | null | undefined, now: Date = new Date()): Promise<{ legacyExceptionWarnings?: string[] }> {
+  if (!projectDir) return {};
+  const doc = await readProjectDoc(projectDir, LEGACY_EXCEPTIONS_FILE).catch(() => null);
+  if (!doc || !doc.exists) return {};
+  const over = overdueLegacyExceptions(doc.content, todayIso(now));
+  return over.length > 0 ? { legacyExceptionWarnings: over } : {};
 }

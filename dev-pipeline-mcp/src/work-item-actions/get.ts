@@ -2,7 +2,7 @@ import { buildWhenContext, isSaConfirmed } from "../work-item-store.js";
 import { listProjectDocs } from "../project-docs-store.js";
 import { multiModuleFieldsFor, tableOverlapField } from "../work-item-modules.js";
 import { capacityWarningsField } from "./capacity-warnings.js";
-import { releaseWarningsField } from "./release-record.js";
+import { legacyExceptionWarningsField, releaseWarningsField } from "./release-record.js";
 import { withoutHiddenHighRiskArtifacts } from "../workflow/high-risk-hidden.js";
 import { isStyleSourceLocked, isTechSourceLocked } from "../work-item-sources.js";
 import { need, okReply, type ToolReply } from "./common.js";
@@ -59,6 +59,7 @@ export async function handleGet(a: WorkItemArgs): Promise<ToolReply> {
     ...(await tableOverlapField(ctx.id, s, ctx.dir)),
     ...(await capacityWarningsField(s.project_dir, s.high_risk)),
     ...(await releaseWarningsField(s.project_dir)),
+    ...(await legacyExceptionWarningsField(s.project_dir)),
     ...(await listDeliverables(ctx.dir, withoutHiddenHighRiskArtifacts(v.def, buildWhenContext(s)))),
     ...nextBlock(v),
   });

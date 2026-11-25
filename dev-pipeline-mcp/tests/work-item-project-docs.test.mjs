@@ -165,3 +165,19 @@ test("模組地圖：跨模組情境結構問題也走 moduleMapWarnings", async
   assert.match(w, /下單.*Q.*不在模組地圖/);
   assert.match(w, /下單.*失敗處理/);
 });
+
+test("歷史例外：白名單含 legacy-exceptions.md；寫入缺到期日回 legacyExceptionWarnings；get 回逾期提醒，未逾期不多欄位", async () => {
+  const { PROJECT_DOC_NAMES } = await import("../dist/project-docs-store.js");
+  assert.ok(PROJECT_DOC_NAMES.includes("legacy-exceptions.md"));
+  const c = await create();
+  const bad = await env.call({ action: "project_doc_write", workItemId: c.workItemId, filename: "legacy-exceptions.md", content: "- 訂單與庫存直接寫 stock 表\n- 報表直接讀 orders｜到期日：2099-01-01\n" });
+  assert.equal(bad.isError, false, JSON.stringify(bad.json));
+  assert.match(bad.json.legacyExceptionWarnings.join("\n"), /訂單與庫存直接寫 stock 表.*到期日/);
+  assert.equal(bad.json.legacyExceptionWarnings.length, 1);
+  const clean = (await env.call({ action: "get", workItemId: c.workItemId })).json;
+  assert.equal(clean.legacyExceptionWarnings, undefined);
+  await env.call({ action: "project_doc_write", workItemId: c.workItemId, filename: "legacy-exceptions.md", content: "- 舊例外｜到期日：2020-01-01\n- 新例外｜到期日：2099-01-01\n" });
+  const got = (await env.call({ action: "get", workItemId: c.workItemId })).json;
+  assert.equal(got.legacyExceptionWarnings.length, 1);
+  assert.match(got.legacyExceptionWarnings[0], /舊例外.*逾期.*2020-01-01/);
+});
