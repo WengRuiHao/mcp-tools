@@ -12,7 +12,8 @@ import { FINAL_ACCEPTANCE_GATE, writeFinalSummary } from "./final-summary-io.js"
 import { authorizeDecision, requireAgentRejectReason, requireHumanQuote, requireReviewReasons, withReviewNote } from "./gate-guard.js";
 import { MOCKUP_CONFIRM_GATE, moveLosingCandidates, validateSelected, type MovedCandidate } from "./mockup-select.js";
 import { requireHumanForIrreversible } from "./irreversible-guard.js";
-import { requireDependenciesReady } from "./module-map-checks.js";
+import { releaseProblems, requireDependenciesReady } from "./module-map-checks.js";
+import { recordRelease, resolveReleaseDue, todayIso } from "./release-record.js";
 import { recordEscalation, withoutEscalation } from "./review-escalation.js";
 import { refreshIndexDoc } from "./index-doc.js";
 import type { WorkItemArgs } from "./schema.js";
@@ -79,6 +80,8 @@ export async function handleConfirm(a: WorkItemArgs): Promise<ToolReply> {
   }
   await requireHumanForIrreversible(ctx.dir, ctx.status, gateId, by, decision);
   await requireDependenciesReady(ctx.status, gateId, by, decision);
+  const released = await releaseProblems(ctx.status, gateId, by, decision);
+  const releaseDue = released.length > 0 ? resolveReleaseDue(a.releaseDue, todayIso(new Date())) : undefined;
   requireHumanQuote(def, gateId, by, a.reason, decision);
   requireAgentRejectReason(gateId, by, decision, a.reason);
   const alsoRewind = [...new Set((a.alsoRewind ?? []).map((x) => x.trim()).filter((x) => x !== ""))];
@@ -106,6 +109,7 @@ export async function handleConfirm(a: WorkItemArgs): Promise<ToolReply> {
   const summary = gateId === FINAL_ACCEPTANCE_GATE && value === "confirmed" ? await trySummary(ctx.dir, updated, def, ctx.id) : {};
   const indexWarning = await refreshIndexDoc({ dir: ctx.dir, status: updated }, { def, overrideApplied });
   // 依賴的工作項目還沒完成：SA 確認與最終驗收通過時提醒（只警告，不擋）
+  const release = released.length > 0 && ctx.status.project_dir && releaseDue ? await recordRelease(ctx.status.project_dir, { workItemId: ctx.id, problems: released, quote: a.reason ?? "", due: releaseDue }) : {};
   const deps = value === "confirmed" || value === "passed" ? (gateId === SA_CONFIRM_GATE || gateId === FINAL_ACCEPTANCE_GATE ? await dependencyWarningFields(updated) : {}) : {};
-  return okReply({ workItemId: ctx.id, gateId, decision: value, by, rewoundRoles: rewound, ...(alsoRewind.length > 0 ? { alsoRewind } : {}), ...style, ...summary, ...deps, ...(indexWarning ? { indexWarning } : {}), ...nextBlock(viewFor(updated, def, overrideApplied)) });
+  return okReply({ workItemId: ctx.id, gateId, decision: value, by, rewoundRoles: rewound, ...(alsoRewind.length > 0 ? { alsoRewind } : {}), ...style, ...summary, ...deps, ...release, ...(indexWarning ? { indexWarning } : {}), ...nextBlock(viewFor(updated, def, overrideApplied)) });
 }

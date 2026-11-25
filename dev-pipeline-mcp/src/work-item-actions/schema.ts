@@ -49,6 +49,7 @@ export const workItemShape = {
   decision: z.enum(["confirmed", "rejected"]).optional().describe("confirm：確認或打回"),
   by: z.enum(["human", "agent"]).optional().describe("confirm／verdict：human＝使用者本人說了算；agent＝AI 代為決定：核准只有該關卡解析為 auto 且通過把關才成功；打回（confirm rejected、verdict fail）不受硬性停止限制，最終驗收除外（核准與打回都只能 human）"),
   reason: z.string().optional().describe("confirm／verdict／update_requirement：理由；by:human 一律必填（至少 2 字，寫使用者原話，不可只是選項代號如 A、1）；by:agent 打回（confirm rejected、verdict fail）必填，寫退回原因；update_requirement 寫使用者要求修改的原話；record_decision 寫使用者做這個決定的原話（必填，同樣不可只是選項代號）"),
+  releaseDue: z.string().optional().describe("confirm（by:human 核准 sd-confirm 且依賴未完成＝放行）：預計補齊依賴的日期 YYYY-MM-DD，預設今天起 30 天；登記在專案層 release-register.md，逾期只提醒不擋"),
   question: z.string().optional().describe("record_decision：使用者決定的問題，填 sa-notes.md 待確認問題的編號（Q3 或 3）或標題；不在待確認清單的事項可直接寫問題描述"),
   answer: z.string().optional().describe("record_decision：使用者的決定（除非 acceptAllSuggested）"),
   acceptAllSuggested: z.boolean().optional().describe("record_decision：使用者說「全部照建議」時為 true，一次接受 sa-notes.md 所有尚無決定記錄的待確認問題（每項記為其建議預設）；reason 仍必填使用者原話；此時不需 question、answer"),

@@ -117,3 +117,45 @@ test("1M 擋住：專案關掉 multiModule 後，已宣告的依賴不再擋", a
   await setFlow(p, { schemaVersion: 1, multiModule: false });
   await requireDependenciesReady({ project_dir: p, depends_on: [a.workItemId] }, "sd-confirm", "agent", "confirmed");
 });
+
+test("1M 放行登記：本人在 SD 確認放行會寫進 release-register.md；releaseDue 格式與過去日期被拒絕；沒有放行就不寫", async () => {
+  const p = await newProject(true);
+  const a = (await create(p, { title: "A" })).json;
+  const b = (await create(p, { title: "B", dependsOn: [a.workItemId] })).json;
+  await runUntil(env, b.workItemId, b.dir, "sd-confirm");
+  const confirm = (extra) => env.call({ action: "confirm", workItemId: b.workItemId, gateId: "sd-confirm", decision: "confirmed", by: "human", reason: "使用者說先做，我負責補", ...extra });
+  const bad = await confirm({ releaseDue: "2026/12/01" });
+  assert.equal(bad.isError, true);
+  assert.match(bad.text, /releaseDue/);
+  const past = await confirm({ releaseDue: "2020-01-01" });
+  assert.equal(past.isError, true);
+  assert.match(past.text, /早於今天/);
+  const none = await env.call({ action: "project_doc_read", workItemId: b.workItemId, filename: "release-register.md" });
+  assert.ok(none.isError || !none.json?.exists, "被拒絕時不能留下登記");
+  const ok = await confirm({ releaseDue: "2099-01-01" });
+  assert.equal(ok.isError, false, ok.text);
+  assert.equal(ok.json.releaseRecorded.file, "release-register.md");
+  assert.equal(ok.json.releaseRecorded.due, "2099-01-01");
+  const doc = await env.call({ action: "project_doc_read", workItemId: b.workItemId, filename: "release-register.md" });
+  assert.match(doc.text, new RegExp(b.workItemId));
+  assert.match(doc.text, /到期日：2099-01-01/);
+  assert.match(doc.text, /使用者說先做，我負責補/);
+});
+
+test("1M 放行登記：依賴已完成時本人確認不登記；get 回逾期放行提醒，未逾期不多欄位", async () => {
+  const p = await newProject(true);
+  const a = (await create(p, { title: "A" })).json;
+  const b = (await create(p, { title: "B", dependsOn: [a.workItemId] })).json;
+  await finish(a.dir);
+  await runUntil(env, b.workItemId, b.dir, "sd-confirm");
+  const r = await env.call({ action: "confirm", workItemId: b.workItemId, gateId: "sd-confirm", decision: "confirmed", by: "human", reason: "使用者說確認" });
+  assert.equal(r.isError, false, r.text);
+  assert.ok(!("releaseRecorded" in r.json));
+  const clean = await env.call({ action: "get", workItemId: b.workItemId });
+  assert.ok(!("releaseWarnings" in clean.json));
+  const w = await env.call({ action: "project_doc_write", workItemId: b.workItemId, filename: "release-register.md", content: "- wi-20200101-001｜舊放行｜放行日：2020-01-01｜到期日：2020-02-01\n- wi-20990101-001｜新放行｜放行日：2026-11-25｜到期日：2099-01-01\n" });
+  assert.equal(w.isError, false, w.text);
+  const got = await env.call({ action: "get", workItemId: b.workItemId });
+  assert.equal(got.json.releaseWarnings.length, 1);
+  assert.match(got.json.releaseWarnings[0], /wi-20200101-001.*逾期/);
+});

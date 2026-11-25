@@ -41,9 +41,8 @@ export async function scenarioTestProblems(dir: string, projectDir: string | nul
   return checkScenarioTests(names, test).map((v) => `情境測試檢查未通過：${v}`);
 }
 
-/** 進入實作的把關：SD 確認時，依賴的工作項目或所屬模組依賴的系統模組還沒完成，AI 不能代確認；使用者本人確認視為臨時放行（原話記在關卡紀錄）。 */
-export async function requireDependenciesReady(status: { project_dir?: string | null; modules?: string[]; depends_on?: string[] }, gateId: string, by: string, decision: string): Promise<void> {
-  if (gateId !== SD_CONFIRM_GATE || by !== "agent" || decision !== "confirmed") return;
+/** SD 確認時尚未解除的依賴問題：依賴的工作項目未完成、所屬模組依賴的系統模組未完成。沒開 multiModule 或沒宣告就是空陣列。 */
+export async function dependencyProblems(status: { project_dir?: string | null; modules?: string[]; depends_on?: string[] }): Promise<string[]> {
   const problems: string[] = [];
   if (status.depends_on?.length && status.project_dir && (await isMultiModuleProject(status.project_dir).catch(() => false))) {
     for (const d of await unfinishedDependencies(status)) problems.push(`依賴的工作項目 ${d.workItemId}${d.title ? `（${d.title}）` : ""}未完成（還沒通過最終驗收），不能進入實作`);
@@ -52,5 +51,18 @@ export async function requireDependenciesReady(status: { project_dir?: string | 
     const map = await loadMap(status.project_dir);
     if (map) problems.push(...blockedByUnfinishedSystemModules(map, status.modules));
   }
-  if (problems.length > 0) throw new WorkItemActionError(`關卡「${gateId}」：${problems.join("；")}。先完成依賴；真的要先做，請使用者本人確認（by="human"，reason 附使用者原話與放行理由）。`);
+  return problems;
+}
+
+/** 進入實作的把關：SD 確認時，依賴的工作項目或所屬模組依賴的系統模組還沒完成，AI 不能代確認；使用者本人確認視為臨時放行（原話記在關卡紀錄，並登記到 release-register.md）。 */
+export async function requireDependenciesReady(status: { project_dir?: string | null; modules?: string[]; depends_on?: string[] }, gateId: string, by: string, decision: string): Promise<void> {
+  if (gateId !== SD_CONFIRM_GATE || by !== "agent" || decision !== "confirmed") return;
+  const problems = await dependencyProblems(status);
+  if (problems.length > 0) throw new WorkItemActionError(`關卡「${gateId}」：${problems.join("；")}。先完成依賴；真的要先做，請使用者本人確認（by="human"，reason 附使用者原話與放行理由；可用 releaseDue 指定預計補齊日期，預設 30 天後）。`);
+}
+
+/** 使用者本人在 SD 確認放行時要登記的依賴問題；不是放行情境回空陣列。 */
+export async function releaseProblems(status: { project_dir?: string | null; modules?: string[]; depends_on?: string[] }, gateId: string, by: string, decision: string): Promise<string[]> {
+  if (gateId !== SD_CONFIRM_GATE || by !== "human" || decision !== "confirmed") return [];
+  return dependencyProblems(status);
 }
