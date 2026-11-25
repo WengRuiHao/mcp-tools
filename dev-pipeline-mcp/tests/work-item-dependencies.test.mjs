@@ -177,3 +177,22 @@ test("1M 循環依賴：set_scope 讓依賴形成環（直接或間接）會被�
   const fine = await env.call({ action: "set_scope", workItemId: d.workItemId, dependsOn: [c.workItemId, a.workItemId] });
   assert.equal(fine.isError, false, fine.text);
 });
+
+test("1M 模組名稱核對：宣告的模組不在模組地圖，create／set_scope／get 都回 moduleWarnings（只警告）；沒地圖或都存在不多欄位", async () => {
+  const p = await newProject(true);
+  const noMap = (await create(p, { title: "無地圖", modules: ["隨便"] })).json;
+  assert.ok(!("moduleWarnings" in noMap), "沒有模組地圖不檢查");
+  await mkdir(path.join(p, ".dev-pipeline", "project-docs"), { recursive: true });
+  await writeFile(path.join(p, ".dev-pipeline", "project-docs", "module-map.md"), "## 模組：會員\n- 負責人：小王\n\n## 模組：訂單\n- 負責人：小李\n");
+  const ok = (await create(p, { title: "正常", modules: ["會員", "訂單"] })).json;
+  assert.ok(!("moduleWarnings" in ok));
+  const typo = await create(p, { title: "打錯字", modules: ["會員", "訂單們"] });
+  assert.equal(typo.isError, false, typo.text);
+  assert.equal(typo.json.moduleWarnings.length, 1);
+  assert.match(typo.json.moduleWarnings[0], /訂單們/);
+  const got = await env.call({ action: "get", workItemId: typo.json.workItemId });
+  assert.equal(got.json.moduleWarnings.length, 1);
+  const fixed = await env.call({ action: "set_scope", workItemId: typo.json.workItemId, modules: ["會員", "訂單"] });
+  assert.equal(fixed.isError, false, fixed.text);
+  assert.ok(!("moduleWarnings" in fixed.json));
+});

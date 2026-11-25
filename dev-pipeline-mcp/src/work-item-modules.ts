@@ -4,6 +4,8 @@ import { readStatus, type TicketStatus } from "./pipeline-store.js";
 import { readJsonFile } from "./atomic-store.js";
 import { getTicketsIndexFile } from "./config-store.js";
 import { loadProjectFlowOverride } from "./workflow/load.js";
+import { MODULE_MAP_FILE, checkModulesDeclared, parseModuleMap } from "./module-map.js";
+import { readProjectDoc } from "./project-docs-store.js";
 
 /** 批次 1M：多模組並行。專案 flow.json 開 multiModule 後，工作項目才能宣告動到哪些模組；進行中的功能若動到同一個模組只警告、不擋。 */
 
@@ -189,6 +191,8 @@ export interface MultiModuleFields {
   overlapWarnings?: OverlapWarning[];
   dependsOn?: string[];
   dependencyWarnings?: DependencyWarning[];
+  /** 宣告的模組不在模組地圖（只警告；專案還沒有模組地圖就不檢查）。 */
+  moduleWarnings?: string[];
 }
 
 /** 給 create／set_scope／get 用：宣告了模組或依賴才有結果；專案關掉 multiModule 後只列宣告、不再警告。 */
@@ -200,5 +204,12 @@ export async function multiModuleFieldsFor(id: string, status: TicketStatus): Pr
   if (!(await isMultiModuleProject(status.project_dir).catch(() => false))) return declared;
   const overlaps = hasModules ? await findModuleOverlaps(status.project_dir, id, status.modules ?? []) : [];
   const deps = hasDeps ? await unfinishedDependencies(status) : [];
-  return { ...declared, ...(overlaps.length > 0 ? { overlapWarnings: overlaps } : {}), ...(deps.length > 0 ? { dependencyWarnings: deps } : {}) };
+  const unknown = hasModules ? await unknownModuleWarnings(status.project_dir, status.modules ?? []) : [];
+  return { ...declared, ...(overlaps.length > 0 ? { overlapWarnings: overlaps } : {}), ...(deps.length > 0 ? { dependencyWarnings: deps } : {}), ...(unknown.length > 0 ? { moduleWarnings: unknown } : {}) };
+}
+
+/** 宣告的模組名稱不在專案層模組地圖的警告；沒有地圖、讀取失敗都回空陣列（SD 交件時才會硬性檢查）。 */
+async function unknownModuleWarnings(projectDir: string, modules: readonly string[]): Promise<string[]> {
+  const doc = await readProjectDoc(projectDir, MODULE_MAP_FILE).catch(() => null);
+  return doc && doc.exists ? checkModulesDeclared(parseModuleMap(doc.content), modules) : [];
 }
