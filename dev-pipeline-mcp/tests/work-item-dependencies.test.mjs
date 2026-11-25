@@ -159,3 +159,21 @@ test("1M 放行登記：依賴已完成時本人確認不登記；get 回逾期�
   assert.equal(got.json.releaseWarnings.length, 1);
   assert.match(got.json.releaseWarnings[0], /wi-20200101-001.*逾期/);
 });
+
+test("1M 循環依賴：set_scope 讓依賴形成環（直接或間接）會被拒絕並列出路徑；不成環照常成功", async () => {
+  const p = await newProject(true);
+  const a = (await create(p, { title: "A" })).json;
+  const b = (await create(p, { title: "B", dependsOn: [a.workItemId] })).json;
+  const c = (await create(p, { title: "C", dependsOn: [b.workItemId] })).json;
+  const direct = await env.call({ action: "set_scope", workItemId: a.workItemId, dependsOn: [b.workItemId] });
+  assert.equal(direct.isError, true);
+  assert.match(direct.text, /循環/);
+  assert.ok(direct.text.includes(a.workItemId) && direct.text.includes(b.workItemId));
+  const indirect = await env.call({ action: "set_scope", workItemId: a.workItemId, dependsOn: [c.workItemId] });
+  assert.equal(indirect.isError, true);
+  assert.match(indirect.text, /循環/);
+  assert.ok(!Object.keys(await statusOf(a.dir)).includes("depends_on"), "被拒絕時不能寫入");
+  const d = (await create(p, { title: "D" })).json;
+  const fine = await env.call({ action: "set_scope", workItemId: d.workItemId, dependsOn: [c.workItemId, a.workItemId] });
+  assert.equal(fine.isError, false, fine.text);
+});

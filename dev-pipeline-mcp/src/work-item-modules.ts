@@ -126,8 +126,34 @@ export async function validateDependsOn(projectDir: string, selfId: string | nul
       throw new Error(`dependsOn 找不到工作項目：${id}`);
     }
     if (!sameDir(dep.project_dir, projectDir)) throw new Error(`dependsOn 的 ${id} 不在同一個專案，不能依賴`);
+    if (selfId) {
+      const cycle = await findDependencyCycle(selfId, id, dep);
+      if (cycle) throw new Error(`dependsOn 會造成循環依賴：${cycle.join(" → ")}`);
+    }
   }
   return ids;
+}
+
+const MAX_CYCLE_SEARCH = 200;
+
+/** 假設 selfId 新增依賴 firstId：沿著依賴鏈往下找，走得回 selfId 就回傳環的路徑（selfId → … → selfId）；沒有環回 null。讀不到的項目略過，最多走 MAX_CYCLE_SEARCH 個項目。 */
+async function findDependencyCycle(selfId: string, firstId: string, first: TicketStatus): Promise<string[] | null> {
+  const seen = new Set<string>([firstId]);
+  const stack: Array<{ id: string; status: TicketStatus; path: string[] }> = [{ id: firstId, status: first, path: [selfId, firstId] }];
+  while (stack.length > 0 && seen.size <= MAX_CYCLE_SEARCH) {
+    const cur = stack.pop()!;
+    for (const next of cur.status.depends_on ?? []) {
+      if (next === selfId) return [...cur.path, selfId];
+      if (seen.has(next)) continue;
+      seen.add(next);
+      try {
+        stack.push({ id: next, status: await readStatus(next), path: [...cur.path, next] });
+      } catch {
+        /* 讀不到的依賴略過 */
+      }
+    }
+  }
+  return null;
 }
 
 /** 專案沒開 multiModule 時拒絕非空的 dependsOn（與 modules 同一個訊息）；開了才逐項驗證。空陣列＝清除，直接回傳。 */
