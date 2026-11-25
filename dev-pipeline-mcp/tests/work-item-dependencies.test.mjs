@@ -196,3 +196,27 @@ test("1M 模組名稱核對：宣告的模組不在模組地圖，create／set_s
   assert.equal(fixed.isError, false, fixed.text);
   assert.ok(!("moduleWarnings" in fixed.json));
 });
+
+test("1M 模組完成提示：最終驗收通過時，宣告的開發中模組若已沒有其他進行中功能宣告它，回 moduleCompletionHints（不改檔）", async () => {
+  const p = await newProject(true);
+  await mkdir(path.join(p, ".dev-pipeline", "project-docs"), { recursive: true });
+  const mapFile = path.join(p, ".dev-pipeline", "project-docs", "module-map.md");
+  const map = "## 模組：會員\n- 負責人：小王\n- 狀態：已完成\n\n## 模組：訂單\n- 負責人：小李\n- 狀態：開發中\n\n## 模組：庫存\n- 負責人：小陳\n- 狀態：開發中\n";
+  await writeFile(mapFile, map);
+  const a = (await create(p, { title: "A", modules: ["訂單", "會員"] })).json;
+  const other = (await create(p, { title: "B 也動庫存", modules: ["庫存"] })).json;
+  const c = (await create(p, { title: "C 也動訂單", modules: ["訂單"] })).json;
+  await runUntil(env, a.workItemId, a.dir, "final-acceptance");
+  const r = await env.call({ action: "confirm", workItemId: a.workItemId, gateId: "final-acceptance", decision: "confirmed", by: "human", reason: "使用者說驗收" });
+  assert.equal(r.isError, false, r.text);
+  assert.ok(!("moduleCompletionHints" in r.json), "C 還在進行中並宣告訂單：不提示；會員本來就是已完成：不提示");
+  await finish(c.dir);
+  const { moduleCompletionHints } = await import("../dist/work-item-actions/module-map-checks.js");
+  const hints = await moduleCompletionHints(p, a.workItemId, ["訂單", "會員"]);
+  assert.equal(hints.length, 1);
+  assert.match(hints[0], /訂單.*module-map\.md.*開發中/);
+  assert.deepEqual(await moduleCompletionHints(p, other.workItemId, ["庫存"]), [`模組「庫存」在 module-map.md 的狀態還是開發中，目前沒有其他進行中的功能宣告它；若能力都齊了，請把狀態改為已完成（可用 project_doc_write 帶 section 只改那一段）`]);
+  assert.deepEqual(await moduleCompletionHints(p, a.workItemId, []), []);
+  assert.equal(await readFile(mapFile, "utf-8"), map, "不自動改寫模組地圖");
+  assert.deepEqual(await moduleCompletionHints(await newProject(false), a.workItemId, ["訂單"]), [], "沒開 multiModule 不提示");
+});

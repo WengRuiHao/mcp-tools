@@ -12,7 +12,7 @@ import { FINAL_ACCEPTANCE_GATE, writeFinalSummary } from "./final-summary-io.js"
 import { authorizeDecision, requireAgentRejectReason, requireHumanQuote, requireReviewReasons, withReviewNote } from "./gate-guard.js";
 import { MOCKUP_CONFIRM_GATE, moveLosingCandidates, validateSelected, type MovedCandidate } from "./mockup-select.js";
 import { requireHumanForIrreversible } from "./irreversible-guard.js";
-import { releaseProblems, requireDependenciesReady } from "./module-map-checks.js";
+import { moduleCompletionHints, releaseProblems, requireDependenciesReady } from "./module-map-checks.js";
 import { recordRelease, resolveReleaseDue, todayIso } from "./release-record.js";
 import { recordEscalation, withoutEscalation } from "./review-escalation.js";
 import { refreshIndexDoc } from "./index-doc.js";
@@ -111,5 +111,6 @@ export async function handleConfirm(a: WorkItemArgs): Promise<ToolReply> {
   // 依賴的工作項目還沒完成：SA 確認與最終驗收通過時提醒（只警告，不擋）
   const release = released.length > 0 && ctx.status.project_dir && releaseDue ? await recordRelease(ctx.status.project_dir, { workItemId: ctx.id, problems: released, quote: a.reason ?? "", due: releaseDue }) : {};
   const deps = value === "confirmed" || value === "passed" ? (gateId === SA_CONFIRM_GATE || gateId === FINAL_ACCEPTANCE_GATE ? await dependencyWarningFields(updated) : {}) : {};
-  return okReply({ workItemId: ctx.id, gateId, decision: value, by, rewoundRoles: rewound, ...(alsoRewind.length > 0 ? { alsoRewind } : {}), ...style, ...summary, ...deps, ...release, ...(indexWarning ? { indexWarning } : {}), ...nextBlock(viewFor(updated, def, overrideApplied)) });
+  const completion = gateId === FINAL_ACCEPTANCE_GATE && value === "confirmed" ? await moduleCompletionHints(updated.project_dir, ctx.id, updated.modules).catch(() => []) : [];
+  return okReply({ workItemId: ctx.id, gateId, decision: value, by, rewoundRoles: rewound, ...(alsoRewind.length > 0 ? { alsoRewind } : {}), ...style, ...summary, ...deps, ...release, ...(completion.length > 0 ? { moduleCompletionHints: completion } : {}), ...(indexWarning ? { indexWarning } : {}), ...nextBlock(viewFor(updated, def, overrideApplied)) });
 }

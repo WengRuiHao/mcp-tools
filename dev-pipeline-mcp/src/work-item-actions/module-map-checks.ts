@@ -2,7 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { MODULE_MAP_FILE, blockedByUnfinishedSystemModules, checkCalledContracts, parseContractExamples, checkModulesDeclared, checkCrossModuleCalls, checkScenarioTests, checkSdScenarios, checkTableOwnership, parseCrossModuleCalls, parseGlossary, parseModuleMap, parseScenarios, parseSdScenarioNames } from "../module-map.js";
 import { readProjectDoc } from "../project-docs-store.js";
-import { isMultiModuleProject, unfinishedDependencies } from "../work-item-modules.js";
+import { findModuleOverlaps, isMultiModuleProject, unfinishedDependencies } from "../work-item-modules.js";
 import { WorkItemActionError } from "./common.js";
 
 const SD_CONFIRM_GATE = "sd-confirm";
@@ -65,4 +65,15 @@ export async function requireDependenciesReady(status: { project_dir?: string | 
 export async function releaseProblems(status: { project_dir?: string | null; modules?: string[]; depends_on?: string[] }, gateId: string, by: string, decision: string): Promise<string[]> {
   if (gateId !== SD_CONFIRM_GATE || by !== "human" || decision !== "confirmed") return [];
   return dependencyProblems(status);
+}
+
+/** 最終驗收通過後的提示：宣告的模組在地圖上還是「開發中」、且已沒有其他進行中的功能宣告它，提醒由人把狀態改成已完成（不自動改寫人寫的文件）。沒開 multiModule、沒有地圖、沒宣告模組都回空陣列。 */
+export async function moduleCompletionHints(projectDir: string | null | undefined, selfId: string, modules: readonly string[] | undefined): Promise<string[]> {
+  if (!projectDir || !modules || modules.length === 0) return [];
+  const map = await loadMap(projectDir);
+  if (!map) return [];
+  const stillBusy = new Set((await findModuleOverlaps(projectDir, selfId, modules)).flatMap((o) => o.modules));
+  return modules
+    .filter((name) => map.some((m) => m.name === name && !m.finished) && !stillBusy.has(name))
+    .map((name) => `模組「${name}」在 ${MODULE_MAP_FILE} 的狀態還是開發中，目前沒有其他進行中的功能宣告它；若能力都齊了，請把狀態改為已完成（可用 project_doc_write 帶 section 只改那一段）`);
 }
