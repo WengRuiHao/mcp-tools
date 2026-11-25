@@ -2,7 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { MODULE_MAP_FILE, blockedByUnfinishedSystemModules, checkCalledContracts, parseContractExamples, checkModulesDeclared, checkCrossModuleCalls, checkScenarioTests, checkSdScenarios, checkTableOwnership, parseCrossModuleCalls, parseGlossary, parseModuleMap, parseScenarios, parseSdScenarioNames } from "../module-map.js";
 import { readProjectDoc } from "../project-docs-store.js";
-import { isMultiModuleProject } from "../work-item-modules.js";
+import { isMultiModuleProject, unfinishedDependencies } from "../work-item-modules.js";
 import { WorkItemActionError } from "./common.js";
 
 const SD_CONFIRM_GATE = "sd-confirm";
@@ -41,11 +41,16 @@ export async function scenarioTestProblems(dir: string, projectDir: string | nul
   return checkScenarioTests(names, test).map((v) => `情境測試檢查未通過：${v}`);
 }
 
-/** 進入實作的把關：SD 確認時，所屬模組依賴的系統模組還沒完成，AI 不能代確認；使用者本人確認視為臨時放行（原話記在關卡紀錄）。 */
-export async function requireDependenciesReady(status: { project_dir?: string | null; modules?: string[] }, gateId: string, by: string, decision: string): Promise<void> {
-  if (gateId !== SD_CONFIRM_GATE || by !== "agent" || decision !== "confirmed" || !status.modules || status.modules.length === 0) return;
-  const map = await loadMap(status.project_dir);
-  if (!map) return;
-  const blocked = blockedByUnfinishedSystemModules(map, status.modules);
-  if (blocked.length > 0) throw new WorkItemActionError(`關卡「${gateId}」：${blocked.join("；")}。先完成依賴的系統模組；真的要先做，請使用者本人確認（by="human"，reason 附使用者原話與放行理由）。`);
+/** 進入實作的把關：SD 確認時，依賴的工作項目或所屬模組依賴的系統模組還沒完成，AI 不能代確認；使用者本人確認視為臨時放行（原話記在關卡紀錄）。 */
+export async function requireDependenciesReady(status: { project_dir?: string | null; modules?: string[]; depends_on?: string[] }, gateId: string, by: string, decision: string): Promise<void> {
+  if (gateId !== SD_CONFIRM_GATE || by !== "agent" || decision !== "confirmed") return;
+  const problems: string[] = [];
+  if (status.depends_on?.length && status.project_dir && (await isMultiModuleProject(status.project_dir).catch(() => false))) {
+    for (const d of await unfinishedDependencies(status)) problems.push(`依賴的工作項目 ${d.workItemId}${d.title ? `（${d.title}）` : ""}未完成（還沒通過最終驗收），不能進入實作`);
+  }
+  if (status.modules && status.modules.length > 0) {
+    const map = await loadMap(status.project_dir);
+    if (map) problems.push(...blockedByUnfinishedSystemModules(map, status.modules));
+  }
+  if (problems.length > 0) throw new WorkItemActionError(`關卡「${gateId}」：${problems.join("；")}。先完成依賴；真的要先做，請使用者本人確認（by="human"，reason 附使用者原話與放行理由）。`);
 }

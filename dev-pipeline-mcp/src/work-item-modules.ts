@@ -138,7 +138,7 @@ export async function prepareDependsOn(projectDir: string, selfId: string | null
 }
 
 /** 依賴的工作項目中尚未通過最終驗收的；讀不到的依賴略過。 */
-export async function unfinishedDependencies(status: TicketStatus): Promise<DependencyWarning[]> {
+export async function unfinishedDependencies(status: Pick<TicketStatus, "depends_on">): Promise<DependencyWarning[]> {
   const out: DependencyWarning[] = [];
   for (const id of status.depends_on ?? []) {
     try {

@@ -95,3 +95,25 @@ test("SA 確認時，依賴的項目還沒完成會在回覆附 dependencyWarnin
   assert.equal(r.json.dependencyWarnings.length, 1);
   assert.equal(r.json.dependencyWarnings[0].workItemId, a.json.workItemId);
 });
+
+test("1M 擋住：SD 確認時依賴的工作項目未完成，AI 不能代確認；本人可放行；完成後、打回、其他關卡都不擋", async () => {
+  const { requireDependenciesReady } = await import("../dist/work-item-actions/module-map-checks.js");
+  const p = await newProject(true);
+  const a = (await create(p, { title: "A" })).json;
+  const st = { project_dir: p, depends_on: [a.workItemId] };
+  await assert.rejects(requireDependenciesReady(st, "sd-confirm", "agent", "confirmed"), /依賴的工作項目.*未完成.*本人/);
+  await requireDependenciesReady(st, "sd-confirm", "human", "confirmed");
+  await requireDependenciesReady(st, "sd-confirm", "agent", "rejected");
+  await requireDependenciesReady(st, "sa-confirm", "agent", "confirmed");
+  await requireDependenciesReady({ project_dir: p }, "sd-confirm", "agent", "confirmed");
+  await finish(a.dir);
+  await requireDependenciesReady(st, "sd-confirm", "agent", "confirmed");
+});
+
+test("1M 擋住：專案關掉 multiModule 後，已宣告的依賴不再擋", async () => {
+  const { requireDependenciesReady } = await import("../dist/work-item-actions/module-map-checks.js");
+  const p = await newProject(true);
+  const a = (await create(p, { title: "A" })).json;
+  await setFlow(p, { schemaVersion: 1, multiModule: false });
+  await requireDependenciesReady({ project_dir: p, depends_on: [a.workItemId] }, "sd-confirm", "agent", "confirmed");
+});
