@@ -181,3 +181,44 @@ test("歷史例外：白名單含 legacy-exceptions.md；寫入缺到期日回 l
   assert.equal(got.legacyExceptionWarnings.length, 1);
   assert.match(got.legacyExceptionWarnings[0], /舊例外.*逾期.*2020-01-01/);
 });
+
+test("段落式寫入：兩個功能改不同模組不衝突；同一段衝突被擋；既有段落要帶段落雜湊；其他段落不受影響", async () => {
+  const c = await create();
+  const map = "# 模組地圖\n\n## 模組：會員\n- 負責人：小王\n\n## 模組：訂單\n- 負責人：小李\n";
+  const w0 = await env.call({ action: "project_doc_write", workItemId: c.workItemId, filename: "module-map.md", content: map });
+  assert.equal(w0.isError, false, JSON.stringify(w0.json));
+  const readSec = async (section) => (await env.call({ action: "project_doc_read", workItemId: c.workItemId, filename: "module-map.md", section })).json;
+  const member = await readSec("模組：會員");
+  const order = await readSec("模組：訂單");
+  assert.equal(member.section, "模組：會員");
+  assert.match(member.content, /小王/);
+  assert.ok(member.sectionSha256 && order.sectionSha256);
+  const wr = (section, content, expectedSectionSha256) => env.call({ action: "project_doc_write", workItemId: c.workItemId, filename: "module-map.md", section, content, ...(expectedSectionSha256 ? { expectedSectionSha256 } : {}) });
+  // 兩人都讀了舊版：甲改會員、乙改訂單，都成功
+  const a = await wr("模組：會員", "## 模組：會員\n- 負責人：小王\n- 類型：系統模組", member.sectionSha256);
+  assert.equal(a.isError, false, JSON.stringify(a.json));
+  const b = await wr("模組：訂單", "## 模組：訂單\n- 負責人：小李\n- 依賴模組：會員", order.sectionSha256);
+  assert.equal(b.isError, false, JSON.stringify(b.json));
+  const full = (await env.call({ action: "project_doc_read", workItemId: c.workItemId, filename: "module-map.md" })).json.content;
+  assert.match(full, /類型：系統模組/);
+  assert.match(full, /依賴模組：會員/);
+  // 同一段：用舊雜湊再改會員 → 衝突
+  const stale = await wr("模組：會員", "## 模組：會員\n- 負責人：別人", member.sectionSha256);
+  assert.equal(stale.isError, true);
+  assert.equal(stale.json.conflict, true);
+  // 既有段落沒帶雜湊 → 拒絕；新段落不帶雜湊 → 成功；新段落已存在又不帶 → 拒絕
+  const noSha = await wr("模組：會員", "## 模組：會員\n- 負責人：x");
+  assert.equal(noSha.isError, true);
+  assert.match(noSha.text, /expectedSectionSha256/);
+  const fresh = await wr("模組：庫存", "## 模組：庫存\n- 負責人：小陳");
+  assert.equal(fresh.isError, false, JSON.stringify(fresh.json));
+  // 標題與 section 不符、內容含多段 → 拒絕
+  assert.equal((await wr("模組：庫存", "## 模組：別的\n- x", (await readSec("模組：庫存")).sectionSha256)).isError, true);
+  // 合併後整份結構檢查仍會回警告（庫存沒有擁有者以外的問題，這裡改成依賴不存在的模組）
+  const warn = await wr("模組：庫存", "## 模組：庫存\n- 負責人：小陳\n- 依賴模組：不存在", (await readSec("模組：庫存")).sectionSha256);
+  assert.equal(warn.isError, false, JSON.stringify(warn.json));
+  assert.match(warn.json.moduleMapWarnings.join("\n"), /不存在/);
+  // 讀不存在的段落、非 md 文件用 section 都拒絕
+  assert.equal((await env.call({ action: "project_doc_read", workItemId: c.workItemId, filename: "module-map.md", section: "沒這段" })).isError, true);
+  assert.equal((await env.call({ action: "project_doc_write", workItemId: c.workItemId, filename: "system-bpmn.bpmn", section: "A", content: "## A\nx" })).isError, true);
+});

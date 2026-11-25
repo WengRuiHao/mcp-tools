@@ -37,6 +37,8 @@ export const workItemShape = {
   target: z.enum(["sa", "sd", "all"]).optional().describe("deliver：要輸出的交付文件（sa＝系統分析書｜sd＝系統設計書｜all＝兩者，預設）；輸出客戶命名的副本到 deliverables/"),
   roleId: z.string().optional().describe("role_prompt／done：角色 id（例如 sa-analyst）"),
   expectedSha256: z.string().optional().describe("project_doc_write：讀取時拿到的 sha256；與目前版本不符就拒絕（有人先改過），要重新讀取後只重做自己的改動"),
+  section: z.string().optional().describe("project_doc_read／project_doc_write：段落式讀寫（只限 .md 專案層文件）：段落＝「## 標題」到下一個「## 」之前，section 填標題文字（例如「模組：訂單」）。read 回該段與 sectionSha256；write 的 content 必須剛好是該段（含「## 標題」行），既有段落要帶 expectedSectionSha256，只比對該段版本，其他段落不受影響；段落不存在則新增在最後（不需雜湊）"),
+  expectedSectionSha256: z.string().optional().describe("project_doc_write（帶 section）：讀取該段時拿到的 sectionSha256；與目前該段不符就拒絕，要重讀後只重做自己的改動"),
   filename: z.string().optional().describe("project_doc_read／project_doc_write：專案層文件名稱（固定白名單，例如 architecture-decisions.md）；write：產出檔名（只能是流程定義的產出檔，例如 01-sa.md）"),
   content: z.string().optional().describe("write：檔案內容（上限 512KB）"),
   srcPath: z.string().optional().describe("attach：來源檔絕對路徑（必須存在且為檔案）"),
